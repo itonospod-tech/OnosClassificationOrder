@@ -573,6 +573,14 @@ cron dùng**, không phải trả nữa.
 Lượt quét chỉ **kéo tin + xếp hàng**; worker BullMQ sẵn có làm phần gọi mô hình,
 nên một nhóm hỏng không làm dừng cả lượt.
 
+⚠️ **Engine chặn `limit` ≤ 200 mỗi lời gọi đọc tin**, và xin quá thì nó trả `400
+invalid_query` chứ KHÔNG cắt bớt. Lượt quét đầu tiên (12:00 ngày 13/09) xin 400
+tin/hội thoại nên trượt sạch 30 nhóm trong một giây — và trượt theo kiểu khó thấy
+nhất: lỗi bị bắt ở tầng dưới (`ZaloEngineService`), nên log của lượt quét chỉ hiện
+"đã xếp hàng 0/30", đọc y như "không nhóm nào có gì mới". `tinCuaHoiThoai()` giờ tự
+chia trang; trang 1 là tin MỚI NHẤT (đã kiểm: 2.323 tin → 400 tin, 400 khác nhau,
+không trùng giữa hai trang).
+
 ### Lỗi cùng đợt: đọc tin nhóm bị nhân bản
 
 `GET /v1/agent/zalo/groups/:id/messages` trả **mỗi tin một lần cho mỗi nick công
