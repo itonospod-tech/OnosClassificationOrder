@@ -12,9 +12,9 @@ import { ZALO_GROUP_ANALYZABLE_KINDS, ZaloGroupKind } from 'shared';
 import { CustomerEntity } from '../customer/customer.entity';
 import { ZaloGroupRepository } from './zalo-group.repository';
 import type { ZaloGroupLinkDocument } from './zalo-group-link.entity';
-import { khopTenNhom } from './zalo-title.logic';
 import { ZaloGroupLinkEntity } from './zalo-group-link.entity';
 import { ZaloGroupSummaryEntity } from './zalo-group-summary.entity';
+import { khopTenNhom } from './zalo-title.logic';
 
 /** Điểm cắt của gợi ý — dưới ngưỡng này thì đoán bừa hại hơn là không đoán. */
 const SUGGESTION_MIN_SCORE = 0.5;

@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { CeoDashboardModule } from '../ceo-dashboard/ceo-dashboard.module';
 import { CustomerReportModule } from '../customer-report/customer-report.module';
 import { SystemConfigModule } from '../system-config/system-config.module';
+import { ZaloEngineModule } from '../zalo-engine/zalo-engine.module';
 import { AgentAdminService } from './agent-admin.service';
 import { AgentApiController } from './agent-api.controller';
 import { AgentApiRepository } from './agent-api.repository';
@@ -43,6 +44,8 @@ import { AgentZaloTriggerEntity, AgentZaloTriggerSchema } from './agent-zalo-tri
     ]),
     // Blob cấu hình nghe Zalo: uid Chủ tịch + bên đăng ký nhận.
     SystemConfigModule,
+    // Cửa ĐỌC engine Zalo dùng chung (gộp + khử trùng zaloMsgId).
+    ZaloEngineModule,
     // CEO Dashboard: agent ĐỌC cùng số + cùng nhận định (không có đường ghi — BR-3 giữ nguyên).
     CeoDashboardModule,
     // Báo cáo khách hàng — cùng nguồn số với CEO Dashboard, xem `customer-report.service.ts`.

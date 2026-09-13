@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { CustomerEntity, CustomerSchema } from '../customer/customer.entity';
 import { OrderEntity, OrderSchema } from '../order/order.entity';
+import { ZaloEngineModule } from '../zalo-engine/zalo-engine.module';
 import { ZaloGroupController } from './zalo-group.controller';
 import { ZaloGroupRepository } from './zalo-group.repository';
 import { ZaloGroupService } from './zalo-group.service';
@@ -25,6 +26,8 @@ import { ZaloSummaryService } from './zalo-summary.service';
  */
 @Module({
   imports: [
+    // Cửa ĐỌC engine Zalo dùng chung: cron tóm tắt kéo tin qua đây.
+    ZaloEngineModule,
     MongooseModule.forFeature([
       { name: ZaloGroupLinkEntity.name, schema: ZaloGroupLinkSchema },
       { name: ZaloGroupSummaryEntity.name, schema: ZaloGroupSummarySchema },

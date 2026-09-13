@@ -1,14 +1,11 @@
-import { createHmac } from 'node:crypto';
-
-import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import type { AgentZaloMessage } from 'shared';
 import { AGENT_ZALO_INBOUND_CONFIG_KEY } from 'shared';
 
-import { ApiConfigService } from '@/shared/services/api-config.service';
-
 import { SystemConfigService } from '../system-config/system-config.service';
+import { type TinThoEngine, ZaloEngineService } from '../zalo-engine/zalo-engine.service';
 import { nhomDuocNghe, suyVai } from './agent-zalo-inbound.logic';
 import { kiemNguoiNhanDm, LY_DO_CHAN } from './agent-zalo-send.logic';
 
@@ -36,25 +33,6 @@ export interface CauHinhNgheZalo {
   engineWebhookSecret?: string;
 }
 
-/**
- * Tin THÔ do engine trả. Chỉ khai phần mình dùng — engine trả 24 trường, khai
- * hết là tự buộc mình phải sửa file này mỗi lần bên kia thêm cột.
- */
-export interface TinThoEngine {
-  id: string;
-  conversationId?: string;
-  zaloMsgId?: string;
-  senderUid?: string;
-  senderName?: string;
-  content?: string;
-  contentType?: string;
-  attachments?: unknown[];
-  replyToId?: string | null;
-  mentions?: Array<{ uid?: string; name?: string }>;
-  isDeleted?: boolean;
-  sentAt: string;
-}
-
 export interface NhomDaTra {
   groupGlobalId: string;
   kind?: string;
@@ -79,45 +57,12 @@ export class AgentZaloReadService {
 
   constructor(
     @InjectConnection() private readonly connection: Connection,
-    private readonly config: ApiConfigService,
     private readonly systemConfig: SystemConfigService,
+    private readonly engine: ZaloEngineService,
   ) {}
 
   async layCauHinh(): Promise<CauHinhNgheZalo> {
     return (await this.systemConfig.get<CauHinhNgheZalo>(AGENT_ZALO_INBOUND_CONFIG_KEY)) ?? {};
-  }
-
-  private headerEngine(): Record<string, string> {
-    const { secret } = this.config.zaloEngine;
-    const ts = String(Date.now());
-
-    return {
-      'content-type': 'application/json',
-      'x-service-token': `${ts}.${createHmac('sha256', secret).update(ts).digest('base64url')}`,
-      'x-user-id': 'agent-api',
-      'x-user-name': 'Agent',
-      'x-user-role': 'owner',
-      'x-user-scopes': '[]',
-    };
-  }
-
-  async goiEngine<T>(duong: string): Promise<T> {
-    const { url, secret } = this.config.zaloEngine;
-    if (!url || !secret) throw new ServiceUnavailableException('Chưa cấu hình engine Zalo.');
-
-    let res: Response;
-    try {
-      res = await fetch(`${url}${duong}`, { headers: this.headerEngine(), signal: AbortSignal.timeout(HAN_GIAY * 1000) });
-    } catch (e) {
-      throw new ServiceUnavailableException(`Không gọi được engine Zalo: ${e instanceof Error ? e.message : String(e)}`);
-    }
-    if (!res.ok) {
-      const raw = await res.text().catch(() => '');
-      this.logger.error(`[agent-zalo-read] engine trả ${res.status} ở ${duong}: ${raw.slice(0, 300)}`);
-      throw new ServiceUnavailableException(`Engine Zalo từ chối (${res.status}).`);
-    }
-
-    return (await res.json()) as T;
   }
 
   /** Tra nhóm theo `groupGlobalId`, đã áp chốt loại nhóm. */
@@ -191,8 +136,7 @@ export class AgentZaloReadService {
     // theo quyền người gọi và trả rỗng cho `agent-api`, còn lấy theo id thì không.
     let c: Record<string, unknown>;
     try {
-      const j = await this.goiEngine<Record<string, unknown>>(`/api/zalo-multi/conversations/${encodeURIComponent(conversationId)}`);
-      c = (j.data as Record<string, unknown>) ?? j;
+      c = await this.engine.hoiThoai(conversationId);
     } catch {
       throw new BadRequestException(LY_DO_CHAN.khongThayHoiThoai);
     }
@@ -221,11 +165,9 @@ export class AgentZaloReadService {
     const chan = kiemNguoiNhanDm(nguoi.role);
     if (!chan.ok) throw new BadRequestException(chan.lyDo);
 
-    const j = await this.goiEngine<{ data?: TinThoEngine[] }>(
-      `/api/zalo-multi/conversations/${encodeURIComponent(conversationId)}/messages?limit=${limit}`,
-    );
-    const mocSince = since ? new Date(since).getTime() : 0;
-    const tho = (j.data ?? []).filter((m) => !m.isDeleted && (!mocSince || new Date(m.sentAt).getTime() > mocSince));
+    // Hội thoại riêng chỉ có một bản ghi cho mỗi tin, nhưng dùng cùng đường đọc
+    // để `since` và việc bỏ tin đã xoá cư xử giống nhau ở cả hai ngữ cảnh.
+    const tho = await this.engine.tinCuaNhom([conversationId], limit, since);
 
     // Hội thoại riêng không thuộc nhóm nào, nên `kind` báo thẳng là `dm` thay vì
     // mượn một giá trị của nhóm — agent phải phân biệt được hai ngữ cảnh.
@@ -245,26 +187,11 @@ export class AgentZaloReadService {
     const hoiThoai = nhom.conversationIds ?? [];
     if (hoiThoai.length === 0) return [];
 
-    const mocSince = since ? new Date(since).getTime() : 0;
-    const tho: TinThoEngine[] = [];
+    // Gộp + khử trùng nằm ở `ZaloEngineService`: một câu nói được engine lưu một
+    // bản cho MỖI nick trong nhóm, không khử thì agent đọc mỗi câu nhiều lần.
+    const tho = await this.engine.tinCuaNhom(hoiThoai, limit, since);
 
-    for (const id of hoiThoai) {
-      try {
-        const j = await this.goiEngine<{ data?: TinThoEngine[] }>(
-          `/api/zalo-multi/conversations/${encodeURIComponent(id)}/messages?limit=${limit}`,
-        );
-        for (const m of j.data ?? []) tho.push({ ...m, conversationId: m.conversationId ?? id });
-      } catch (e) {
-        this.logger.warn(`[agent-zalo-read] bỏ qua hội thoại ${id}: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
-
-    const loc = tho
-      .filter((m) => !m.isDeleted && (!mocSince || new Date(m.sentAt).getTime() > mocSince))
-      .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
-      .slice(0, limit);
-
-    return this.ganVai(loc, nhom);
+    return this.ganVai(tho, nhom);
   }
 
   /** Gắn vai người gửi + đánh dấu mention nào trúng nick công ty. */

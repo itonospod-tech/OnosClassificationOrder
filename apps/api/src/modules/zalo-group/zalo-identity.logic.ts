@@ -65,5 +65,5 @@ export function nhanKhachTuNhom(
     if (id) khach.add(id);
   }
 
-  return khach.size === 1 ? [...khach][0]! : null;
+  return khach.size === 1 ? [...khach][0] : null;
 }

@@ -1,7 +1,9 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
+import { Cron } from '@nestjs/schedule';
 import type { Queue } from 'bullmq';
 import { Model } from 'mongoose';
 import type {
@@ -19,7 +21,10 @@ import {
   ZaloIdentityKind,
 } from 'shared';
 
+import { laTienTrinhChayCron } from '@/utils/cron-guard';
+
 import { OrderEntity } from '../order/order.entity';
+import { ZaloEngineService } from '../zalo-engine/zalo-engine.service';
 import { ZaloGroupLinkEntity } from './zalo-group-link.entity';
 import type { ZaloGroupSummaryDocument } from './zalo-group-summary.entity';
 import { ZaloGroupSummaryEntity } from './zalo-group-summary.entity';
@@ -73,6 +78,20 @@ const NGAY_DOC_LAI = Number(process.env.ZALO_SUMMARY_REREAD_DAYS || 7);
 
 /** Nhóm im lâu hơn mức này thì không tốn tiền tóm tắt lại. */
 const NGAY_BO_QUA_NHOM_IM = Number(process.env.ZALO_SUMMARY_IDLE_DAYS || 14);
+
+const TZ_VN = 'Asia/Ho_Chi_Minh';
+
+/**
+ * Trần nhóm mỗi lượt quét — mỗi nhóm là MỘT lần gọi mô hình.
+ *
+ * Không có trần thì một ngày 113 nhóm cùng tới hạn (ví dụ sau đợt đổi
+ * `ZALO_SUMMARY_REREAD_DAYS`) và lượt đó tốn gấp trăm lần bình thường. Cứ 4
+ * tiếng một lượt × 30 nhóm là dư cho 113 nhóm giữ tươi trong ngày.
+ */
+const SWEEP_MOI_LUOT = Number(process.env.ZALO_SUMMARY_SWEEP_LIMIT || 30);
+
+/** Trần tin mỗi nhóm — khớp trần 400 của `SummarizeZaloGroupZod.messages`. */
+const MAX_TIN_MOI_LUOT = 400;
 
 const MO_DAU_KHACH = `Bạn đọc một đoạn hội thoại nhóm Zalo giữa nhân viên công ty in ấn và khách hàng.`;
 
@@ -183,6 +202,8 @@ export class ZaloSummaryService {
     private readonly orderModel: Model<OrderEntity>,
     @InjectQueue(ZALO_SUMMARY_QUEUE) private readonly summaryQueue: Queue<ZaloSummaryJobData>,
     private readonly identityService: ZaloIdentityService,
+    private readonly engine: ZaloEngineService,
+    private readonly adapterHost: HttpAdapterHost,
   ) {}
 
   /**
@@ -265,6 +286,79 @@ export class ZaloSummaryService {
     }
 
     return out;
+  }
+
+  /**
+   * Tự tóm tắt các nhóm tới hạn — 4 tiếng một lượt.
+   *
+   * Vì sao tới giờ mới có: bộ tóm tắt vốn do script `summarize-zalo-groups.mjs`
+   * chạy TAY, và nó buộc phải ở ngoài vì hồi đó engine Zalo nằm trên máy khác
+   * (`onosceo`) — API không gọi tới được, nên script đứng giữa: ssh sang đọc
+   * Postgres của engine rồi POST vào đây kèm JWT admin. Ràng buộc đó mất từ
+   * 11–12/09/2026 khi engine dời về cùng máy, nên vòng lặp vào trong được, và
+   * cái giá phải trả cuối cùng — một token admin nằm trên đĩa để cron dùng —
+   * không phải trả nữa.
+   *
+   * Hệ quả của việc chưa từng có lịch: đo 13/09, bản tóm tắt mới nhất là 10/09
+   * và các đợt trước rải rác (56 bản ngày 09/09, 18 bản 08/09) — đúng dấu vết
+   * của người chạy tay, không phải cron hỏng.
+   *
+   * `getQueue()` đã lo phần chọn nhóm: áp chốt riêng tư, bỏ nhóm im lâu, bỏ
+   * nhóm đã tóm tắt tới đúng tin cuối. Ở đây chỉ kéo tin và xếp hàng.
+   */
+  @Cron('0 */4 * * *', { name: 'zalo-summary-sweep', timeZone: TZ_VN })
+  async cronQuetTomTat(): Promise<void> {
+    // Chỉ chạy ở tiến trình HTTP — xem `utils/cron-guard.ts`.
+    if (!laTienTrinhChayCron(this.adapterHost)) return;
+    if (!this.engine.daCauHinh) return;
+
+    let hang: ZaloSummaryQueueItem[];
+    try {
+      hang = await this.getQueue();
+    } catch (e) {
+      this.logger.error(`[zalo-summary-sweep] không lấy được hàng đợi: ${e instanceof Error ? e.message : String(e)}`);
+
+      return;
+    }
+    if (hang.length === 0) return;
+
+    // Trần mỗi lượt: mỗi nhóm là một lần gọi mô hình. Không có trần thì một ngày
+    // nào đó 113 nhóm cùng tới hạn và lượt quét đó tốn gấp trăm lần bình thường.
+    const lam = hang.slice(0, SWEEP_MOI_LUOT);
+    this.logger.log(`[zalo-summary-sweep] ${hang.length} nhóm tới hạn, xếp hàng ${lam.length}`);
+
+    let xong = 0;
+    for (const item of lam) {
+      try {
+        const link = await this.linkModel.findOne({ groupGlobalId: item.groupGlobalId }).select('conversationIds').lean();
+        const hoiThoai = (link as { conversationIds?: string[] } | null)?.conversationIds ?? [];
+        if (hoiThoai.length === 0) continue;
+
+        // `tuMoc` rỗng nghĩa là đọc lại từ đầu; engine đã khử trùng theo zaloMsgId.
+        const tho = await this.engine.tinCuaNhom(hoiThoai, MAX_TIN_MOI_LUOT, item.tuMoc ? new Date(item.tuMoc).toISOString() : undefined);
+        const messages = tho
+          .filter((m) => (m.content ?? '').trim() !== '')
+          // Xếp XUÔI thời gian: mô hình đọc hội thoại theo thứ tự người ta nói.
+          .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime())
+          .map((m) => ({
+            nguoiGui: m.senderName || undefined,
+            zaloUid: m.senderUid || undefined,
+            // Engine không gắn uid cho tin do chính nick công ty gửi; `self` là dấu duy nhất.
+            laTroLyAi: m.senderType === 'self' || undefined,
+            noiDung: (m.content ?? '').replace(/[\r\n]+/g, ' ').slice(0, 4000),
+            // DTO nhận `Date` (Zod coerce ở tầng HTTP, còn đây gọi trực tiếp).
+            luc: new Date(m.sentAt),
+          }));
+        if (messages.length === 0) continue;
+
+        await this.enqueue({ groupGlobalId: item.groupGlobalId, messages, docLaiTuDau: item.docLaiTuDau || undefined });
+        xong++;
+      } catch (e) {
+        // Một nhóm hỏng không được làm dừng lượt quét.
+        this.logger.warn(`[zalo-summary-sweep] ${item.groupGlobalId} bỏ qua: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    this.logger.log(`[zalo-summary-sweep] đã xếp hàng ${xong}/${lam.length}`);
   }
 
   /**

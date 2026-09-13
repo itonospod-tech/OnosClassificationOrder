@@ -63,7 +63,7 @@ export class ZaloIdentityService {
       // khẳng định một quan hệ chưa ai duyệt. Cả hệ này chạy theo kỷ luật "máy
       // đề xuất, người duyệt"; nối tự động theo phỏng đoán là phá đúng chỗ đó.
       const hienTai = await this.identityModel.findOne({ zaloUid: it.zaloUid }).select('kind customerId').lean();
-      const phanLoai = ((hienTai as { kind?: ZaloIdentityKind } | null)?.kind ?? ZaloIdentityKind.Unknown) as ZaloIdentityKind;
+      const phanLoai = ((hienTai as { kind?: ZaloIdentityKind } | null)?.kind ?? ZaloIdentityKind.Unknown);
       const khachSuyRa = nhanKhachTuNhom(phanLoai, it.groupGlobalIds, { khachTheoNhom });
       if (khachSuyRa && !(hienTai as { customerId?: string } | null)?.customerId) linked += 1;
 

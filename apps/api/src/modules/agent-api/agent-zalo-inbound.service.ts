@@ -5,8 +5,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import type { AgentZaloMessage, AgentZaloTrigger } from 'shared';
 
+import { type TinThoEngine, ZaloEngineService } from '../zalo-engine/zalo-engine.service';
 import { chuKyKhop, khoaChongTrung, type LyDoKichHoat, lyDoKichHoat, nhomDuocNghe } from './agent-zalo-inbound.logic';
-import { AgentZaloReadService, type NhomDaTra, type TinThoEngine } from './agent-zalo-read.service';
+import { AgentZaloReadService, type NhomDaTra } from './agent-zalo-read.service';
 import { AgentZaloTriggerEntity } from './agent-zalo-trigger.entity';
 
 /** Engine giao lại khi lỗi, nên mọi thứ ở đây phải chịu được giao trùng. */
@@ -39,6 +40,7 @@ export class AgentZaloInboundService {
   constructor(
     @InjectModel(AgentZaloTriggerEntity.name) private readonly triggerModel: Model<AgentZaloTriggerEntity>,
     private readonly read: AgentZaloReadService,
+    private readonly engine: ZaloEngineService,
   ) {}
 
   /**
@@ -107,11 +109,9 @@ export class AgentZaloInboundService {
 
   private async docLaiTin(conversationId: string, messageId: string): Promise<TinThoEngine | undefined> {
     try {
-      const j = await this.read.goiEngine<{ data?: TinThoEngine[] }>(
-        `/api/zalo-multi/conversations/${encodeURIComponent(conversationId)}/messages?limit=20`,
-      );
+      const ds = await this.engine.tinCuaHoiThoai(conversationId, 20);
 
-      return (j.data ?? []).find((m) => String(m.id) === messageId);
+      return ds.find((m) => String(m.id) === messageId);
     } catch (e) {
       this.logger.warn(`[agent-zalo-inbound] không đọc lại được tin ${messageId}: ${e instanceof Error ? e.message : String(e)}`);
 
