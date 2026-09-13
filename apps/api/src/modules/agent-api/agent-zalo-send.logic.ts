@@ -13,10 +13,13 @@ import { ZaloGroupKind } from 'shared';
 /**
  * Nhóm agent được phép gửi.
  *
- * `internal` (nhóm nội bộ) và `operation` (nhóm vận hành, có cả người ngoài
+ * `internal` (nội bộ công ty) và `operation` (nhóm vận hành, có cả người ngoài
  * như forwarder/nhà cung cấp nhưng là quan hệ công việc). CẤM tuyệt đối
- * `seller` — nhóm khách hàng; và cấm `unreviewed` — chưa ai phân loại thì
- * không thể biết bên kia là ai.
+ * `seller` — nhóm khách hàng; cấm `unreviewed` — chưa ai phân loại thì không
+ * thể biết bên kia là ai; và cấm `private` — nhóm riêng tư của nhân viên.
+ *
+ * Đây là danh sách TRẮNG nên nhãn mới sinh ra sau này tự bị loại. Viết dạng đen
+ * (chặn `seller`, cho phần còn lại) thì mỗi nhãn mới là một lỗ hổng im lặng.
  */
 export const NHOM_DUOC_GUI: readonly string[] = [ZaloGroupKind.Internal, ZaloGroupKind.Operation];
 

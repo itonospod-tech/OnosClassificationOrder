@@ -29,7 +29,10 @@ export const KIND_BADGE_CLASS: Record<ZaloGroupKind, string> = {
   [ZaloGroupKind.Unreviewed]: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
   [ZaloGroupKind.Seller]: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
   [ZaloGroupKind.Operation]: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-  [ZaloGroupKind.Internal]: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
+  [ZaloGroupKind.Internal]: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300',
+  // Đỏ cho riêng tư: đây là nhãn "đừng đọc nhóm này", nhìn phải thấy khác hẳn
+  // nội bộ công ty — hai nhãn cùng màu là mời người xét bấm nhầm.
+  [ZaloGroupKind.Private]: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
 };
 
 interface Coverage {

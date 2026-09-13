@@ -13,8 +13,9 @@
     "unreviewed": "Unreviewed",
     "seller": "Customer group",
     "operation": "Operations group",
-    "internal": "Internal / private",
-    "all": "All kinds"
+    "internal": "Company internal",
+    "all": "All kinds",
+    "private": "Private"
   },
   "table": {
     "group": "Zalo group",

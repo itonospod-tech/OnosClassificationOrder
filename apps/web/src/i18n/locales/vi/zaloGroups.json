@@ -13,8 +13,9 @@
     "unreviewed": "Chưa xét",
     "seller": "Nhóm khách",
     "operation": "Nhóm vận hành",
-    "internal": "Nội bộ / riêng tư",
-    "all": "Tất cả phân loại"
+    "internal": "Nội bộ công ty",
+    "all": "Tất cả phân loại",
+    "private": "Riêng tư"
   },
   "table": {
     "group": "Nhóm Zalo",

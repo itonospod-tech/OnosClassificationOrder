@@ -512,6 +512,43 @@ vẫn cần cờ này: so mốc là thứ client dễ quên nhất, mà quên th
 bằng dữ liệu cũ với giọng chắc chắn. Tính ở máy chủ thì mọi client được bảo vệ như
 nhau. Đề xuất của dev tích hợp — họ đã dính đúng lỗi đó ở hệ báo cáo bên mình.
 
+## Tách `internal` khỏi `private` — tóm tắt giờ phủ cả nhóm nội bộ (13/09/2026)
+
+Bên tiêu thụ xin phủ tóm tắt cho `kind=internal` (agent tài chính/nội bộ cần
+nhóm như *Kế Toán Onos Group*). Làm được, nhưng yêu cầu đó bỏ sót một mảnh: nhãn
+`internal` CHÍNH LÀ chốt riêng tư, nên cho nó vào diện phân tích là **mất luôn
+cái nhãn để nói "đừng đọc nhóm này"**.
+
+Mà tài liệu và thực tế đang nói hai chuyện khác nhau. Enum viết `Internal` =
+"nhóm riêng tư / không liên quan công việc (nhóm gia đình, nhóm lớp, nhóm tổ dân
+phố)". Đo trên prod: **10/10 nhóm mang nhãn này là việc công ty** — Kế Toán Onos
+Group, Report Ceo, Tín Dụng Onos - Vietinbank, Thanh toán IT, Phát triển hệ
+thống… Không một nhóm gia đình/lớp/tổ dân phố nào. Người vận hành đã dùng nhãn
+theo nghĩa "nội bộ công ty" từ đầu.
+
+Nên tách hẳn:
+
+| `kind` | Nghĩa | Phân tích / tóm tắt | Agent đọc & nhắn |
+|---|---|---|---|
+| `seller` | Nhóm khách (phải có `customerId`) | ✅ | ⛔ (chốt riêng ở agent) |
+| `operation` | Nhóm vận hành, có đối tác ngoài | ✅ | ✅ |
+| `internal` | **Nội bộ CÔNG TY** | ✅ (mới) | ✅ |
+| `private` | **Riêng tư của nhân viên** (MỚI) | ⛔ bao giờ cũng vậy | ⛔ |
+| `unreviewed` | Chưa ai xét | ⛔ | ⛔ |
+
+`ZALO_GROUP_ANALYZABLE_KINDS` thêm `Internal`, nên `getQueue()` và
+`assertDuocDocChat()` phủ nhóm nội bộ mà không phải sửa chỗ nào khác — đó là lợi
+ích của việc mọi chốt đọc chat đi qua đúng một hằng số.
+
+**Không nhóm nào bị dời sang `private`** vì hiện chưa có nhóm riêng tư nào bị gắn
+nhãn; nhãn sinh ra để dùng cho lần tới, khi một nhóm gia đình lọt vào danh sách
+chờ xét. Badge màu đỏ, khác hẳn `internal` màu ngọc — hai nhãn cùng màu là mời
+người xét bấm nhầm đúng chỗ không được nhầm.
+
+Chốt gửi/nghe của agent (`NHOM_DUOC_GUI`, `nhomDuocNghe`) là danh sách **TRẮNG**,
+nên `private` tự bị loại, và mọi nhãn sinh ra sau này cũng vậy. Viết dạng đen
+(chặn `seller`, cho phần còn lại) thì mỗi nhãn mới là một lỗ hổng im lặng.
+
 ## Tóm tắt nhóm giờ có LỊCH — 4 tiếng một lượt (13/09/2026)
 
 Trước đây **không có lịch nào**. Bộ tóm tắt do người chạy tay bằng
