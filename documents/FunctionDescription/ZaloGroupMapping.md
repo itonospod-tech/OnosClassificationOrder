@@ -512,6 +512,42 @@ vẫn cần cờ này: so mốc là thứ client dễ quên nhất, mà quên th
 bằng dữ liệu cũ với giọng chắc chắn. Tính ở máy chủ thì mọi client được bảo vệ như
 nhau. Đề xuất của dev tích hợp — họ đã dính đúng lỗi đó ở hệ báo cáo bên mình.
 
+## Tóm tắt nhóm giờ có LỊCH — 4 tiếng một lượt (13/09/2026)
+
+Trước đây **không có lịch nào**. Bộ tóm tắt do người chạy tay bằng
+`scripts/summarize-zalo-groups.mjs`, và dấu vết nói đúng điều đó: 56 bản ngày
+09/09, 18 bản 08/09, 3 bản 10/09, rồi dừng. Bên tiêu thụ (agent) thấy `tomTatLuc`
+đứng yên 3 ngày và đoán "cron hỏng sau đợt gộp engine" — không có cron nào để hỏng.
+
+**Vì sao script phải ở ngoài, và vì sao giờ không cần nữa.** Engine Zalo từng nằm
+trên máy khác (`onosceo`) nên API không gọi tới được; script đứng giữa: ssh sang
+đọc Postgres của engine rồi POST vào `/zalo-groups/summarize` kèm **JWT admin**.
+Ràng buộc đó mất khi engine dời về cùng máy (11–12/09), nên vòng lặp vào trong
+được — và cái giá mà thiết kế cũ sắp phải trả, **một token admin nằm trên đĩa cho
+cron dùng**, không phải trả nữa.
+
+| | |
+|---|---|
+| Cron | `zalo-summary-sweep`, `0 */4 * * *` giờ VN (6 lượt/ngày) |
+| Trần mỗi lượt | `ZALO_SUMMARY_SWEEP_LIMIT`, mặc định **30 nhóm** — mỗi nhóm là MỘT lần gọi mô hình |
+| Chọn nhóm | `getQueue()` sẵn có: chốt riêng tư (chỉ `seller`/`operation`), bỏ nhóm im > `ZALO_SUMMARY_IDLE_DAYS` (14), bỏ nhóm đã tóm tắt tới đúng tin cuối |
+| Đọc lại từ đầu | mỗi `ZALO_SUMMARY_REREAD_DAYS` (7) — cắt bệnh trôi dần của tóm tắt cuốn chiếu |
+
+Lượt quét chỉ **kéo tin + xếp hàng**; worker BullMQ sẵn có làm phần gọi mô hình,
+nên một nhóm hỏng không làm dừng cả lượt.
+
+### Lỗi cùng đợt: đọc tin nhóm bị nhân bản
+
+`GET /v1/agent/zalo/groups/:id/messages` trả **mỗi tin một lần cho mỗi nick công
+ty** trong nhóm: nhóm 2 nick trả 30 tin cho 15 câu thật; nhóm 7 nick thì 7 lần.
+Đúng cái bẫy `Architecture/Common_Pitfalls.md §12`, lần này ở endpoint agent đang
+đọc hằng ngày.
+
+Phần gộp + khử trùng theo `zaloMsgId` đã dời vào **`modules/zalo-engine/`**
+(`ZaloEngineService`) làm cửa đọc engine duy nhất, dùng chung cho bộ API agent và
+bộ tóm tắt. Để mỗi bên tự khử trùng thì sớm muộn một bên sửa một bên không, mà lỗi
+đó không hiện thành lỗi — nó hiện thành "mỗi câu đọc được bảy lần".
+
 ## Loại danh tính `chairman` + uid Zalo phụ thuộc nick đang nhìn (12/09/2026)
 
 `ZaloIdentityKind` thêm `Chairman`. Không phải để đẹp bảng: Chủ tịch nhắn trong

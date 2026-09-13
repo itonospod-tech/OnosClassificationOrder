@@ -123,3 +123,15 @@ Hệ thống đã gộp trước khi đánh thức bạn, nên **một câu = m�
 
 Xem [ZaloSend.md](ZaloSend.md) §5 và [WhatYouCannotSee.md](WhatYouCannotSee.md).
 Nhắc lại điều quan trọng nhất: **đọc được không có nghĩa là nói được.**
+
+## 7. Độ tươi của tóm tắt nhóm
+
+`zalo_group_summaries` được làm mới **4 tiếng một lượt** (6 lượt/ngày, giờ VN),
+mỗi lượt tối đa 30 nhóm. `tomTatLuc` là mốc lần tóm tắt gần nhất của nhóm đó.
+
+Một nhóm CÓ THỂ cũ hơn 4 tiếng, và đó là bình thường, vì ba lý do cố ý: nhóm im
+quá 14 ngày thì không tóm tắt lại; nhóm đã tóm tắt tới đúng tin cuối thì không
+chạy lại; và khi nhiều nhóm cùng tới hạn thì chúng xếp hàng qua vài lượt.
+
+Nên khi trình bày, đừng nói "nhóm này không có gì mới" chỉ vì `tomTatLuc` cũ —
+hãy đọc tin thật bằng §3 nếu cần biết chuyện vừa xảy ra.
