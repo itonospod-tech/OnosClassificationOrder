@@ -7,6 +7,16 @@ import { ApiConfigService } from '@/shared/services/api-config.service';
 /** Engine từ chối token quá cũ; 15 giây là dư cho một lời gọi nội bộ. */
 const HAN_GIAY = 15;
 
+/**
+ * Trần `limit` của engine cho mỗi lời gọi đọc tin.
+ *
+ * Xin quá mức này thì engine trả **400 `invalid_query`**, không phải cắt bớt —
+ * đã dẫm: lượt quét tóm tắt đầu tiên xin 400 tin/hội thoại và trượt sạch 30
+ * nhóm trong một giây, không lỗi nào nổi lên tới lượt quét. Bên gọi vẫn xin bao
+ * nhiêu cũng được, hàm dưới tự chia trang.
+ */
+const TRAN_ENGINE = 200;
+
 /** Tin THÔ do engine trả. Chỉ khai phần đang dùng — engine trả 24 trường. */
 export interface TinThoEngine {
   id: string;
@@ -85,12 +95,26 @@ export class ZaloEngineService {
     return (j.data as Record<string, unknown>) ?? j;
   }
 
+  /**
+   * Tin của một hội thoại, tự chia trang khi `limit` vượt trần engine.
+   *
+   * Trang 1 là tin MỚI NHẤT (đã kiểm trên prod), nên đi lần lượt các trang là
+   * lùi dần về quá khứ — đúng thứ cần khi muốn "N tin gần đây".
+   */
   async tinCuaHoiThoai(conversationId: string, limit: number): Promise<TinThoEngine[]> {
-    const j = await this.goi<{ data?: TinThoEngine[] }>(
-      `/api/zalo-multi/conversations/${encodeURIComponent(conversationId)}/messages?limit=${limit}`,
-    );
+    const duong = `/api/zalo-multi/conversations/${encodeURIComponent(conversationId)}/messages`;
+    const out: TinThoEngine[] = [];
 
-    return j.data ?? [];
+    for (let trang = 1; out.length < limit; trang++) {
+      const moiLuot = Math.min(TRAN_ENGINE, limit - out.length);
+      const j = await this.goi<{ data?: TinThoEngine[]; hasMore?: boolean }>(`${duong}?limit=${moiLuot}&page=${trang}`);
+      const ds = j.data ?? [];
+      out.push(...ds);
+      // Dừng khi engine nói hết, hoặc khi nó trả ít hơn mức xin (cũng là hết).
+      if (!j.hasMore || ds.length < moiLuot) break;
+    }
+
+    return out;
   }
 
   /**
