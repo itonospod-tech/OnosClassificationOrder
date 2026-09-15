@@ -512,6 +512,37 @@ vẫn cần cờ này: so mốc là thứ client dễ quên nhất, mà quên th
 bằng dữ liệu cũ với giọng chắc chắn. Tính ở máy chủ thì mọi client được bảo vệ như
 nhau. Đề xuất của dev tích hợp — họ đã dính đúng lỗi đó ở hệ báo cáo bên mình.
 
+## Gắn phân loại suy từ KHUÔN TÊN nhóm (15/09/2026)
+
+Chủ tịch đổi tên nhóm hàng loạt theo khuôn (`OnosPod/`, `OnosEx/`, `BOD -`,
+`NCC/`, `OnosNB/`, `Vải/`, `Khẩn cấp:`), nên tên nhóm giờ mã hoá luôn phân loại.
+
+**Luật không do người viết script đặt.** Script đọc các nhóm ops ĐÃ xét, tính mỗi
+tiền tố dẫn tới `kind` nào, và chỉ áp khi tiền tố đó có **≥3 nhóm mẫu** và **≥80%
+áp đảo**. Tự gõ bảng "OnosPod = khách" là nhét phán đoán của người viết script vào
+dữ liệu vận hành; học từ quyết định của ops thì sai ở đâu cũng truy ngược được, và
+luật tự cập nhật khi ops xét thêm.
+
+Sáu tiền tố đủ điều kiện: `ONOSPOD` (43 mẫu, 95% seller) · `ONOSNB` (14, 93%
+operation) · `ONOSEX` (10, 100% seller) · `BOD` (8, 88% seller) · `VẢI` (5, 100%
+operation) · `VNP` (3, 100% operation) · `ONOSPOD PN` (3, 100% seller). Các tiền tố
+còn lại rơi vào *ít mẫu* hoặc *lẫn lộn* → để người xét.
+
+**Kết quả: 23 nhóm** (22 → `seller` kèm khách, 1 → `operation`); chưa xét 92 → 69;
+7 khách mới `source='zalo-group'`. Bất biến sau khi chạy: 0 nhóm `seller` thiếu
+khách, 0 nhóm khác `seller` mà có khách. Dấu vết: `note` bắt đầu bằng
+`Phân loại suy từ khuôn tên nhóm 15/09/2026`.
+
+Chốt chống nhầm mã (trùng 7 ký tự đầu với khách sẵn có) bắt đúng ba ca đáng ngờ và
+để lại cho người xét: `THANHDOT06` cạnh `THANHDONAL06/07`, `VUTHANH` cạnh
+`VUTHANHV4`, `ANHDUC06` cạnh `ANHDUC06V4` — tạo khách thứ hai cho cùng một seller
+là hỏng mọi báo cáo nối nhóm ↔ đơn.
+
+**Đường gửi của agent không bị ảnh hưởng.** 22 nhóm chuyển sang `seller` vốn đang
+là `unreviewed` — cả hai đều nằm ngoài danh sách trắng gửi, nên không mất quyền
+nhắn nào; nhóm duy nhất sang `operation` thì được thêm. Đã kiểm sau khi chạy: gửi
+nhóm nội bộ ✅, đọc nhóm vận hành ✅, gửi nhóm khách vẫn bị chặn ✅.
+
 ## Tách `internal` khỏi `private` — tóm tắt giờ phủ cả nhóm nội bộ (13/09/2026)
 
 Bên tiêu thụ xin phủ tóm tắt cho `kind=internal` (agent tài chính/nội bộ cần
