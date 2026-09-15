@@ -53,7 +53,6 @@ Public routes (no auth): `/`, `/catalog`, `/track/:productionId`, careers.
 | `apps/seller` | Customer-facing application |
 | `RoleType.Customer` | Customer account role |
 | `RoleType.Seller` | **Internal staff role** — sales, unrelated to customers |
-| `ZaloGroupKind.Seller` | Chat group with a customer — maps to `RoleType.Customer` |
 
 ---
 
@@ -162,25 +161,19 @@ Reference: [`Common_Pitfalls.md`](Common_Pitfalls.md) §11.
 
 ### 5.4 External identifier scope
 
-Third-party identifiers may be scoped to the viewing account, not global (Zalo uid:
-one person carries a distinct uid per company account). Verify two identifier
-spaces match against production data before comparing; a 0-row join is evidence of
-a scope mismatch.
+Third-party identifiers may be scoped to the requesting account rather than global:
+the same entity can carry a different id per integration account. Verify two
+identifier spaces match against production data before comparing; a 0-row join is
+evidence of a scope mismatch.
 
 Reference: [`Common_Pitfalls.md`](Common_Pitfalls.md) §12.
 
-### 5.5 Chat privacy gate
-
-Groups classified `private` are never read. All chat-content queries go through
-`ZALO_GROUP_ANALYZABLE_KINDS`. Agent gates (`NHOM_DUOC_GUI`, `kiemNguoiNhanDm`) are
-whitelists — new kinds are excluded by default. Do not convert to blacklists.
-
-### 5.6 Config cache
+### 5.5 Config cache
 
 `SystemConfigService.get()` caches config blobs in Redis, TTL 1h. `set()` invalidates;
 direct writes to `system_configs` do not. Invalidate the key after out-of-band writes.
 
-### 5.7 i18n
+### 5.6 i18n
 
 `apps/web` ships vi (default) + en. No hard-coded display strings, including
 module-scope constants. Reference: [`I18n.md`](../FunctionDescription/I18n.md).
@@ -203,8 +196,8 @@ RabbitMQ): [`README.md`](../../README.md).
 **Branching:** `feature → dev → main → production`. Dev host auto-pulls `dev` every
 minute. Production deploy is manual via `./deploy.sh`. No `master` branch.
 
-**Production:** pm2 processes `onosfactory-api`, `onosfactory-seller`; 3 Docker
-containers for the Zalo engine. Reference: [`Infrastructure.md`](Infrastructure.md).
+**Production:** pm2 processes `onosfactory-api`, `onosfactory-seller`.
+Reference: [`Infrastructure.md`](Infrastructure.md).
 
 ---
 
