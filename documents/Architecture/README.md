@@ -4,8 +4,11 @@ Print-on-demand fulfillment platform. Sellers (Etsy / TikTok Shop / Shopify) sub
 orders; the system routes them through an 8-stage production pipeline and ships to
 end buyers in the US.
 
-Monorepo: pnpm workspaces + Turborepo. Entry point của thư mục `Architecture/`.
-Updated 15/09/2026, metrics measured on production.
+Monorepo: pnpm workspaces + Turborepo.
+
+Updated 15/09/2026; metrics measured on production. Inline paths such as
+`documents/FunctionDescription/Orders.md` are repository paths, given for readers
+with source access.
 
 ---
 
@@ -99,9 +102,9 @@ emits one `orders` document per item. Current data: 57.610 staging / 57.610 item
 57.608 pushed / 57.608 production. The 1.00 ratio is a property of migrated data,
 not a constraint.
 
-Reference: [`Orders.md`](../FunctionDescription/Orders.md),
-[`FulfillmentWorkflow.md`](../FunctionDescription/FulfillmentWorkflow.md),
-[`CustomerOrderIntake.md`](../FunctionDescription/CustomerOrderIntake.md).
+Reference: `documents/FunctionDescription/Orders.md`,
+`documents/FunctionDescription/FulfillmentWorkflow.md`,
+`documents/FunctionDescription/CustomerOrderIntake.md`.
 
 ---
 
@@ -126,7 +129,7 @@ Reference: [`Orders.md`](../FunctionDescription/Orders.md),
 
 Legacy system OnosPod (`app.onospod.com`) holds pre-06/2026 data and billing;
 partial order sync via cron `orders/import-from-onospod/cron`.
-Reference: [`OnosPodLegacy-BusinessFlows.md`](OnosPodLegacy-BusinessFlows.md).
+Reference: `documents/Architecture/OnosPodLegacy-BusinessFlows.md`.
 
 ---
 
@@ -140,7 +143,7 @@ Statistics queries on `orders` exclude:
 - unmapped factory — `factoryId` empty
 - US factory — `apps/api/src/utils/excluded-factory.ts`
 
-Reference: [`Orders.md`](../FunctionDescription/Orders.md) §19, §21.
+Reference: `documents/FunctionDescription/Orders.md` §19, §21.
 
 ### 5.2 Timezone
 
@@ -157,7 +160,7 @@ statement of each handler:
 if (!laTienTrinhChayCron(this.adapterHost)) return;
 ```
 
-Reference: [`Common_Pitfalls.md`](Common_Pitfalls.md) §11.
+Reference: `documents/Architecture/Common_Pitfalls.md` §11.
 
 ### 5.4 External identifier scope
 
@@ -166,7 +169,7 @@ the same entity can carry a different id per integration account. Verify two
 identifier spaces match against production data before comparing; a 0-row join is
 evidence of a scope mismatch.
 
-Reference: [`Common_Pitfalls.md`](Common_Pitfalls.md) §12.
+Reference: `documents/Architecture/Common_Pitfalls.md` §12.
 
 ### 5.5 Config cache
 
@@ -176,7 +179,7 @@ direct writes to `system_configs` do not. Invalidate the key after out-of-band w
 ### 5.6 i18n
 
 `apps/web` ships vi (default) + en. No hard-coded display strings, including
-module-scope constants. Reference: [`I18n.md`](../FunctionDescription/I18n.md).
+module-scope constants. Reference: `documents/FunctionDescription/I18n.md`.
 
 ---
 
@@ -191,13 +194,13 @@ cd apps/api && pnpm test
 ```
 
 API dev `:3007`, web dev `:5173`. Docker stack (MongoDB replica set, Redis,
-RabbitMQ): [`README.md`](../../README.md).
+RabbitMQ): `README.md` (repo root).
 
 **Branching:** `feature → dev → main → production`. Dev host auto-pulls `dev` every
 minute. Production deploy is manual via `./deploy.sh`. No `master` branch.
 
 **Production:** pm2 processes `onosfactory-api`, `onosfactory-seller`.
-Reference: [`Infrastructure.md`](Infrastructure.md).
+Reference: `documents/Architecture/Infrastructure.md`.
 
 ---
 
@@ -205,15 +208,15 @@ Reference: [`Infrastructure.md`](Infrastructure.md).
 
 | Topic | Document |
 |---|---|
-| Context / container / component diagrams | [`C4_Model.md`](C4_Model.md) |
-| AuthN, AuthZ, `@Auth()` decorator | [`Auth_System.md`](Auth_System.md) |
-| RabbitMQ, BullMQ, cron | [`Event_Driven.md`](Event_Driven.md) |
-| Deployment, pm2, nginx, Docker | [`Infrastructure.md`](Infrastructure.md) |
-| Known bug patterns + root causes | [`Common_Pitfalls.md`](Common_Pitfalls.md) |
-| Legacy OnosPod flows | [`OnosPodLegacy-BusinessFlows.md`](OnosPodLegacy-BusinessFlows.md) |
-| Production data verification | [`CheckProductionData.md`](CheckProductionData.md) |
-| Shipping label patterns | [`ShippingLabelPatterns.md`](ShippingLabelPatterns.md) |
-| Per-feature specs (40 docs) | [`documents/FunctionDescription/`](../FunctionDescription/) |
+| Context / container / component diagrams | `documents/Architecture/C4_Model.md` |
+| AuthN, AuthZ, `@Auth()` decorator | `documents/Architecture/Auth_System.md` |
+| RabbitMQ, BullMQ, cron | `documents/Architecture/Event_Driven.md` |
+| Deployment, pm2, nginx, Docker | `documents/Architecture/Infrastructure.md` |
+| Known bug patterns + root causes | `documents/Architecture/Common_Pitfalls.md` |
+| Legacy OnosPod flows | `documents/Architecture/OnosPodLegacy-BusinessFlows.md` |
+| Production data verification | `documents/Architecture/CheckProductionData.md` |
+| Shipping label patterns | `documents/Architecture/ShippingLabelPatterns.md` |
+| Per-feature specs (40 docs) | `documents/FunctionDescription/` |
 
 Feature changes require updating the matching `FunctionDescription` document in the
-same pull request. Lookup table: [`CLAUDE.md`](../../CLAUDE.md).
+same pull request. Lookup table: `CLAUDE.md` (repo root).
