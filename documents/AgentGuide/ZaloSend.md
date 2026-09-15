@@ -101,8 +101,19 @@ Tất cả là `400` kèm `message` tiếng Việt đọc thẳng được:
 | `conversationId không thuộc nhóm này.` | Id lạc |
 | `Nội dung rỗng.` | `content` trống hoặc chỉ có khoảng trắng |
 
-`503 Engine Zalo từ chối (...)` là lỗi phía engine Zalo, **không phải lỗi của bạn** —
-thử lại sau, đừng đổi nhóm để lách.
+### Lỗi phía Zalo (503)
+
+Hệ thống **tự thử lần lượt các nick** của công ty trong nhóm, nên bạn chỉ thấy
+503 khi **không nick nào** gửi được. Câu lỗi nói rõ đã thử mấy nick.
+
+| Câu lỗi | Nghĩa |
+|---|---|
+| `Zalo từ chối (mã 161): Nick này không còn ở trong nhóm.` | Mọi nick công ty đã rời nhóm — báo vận hành mời lại một nick vào nhóm |
+| `Zalo từ chối (mã N) — mã chưa có trong bảng` | Mã Zalo chưa gặp bao giờ; báo lại để bọn mình bổ sung |
+| `Engine Zalo từ chối (5xx)` | Trục trặc phía engine, thử lại sau |
+
+Đừng đổi sang nhóm khác để lách — nếu nhóm đích không gửi được thì tin đó phải do
+người xử lý, không phải gửi nhầm chỗ.
 
 Nội dung từ 4.000 tới 8.000 ký tự bị **cắt** còn 4.000 chứ không bị từ chối; dài
 hơn 8.000 thì bị `422` ngay ở tầng kiểm tham số. Đừng dựa vào phần cắt đó: dán

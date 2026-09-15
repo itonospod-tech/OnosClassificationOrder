@@ -262,8 +262,27 @@ dán nhầm cả báo cáo, gửi được phần đầu vẫn hơn im lặng.
 và **ghi vết cả lượt bị chặn** vào `agentApiLogs` capability `zalo_send` — biết agent
 định nhắn vào đâu quan trọng ngang biết nó đã nhắn gì.
 
-Nguyên văn lỗi từ engine chỉ vào log Winston; agent nhận câu chung `503 Engine Zalo
-từ chối (<mã>)` để không lộ đường dẫn nội bộ.
+Nguyên văn lỗi từ engine chỉ vào log Winston; agent nhận câu đã diễn giải
+(`dienGiaiLoiEngine`) để không lộ đường dẫn nội bộ.
+
+**Thử nick khác khi nào** (`thuNickKhac`) — chỉ với lỗi xảy ra TRƯỚC lúc gửi, vì
+thử tiếp sau khi tin đã đi là nhắn hai lần cho người thật:
+
+| Thân lỗi | Thử nick tiếp? |
+|---|---|
+| `account_not_connected` | ✅ nick rớt phiên |
+| `zalo_tu_choi` mã **161** — *"Nhóm này không tồn tại"* | ✅ nick ĐÃ RỜI nhóm |
+| mã Zalo khác / lỗi khác | ⛔ chưa biết xảy ra trước hay sau khi gửi |
+
+Mã 161 thêm vào sau ca thật 13–14/09: nhóm *OnosNB/ CSKH Nội Bộ* từ chối mọi lượt
+gửi suốt hai ngày trong khi người thật vẫn gõ tay trong đó. Nhóm có 4 nick; nick
+ĐẦU danh sách đã rời nhóm từ 07/09 nên Zalo trả 161, còn hai nick khác vẫn nhắn
+hằng ngày. Luật cũ chỉ đi tiếp khi `account_not_connected` nên dừng ngay ở nick
+đầu — một nick chết làm câm cả nhóm, đúng thứ vòng thử-lần-lượt sinh ra để tránh.
+
+`MA_ZALO` là bảng mã bồi dần từ lỗi gặp thật (engine không tài liệu hoá). Mã lạ trả
+về kèm chữ "chưa có trong bảng" thay vì 502 trần — thông báo không nói được gì thì
+bên nhận chỉ còn cách thử lại, mà thử lại là đúng thứ không giúp gì ở đây.
 
 **Đường ghi này KHÔNG đi qua `AgentApiRepository`.** Lớp đó cố ý chỉ phơi
 `find`/`aggregate` để giữ BR-3 bằng *hình dạng* chứ không bằng kỷ luật; nếu nhét
