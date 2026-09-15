@@ -5,9 +5,6 @@ through an 8-stage production pipeline and ships to end buyers.
 
 Monorepo: pnpm workspaces + Turborepo.
 
-Inline paths such as `documents/FunctionDescription/Orders.md` are repository paths,
-given for readers with source access.
-
 ---
 
 ## 1. Workspace layout
@@ -31,11 +28,21 @@ given for readers with source access.
 | Shared types | `packages/shared/dtos/` |
 | Browser-runtime pure functions | `packages/shared/client/` — no NestJS imports |
 
-Every `apps/api` module follows a fixed layout: `module / controller / service /
-repository / entity`. Conventions: `apps/api/CLAUDE.md`.
+Every `apps/api` module follows a fixed layout:
 
-Changes in `packages/shared` affect both applications — run `pnpm build-types`
-across the repo, not per package.
+```
+modules/<feature>/
+  <feature>.module.ts        NestJS module
+  <feature>.controller.ts    HTTP endpoints
+  <feature>.service.ts       business logic
+  <feature>.repository.ts    data access — services never touch models directly
+  <feature>.entity.ts        Mongoose schema
+```
+
+`packages/shared` is the single source of type safety: Zod schemas are converted to
+DTO classes via `createZodDto` for backend validation and Swagger, and the frontend
+imports the same inferred types. A change there affects both applications — run
+`pnpm build-types` across the repo, not per package.
 
 ### Routers and sessions (`apps/web`)
 
@@ -47,9 +54,7 @@ across the repo, not per package.
 
 Public routes (no auth): landing, catalog, order tracking, careers.
 
----
-
-## 2. Terminology
+### Terminology
 
 | Symbol | Meaning |
 |---|---|
@@ -59,7 +64,7 @@ Public routes (no auth): landing, catalog, order tracking, careers.
 
 ---
 
-## 3. Order lifecycle
+## 2. Order lifecycle
 
 ```
 Order intake (portal form | CSV | Public Order API)
@@ -80,10 +85,11 @@ Order intake (portal form | CSV | Public Order API)
   Shipping label → carrier
 ```
 
-Stages 3–8 are `FulfillmentStage` enum values, executed by factory workers.
+Stages 1–2 run on desktop; stages 3–8 are `FulfillmentStage` enum values executed by
+factory workers, one worker per (factory, stage).
 
-**Non-monotonic state.** Any stage can rework an order back to a previous stage or
-to the designer. State machines must not assume forward-only transitions.
+**Non-monotonic state.** Any stage can rework an order back to a previous stage or to
+the designer. State machines must not assume forward-only transitions.
 
 **Per-factory flow.** `FactoryEntity.flowType` selects the set of auto-completed
 stages (`FACTORY_FLOW_AUTO_STAGES`):
@@ -95,89 +101,120 @@ stages (`FACTORY_FLOW_AUTO_STAGES`):
 | `no-sew` | `sew-in`, `sew-out` |
 
 When a stage completes, consecutive auto stages complete with it and the order stops
-at the next regular stage. Transition logic must read `flowType`; the 6-stage chain
-must not be hard-coded.
+at the next regular stage. Auto stages are never the current stage and need no
+assigned worker. Transition logic must read `flowType`; the 6-stage chain must not be
+hard-coded.
 
 **Collection cardinality.** `customer_orders` holds `items[]`; `pushToProduction()`
 emits one `orders` document per item. Code must not assume a 1:1 mapping.
 
-Specs: `documents/FunctionDescription/Orders.md`,
-`documents/FunctionDescription/FulfillmentWorkflow.md`,
-`documents/FunctionDescription/CustomerOrderIntake.md`.
+**Audit trail.** Order mutations are written to `orderLogs`. `OrderService.updateField`
+and `bulkUpdateField` are the central write path — order logging, auto-rework and
+fulfillment entry hooks all attach there.
 
 ---
 
-## 4. Data layer
+## 3. Data layer
 
 | Store | Role | Constraint |
 |---|---|---|
-| MongoDB | Primary store | **Replica set required** — transactions in wallet / payment ledger |
+| MongoDB | Primary store | **Replica set required** — transactions are used in the wallet / payment ledger |
 | Redis | Cache + BullMQ queues | Config blob cache, TTL 1h |
 | RabbitMQ | Message broker | Both env vars mandatory at boot |
 
 Core collections: `orders` (production orders), `customer_orders` (staging),
-`orderLogs` (order mutation audit trail), `productConfigs`, `customers`.
+`orderLogs` (audit trail), `productConfigs` (products and variations), `customers`.
 
-`apps/design-worker` writes to MongoDB directly over Tailscale with a minimal schema.
+Entities extend a shared abstract base; references are stored as string ids with
+`@Prop({ ref: 'Entity' })` and resolved through Mongoose virtuals.
 
-A legacy system holds pre-migration history and billing; part of the order flow is
-synced from it via cron. Reference:
-`documents/Architecture/OnosPodLegacy-BusinessFlows.md`.
+`apps/design-worker` consumes a RabbitMQ queue on a separate host and writes to
+MongoDB directly over Tailscale with a minimal schema.
+
+A legacy platform holds pre-migration history and billing; part of the order flow is
+still synced from it on a cron schedule.
 
 ---
 
-## 5. Cross-cutting constraints
+## 4. AuthN / AuthZ
 
-### 5.1 Order query filters
+JWT, RS256. Two independent account spaces share the same token infrastructure:
+staff (`users`) and customers (`customers`, role `RoleType.Customer`).
 
-Statistics queries on `orders` exclude three groups:
+Every endpoint is annotated with a single decorator:
 
-- cancelled — `cancelledAt` set
-- unmapped factory — `factoryId` empty
-- factories outside the production pipeline — `apps/api/src/utils/excluded-factory.ts`
+```ts
+@Auth(roles, permissions, options)
+```
 
-Reference: `documents/FunctionDescription/Orders.md` §19, §21.
+It composes four guards in order — `AuthGuard` → `RateLimiterGuard` →
+`PermissionsGuard` → `RolesGuard` — and attaches the authenticated user to the
+request. `@Auth([], [], { public: true })` marks a public route.
 
-### 5.2 Timezone
+Authorization has two layers: coarse `RoleType`, and fine-grained `PermissionType`
+from a permission catalog shared between frontend and backend, so UI visibility and
+API enforcement derive from one definition.
 
-Day and month boundaries are Vietnam midnight (UTC+7). Aggregations use
-`timezone: 'Asia/Ho_Chi_Minh'`; timestamps are built as `T00:00:00+07:00`.
+Two additional authentication schemes exist alongside JWT:
 
-### 5.3 Dual Nest context
+- **`X-Api-Key`** — public Order API for customer integrations, keys stored as
+  sha256 hashes against the customer record.
+- **`X-Agent-Api-Key`** — internal read-only data API for AI agents, separate from
+  the permission catalog.
 
-`apps/api/src/main.ts` boots two application contexts in one process: `bootstrap()`
-(HTTP) and `bootstrapMicroservice()` (RabbitMQ). Every `@Cron` handler is registered
-twice. First statement of each handler:
+Responses follow `{ success, data, total?, message? }`. Exceptions are converted by
+global filters; controllers do not catch.
+
+---
+
+## 5. Asynchronous processing
+
+| Mechanism | Use |
+|---|---|
+| RabbitMQ | Cross-process work; consumers declared with `@RabbitSubscribe`. `apps/design-worker` consumes from a separate host with a dead-letter queue |
+| BullMQ (Redis) | In-app job queues — image variants, summarisation, refresh jobs |
+| `@Cron` | Scheduled reports, data sync, reconciliation |
+
+`apps/api/src/main.ts` boots **two** application contexts in one process:
+`bootstrap()` (HTTP/Fastify) and `bootstrapMicroservice()` (RabbitMQ). Consequence:
+every `@Cron` handler is registered twice and fires twice. The first statement of
+each handler must be the process guard:
 
 ```ts
 if (!laTienTrinhChayCron(this.adapterHost)) return;
 ```
 
-Reference: `documents/Architecture/Common_Pitfalls.md` §11.
+---
 
-### 5.4 External identifier scope
+## 6. Cross-cutting constraints
 
-Third-party identifiers may be scoped to the requesting account rather than global:
-the same entity can carry a different id per integration account. Verify that two
-identifier spaces match against real data before joining on them; a 0-row join is
-evidence of a scope mismatch.
+**Order query filters.** Statistics queries on `orders` exclude three groups:
+cancelled (`cancelledAt` set), unmapped factory (`factoryId` empty), and factories
+outside the production pipeline (`apps/api/src/utils/excluded-factory.ts`). New
+aggregations must apply the same filter set or they will disagree with the
+dashboards.
 
-Reference: `documents/Architecture/Common_Pitfalls.md` §12.
+**Timezone.** Day and month boundaries are Vietnam midnight (UTC+7). Aggregations use
+`timezone: 'Asia/Ho_Chi_Minh'`; timestamps are built as `T00:00:00+07:00`.
 
-### 5.5 Config cache
+**External identifier scope.** Third-party identifiers may be scoped to the requesting
+account rather than global — the same entity can carry a different id per integration
+account. Verify that two identifier spaces match against real data before joining on
+them; a 0-row join is evidence of a scope mismatch, not of missing data.
 
-`SystemConfigService.get()` caches config blobs in Redis with a 1h TTL. `set()`
-invalidates the key; direct writes to the `system_configs` collection do not.
-Out-of-band writes must invalidate explicitly.
+**Config cache.** `SystemConfigService.get()` caches config blobs in Redis with a 1h
+TTL. `set()` invalidates the key; direct writes to the `system_configs` collection do
+not. Out-of-band writes must invalidate explicitly.
 
-### 5.6 i18n
+**i18n.** `apps/web` ships vi (default) and en. No hard-coded display strings,
+including module-scope constants.
 
-`apps/web` ships vi (default) and en. No hard-coded display strings, including
-module-scope constants. Reference: `documents/FunctionDescription/I18n.md`.
+**Caching.** Read paths cache in Redis under `entity:${id}`; every update or delete
+invalidates.
 
 ---
 
-## 6. Environments
+## 7. Environments
 
 ```bash
 pnpm build          # required once — builds packages/shared + core
@@ -187,29 +224,21 @@ pnpm lint
 cd apps/api && pnpm test
 ```
 
-API dev `:3007`, web dev `:5173`. Docker stack (MongoDB replica set, Redis,
-RabbitMQ): `README.md` (repo root).
+API dev `:3007` with prefix `api/v1`; web dev `:5173`. Local infrastructure runs on
+Docker: MongoDB (replica set), Redis, RabbitMQ.
 
 **Branching:** `feature → dev → main → production`. The dev host auto-pulls `dev`.
 Production deploy is manual via `./deploy.sh`. No `master` branch.
 
-**Production:** API and seller apps run under pm2. Reference:
-`documents/Architecture/Infrastructure.md`.
+**Production:** the API and seller apps run under pm2; the web app is served as a
+static build.
 
 ---
 
-## 7. Documentation index
+## 8. Documentation model
 
-| Topic | Document |
-|---|---|
-| Context / container / component diagrams | `documents/Architecture/C4_Model.md` |
-| AuthN, AuthZ, `@Auth()` decorator | `documents/Architecture/Auth_System.md` |
-| RabbitMQ, BullMQ, cron | `documents/Architecture/Event_Driven.md` |
-| Deployment, pm2, nginx, Docker | `documents/Architecture/Infrastructure.md` |
-| Known bug patterns + root causes | `documents/Architecture/Common_Pitfalls.md` |
-| Legacy system flows | `documents/Architecture/OnosPodLegacy-BusinessFlows.md` |
-| Shipping label patterns | `documents/Architecture/ShippingLabelPatterns.md` |
-| Per-feature specs | `documents/FunctionDescription/` |
+Architecture documents live in `documents/Architecture/` (C4 model, auth, event-driven
+design, infrastructure, known bug patterns). Each feature has a matching specification
+in `documents/FunctionDescription/`.
 
-Feature changes require updating the matching `FunctionDescription` document in the
-same pull request. Lookup table: `CLAUDE.md` (repo root).
+Changing a feature requires updating its specification in the same pull request.
