@@ -52,6 +52,41 @@ export const LY_DO_CHAN = {
   thieuDich: 'Phải cho biết gửi đi đâu: groupGlobalId (nhóm) hoặc conversationId (nhắn riêng).',
 } as const;
 
+/** Một hội thoại của nhóm, kèm nick công ty đang giữ nó. */
+export interface UngVienNick {
+  conversationId: string;
+  /** Tên hiển thị của nick (`zaloAccount.displayName` bên engine). */
+  nick?: string;
+}
+
+export type KetQuaNick = { ok: true; conversationId: string; nick: string } | { ok: false; lyDo: string };
+
+/**
+ * Chọn hội thoại theo ĐÚNG nick được chỉ định.
+ *
+ * Vì sao phải có: với bên gọi, nick là DANH TÍNH BỘ PHẬN — `Onos Ai` là CEO,
+ * `Cfo` là tài chính, `Onos Kế Toán` là kế toán. Gửi đúng nội dung dưới sai nick
+ * là phát ngôn nhân danh bộ phận khác. Đã xảy ra: tin của CEO ra dưới nick `Cfo`
+ * và người trong nhóm hiểu là phòng tài chính chỉ đạo.
+ *
+ * Không khớp thì trả lỗi kèm DANH SÁCH nick có trong nhóm — bên gọi cần biết
+ * mình gõ sai tên hay nick đó thật sự không ở trong nhóm này.
+ */
+export function chonTheoNick(ungVien: UngVienNick[], accountName: string): KetQuaNick {
+  const can = accountName.trim().toLowerCase();
+  const trung = ungVien.find((x) => (x.nick ?? '').trim().toLowerCase() === can);
+  if (trung) return { ok: true, conversationId: trung.conversationId, nick: trung.nick as string };
+
+  const co = ungVien.map((x) => x.nick).filter(Boolean);
+
+  return {
+    ok: false,
+    lyDo: co.length > 0
+      ? `Nhóm này không có nick "${accountName}". Nick đang ở trong nhóm: ${co.join(', ')}.`
+      : `Nhóm này không có nick "${accountName}", và hiện không đọc được nick nào của nhóm.`,
+  };
+}
+
 export interface NhomDeGui {
   kind?: string;
   conversationIds?: string[];

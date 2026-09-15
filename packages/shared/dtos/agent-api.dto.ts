@@ -453,6 +453,15 @@ export const AgentZaloSendZod = z
     content: z.string().min(1).max(8000),
     /** Gửi nhóm: chọn nick gửi, bỏ trống = tự thử. Nhắn riêng: BẮT BUỘC, là hội thoại 1-1. */
     conversationId: z.string().min(4).max(120).optional(),
+    /**
+     * Gửi dưới ĐÚNG nick này (tên hiển thị, vd `"Onos Ai"`). Chỉ áp cho gửi nhóm.
+     *
+     * Nick là danh tính bộ phận, nên khi có tham số này hệ thống KHÔNG tự đổi
+     * sang nick khác nếu nick đó gửi không được — trả lỗi nêu tên nick.
+     */
+    accountName: z.string().min(1).max(120).optional(),
+    /** Cho phép lùi sang nick khác khi nick chỉ định gửi không được. Mặc định KHÔNG. */
+    allowFallback: z.boolean().optional(),
   })
   .refine((v) => !!v.groupGlobalId || !!v.conversationId, {
     message: 'Phải cho biết gửi đi đâu: groupGlobalId (nhóm) hoặc conversationId (nhắn riêng).',
@@ -464,6 +473,8 @@ export const AgentZaloSendResZod = z.object({
   data: z.object({
     conversationId: z.string(),
     groupTitle: z.string().optional(),
+    /** Nick công ty đã thực sự gửi tin — dùng để đối chiếu danh tính. */
+    sentAsNick: z.string().optional(),
     /**
      * Chỉ có khi nhắn riêng. Trả về để agent đối chiếu mình vừa nhắn cho AI —
      * `zaloUid` không dùng làm danh tính được (phụ thuộc nick đang nhìn), nên

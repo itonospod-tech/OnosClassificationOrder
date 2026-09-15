@@ -347,7 +347,7 @@ export class AgentApiController {
       // Chế độ chọn bằng sự có mặt của `groupGlobalId`, không bằng suy đoán:
       // hai đường có HAI chốt chặn khác nhau (phân loại nhóm vs vai người nhận).
       const data = dto.groupGlobalId
-        ? await this.zaloSend.guiTinNhom(dto.groupGlobalId, dto.content, dto.conversationId)
+        ? await this.zaloSend.guiTinNhom(dto.groupGlobalId, dto.content, { conversationId: dto.conversationId, accountName: dto.accountName, allowFallback: dto.allowFallback })
         : await this.zaloSend.guiTinRieng(dto.conversationId as string, dto.content);
       this.audit.write({
         capability: 'zalo_send',
@@ -356,6 +356,8 @@ export class AgentApiController {
           conversationId: data.conversationId,
           // Ghi vết ai nhận: đường DM không có tên nhóm để tra ngược sau này.
           recipient: 'recipient' in data ? data.recipient : undefined,
+          // Ghi vết nick đã gửi: danh tính bộ phận là thứ người trong nhóm nhìn thấy.
+          sentAsNick: data.sentAsNick,
           content: dto.content.slice(0, DIGEST_MAX),
         },
         returned: 1,

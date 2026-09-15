@@ -6,8 +6,9 @@ import { Connection } from 'mongoose';
 
 import { ApiConfigService } from '@/shared/services/api-config.service';
 
+import { ZaloEngineService } from '../zalo-engine/zalo-engine.service';
 import { AgentZaloReadService } from './agent-zalo-read.service';
-import { chonHoiThoai, dienGiaiLoiEngine, kiemNguoiNhanDm, kiemNoiDung, type NhomDeGui, thuNickKhac } from './agent-zalo-send.logic';
+import { chonHoiThoai, chonTheoNick, dienGiaiLoiEngine, kiemNguoiNhanDm, kiemNoiDung, type NhomDeGui, thuNickKhac } from './agent-zalo-send.logic';
 
 /** Engine từ chối token quá cũ; 15 giây là dư cho một lời gọi nội bộ. */
 const HAN_GIAY = 15;
@@ -35,9 +36,21 @@ export class AgentZaloSendService {
     @InjectConnection() private readonly connection: Connection,
     private readonly config: ApiConfigService,
     private readonly read: AgentZaloReadService,
+    private readonly engine: ZaloEngineService,
   ) {}
 
-  async guiTinNhom(groupGlobalId: string, content: string, conversationId?: string): Promise<{ conversationId: string; groupTitle?: string; sentAt: string }> {
+  /**
+   * @param accountName Gửi dưới ĐÚNG nick này. Với bên gọi, nick là danh tính bộ
+   *   phận (`Onos Ai` = CEO, `Cfo` = tài chính…), nên sai nick là phát ngôn nhân
+   *   danh bộ phận khác. Có `accountName` thì KHÔNG tự đổi nick, trừ khi
+   *   `allowFallback`.
+   */
+  async guiTinNhom(
+    groupGlobalId: string,
+    content: string,
+    opts: { conversationId?: string; accountName?: string; allowFallback?: boolean } = {},
+  ): Promise<{ conversationId: string; groupTitle?: string; sentAsNick?: string; sentAt: string }> {
+    const { conversationId, accountName, allowFallback } = opts;
     const { url, secret } = this.config.zaloEngine;
     if (!url || !secret) throw new ServiceUnavailableException('Chưa cấu hình engine Zalo.');
 
@@ -51,11 +64,27 @@ export class AgentZaloSendService {
     const chon = chonHoiThoai(nhom, conversationId);
     if (!chon.ok) throw new BadRequestException(chon.lyDo);
 
+    // Nick chỉ định: thu hẹp còn ĐÚNG một hội thoại, và tắt vòng thử-lần-lượt.
+    //
+    // Vòng thử vốn sinh ra để cứu "nhóm câm khi nick đầu chết", nhưng nó đổi
+    // danh tính người gửi một cách âm thầm — với bên gọi thì sai danh tính hại
+    // hơn là không gửi được, nên có `accountName` là mặc định KHÔNG lùi nick.
+    let ungVien = chon.ungVien;
+    let nickDaChon: string | undefined;
+    if (accountName) {
+      const theoNick = await this.engine.nickCuaCacHoiThoai(chon.ungVien);
+      const r = chonTheoNick(theoNick, accountName);
+      if (!r.ok) throw new BadRequestException(r.lyDo);
+      nickDaChon = r.nick;
+      // `allowFallback` thì giữ nick đã chọn ở ĐẦU rồi mới tới các nick khác.
+      ungVien = allowFallback ? [r.conversationId, ...chon.ungVien.filter((x) => x !== r.conversationId)] : [r.conversationId];
+    }
+
     // Thử lần lượt các nick trong nhóm. Nick Zalo rớt kết nối là chuyện thường
     // (bị đá, chờ quét lại QR) và nhóm nào cũng có vài nick — dừng ở nick đầu
     // thì nhóm coi như câm dù vẫn còn đường gửi.
     let loiCuoi = '';
-    for (const hoiThoai of chon.ungVien) {
+    for (const hoiThoai of ungVien) {
       const ts = String(Date.now());
       const sig = createHmac('sha256', secret).update(ts).digest('base64url');
 
@@ -80,7 +109,12 @@ export class AgentZaloSendService {
         throw new ServiceUnavailableException(`Không gọi được engine Zalo: ${e instanceof Error ? e.message : String(e)}`);
       }
 
-      if (res.ok) return { conversationId: hoiThoai, groupTitle: nhom?.title, sentAt: new Date().toISOString() };
+      if (res.ok) {
+        // Trả về nick ĐÃ GỬI để bên gọi đối chiếu danh tính, kể cả khi không chỉ định.
+        const nick = nickDaChon && hoiThoai === ungVien[0] ? nickDaChon : await this.engine.nickCuaHoiThoai(hoiThoai);
+
+        return { conversationId: hoiThoai, groupTitle: nhom?.title, sentAsNick: nick, sentAt: new Date().toISOString() };
+      }
 
       // Nguyên văn lỗi engine chỉ vào log; agent nhận câu chung để không lộ
       // đường dẫn/nội bộ ra ngoài.
@@ -90,14 +124,17 @@ export class AgentZaloSendService {
 
       // Chỉ đi tiếp khi lỗi xảy ra TRƯỚC lúc gửi. Lỗi khác có thể là tin đã đi
       // rồi mới hỏng, thử nick tiếp theo sẽ thành nhắn hai lần.
-      if (!thuNickKhac(raw)) throw new ServiceUnavailableException(loiCuoi);
+      if (!thuNickKhac(raw)) throw new ServiceUnavailableException(accountName ? `Nick "${nickDaChon ?? accountName}" không gửi được: ${loiCuoi}` : loiCuoi);
     }
 
     // Hết nick mà chưa gửi được: nói RÕ là đã thử mấy nick, vì lỗi của nick cuối
     // một mình nó gây hiểu nhầm là chỉ có một đường và đường đó hỏng.
+    if (accountName && !allowFallback) {
+      throw new ServiceUnavailableException(`Nick "${nickDaChon ?? accountName}" không gửi được: ${loiCuoi || 'không rõ'}`);
+    }
     throw new ServiceUnavailableException(
-      chon.ungVien.length > 1
-        ? `Đã thử ${chon.ungVien.length} nick của công ty trong nhóm, không nick nào gửi được. Lỗi cuối: ${loiCuoi || 'không rõ'}`
+      ungVien.length > 1
+        ? `Đã thử ${ungVien.length} nick của công ty trong nhóm, không nick nào gửi được. Lỗi cuối: ${loiCuoi || 'không rõ'}`
         : loiCuoi || 'Engine Zalo từ chối.',
     );
   }
@@ -113,7 +150,7 @@ export class AgentZaloSendService {
    * Không thử nhiều nick như đường nhóm: hội thoại riêng chỉ có đúng một nick
    * công ty ở đầu bên này, không có đường lui nào để thử.
    */
-  async guiTinRieng(conversationId: string, content: string): Promise<{ conversationId: string; recipient: { displayName?: string; role: string }; sentAt: string }> {
+  async guiTinRieng(conversationId: string, content: string): Promise<{ conversationId: string; recipient: { displayName?: string; role: string }; sentAsNick?: string; sentAt: string }> {
     const { url, secret } = this.config.zaloEngine;
     if (!url || !secret) throw new ServiceUnavailableException('Chưa cấu hình engine Zalo.');
 
@@ -155,7 +192,14 @@ export class AgentZaloSendService {
     // Trả lại NGƯỜI NHẬN để agent đối chiếu mình vừa nhắn cho ai — uid không dùng
     // để định danh được (phụ thuộc nick đang nhìn), nên vai + tên là thứ duy nhất
     // agent kiểm lại được.
-    return { conversationId, recipient: { displayName: nguoi.displayName, role: nguoi.role }, sentAt: new Date().toISOString() };
+    // Hội thoại riêng chỉ có một nick công ty ở đầu này, nhưng vẫn trả về để bên
+    // gọi đối chiếu danh tính giống hệt đường nhóm.
+    return {
+      conversationId,
+      recipient: { displayName: nguoi.displayName, role: nguoi.role },
+      sentAsNick: await this.engine.nickCuaHoiThoai(conversationId),
+      sentAt: new Date().toISOString(),
+    };
   }
 
 }

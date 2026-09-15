@@ -101,6 +101,29 @@ export class ZaloEngineService {
    * Trang 1 là tin MỚI NHẤT (đã kiểm trên prod), nên đi lần lượt các trang là
    * lùi dần về quá khứ — đúng thứ cần khi muốn "N tin gần đây".
    */
+  /**
+   * Nick công ty đang giữ một hội thoại (`zaloAccount.displayName`).
+   *
+   * `undefined` khi không đọc được — bản ghi hội thoại có thể đã cũ (nick bị gỡ
+   * khỏi nhóm mà id còn trong danh sách). Không ném, vì bên gọi cần liệt kê được
+   * các nick ĐỌC ĐƯỢC để báo lỗi cho tử tế thay vì hỏng cả lượt.
+   */
+  async nickCuaHoiThoai(conversationId: string): Promise<string | undefined> {
+    try {
+      const c = await this.hoiThoai(conversationId);
+      const acc = c?.zaloAccount as { displayName?: string } | undefined;
+
+      return acc?.displayName || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Nick của nhiều hội thoại, giữ nguyên thứ tự đầu vào. */
+  async nickCuaCacHoiThoai(ids: string[]): Promise<Array<{ conversationId: string; nick?: string }>> {
+    return Promise.all(ids.map(async (id) => ({ conversationId: id, nick: await this.nickCuaHoiThoai(id) })));
+  }
+
   async tinCuaHoiThoai(conversationId: string, limit: number): Promise<TinThoEngine[]> {
     const duong = `/api/zalo-multi/conversations/${encodeURIComponent(conversationId)}/messages`;
     const out: TinThoEngine[] = [];

@@ -1,6 +1,6 @@
 import { ZaloGroupKind } from 'shared';
 
-import { chonHoiThoai, dienGiaiLoiEngine, kiemNguoiNhanDm, kiemNoiDung, LY_DO_CHAN, maZalo, thuNickKhac } from './agent-zalo-send.logic';
+import { chonHoiThoai, chonTheoNick, dienGiaiLoiEngine, kiemNguoiNhanDm, kiemNoiDung, LY_DO_CHAN, maZalo, thuNickKhac } from './agent-zalo-send.logic';
 
 /**
  * Đây là chốt chặn duy nhất giữa một agent và khách hàng của công ty. Mọi
@@ -120,5 +120,34 @@ describe('kiemNguoiNhanDm — ai được nhận tin RIÊNG từ agent', () => {
 
   it('CẤM nick AI khác — hai con máy nói chuyện với nhau thì không ai dừng', () => {
     expect(kiemNguoiNhanDm('ai-support').ok).toBe(false);
+  });
+});
+
+describe('chonTheoNick — gửi đúng danh tính bộ phận', () => {
+  const ds = [
+    { conversationId: 'c-cfo', nick: 'Cfo' },
+    { conversationId: 'c-ai', nick: 'Onos Ai' },
+    { conversationId: 'c-sup', nick: 'Onos Sup' },
+  ];
+
+  it('chọn đúng hội thoại của nick được chỉ định', () => {
+    expect(chonTheoNick(ds, 'Onos Ai')).toEqual({ ok: true, conversationId: 'c-ai', nick: 'Onos Ai' });
+  });
+
+  it('bỏ qua hoa thường và khoảng trắng thừa', () => {
+    expect(chonTheoNick(ds, '  onos sup ')).toEqual({ ok: true, conversationId: 'c-sup', nick: 'Onos Sup' });
+  });
+
+  it('KHÔNG có nick đó thì báo lỗi kèm danh sách nick trong nhóm', () => {
+    // Bên gọi cần phân biệt "gõ sai tên" với "nick không ở trong nhóm này".
+    const r = chonTheoNick(ds, 'Onos Design');
+    expect(r.ok).toBe(false);
+    expect((r as { lyDo: string }).lyDo).toContain('Cfo, Onos Ai, Onos Sup');
+  });
+
+  it('không đọc được nick nào thì nói thẳng', () => {
+    const r = chonTheoNick([{ conversationId: 'c1' }], 'Onos Ai');
+    expect(r.ok).toBe(false);
+    expect((r as { lyDo: string }).lyDo).toContain('không đọc được nick nào');
   });
 });
