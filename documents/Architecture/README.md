@@ -1,329 +1,226 @@
-# OnosFactory — Tổng quan kiến trúc
+# OnosFactory — System Architecture
 
-**Đối tượng:** kỹ sư mới tham gia dự án.
-**Phạm vi:** bối cảnh nghiệp vụ, cấu trúc monorepo, luồng dữ liệu chính, các bất
-biến xuyên suốt hệ thống.
-**Không thuộc phạm vi:** đặc tả từng tính năng (xem `documents/FunctionDescription/`),
-hướng dẫn cài đặt máy (xem [`README.md`](../../README.md) gốc repo).
+Print-on-demand fulfillment platform. Sellers (Etsy / TikTok Shop / Shopify) submit
+orders; the system routes them through an 8-stage production pipeline and ships to
+end buyers in the US.
 
-Tài liệu này là entry point của thư mục `Architecture/`. Mỗi mục dẫn tới tài liệu
-chi tiết tương ứng thay vì lặp lại nội dung.
-
-**Cập nhật:** 15/09/2026. Số liệu đo trên production cùng ngày.
+Monorepo: pnpm workspaces + Turborepo. Entry point của thư mục `Architecture/`.
+Updated 15/09/2026, metrics measured on production.
 
 ---
 
-## 1. Bối cảnh nghiệp vụ
+## 1. Workspace layout
 
-Onos vận hành xưởng **in theo đơn (print-on-demand)**. Khách hàng của Onos là các
-nhà bán lẻ trên Etsy, TikTok Shop, Shopify; khi họ có đơn từ người mua cuối, đơn
-được đẩy sang Onos. Onos sản xuất và giao thẳng tới người mua cuối tại Mỹ.
-
-Hai đặc điểm của mô hình này chi phối phần lớn quyết định thiết kế:
-
-**Đơn hàng là một vật thể vật lý cần gia công, không phải một giao dịch.** Đơn đi
-qua dây chuyền có người thật đứng ở từng chặng; mỗi chặng có thể phát hiện lỗi và
-đẩy đơn ngược về chặng trước. Hệ quả: `OrderEntity` mang nhiều cột mốc thời gian,
-và bảng nhật ký `orderLogs` lớn gấp 57 lần bảng đơn (3.259.313 dòng so với 57.608).
-Quy mô đó là chủ đích — khi một đơn giao sai, câu hỏi luôn là *ai đổi gì lúc nào*.
-
-**Khách hàng của Onos đồng thời là người bán.** Họ cần cổng riêng để đặt đơn, theo
-dõi tiến độ, tra giá, nạp ví và mua nhãn vận chuyển. Đây là lý do tồn tại một
-application riêng (`apps/seller`) thay vì một khu vực trong app quản trị.
-
-### 1.1 Quan hệ với hệ thống cũ
-
-Trước OnosFactory, nghiệp vụ chạy trên **OnosPod** (`app.onospod.com`) — hệ thống
-đã mất source code, chỉ còn truy cập qua API. OnosFactory bắt đầu ghi nhận đơn thật
-từ **tháng 06/2026**.
-
-Ba hệ quả cần biết trước khi viết báo cáo hoặc truy vấn lịch sử:
-
-- Dữ liệu trước 06/2026 **không tồn tại** trong hệ thống này.
-- Một phần đơn vẫn được đồng bộ từ OnosPod qua cron (`orders/import-from-onospod/cron`).
-- Nghiệp vụ tài chính (hóa đơn, công nợ) vẫn nằm ở hệ cũ.
-
-Chi tiết: [`OnosPodLegacy-BusinessFlows.md`](OnosPodLegacy-BusinessFlows.md).
-
-### 1.2 Lưu ý thuật ngữ: "seller"
-
-Từ *seller* mang ba nghĩa khác nhau trong codebase. Nhầm lẫn giữa chúng dẫn tới
-phân quyền sai:
-
-| Ký hiệu | Nghĩa |
-|---|---|
-| `apps/seller` | Application dành cho **khách hàng** của Onos |
-| `RoleType.Customer` | Vai của **tài khoản khách hàng**, dùng cho `apps/seller` và Customer Portal |
-| `RoleType.Seller` | Vai của **nhân viên nội bộ** phụ trách kinh doanh — không liên quan tới khách |
-
-`ZaloGroupKind.Seller` cũng mang nghĩa "nhóm chat với khách hàng", tức khớp với
-`RoleType.Customer` chứ không phải `RoleType.Seller`.
-
----
-
-## 2. Cấu trúc monorepo
-
-pnpm workspaces + Turborepo.
-
-| Package | Quy mô | Stack | Vai trò |
+| Package | Files | Stack | Scope |
 |---|---:|---|---|
-| `apps/api` | 410 file | NestJS + Fastify | Toàn bộ nghiệp vụ. Cổng 3007, prefix `api/v1` |
-| `apps/web` | 371 file | React + Vite + Tailwind/Radix | Application nội bộ (`/adm`, `/ffm`) |
-| `apps/seller` | 133 file | Next.js 16 | Application cho khách hàng. Cổng 3017 |
-| `apps/design-worker` | 6 file | Node + sharp | Xử lý ảnh thiết kế, triển khai trên máy chủ riêng |
-| `packages/shared` | 139 file | Zod | Hợp đồng dữ liệu dùng chung FE/BE |
-| `packages/core` | 44 file | NestJS | Guard, decorator, abstract repository dùng chung |
+| `apps/api` | 410 | NestJS + Fastify | Business logic, port 3007, prefix `api/v1` |
+| `apps/web` | 371 | React + Vite + Tailwind/Radix | Internal app (`/adm`, `/ffm`) |
+| `apps/seller` | 133 | Next.js 16 | Customer-facing app, port 3017 |
+| `apps/design-worker` | 6 | Node + sharp | Image processing, separate host |
+| `packages/shared` | 139 | Zod | DTO / enum contract shared FE ↔ BE |
+| `packages/core` | 44 | NestJS | Guards, decorators, abstract repository |
 
-### 2.1 Quy tắc xác định vị trí code
+### Code placement
 
-| Loại thay đổi | Vị trí |
+| Change type | Location |
 |---|---|
-| Nghiệp vụ, tính toán, ghi cơ sở dữ liệu | `apps/api/src/modules/<feature>/` |
-| Giao diện cho nhân viên | `apps/web/src/pages/` |
-| Giao diện cho khách hàng | `apps/seller/src/app/` |
-| Kiểu dữ liệu dùng chung FE và BE | `packages/shared/dtos/` |
-| Hàm thuần cần chạy trên trình duyệt | `packages/shared/client/` — **không được import NestJS** |
+| Business logic, persistence | `apps/api/src/modules/<feature>/` |
+| Internal UI | `apps/web/src/pages/` |
+| Customer UI | `apps/seller/src/app/` |
+| Shared types | `packages/shared/dtos/` |
+| Browser-runtime pure functions | `packages/shared/client/` — no NestJS imports |
 
-Mỗi module trong `apps/api` (hiện có 48) tuân theo cấu trúc bắt buộc
-`module / controller / service / repository / entity`. Quy ước chi tiết:
-[`apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md).
+`apps/api` modules (48) follow a fixed layout: `module / controller / service /
+repository / entity`. Changes in `packages/shared` affect both apps — run
+`pnpm build-types` across the repo.
 
-> **Bắt buộc:** thay đổi trong `packages/shared` ảnh hưởng đồng thời cả hai
-> application. Luôn chạy `pnpm build-types` (type-check toàn repo), không chỉ
-> type-check package đang sửa.
+### Routers and sessions (`apps/web`)
 
-### 2.2 Phân vùng người dùng trong `apps/web`
+| Router | Session | Status |
+|---|---|---|
+| `/adm` | `authStore` (staff) | Active |
+| `/ffm` | `authStore` (staff) | Active |
+| `/customer` | `customerAuthStore`, `RoleType.Customer` | Legacy, feature-frozen, superseded by `apps/seller` |
 
-Ba router gốc, hai phiên đăng nhập độc lập:
-
-- **`/adm`** — quản trị: sản phẩm, khách hàng, cấu hình, báo cáo.
-- **`/ffm`** — vận hành xưởng: hàng việc của công nhân theo công đoạn.
-
-  Hai router trên dùng chung layout và phiên nhân viên (`authStore`).
-
-- **`/customer`** — Customer Portal thế hệ cũ. Phiên và token **riêng**
-  (`customerAuthStore`, `RoleType.Customer`). Đang được thay thế bởi `apps/seller`
-  và **đã đóng băng tính năng mới**.
-
-Ngoài ba router trên còn các trang public không yêu cầu đăng nhập: landing `/`,
-catalog `/catalog`, tra cứu đơn `/track/:productionId`, tuyển dụng.
+Public routes (no auth): `/`, `/catalog`, `/track/:productionId`, careers.
 
 ---
 
-## 3. Luồng dữ liệu chính: vòng đời một đơn hàng
+## 2. Terminology
+
+| Symbol | Meaning |
+|---|---|
+| `apps/seller` | Customer-facing application |
+| `RoleType.Customer` | Customer account role |
+| `RoleType.Seller` | **Internal staff role** — sales, unrelated to customers |
+| `ZaloGroupKind.Seller` | Chat group with a customer — maps to `RoleType.Customer` |
+
+---
+
+## 3. Order lifecycle
 
 ```
-Khách đặt đơn (form portal | CSV | Public Order API)
+Order intake (portal form | CSV | Public Order API)
         │
         ▼
-  customer_orders          staging — chưa phải đơn sản xuất
-        │  pushToProduction(): chốt giá, cấp productionId
+  customer_orders                staging collection
+        │  pushToProduction() — price lock, productionId assignment
         ▼
-     orders                đơn sản xuất, MỘT DÒNG cho mỗi item
+     orders                      one document per item
         │
         ▼
-  ┌──────────────────── dây chuyền 8 chặng ─────────────────────┐
-  │  Soát tool → Thiết kế →                                     │
-  │  In → Ép → QC sau ép → May nhận vào → May xuất ra → Đóng gói│
+  ┌───────────────────── 8-stage pipeline ──────────────────────┐
+  │  tool-check → design →                                      │
+  │  print → press → qc-post-press → sew-in → sew-out → pack    │
   └─────────────────────────────────────────────────────────────┘
         │
         ▼
-  Gắn nhãn vận chuyển → giao tới người mua cuối
+  Shipping label → carrier
 ```
 
-Hai chặng đầu thực hiện trên máy tính. Sáu chặng sau do công nhân thực hiện tại
-xưởng, định nghĩa ở enum `FulfillmentStage`:
-`print` → `press` → `qc-post-press` → `sew-in` → `sew-out` → `pack`.
+Stages 3–8 are `FulfillmentStage` enum values, executed by factory workers.
 
-### 3.1 Ba đặc điểm cần nắm trước khi sửa code liên quan tới đơn
+**Non-monotonic state.** Any stage can rework an order back to a previous stage or
+to the designer.
 
-**Trạng thái đơn không đơn điệu tăng.** Bất kỳ chặng nào phát hiện lỗi đều có thể
-đẩy đơn ngược về chặng trước hoặc về designer. Không được giả định đơn chỉ tiến.
+**Per-factory flow.** `FactoryEntity.flowType` defines auto-completed stages
+(`FACTORY_FLOW_AUTO_STAGES`):
 
-**Không phải xưởng nào cũng chạy đủ 6 chặng.** `FactoryEntity.flowType` xác định
-tập chặng được **tự động hoàn thành** khi đơn chảy tới. Cấu hình thực tế:
-
-| Xưởng | `flowType` | Ý nghĩa |
+| Factory | `flowType` | Auto-completed stages |
 |---|---|---|
-| TN — Thái Nguyên | `standard` | Chạy đủ 6 chặng |
-| TNW — Gỗ Thái Nguyên | `merged` | In xong thì Ép tự Done; May vào xong thì May ra tự Done |
-| ML — Mê Linh · MLDTF — DTF Mê Linh | `no-sew` | QC sau ép xong thì hai chặng may tự Done |
-| US — Xưởng US | *(không đặt)* | Nằm ngoài luồng sản xuất, xem §5.1 |
+| TN | `standard` | — |
+| TNW | `merged` | `press`, `sew-out` |
+| ML, MLDTF | `no-sew` | `sew-in`, `sew-out` |
+| US | unset | Excluded from pipeline (§5.1) |
 
-Logic chuyển chặng phải đọc `flowType`; không được hard-code chuỗi 6 chặng.
+Transition logic must read `flowType`; do not hard-code the 6-stage chain.
 
-**`customer_orders` và `orders` là hai collection độc lập**, không phải hai trạng
-thái của cùng một bảng. `customer_orders` chứa mảng `items[]`; `pushToProduction()`
-sinh ra một document `orders` cho **mỗi item**.
+**Collection cardinality.** `customer_orders` holds `items[]`; `pushToProduction()`
+emits one `orders` document per item. Current data: 57.610 staging / 57.610 items /
+57.608 pushed / 57.608 production. The 1.00 ratio is a property of migrated data,
+not a constraint.
 
-Số đo hiện tại dễ gây hiểu nhầm là quan hệ 1:1:
-
-| Chỉ số | Giá trị |
-|---|---:|
-| `customer_orders` | 57.610 |
-| Tổng số item | 57.610 (trung bình **1,00** item/đơn) |
-| Đã đẩy sản xuất | 57.608 |
-| `orders` | 57.608 |
-
-Tỉ lệ 1,00 item/đơn là **đặc điểm của dữ liệu di cư từ hệ cũ**, không phải ràng
-buộc thiết kế. Đơn nhiều item được hỗ trợ đầy đủ (CSV cho phép nhiều dòng cùng
-`order_id`), nên code không được giả định một đơn khách sinh ra đúng một đơn sản xuất.
-
-Tài liệu chi tiết: [`Orders.md`](../FunctionDescription/Orders.md),
+Reference: [`Orders.md`](../FunctionDescription/Orders.md),
 [`FulfillmentWorkflow.md`](../FunctionDescription/FulfillmentWorkflow.md),
 [`CustomerOrderIntake.md`](../FunctionDescription/CustomerOrderIntake.md).
 
 ---
 
-## 4. Tầng lưu trữ
+## 4. Data layer
 
-| Thành phần | Vai trò | Ràng buộc |
+| Store | Role | Constraint |
 |---|---|---|
-| MongoDB | Cơ sở dữ liệu chính, 42 collection | **Bắt buộc replica set** — hệ thống dùng transaction (ví seller, sổ cái thanh toán) |
-| Redis | Cache + hàng đợi BullMQ | Cache cấu hình có TTL 1 giờ (xem §5.6) |
-| RabbitMQ | Message broker | Thiếu biến môi trường thì application không khởi động |
+| MongoDB | Primary store, 42 collections | **Replica set required** — transactions in wallet / payment ledger |
+| Redis | Cache + BullMQ queues | Config blob cache TTL 1h |
+| RabbitMQ | Message broker | Both env vars mandatory at boot |
 
-Quy mô các collection chính trên production:
-
-| Collection | Số document | Nội dung |
+| Collection | Documents | Content |
 |---|---:|---|
-| `orderLogs` | 3.259.313 | Nhật ký thay đổi trên đơn |
-| `agentApiLogs` | 419.308 | Nhật ký API cho AI agent, TTL 90 ngày |
-| `customer_orders` | 57.610 | Đơn khách, tầng staging |
-| `orders` | 57.608 | Đơn sản xuất |
-| `productConfigs` | 196 | Cấu hình sản phẩm và biến thể |
-| `customers` | 168 | Tài khoản khách hàng |
+| `orderLogs` | 3.259.313 | Order mutation audit trail |
+| `agentApiLogs` | 419.308 | Agent API audit, TTL 90d |
+| `customer_orders` | 57.610 | Staging orders |
+| `orders` | 57.608 | Production orders |
+| `productConfigs` | 196 | Product config + variations |
+| `customers` | 168 | Customer accounts |
 
-`apps/design-worker` ghi MongoDB **trực tiếp qua Tailscale** với schema tối giản,
-không đi qua API.
+`apps/design-worker` writes to MongoDB directly over Tailscale with a minimal schema.
+
+Legacy system OnosPod (`app.onospod.com`) holds pre-06/2026 data and billing;
+partial order sync via cron `orders/import-from-onospod/cron`.
+Reference: [`OnosPodLegacy-BusinessFlows.md`](OnosPodLegacy-BusinessFlows.md).
 
 ---
 
-## 5. Bất biến xuyên suốt hệ thống
+## 5. Cross-cutting constraints
 
-Các quy tắc trong mục này áp dụng cho nhiều module. Mỗi quy tắc tương ứng với một
-lỗi đã xảy ra trên production.
+### 5.1 Order query filters
 
-### 5.1 Bộ lọc mặc định của truy vấn đơn hàng
+Statistics queries on `orders` exclude:
 
-Mọi truy vấn thống kê trên `orders` phải loại trừ ba nhóm:
+- cancelled — `cancelledAt` set
+- unmapped factory — `factoryId` empty
+- US factory — `apps/api/src/utils/excluded-factory.ts`
 
-- đơn đã hủy — `cancelledAt` có giá trị;
-- đơn chưa gán xưởng — `factoryId` rỗng;
-- đơn thuộc xưởng US — xưởng nằm ngoài luồng sản xuất, định nghĩa tại
-  `apps/api/src/utils/excluded-factory.ts`.
+Reference: [`Orders.md`](../FunctionDescription/Orders.md) §19, §21.
 
-Aggregation mới thiếu bộ lọc này sẽ cho kết quả lệch so với dashboard, và lệch một
-cách âm thầm. Chi tiết: [`Orders.md`](../FunctionDescription/Orders.md) §19, §21.
+### 5.2 Timezone
 
-### 5.2 Múi giờ
+Day / month boundaries are Vietnam midnight (UTC+7). Aggregations use
+`timezone: 'Asia/Ho_Chi_Minh'`; timestamps built as `T00:00:00+07:00`.
 
-Ranh giới ngày và tháng là **nửa đêm giờ Việt Nam (UTC+7)**, không phải UTC.
-Aggregation dùng `timezone: 'Asia/Ho_Chi_Minh'`; mốc thời gian dựng bằng
-`new Date('YYYY-MM-DDT00:00:00+07:00')`. Tính theo UTC gây lệch 7 giờ mỗi ngày —
-sai số nhỏ, do đó khó phát hiện.
+### 5.3 Dual Nest context
 
-### 5.3 Một process, hai Nest context
-
-`apps/api/src/main.ts` khởi động **hai** application context trong cùng một process:
-`bootstrap()` (HTTP/Fastify) và `bootstrapMicroservice()` (RabbitMQ). Hệ quả: mọi
-`@Cron` được đăng ký hai lần và thực thi hai lần.
-
-Dòng đầu tiên trong thân mỗi cron handler phải là:
+`apps/api/src/main.ts` boots two contexts in one process: `bootstrap()` (HTTP) and
+`bootstrapMicroservice()` (RabbitMQ). Every `@Cron` handler registers twice. First
+statement of each handler:
 
 ```ts
 if (!laTienTrinhChayCron(this.adapterHost)) return;
 ```
 
-Chi tiết: [`Common_Pitfalls.md`](Common_Pitfalls.md) §11.
+Reference: [`Common_Pitfalls.md`](Common_Pitfalls.md) §11.
 
-### 5.4 Định danh từ hệ thống ngoài có thể phụ thuộc góc nhìn
+### 5.4 External identifier scope
 
-Định danh do hệ thống bên thứ ba cấp không nhất thiết là định danh toàn cục. Ví dụ
-đã gặp: uid Zalo **phụ thuộc tài khoản đang truy vấn** — cùng một người mang 8 uid
-khác nhau tùy theo nick nào của công ty nhìn thấy họ. So sánh hai cột cùng tên `uid`
-lấy từ hai bảng khác nhau cho kết quả khớp 0 dòng, không phát sinh lỗi.
+Third-party identifiers may be scoped to the viewing account, not global (Zalo uid:
+one person carries a distinct uid per company account). Verify two identifier
+spaces match against production data before comparing; a 0-row join is evidence of
+a scope mismatch.
 
-Quy tắc: trước khi so sánh hai định danh từ hệ thống ngoài, **xác minh chúng thuộc
-cùng không gian định danh bằng dữ liệu thật**. Kết quả khớp 0 dòng trên dữ liệu
-production là bằng chứng của phép so sánh sai, không phải của việc thiếu dữ liệu.
+Reference: [`Common_Pitfalls.md`](Common_Pitfalls.md) §12.
 
-Chi tiết: [`Common_Pitfalls.md`](Common_Pitfalls.md) §12.
+### 5.5 Chat privacy gate
 
-### 5.5 Chốt riêng tư trên dữ liệu hội thoại
+Groups classified `private` are never read. All chat-content queries go through
+`ZALO_GROUP_ANALYZABLE_KINDS`. Agent gates (`NHOM_DUOC_GUI`, `kiemNguoiNhanDm`) are
+whitelists — new kinds are excluded by default. Do not convert to blacklists.
 
-Hệ thống thu thập hội thoại Zalo phục vụ phân tích. Nhóm mang phân loại `private`
-là nhóm cá nhân của nhân viên và **không bao giờ** được đọc nội dung.
+### 5.6 Config cache
 
-Mọi truy vấn đọc nội dung chat phải đi qua hằng số `ZALO_GROUP_ANALYZABLE_KINDS`.
-Các chốt dành cho AI agent (`NHOM_DUOC_GUI`, `kiemNguoiNhanDm`) được cài đặt dưới
-dạng **danh sách trắng**, nhờ đó phân loại mới bổ sung về sau tự động bị loại trừ.
-Không chuyển các chốt này sang dạng danh sách đen.
+`SystemConfigService.get()` caches config blobs in Redis, TTL 1h. `set()` invalidates;
+direct writes to `system_configs` do not. Invalidate the key after out-of-band writes.
 
-### 5.6 Cache cấu hình
+### 5.7 i18n
 
-`SystemConfigService.get()` cache blob cấu hình trong Redis với TTL **1 giờ**.
-Phương thức `set()` tự xóa cache; thao tác ghi thẳng vào collection `system_configs`
-thì không. Bỏ qua bước xóa cache dẫn tới cấu hình mới không có hiệu lực trong tối
-đa một giờ, và không phát sinh lỗi nào.
-
-### 5.7 Đa ngữ
-
-`apps/web` mặc định tiếng Việt, có bản tiếng Anh. Không hard-code chuỗi hiển thị,
-kể cả trong module-scope constant. Chi tiết: [`I18n.md`](../FunctionDescription/I18n.md).
+`apps/web` ships vi (default) + en. No hard-coded display strings, including
+module-scope constants. Reference: [`I18n.md`](../FunctionDescription/I18n.md).
 
 ---
 
-## 6. Môi trường và triển khai
-
-### 6.1 Lệnh thường dùng
+## 6. Environments
 
 ```bash
-pnpm build          # BẮT BUỘC chạy lần đầu — build packages/shared và core
-pnpm dev            # chạy song song API và web
-pnpm build-types    # type-check toàn repo — chạy trước khi mở PR
+pnpm build          # required once — builds packages/shared + core
+pnpm dev            # api + web
+pnpm build-types    # repo-wide type-check
 pnpm lint
 cd apps/api && pnpm test
 ```
 
-API dev: `http://localhost:3007`, prefix `api/v1`. Web dev: `http://localhost:5173`.
-Thiết lập Docker (MongoDB replica set, Redis, RabbitMQ): [`README.md`](../../README.md) gốc repo.
+API dev `:3007`, web dev `:5173`. Docker stack (MongoDB replica set, Redis,
+RabbitMQ): [`README.md`](../../README.md).
 
-### 6.2 Mô hình nhánh
+**Branching:** `feature → dev → main → production`. Dev host auto-pulls `dev` every
+minute. Production deploy is manual via `./deploy.sh`. No `master` branch.
 
-```
-nhánh tính năng → dev (tích hợp) → main (phát hành) → production
-```
-
-Máy dev tự động pull nhánh `dev` mỗi phút. Deploy production thực hiện thủ công
-bằng `./deploy.sh`. Repository không có nhánh `master`.
-
-### 6.3 Production
-
-Hai process pm2 (`onosfactory-api`, `onosfactory-seller`) và ba container Docker
-phục vụ engine Zalo. Chi tiết: [`Infrastructure.md`](Infrastructure.md).
+**Production:** pm2 processes `onosfactory-api`, `onosfactory-seller`; 3 Docker
+containers for the Zalo engine. Reference: [`Infrastructure.md`](Infrastructure.md).
 
 ---
 
-## 7. Tài liệu liên quan
+## 7. Documentation index
 
-| Chủ đề | Tài liệu |
+| Topic | Document |
 |---|---|
-| Sơ đồ context, container, component | [`C4_Model.md`](C4_Model.md) |
-| Xác thực, phân quyền, decorator `@Auth()` | [`Auth_System.md`](Auth_System.md) |
-| RabbitMQ, BullMQ, hệ thống cron | [`Event_Driven.md`](Event_Driven.md) |
-| Triển khai, pm2, nginx, Docker | [`Infrastructure.md`](Infrastructure.md) |
-| Bug pattern đã xảy ra, kèm root cause | [`Common_Pitfalls.md`](Common_Pitfalls.md) |
-| Nghiệp vụ hệ thống cũ OnosPod | [`OnosPodLegacy-BusinessFlows.md`](OnosPodLegacy-BusinessFlows.md) |
-| Quy trình kiểm chứng số liệu production | [`CheckProductionData.md`](CheckProductionData.md) |
-| Nghiệp vụ nhãn vận chuyển | [`ShippingLabelPatterns.md`](ShippingLabelPatterns.md) |
-| Đặc tả từng tính năng (40 tài liệu) | [`documents/FunctionDescription/`](../FunctionDescription/) |
+| Context / container / component diagrams | [`C4_Model.md`](C4_Model.md) |
+| AuthN, AuthZ, `@Auth()` decorator | [`Auth_System.md`](Auth_System.md) |
+| RabbitMQ, BullMQ, cron | [`Event_Driven.md`](Event_Driven.md) |
+| Deployment, pm2, nginx, Docker | [`Infrastructure.md`](Infrastructure.md) |
+| Known bug patterns + root causes | [`Common_Pitfalls.md`](Common_Pitfalls.md) |
+| Legacy OnosPod flows | [`OnosPodLegacy-BusinessFlows.md`](OnosPodLegacy-BusinessFlows.md) |
+| Production data verification | [`CheckProductionData.md`](CheckProductionData.md) |
+| Shipping label patterns | [`ShippingLabelPatterns.md`](ShippingLabelPatterns.md) |
+| Per-feature specs (40 docs) | [`documents/FunctionDescription/`](../FunctionDescription/) |
 
-### 7.1 Quy ước bắt buộc về tài liệu
-
-Mỗi tính năng có một tài liệu tương ứng trong `documents/FunctionDescription/`.
-Thay đổi code của một tính năng **bắt buộc kèm cập nhật tài liệu của tính năng đó
-trong cùng pull request**.
-
-Bảng tra cứu "Feature → Doc" nằm tại [`CLAUDE.md`](../../CLAUDE.md) gốc repo: đọc
-tài liệu trước khi sửa, cập nhật sau khi sửa.
+Feature changes require updating the matching `FunctionDescription` document in the
+same pull request. Lookup table: [`CLAUDE.md`](../../CLAUDE.md).
