@@ -7,9 +7,10 @@ Monorepo pnpm + Turborepo, gồm 4 app: **API** (NestJS + Fastify), **web** nộ
 (React + Vite + Tailwind/Radix), **seller** cho khách (Next.js), và **design-worker**
 xử lý ảnh.
 
-> 🧭 **Mới vào dự án?** Đọc [`documents/Architecture/README.md`](documents/Architecture/README.md)
-> trước — bản đồ 20 phút: hệ thống làm gì, code của bạn nằm ở đâu, và sáu luật ngầm
-> sẽ cắn nếu không biết trước. File README này chỉ lo phần **cài đặt và chạy máy**.
+> **Kỹ sư mới tham gia dự án:** đọc [`documents/Architecture/README.md`](documents/Architecture/README.md)
+> trước. Tài liệu đó trình bày bối cảnh nghiệp vụ, cấu trúc monorepo, luồng dữ liệu
+> chính và các bất biến xuyên suốt hệ thống. File README này chỉ bao gồm hướng dẫn
+> cài đặt và vận hành môi trường local.
 
 ---
 

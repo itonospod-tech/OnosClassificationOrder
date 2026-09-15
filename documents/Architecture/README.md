@@ -1,260 +1,329 @@
-# Kiến trúc OnosFactory — bản đồ cho người mới
+# OnosFactory — Tổng quan kiến trúc
 
-> Dành cho đội dev vừa nhận việc. Mục tiêu: đọc 20 phút là biết hệ thống làm gì,
-> code của mình nằm ở đâu, và những luật ngầm nào sẽ cắn nếu không biết trước.
->
-> Đây là **bản đồ**, không phải đặc tả. Mỗi mục đều trỏ tới tài liệu sâu hơn.
-> Cập nhật: 15/09/2026.
+**Đối tượng:** kỹ sư mới tham gia dự án.
+**Phạm vi:** bối cảnh nghiệp vụ, cấu trúc monorepo, luồng dữ liệu chính, các bất
+biến xuyên suốt hệ thống.
+**Không thuộc phạm vi:** đặc tả từng tính năng (xem `documents/FunctionDescription/`),
+hướng dẫn cài đặt máy (xem [`README.md`](../../README.md) gốc repo).
+
+Tài liệu này là entry point của thư mục `Architecture/`. Mỗi mục dẫn tới tài liệu
+chi tiết tương ứng thay vì lặp lại nội dung.
+
+**Cập nhật:** 15/09/2026. Số liệu đo trên production cùng ngày.
 
 ---
 
-## 1. Công ty này làm gì
+## 1. Bối cảnh nghiệp vụ
 
-Onos là **xưởng in theo đơn (print-on-demand)**. Khách hàng — gọi là **seller** —
-bán hàng trên Etsy/TikTok/Shopify, mỗi khi có người mua thì đẩy đơn sang Onos.
-Onos in, may, đóng gói và gửi thẳng tới người mua cuối ở Mỹ.
+Onos vận hành xưởng **in theo đơn (print-on-demand)**. Khách hàng của Onos là các
+nhà bán lẻ trên Etsy, TikTok Shop, Shopify; khi họ có đơn từ người mua cuối, đơn
+được đẩy sang Onos. Onos sản xuất và giao thẳng tới người mua cuối tại Mỹ.
 
-Hai điều này chi phối gần như mọi quyết định thiết kế trong repo:
+Hai đặc điểm của mô hình này chi phối phần lớn quyết định thiết kế:
 
-**Một đơn là một sản phẩm cần làm, không phải một giao dịch.** Nó đi qua một dây
-chuyền vật lý có người thật đứng ở từng chặng, mỗi chặng có thể phát hiện lỗi và
-đẩy ngược về chặng trước. Vì thế `orders` có rất nhiều cột mốc thời gian, và bảng
-nhật ký `orderLogs` lớn gấp **57 lần** bảng đơn (3,26 triệu dòng / 57,6 nghìn đơn).
+**Đơn hàng là một vật thể vật lý cần gia công, không phải một giao dịch.** Đơn đi
+qua dây chuyền có người thật đứng ở từng chặng; mỗi chặng có thể phát hiện lỗi và
+đẩy đơn ngược về chặng trước. Hệ quả: `OrderEntity` mang nhiều cột mốc thời gian,
+và bảng nhật ký `orderLogs` lớn gấp 57 lần bảng đơn (3.259.313 dòng so với 57.608).
+Quy mô đó là chủ đích — khi một đơn giao sai, câu hỏi luôn là *ai đổi gì lúc nào*.
 
-**Khách của Onos cũng là người bán.** Họ cần cổng riêng để đặt đơn, xem tiến độ,
-xem giá, nạp ví, mua nhãn vận chuyển. Đó là lý do có hẳn một app riêng cho họ
-(`apps/seller`) chứ không phải một trang trong app quản trị.
+**Khách hàng của Onos đồng thời là người bán.** Họ cần cổng riêng để đặt đơn, theo
+dõi tiến độ, tra giá, nạp ví và mua nhãn vận chuyển. Đây là lý do tồn tại một
+application riêng (`apps/seller`) thay vì một khu vực trong app quản trị.
 
-### Hệ cũ vẫn đang sống
+### 1.1 Quan hệ với hệ thống cũ
 
-Trước OnosFactory, công ty chạy trên **OnosPod** (`app.onospod.com`) — mất source,
-chỉ còn API. Hệ mới bắt đầu có đơn thật từ **06/2026**. Nghĩa là:
+Trước OnosFactory, nghiệp vụ chạy trên **OnosPod** (`app.onospod.com`) — hệ thống
+đã mất source code, chỉ còn truy cập qua API. OnosFactory bắt đầu ghi nhận đơn thật
+từ **tháng 06/2026**.
 
-- Số liệu trước 06/2026 **không có** trong hệ này. Đừng dựng báo cáo "từ đầu năm".
-- Một số đơn vẫn chảy vào qua cron đồng bộ từ OnosPod.
-- Phần tiền/hoá đơn vẫn nằm bên hệ cũ — đó là rào cản lớn nhất của việc chuyển hẳn.
+Ba hệ quả cần biết trước khi viết báo cáo hoặc truy vấn lịch sử:
+
+- Dữ liệu trước 06/2026 **không tồn tại** trong hệ thống này.
+- Một phần đơn vẫn được đồng bộ từ OnosPod qua cron (`orders/import-from-onospod/cron`).
+- Nghiệp vụ tài chính (hóa đơn, công nợ) vẫn nằm ở hệ cũ.
 
 Chi tiết: [`OnosPodLegacy-BusinessFlows.md`](OnosPodLegacy-BusinessFlows.md).
 
+### 1.2 Lưu ý thuật ngữ: "seller"
+
+Từ *seller* mang ba nghĩa khác nhau trong codebase. Nhầm lẫn giữa chúng dẫn tới
+phân quyền sai:
+
+| Ký hiệu | Nghĩa |
+|---|---|
+| `apps/seller` | Application dành cho **khách hàng** của Onos |
+| `RoleType.Customer` | Vai của **tài khoản khách hàng**, dùng cho `apps/seller` và Customer Portal |
+| `RoleType.Seller` | Vai của **nhân viên nội bộ** phụ trách kinh doanh — không liên quan tới khách |
+
+`ZaloGroupKind.Seller` cũng mang nghĩa "nhóm chat với khách hàng", tức khớp với
+`RoleType.Customer` chứ không phải `RoleType.Seller`.
+
 ---
 
-## 2. Bốn app, hai package — code của bạn nằm ở đâu
+## 2. Cấu trúc monorepo
 
-```
-apps/
-  api             410 file   NestJS + Fastify    ← toàn bộ nghiệp vụ, cổng 3007
-  web             371 file   React + Vite        ← app NỘI BỘ (/adm, /ffm)
-  seller          133 file   Next.js 16          ← app cho KHÁCH, cổng 3017
-  design-worker     6 file   Node + sharp        ← xử lý ảnh, chạy máy riêng
-packages/
-  shared          139 file   Zod DTO + enum      ← hợp đồng dùng chung FE/BE
-  core             44 file   guard, decorator    ← tiện ích NestJS dùng chung
-```
+pnpm workspaces + Turborepo.
 
-**Quy tắc chọn chỗ đặt code:**
+| Package | Quy mô | Stack | Vai trò |
+|---|---:|---|---|
+| `apps/api` | 410 file | NestJS + Fastify | Toàn bộ nghiệp vụ. Cổng 3007, prefix `api/v1` |
+| `apps/web` | 371 file | React + Vite + Tailwind/Radix | Application nội bộ (`/adm`, `/ffm`) |
+| `apps/seller` | 133 file | Next.js 16 | Application cho khách hàng. Cổng 3017 |
+| `apps/design-worker` | 6 file | Node + sharp | Xử lý ảnh thiết kế, triển khai trên máy chủ riêng |
+| `packages/shared` | 139 file | Zod | Hợp đồng dữ liệu dùng chung FE/BE |
+| `packages/core` | 44 file | NestJS | Guard, decorator, abstract repository dùng chung |
 
-| Bạn đang làm | Đặt ở |
+### 2.1 Quy tắc xác định vị trí code
+
+| Loại thay đổi | Vị trí |
 |---|---|
-| Nghiệp vụ, tính toán, ghi DB | `apps/api/src/modules/<feature>/` |
-| Màn hình cho nhân viên xưởng/văn phòng | `apps/web/src/pages/` |
-| Màn hình cho khách/seller | `apps/seller/src/app/` |
-| Kiểu dữ liệu cả FE và BE cùng dùng | `packages/shared/dtos/` |
-| Hàm thuần mà **trình duyệt** cần chạy | `packages/shared/client/` (không được import NestJS) |
+| Nghiệp vụ, tính toán, ghi cơ sở dữ liệu | `apps/api/src/modules/<feature>/` |
+| Giao diện cho nhân viên | `apps/web/src/pages/` |
+| Giao diện cho khách hàng | `apps/seller/src/app/` |
+| Kiểu dữ liệu dùng chung FE và BE | `packages/shared/dtos/` |
+| Hàm thuần cần chạy trên trình duyệt | `packages/shared/client/` — **không được import NestJS** |
 
-⚠️ **Sửa một DTO trong `packages/shared` là đụng cả hai app.** Luôn chạy
-`pnpm build-types` (type-check toàn repo), không chỉ app bạn đang mở.
-
-Mỗi module trong `apps/api` phải đủ bộ `module / controller / service / repository
-/ entity` — 48 module hiện có đều theo khuôn này. Chi tiết:
+Mỗi module trong `apps/api` (hiện có 48) tuân theo cấu trúc bắt buộc
+`module / controller / service / repository / entity`. Quy ước chi tiết:
 [`apps/api/CLAUDE.md`](../../apps/api/CLAUDE.md).
 
-### Hai app, hai thế giới người dùng
+> **Bắt buộc:** thay đổi trong `packages/shared` ảnh hưởng đồng thời cả hai
+> application. Luôn chạy `pnpm build-types` (type-check toàn repo), không chỉ
+> type-check package đang sửa.
 
-`apps/web` có ba router gốc, nhưng **chỉ hai phiên đăng nhập**:
+### 2.2 Phân vùng người dùng trong `apps/web`
 
-- `/adm` — quản trị: sản phẩm, khách, cấu hình, báo cáo
-- `/ffm` — vận hành xưởng: task của công nhân từng công đoạn
+Ba router gốc, hai phiên đăng nhập độc lập:
 
-  Hai cái này dùng CHUNG layout và phiên nhân viên (`authStore`).
+- **`/adm`** — quản trị: sản phẩm, khách hàng, cấu hình, báo cáo.
+- **`/ffm`** — vận hành xưởng: hàng việc của công nhân theo công đoạn.
 
-- `/customer` — cổng khách **cũ**, phiên và token RIÊNG (`customerAuthStore`,
-  `RoleType.Customer`). Đang chuyển sang `apps/seller` và **đã đóng băng tính năng
-  mới** — đừng thêm gì vào đây.
+  Hai router trên dùng chung layout và phiên nhân viên (`authStore`).
 
-Ngoài ra còn vài trang public không cần đăng nhập: landing `/`, catalog
-`/catalog`, tra cứu đơn `/track/:productionId`, tuyển dụng.
+- **`/customer`** — Customer Portal thế hệ cũ. Phiên và token **riêng**
+  (`customerAuthStore`, `RoleType.Customer`). Đang được thay thế bởi `apps/seller`
+  và **đã đóng băng tính năng mới**.
 
-`apps/seller` là app Next riêng cho khách, phiên riêng, proxy same-origin về API.
-Nó còn có khu `/hub` cho nhân viên quản trị toàn bộ seller.
+Ngoài ba router trên còn các trang public không yêu cầu đăng nhập: landing `/`,
+catalog `/catalog`, tra cứu đơn `/track/:productionId`, tuyển dụng.
 
 ---
 
-## 3. Luồng xương sống — một đơn đi từ đâu tới đâu
-
-Đây là thứ phải nắm trước khi sửa bất cứ gì liên quan tới đơn.
+## 3. Luồng dữ liệu chính: vòng đời một đơn hàng
 
 ```
-Khách đặt (portal / CSV / API)
+Khách đặt đơn (form portal | CSV | Public Order API)
         │
         ▼
-  customer_orders          ← đơn TẠM, chưa phải đơn sản xuất
-        │  "Push to production" (chốt giá, cấp mã)
+  customer_orders          staging — chưa phải đơn sản xuất
+        │  pushToProduction(): chốt giá, cấp productionId
         ▼
-     orders                ← đơn sản xuất thật, mỗi item một dòng
+     orders                đơn sản xuất, MỘT DÒNG cho mỗi item
         │
         ▼
-  ┌─────────────────── dây chuyền 8 chặng ───────────────────┐
-  │ Soát tool → Thiết kế → In → Ép → QC sau ép → May vào →   │
-  │                              May ra → Đóng hàng          │
-  └──────────────────────────────────────────────────────────┘
+  ┌──────────────────── dây chuyền 8 chặng ─────────────────────┐
+  │  Soát tool → Thiết kế →                                     │
+  │  In → Ép → QC sau ép → May nhận vào → May xuất ra → Đóng gói│
+  └─────────────────────────────────────────────────────────────┘
         │
         ▼
-  Đóng hàng xong → gắn nhãn vận chuyển → gửi đi Mỹ
+  Gắn nhãn vận chuyển → giao tới người mua cuối
 ```
 
-Hai chặng đầu (soát tool, thiết kế) làm trên máy tính; **sáu chặng sau là người
-thật đứng máy** (`FulfillmentStage`: `print` → `press` → `qc-post-press` →
-`sew-in` → `sew-out` → `pack`).
+Hai chặng đầu thực hiện trên máy tính. Sáu chặng sau do công nhân thực hiện tại
+xưởng, định nghĩa ở enum `FulfillmentStage`:
+`print` → `press` → `qc-post-press` → `sew-in` → `sew-out` → `pack`.
 
-**Ba điều bất thường mà ai cũng vấp:**
+### 3.1 Ba đặc điểm cần nắm trước khi sửa code liên quan tới đơn
 
-1. **Đơn có thể đi LÙI.** Bất kỳ chặng nào phát hiện lỗi đều đẩy ngược về chặng
-   trước hoặc về designer. Nên đừng viết code giả định trạng thái chỉ tiến.
+**Trạng thái đơn không đơn điệu tăng.** Bất kỳ chặng nào phát hiện lỗi đều có thể
+đẩy đơn ngược về chặng trước hoặc về designer. Không được giả định đơn chỉ tiến.
 
-2. **Một số xưởng bỏ bớt chặng.** `FactoryEntity.flowType` quyết định chặng nào
-   tự động Done: xưởng gỗ TNW gộp In+Ép, xưởng Mê Linh bỏ khâu may. Code chuyển
-   chặng phải hỏi `flowType`, không được chạy cứng 6 chặng.
+**Không phải xưởng nào cũng chạy đủ 6 chặng.** `FactoryEntity.flowType` xác định
+tập chặng được **tự động hoàn thành** khi đơn chảy tới. Cấu hình thực tế:
 
-3. **`customer_orders` và `orders` là HAI bảng khác nhau**, không phải hai trạng
-   thái của một bảng. Đơn khách đặt nằm ở bảng đầu cho tới khi được đẩy sản xuất.
-   Số lượng gần bằng nhau (57.610 / 57.608) nên rất dễ tưởng là một.
+| Xưởng | `flowType` | Ý nghĩa |
+|---|---|---|
+| TN — Thái Nguyên | `standard` | Chạy đủ 6 chặng |
+| TNW — Gỗ Thái Nguyên | `merged` | In xong thì Ép tự Done; May vào xong thì May ra tự Done |
+| ML — Mê Linh · MLDTF — DTF Mê Linh | `no-sew` | QC sau ép xong thì hai chặng may tự Done |
+| US — Xưởng US | *(không đặt)* | Nằm ngoài luồng sản xuất, xem §5.1 |
 
-Chi tiết: [`Orders.md`](../FunctionDescription/Orders.md),
+Logic chuyển chặng phải đọc `flowType`; không được hard-code chuỗi 6 chặng.
+
+**`customer_orders` và `orders` là hai collection độc lập**, không phải hai trạng
+thái của cùng một bảng. `customer_orders` chứa mảng `items[]`; `pushToProduction()`
+sinh ra một document `orders` cho **mỗi item**.
+
+Số đo hiện tại dễ gây hiểu nhầm là quan hệ 1:1:
+
+| Chỉ số | Giá trị |
+|---|---:|
+| `customer_orders` | 57.610 |
+| Tổng số item | 57.610 (trung bình **1,00** item/đơn) |
+| Đã đẩy sản xuất | 57.608 |
+| `orders` | 57.608 |
+
+Tỉ lệ 1,00 item/đơn là **đặc điểm của dữ liệu di cư từ hệ cũ**, không phải ràng
+buộc thiết kế. Đơn nhiều item được hỗ trợ đầy đủ (CSV cho phép nhiều dòng cùng
+`order_id`), nên code không được giả định một đơn khách sinh ra đúng một đơn sản xuất.
+
+Tài liệu chi tiết: [`Orders.md`](../FunctionDescription/Orders.md),
 [`FulfillmentWorkflow.md`](../FunctionDescription/FulfillmentWorkflow.md),
 [`CustomerOrderIntake.md`](../FunctionDescription/CustomerOrderIntake.md).
 
 ---
 
-## 4. Dữ liệu
+## 4. Tầng lưu trữ
 
-MongoDB (**bắt buộc replica set** — code dùng transaction, single node sẽ không
-boot), Redis cho cache + hàng đợi BullMQ, RabbitMQ cho message.
+| Thành phần | Vai trò | Ràng buộc |
+|---|---|---|
+| MongoDB | Cơ sở dữ liệu chính, 42 collection | **Bắt buộc replica set** — hệ thống dùng transaction (ví seller, sổ cái thanh toán) |
+| Redis | Cache + hàng đợi BullMQ | Cache cấu hình có TTL 1 giờ (xem §5.6) |
+| RabbitMQ | Message broker | Thiếu biến môi trường thì application không khởi động |
 
-Số thật trên production (15/09/2026), 42 collection:
+Quy mô các collection chính trên production:
 
-| Collection | Số dòng | Là gì |
+| Collection | Số document | Nội dung |
 |---|---:|---|
-| `orderLogs` | 3.259.313 | Nhật ký mọi thay đổi trên đơn |
-| `agentApiLogs` | 419.308 | Nhật ký API cho AI agent (TTL 90 ngày) |
-| `customer_orders` | 57.610 | Đơn khách đặt, chưa đẩy sản xuất |
+| `orderLogs` | 3.259.313 | Nhật ký thay đổi trên đơn |
+| `agentApiLogs` | 419.308 | Nhật ký API cho AI agent, TTL 90 ngày |
+| `customer_orders` | 57.610 | Đơn khách, tầng staging |
 | `orders` | 57.608 | Đơn sản xuất |
-| `productConfigs` | 196 | Cấu hình sản phẩm + biến thể |
-| `customers` | 168 | Seller |
+| `productConfigs` | 196 | Cấu hình sản phẩm và biến thể |
+| `customers` | 168 | Tài khoản khách hàng |
 
-`orderLogs` lớn như vậy là **cố ý**: khi một đơn giao sai, câu hỏi luôn là "ai đổi
-gì lúc nào", và không có nhật ký thì không trả lời được. Đừng tắt nó để tối ưu.
+`apps/design-worker` ghi MongoDB **trực tiếp qua Tailscale** với schema tối giản,
+không đi qua API.
 
 ---
 
-## 5. Sáu luật ngầm sẽ cắn bạn
+## 5. Bất biến xuyên suốt hệ thống
 
-Đây là phần đáng đọc nhất. Tất cả đều là lỗi **đã xảy ra thật**.
+Các quy tắc trong mục này áp dụng cho nhiều module. Mỗi quy tắc tương ứng với một
+lỗi đã xảy ra trên production.
 
-### 5.1 Ba loại đơn bị loại khỏi mọi thống kê
+### 5.1 Bộ lọc mặc định của truy vấn đơn hàng
 
-Mặc định, mọi truy vấn thống kê phải loại:
+Mọi truy vấn thống kê trên `orders` phải loại trừ ba nhóm:
 
-- đơn đã hủy (`cancelledAt` có giá trị)
-- đơn chưa gán xưởng (`factoryId` rỗng)
-- đơn của **xưởng US** (xưởng ngoài luồng sản xuất, `excluded-factory.ts`)
+- đơn đã hủy — `cancelledAt` có giá trị;
+- đơn chưa gán xưởng — `factoryId` rỗng;
+- đơn thuộc xưởng US — xưởng nằm ngoài luồng sản xuất, định nghĩa tại
+  `apps/api/src/utils/excluded-factory.ts`.
 
-Viết một aggregation mới về `orders` mà quên bộ lọc này là ra số **không khớp
-dashboard**, và lệch âm thầm. Xem [`Orders.md`](../FunctionDescription/Orders.md) §19/§21.
+Aggregation mới thiếu bộ lọc này sẽ cho kết quả lệch so với dashboard, và lệch một
+cách âm thầm. Chi tiết: [`Orders.md`](../FunctionDescription/Orders.md) §19, §21.
 
-### 5.2 Giờ Việt Nam ở mọi nơi
+### 5.2 Múi giờ
 
-Ranh giới ngày/tháng là **nửa đêm giờ VN (UTC+7)**, không phải UTC. Aggregation
-dùng `timezone: 'Asia/Ho_Chi_Minh'`, mốc dựng bằng `T00:00:00+07:00`. Đọc bằng UTC
-thì mỗi ngày lệch 7 giờ — sai nhỏ, và vì nhỏ nên không ai phát hiện.
+Ranh giới ngày và tháng là **nửa đêm giờ Việt Nam (UTC+7)**, không phải UTC.
+Aggregation dùng `timezone: 'Asia/Ho_Chi_Minh'`; mốc thời gian dựng bằng
+`new Date('YYYY-MM-DDT00:00:00+07:00')`. Tính theo UTC gây lệch 7 giờ mỗi ngày —
+sai số nhỏ, do đó khó phát hiện.
 
-### 5.3 Một tiến trình, hai Nest context
+### 5.3 Một process, hai Nest context
 
-`apps/api` khởi động **hai** context (HTTP + microservice RabbitMQ) trong cùng một
-tiến trình, nên mọi `@Cron` đăng ký hai lần và chạy hai lần. Dòng đầu tiên trong
-thân mỗi cron phải là:
+`apps/api/src/main.ts` khởi động **hai** application context trong cùng một process:
+`bootstrap()` (HTTP/Fastify) và `bootstrapMicroservice()` (RabbitMQ). Hệ quả: mọi
+`@Cron` được đăng ký hai lần và thực thi hai lần.
+
+Dòng đầu tiên trong thân mỗi cron handler phải là:
 
 ```ts
 if (!laTienTrinhChayCron(this.adapterHost)) return;
 ```
 
-Xem [`Common_Pitfalls.md`](Common_Pitfalls.md) §11.
+Chi tiết: [`Common_Pitfalls.md`](Common_Pitfalls.md) §11.
 
-### 5.4 ID của hệ ngoài có thể là ID theo góc nhìn
+### 5.4 Định danh từ hệ thống ngoài có thể phụ thuộc góc nhìn
 
-uid Zalo **phụ thuộc nick đang nhìn**: cùng một người mang 8 uid khác nhau tuỳ nick
-nào của công ty thấy họ. So hai cột cùng tên `uid` từ hai bảng khác nhau cho **0
-dòng khớp**, không lỗi, không cảnh báo.
+Định danh do hệ thống bên thứ ba cấp không nhất thiết là định danh toàn cục. Ví dụ
+đã gặp: uid Zalo **phụ thuộc tài khoản đang truy vấn** — cùng một người mang 8 uid
+khác nhau tùy theo nick nào của công ty nhìn thấy họ. So sánh hai cột cùng tên `uid`
+lấy từ hai bảng khác nhau cho kết quả khớp 0 dòng, không phát sinh lỗi.
 
-Luật chung: trước khi so hai ID từ hệ ngoài, **chứng minh chúng cùng không gian
-bằng dữ liệu thật**. Khớp 0 dòng trên dữ liệu sống là bằng chứng bạn đang so nhầm,
-không phải "chưa có dữ liệu". Xem [`Common_Pitfalls.md`](Common_Pitfalls.md) §12.
+Quy tắc: trước khi so sánh hai định danh từ hệ thống ngoài, **xác minh chúng thuộc
+cùng không gian định danh bằng dữ liệu thật**. Kết quả khớp 0 dòng trên dữ liệu
+production là bằng chứng của phép so sánh sai, không phải của việc thiếu dữ liệu.
 
-### 5.5 Chốt riêng tư trên dữ liệu chat
+Chi tiết: [`Common_Pitfalls.md`](Common_Pitfalls.md) §12.
 
-Hệ thống kéo hội thoại Zalo về để phân tích. Nhóm mang nhãn `private` **không bao
-giờ** được đọc nội dung — đó là nhóm cá nhân của nhân viên. Mọi đường đọc chat đi
-qua đúng một hằng số `ZALO_GROUP_ANALYZABLE_KINDS`; đừng viết truy vấn vòng qua nó.
+### 5.5 Chốt riêng tư trên dữ liệu hội thoại
 
-Các chốt cho AI agent (`NHOM_DUOC_GUI`, `kiemNguoiNhanDm`) là **danh sách trắng**
-— nhãn mới sinh ra sau này tự bị loại. Đừng đổi sang dạng đen.
+Hệ thống thu thập hội thoại Zalo phục vụ phân tích. Nhóm mang phân loại `private`
+là nhóm cá nhân của nhân viên và **không bao giờ** được đọc nội dung.
 
-### 5.6 Mọi chữ hiển thị phải qua i18n
+Mọi truy vấn đọc nội dung chat phải đi qua hằng số `ZALO_GROUP_ANALYZABLE_KINDS`.
+Các chốt dành cho AI agent (`NHOM_DUOC_GUI`, `kiemNguoiNhanDm`) được cài đặt dưới
+dạng **danh sách trắng**, nhờ đó phân loại mới bổ sung về sau tự động bị loại trừ.
+Không chuyển các chốt này sang dạng danh sách đen.
 
-`apps/web` mặc định tiếng Việt, có bản tiếng Anh. Không hardcode chuỗi — kể cả
-label trong file constant. Xem [`I18n.md`](../FunctionDescription/I18n.md).
+### 5.6 Cache cấu hình
+
+`SystemConfigService.get()` cache blob cấu hình trong Redis với TTL **1 giờ**.
+Phương thức `set()` tự xóa cache; thao tác ghi thẳng vào collection `system_configs`
+thì không. Bỏ qua bước xóa cache dẫn tới cấu hình mới không có hiệu lực trong tối
+đa một giờ, và không phát sinh lỗi nào.
+
+### 5.7 Đa ngữ
+
+`apps/web` mặc định tiếng Việt, có bản tiếng Anh. Không hard-code chuỗi hiển thị,
+kể cả trong module-scope constant. Chi tiết: [`I18n.md`](../FunctionDescription/I18n.md).
 
 ---
 
-## 6. Chạy và triển khai
+## 6. Môi trường và triển khai
+
+### 6.1 Lệnh thường dùng
 
 ```bash
-pnpm build          # LẦN ĐẦU BẮT BUỘC — build packages/shared + core trước
-pnpm dev            # API + web song song
+pnpm build          # BẮT BUỘC chạy lần đầu — build packages/shared và core
+pnpm dev            # chạy song song API và web
 pnpm build-types    # type-check toàn repo — chạy trước khi mở PR
 pnpm lint
 cd apps/api && pnpm test
 ```
 
-API dev ở `http://localhost:3007`, tiền tố `api/v1`. Web dev ở `:5173`.
-Setup Docker (Mongo replica set + Redis + RabbitMQ): [`README.md`](../../README.md) gốc repo.
+API dev: `http://localhost:3007`, prefix `api/v1`. Web dev: `http://localhost:5173`.
+Thiết lập Docker (MongoDB replica set, Redis, RabbitMQ): [`README.md`](../../README.md) gốc repo.
 
-**Nhánh:** nhánh riêng → `dev` (tích hợp, máy dev tự kéo mỗi phút) → `main` (phát
-hành) → prod deploy tay bằng `./deploy.sh`. Không có `master`.
+### 6.2 Mô hình nhánh
 
-**Production** chạy pm2 hai tiến trình (`onosfactory-api`, `onosfactory-seller`)
-cộng ba container Docker cho engine Zalo. Chi tiết: [`Infrastructure.md`](Infrastructure.md).
+```
+nhánh tính năng → dev (tích hợp) → main (phát hành) → production
+```
+
+Máy dev tự động pull nhánh `dev` mỗi phút. Deploy production thực hiện thủ công
+bằng `./deploy.sh`. Repository không có nhánh `master`.
+
+### 6.3 Production
+
+Hai process pm2 (`onosfactory-api`, `onosfactory-seller`) và ba container Docker
+phục vụ engine Zalo. Chi tiết: [`Infrastructure.md`](Infrastructure.md).
 
 ---
 
-## 7. Đọc tiếp ở đâu
+## 7. Tài liệu liên quan
 
-| Bạn cần | Đọc |
+| Chủ đề | Tài liệu |
 |---|---|
-| Sơ đồ container/component | [`C4_Model.md`](C4_Model.md) |
-| Đăng nhập, phân quyền, `@Auth()` | [`Auth_System.md`](Auth_System.md) |
-| RabbitMQ, BullMQ, cron | [`Event_Driven.md`](Event_Driven.md) |
-| Triển khai, pm2, nginx | [`Infrastructure.md`](Infrastructure.md) |
-| **Bug pattern đã từng xảy ra** | [`Common_Pitfalls.md`](Common_Pitfalls.md) |
-| Nghiệp vụ hệ cũ OnosPod | [`OnosPodLegacy-BusinessFlows.md`](OnosPodLegacy-BusinessFlows.md) |
-| Kiểm số liệu thật trên production | [`CheckProductionData.md`](CheckProductionData.md) |
-| Nhãn vận chuyển (8 khuôn bắt buộc) | [`ShippingLabelPatterns.md`](ShippingLabelPatterns.md) |
-| **Một tính năng cụ thể** | [`documents/FunctionDescription/`](../FunctionDescription/) — 40 file, tra bảng ở [`CLAUDE.md`](../../CLAUDE.md) gốc repo |
+| Sơ đồ context, container, component | [`C4_Model.md`](C4_Model.md) |
+| Xác thực, phân quyền, decorator `@Auth()` | [`Auth_System.md`](Auth_System.md) |
+| RabbitMQ, BullMQ, hệ thống cron | [`Event_Driven.md`](Event_Driven.md) |
+| Triển khai, pm2, nginx, Docker | [`Infrastructure.md`](Infrastructure.md) |
+| Bug pattern đã xảy ra, kèm root cause | [`Common_Pitfalls.md`](Common_Pitfalls.md) |
+| Nghiệp vụ hệ thống cũ OnosPod | [`OnosPodLegacy-BusinessFlows.md`](OnosPodLegacy-BusinessFlows.md) |
+| Quy trình kiểm chứng số liệu production | [`CheckProductionData.md`](CheckProductionData.md) |
+| Nghiệp vụ nhãn vận chuyển | [`ShippingLabelPatterns.md`](ShippingLabelPatterns.md) |
+| Đặc tả từng tính năng (40 tài liệu) | [`documents/FunctionDescription/`](../FunctionDescription/) |
 
-### Quy tắc bắt buộc khi sửa code
+### 7.1 Quy ước bắt buộc về tài liệu
 
-Mỗi tính năng có **một file doc** trong `documents/FunctionDescription/`. Sửa code
-của tính năng nào thì **phải cập nhật file doc của nó trong cùng PR**. Bảng tra
-"Feature → Doc" nằm ở [`CLAUDE.md`](../../CLAUDE.md) gốc repo — đọc doc trước khi
-sửa, cập nhật doc sau khi sửa.
+Mỗi tính năng có một tài liệu tương ứng trong `documents/FunctionDescription/`.
+Thay đổi code của một tính năng **bắt buộc kèm cập nhật tài liệu của tính năng đó
+trong cùng pull request**.
 
-Doc lệch code thì lần sau người ta không tin doc nữa, và lúc đó nó thành rác.
+Bảng tra cứu "Feature → Doc" nằm tại [`CLAUDE.md`](../../CLAUDE.md) gốc repo: đọc
+tài liệu trước khi sửa, cập nhật sau khi sửa.
