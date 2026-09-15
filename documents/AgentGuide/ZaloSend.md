@@ -68,6 +68,34 @@ Nick trợ lý AI khác cũng bị cấm: hai con máy nhắn nhau thì không c
 Đưa id hội thoại NHÓM vào đường này sẽ bị từ chối — gửi nhóm phải đi qua
 `groupGlobalId` để còn qua chốt phân loại nhóm.
 
+## 1c. Chọn nick gửi (`accountName`)
+
+Mỗi nhóm có nhiều nick công ty. **Nick là danh tính người trong nhóm nhìn thấy**,
+nên gửi đúng nội dung dưới sai nick là phát ngôn nhân danh bộ phận khác.
+
+```json
+{ "groupGlobalId": "...", "accountName": "Onos Ai", "content": "..." }
+```
+
+Đáp án luôn có `sentAsNick` — nick đã THỰC SỰ gửi, cả nhóm lẫn DM:
+
+```json
+{ "success": true, "data": { "conversationId": "...", "groupTitle": "...",
+  "sentAsNick": "Onos Ai", "sentAt": "..." } }
+```
+
+| Trường hợp | Hành vi |
+|---|---|
+| Có `accountName` | Gửi ĐÚNG nick đó. Nick gửi không được → lỗi nêu tên nick, **KHÔNG tự đổi nick khác** |
+| Có `accountName` + `allowFallback: true` | Thử nick đó trước, hỏng thì mới lùi sang nick khác |
+| Không có `accountName` | Giữ hành vi cũ: thử lần lượt tới khi có nick gửi được |
+
+Nick không ở trong nhóm thì bị từ chối **trước khi gửi**, kèm danh sách nick đang
+có: `Nhóm này không có nick "X". Nick đang ở trong nhóm: Cfo, Onos, Onos Ai.`
+
+⚠️ **Không ghim nick thì đừng đoán tin đã ra dưới danh tính nào** — thứ tự nick
+không theo quy tắc nào cả. Cứ đọc `sentAsNick`.
+
 ## 2. Nhóm nào được gửi
 
 | `kind` | Gửi được? | Là nhóm gì |

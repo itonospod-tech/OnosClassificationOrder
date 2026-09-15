@@ -258,6 +258,27 @@ trên lỗi khác thì có nguy cơ tin đã đi rồi mà nhắn thêm lần n�
 Nội dung quá `4000` ký tự bị **cắt** chứ không từ chối: tin quá dài thường là agent
 dán nhầm cả báo cáo, gửi được phần đầu vẫn hơn im lặng.
 
+**Ghim nick (`accountName`) — thêm 15/09/2026.** Với bên gọi, nick công ty là
+danh tính BỘ PHẬN (`Onos Ai` = CEO, `Cfo` = tài chính, `Onos Kế Toán` = kế toán).
+Vòng thử-lần-lượt vốn thêm vào để cứu "nhóm câm khi nick đầu chết" lại **âm thầm
+đổi danh tính người gửi**: một tin của CEO ra dưới nick `Cfo` và người trong nhóm
+đọc thành chỉ đạo của phòng tài chính.
+
+| Tham số | Hành vi |
+|---|---|
+| `accountName` | Gửi đúng nick đó; nick hỏng → lỗi nêu tên nick, **tắt vòng thử** |
+| `accountName` + `allowFallback` | Nick đó trước, hỏng mới lùi |
+| không truyền | Giữ nguyên hành vi cũ |
+
+Sai danh tính hại hơn không gửi được, nên mặc định của nhánh có `accountName` là
+KHÔNG lùi. Nick không thuộc nhóm bị chặn trước khi gửi, kèm danh sách nick đang có
+(`chonTheoNick`) — bên gọi cần phân biệt "gõ sai tên" với "nick không ở trong nhóm".
+
+Mọi đáp án gửi trả `sentAsNick`, kể cả DM và cả khi không ghim: thứ tự
+`conversationIds` không mang ý nghĩa gì, nên đó là cách duy nhất bên gọi đối chiếu
+được danh tính đã ra nhóm. Nick của một hội thoại lấy từ `zaloAccount.displayName`
+bên engine (`ZaloEngineService.nickCuaHoiThoai`).
+
 **Hạn mức riêng** `AGENT_ZALO_SEND_PER_MIN = 10` (chứ không dùng chung hạn mức đọc),
 và **ghi vết cả lượt bị chặn** vào `agentApiLogs` capability `zalo_send` — biết agent
 định nhắn vào đâu quan trọng ngang biết nó đã nhắn gì.
