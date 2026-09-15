@@ -114,13 +114,51 @@ export function kiemNoiDung(content: string | undefined, tranKyTu = 4000): { ok:
 }
 
 /**
- * Engine từ chối vì nick giữ hội thoại đó đang rớt — bên gọi nên thử nick khác
- * trong cùng nhóm.
+ * Bảng mã Zalo mà engine chuyển tiếp nguyên trong `{"error":"zalo_tu_choi","code":N}`.
  *
- * Nhận diện bằng mã lỗi trong thân trả về chứ không bằng mã HTTP: 503 của engine
- * gộp nhiều nguyên nhân, và thử lại mù trên một lỗi *sau khi đã gửi* thì có nguy
- * cơ nhắn hai lần. `account_not_connected` là lỗi TRƯỚC khi gửi nên thử tiếp an toàn.
+ * Engine không tài liệu hoá bảng này, nên nó được bồi dần từ lỗi gặp thật. Ghi ra
+ * đây để agent nhận câu đọc được thay vì `503 Engine Zalo từ chối (502)` — một
+ * thông báo không nói được gì thì người nhận chỉ có thể thử lại, mà thử lại là
+ * đúng thứ không giúp gì cho mọi mã dưới đây.
  */
-export function nickRotKetNoi(thanLoi: string): boolean {
-  return thanLoi.includes('account_not_connected');
+export const MA_ZALO: Record<number, { nghia: string; thuNickKhac: boolean }> = {
+  // Gặp 13–14/09: nick vẫn `connected` nhưng ĐÃ RỜI nhóm, nên với nó nhóm không
+  // tồn tại. Nick khác trong cùng nhóm vẫn gửi được → thử tiếp.
+  161: { nghia: 'Nick này không còn ở trong nhóm', thuNickKhac: true },
+};
+
+/** Mã Zalo trong thân lỗi engine, `null` nếu không phải lỗi dạng đó. */
+export function maZalo(thanLoi: string): number | null {
+  const m = thanLoi.match(/"code"\s*:\s*(\d+)/);
+
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Có nên thử NICK KHÁC trong cùng nhóm không.
+ *
+ * Chỉ `true` cho lỗi xảy ra TRƯỚC khi tin được gửi — nếu không thì thử tiếp có
+ * nguy cơ nhắn hai lần. Hai nhóm lỗi hiện biết:
+ *
+ * - `account_not_connected`: nick rớt phiên (bị đá, chờ quét lại QR).
+ * - Zalo mã 161: nick đã rời nhóm; Zalo từ chối trước khi nhận nội dung.
+ *
+ * Mã lạ thì KHÔNG thử tiếp: chưa biết nó xảy ra trước hay sau khi gửi, và đoán
+ * sai theo hướng "cứ thử" là gửi trùng cho người thật.
+ */
+export function thuNickKhac(thanLoi: string): boolean {
+  if (thanLoi.includes('account_not_connected')) return true;
+  const ma = maZalo(thanLoi);
+
+  return ma !== null && MA_ZALO[ma]?.thuNickKhac === true;
+}
+
+/** Câu giải thích cho agent, kèm nghĩa của mã nếu đã biết. */
+export function dienGiaiLoiEngine(thanLoi: string, httpStatus: number): string {
+  const ma = maZalo(thanLoi);
+  const biet = ma !== null ? MA_ZALO[ma] : undefined;
+  if (biet) return `Zalo từ chối (mã ${ma}): ${biet.nghia}.`;
+  if (ma !== null) return `Zalo từ chối (mã ${ma}) — mã chưa có trong bảng, xem log để bổ sung.`;
+
+  return `Engine Zalo từ chối (${httpStatus}).`;
 }

@@ -1,6 +1,6 @@
 import { ZaloGroupKind } from 'shared';
 
-import { chonHoiThoai, kiemNguoiNhanDm, kiemNoiDung, LY_DO_CHAN, nickRotKetNoi } from './agent-zalo-send.logic';
+import { chonHoiThoai, dienGiaiLoiEngine, kiemNguoiNhanDm, kiemNoiDung, LY_DO_CHAN, maZalo, thuNickKhac } from './agent-zalo-send.logic';
 
 /**
  * Đây là chốt chặn duy nhất giữa một agent và khách hàng của công ty. Mọi
@@ -65,14 +65,39 @@ describe('kiemNoiDung', () => {
   });
 });
 
-describe('nickRotKetNoi — khi nào được thử nick tiếp theo', () => {
-  it('nhận ra lỗi TRƯỚC lúc gửi', () => {
-    expect(nickRotKetNoi('{"error":"account_not_connected","message":"Tài khoản Zalo chưa kết nối"}')).toBe(true);
+describe('thuNickKhac — khi nào được thử nick khác trong nhóm', () => {
+  const ma161 = '{"error":"zalo_tu_choi","code":161,"details":"Zalo từ chối (mã 161): Nhóm này không tồn tại."}';
+
+  it('nick rớt phiên → thử tiếp', () => {
+    expect(thuNickKhac('{"error":"account_not_connected"}')).toBe(true);
   });
 
-  it('KHÔNG thử lại với lỗi khác — tin có thể đã đi rồi mới hỏng, thử tiếp là nhắn hai lần', () => {
-    expect(nickRotKetNoi('{"error":"internal_error"}')).toBe(false);
-    expect(nickRotKetNoi('')).toBe(false);
+  it('Zalo mã 161 (nick đã rời nhóm) → thử tiếp', () => {
+    // Ca thật 13–14/09: nhóm "OnosNB/ CSKH Nội Bộ" có 4 nick, nick ĐẦU danh sách
+    // đã rời nhóm từ 07/09 nên trả 161, còn 2 nick khác vẫn nhắn trong nhóm hằng
+    // ngày. Dừng ở nick đầu là nhóm câm suốt hai ngày.
+    expect(thuNickKhac(ma161)).toBe(true);
+  });
+
+  it('mã LẠ thì KHÔNG thử tiếp — chưa biết lỗi xảy ra trước hay sau khi gửi', () => {
+    expect(thuNickKhac('{"error":"zalo_tu_choi","code":999}')).toBe(false);
+    expect(thuNickKhac('{"error":"internal_error"}')).toBe(false);
+    expect(thuNickKhac('')).toBe(false);
+  });
+});
+
+describe('maZalo / dienGiaiLoiEngine', () => {
+  it('rút được mã và dịch mã đã biết', () => {
+    expect(maZalo('{"error":"zalo_tu_choi","code":161}')).toBe(161);
+    expect(dienGiaiLoiEngine('{"code":161}', 502)).toContain('không còn ở trong nhóm');
+  });
+
+  it('mã lạ thì nói rõ là lạ, KHÔNG giả vờ hiểu', () => {
+    expect(dienGiaiLoiEngine('{"code":777}', 502)).toContain('chưa có trong bảng');
+  });
+
+  it('không phải lỗi Zalo thì trả mã HTTP', () => {
+    expect(dienGiaiLoiEngine('{"error":"boom"}', 500)).toContain('500');
   });
 });
 

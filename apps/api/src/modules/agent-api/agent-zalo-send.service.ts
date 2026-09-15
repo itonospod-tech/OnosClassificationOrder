@@ -7,7 +7,7 @@ import { Connection } from 'mongoose';
 import { ApiConfigService } from '@/shared/services/api-config.service';
 
 import { AgentZaloReadService } from './agent-zalo-read.service';
-import { chonHoiThoai, kiemNguoiNhanDm, kiemNoiDung, type NhomDeGui, nickRotKetNoi } from './agent-zalo-send.logic';
+import { chonHoiThoai, dienGiaiLoiEngine, kiemNguoiNhanDm, kiemNoiDung, type NhomDeGui, thuNickKhac } from './agent-zalo-send.logic';
 
 /** Engine từ chối token quá cũ; 15 giây là dư cho một lời gọi nội bộ. */
 const HAN_GIAY = 15;
@@ -86,15 +86,19 @@ export class AgentZaloSendService {
       // đường dẫn/nội bộ ra ngoài.
       const raw = await res.text().catch(() => '');
       this.logger.error(`[agent-zalo-send] engine trả ${res.status} ở hội thoại ${hoiThoai}: ${raw.slice(0, 300)}`);
-      loiCuoi = `Engine Zalo từ chối (${res.status}).`;
+      loiCuoi = dienGiaiLoiEngine(raw, res.status);
 
       // Chỉ đi tiếp khi lỗi xảy ra TRƯỚC lúc gửi. Lỗi khác có thể là tin đã đi
       // rồi mới hỏng, thử nick tiếp theo sẽ thành nhắn hai lần.
-      if (!nickRotKetNoi(raw)) throw new ServiceUnavailableException(loiCuoi);
+      if (!thuNickKhac(raw)) throw new ServiceUnavailableException(loiCuoi);
     }
 
+    // Hết nick mà chưa gửi được: nói RÕ là đã thử mấy nick, vì lỗi của nick cuối
+    // một mình nó gây hiểu nhầm là chỉ có một đường và đường đó hỏng.
     throw new ServiceUnavailableException(
-      chon.ungVien.length > 1 ? 'Mọi nick của công ty trong nhóm này đều đang mất kết nối Zalo.' : loiCuoi || 'Engine Zalo từ chối.',
+      chon.ungVien.length > 1
+        ? `Đã thử ${chon.ungVien.length} nick của công ty trong nhóm, không nick nào gửi được. Lỗi cuối: ${loiCuoi || 'không rõ'}`
+        : loiCuoi || 'Engine Zalo từ chối.',
     );
   }
   /**
@@ -145,7 +149,7 @@ export class AgentZaloSendService {
     if (!res.ok) {
       const raw = await res.text().catch(() => '');
       this.logger.error(`[agent-zalo-send] DM ${conversationId} — engine trả ${res.status}: ${raw.slice(0, 300)}`);
-      throw new ServiceUnavailableException(`Engine Zalo từ chối (${res.status}).`);
+      throw new ServiceUnavailableException(dienGiaiLoiEngine(raw, res.status));
     }
 
     // Trả lại NGƯỜI NHẬN để agent đối chiếu mình vừa nhắn cho ai — uid không dùng
