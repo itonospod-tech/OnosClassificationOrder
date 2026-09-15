@@ -52,6 +52,7 @@ import { cn } from '@/utils/cn';
 import logoUrl from '@/assets/images/logo.png';
 
 import { PATHS } from '../../constants/paths';
+import { duocTruyCapZalo } from '../../constants/zaloAccess';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { RepositoryRemote } from '../../services';
 import { useAuthStore } from '../../store/authStore';
@@ -451,7 +452,7 @@ function buildProductionItems(t: TFunction<'layout'>, factoryId?: string, keyPre
     .filter((it) => !it.children || it.children.length > 0);
 }
 
-function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string): NavGroup[] {
+function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEmail?: string): NavGroup[] {
   return [
     {
       id: PRODUCTION_GROUP_ID,
@@ -593,34 +594,36 @@ function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string): NavGro
           icon: <Contact size={17} />,
           perm: 'page.customers',
         },
-        {
-          key: PATHS.ZALO_GROUPS,
-          label: t('sidebar.zaloGroups'),
-          to: PATHS.ZALO_GROUPS,
-          icon: <MessageSquare size={17} />,
-          perm: 'page.zalo_groups',
-        },
-        {
-          // Màn chat Zalo nhúng (module của nhà cung cấp). Cố ý KHÔNG gắn mã
-          // quyền của hệ mình: phân quyền nằm ở dialog "Phân quyền" của engine
-          // (rule theo role/scope + cấp lẻ từng người). Admin vào là `owner`
-          // thấy mọi hội thoại; nhân sự khác vào là `member` và KHÔNG thấy gì
-          // cho tới khi được rule/grant — nên để menu mở cho mọi nhân sự
-          // (08/09/2026, trước đó khoá cứng Admin nên rule bên engine vô dụng).
-          key: PATHS.ZALO_CHAT,
-          label: t('sidebar.zaloChat'),
-          to: PATHS.ZALO_CHAT,
-          icon: <MessagesSquare size={17} />,
-        },
-        {
-          // Cùng engine, cùng phiên với màn Zalo, nên cũng cùng cách phân quyền:
-          // rule/grant nằm ở dialog "Phân quyền" của engine, không gắn mã quyền
-          // của hệ mình. Có từ engine 20260909 (`TELEGRAM_ENABLED=1`).
-          key: PATHS.TELEGRAM,
-          label: t('sidebar.telegram'),
-          to: PATHS.TELEGRAM,
-          icon: <Send size={17} />,
-        },
+        // Ba mục Zalo/Telegram chỉ hiện cho tài khoản trong danh sách trắng
+        // (`constants/zaloAccess.ts`). Chốt THẬT nằm ở backend — đây là lớp hiển
+        // thị để người không có quyền khỏi bấm vào rồi nhận 403.
+        ...(duocTruyCapZalo(userEmail)
+          ? [
+              {
+                key: PATHS.ZALO_GROUPS,
+                label: t('sidebar.zaloGroups'),
+                to: PATHS.ZALO_GROUPS,
+                icon: <MessageSquare size={17} />,
+                perm: 'page.zalo_groups',
+              },
+              {
+                // Màn chat Zalo nhúng (module của nhà cung cấp). Phân quyền chi
+                // tiết vẫn ở dialog "Phân quyền" của engine; danh sách trắng này
+                // đứng trước, quyết ai được cấp phiên.
+                key: PATHS.ZALO_CHAT,
+                label: t('sidebar.zaloChat'),
+                to: PATHS.ZALO_CHAT,
+                icon: <MessagesSquare size={17} />,
+              },
+              {
+                // Cùng engine, cùng phiên với màn Zalo — nên cùng chốt.
+                key: PATHS.TELEGRAM,
+                label: t('sidebar.telegram'),
+                to: PATHS.TELEGRAM,
+                icon: <Send size={17} />,
+              },
+            ]
+          : []),
         {
           key: PATHS.SETTINGS,
           label: t('sidebar.settings'),
@@ -854,6 +857,8 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
 
   const roleName = profile?.role?.name as string | undefined;
   const isAdmin = roleName === 'Admin' || roleName === 'SuperAdmin';
+  // Quyền xem dữ liệu Zalo đi theo TÀI KHOẢN, không theo role — xem `constants/zaloAccess.ts`.
+  const userEmail = profile?.email as string | undefined;
   const permissionCodes = useMemo(
     () => new Set<string>(profile?.role?.permissionCodes || []),
     [profile?.role?.permissionCodes],
@@ -864,8 +869,8 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
   const [searchParams] = useSearchParams();
   const factoryScopeId = searchParams.get('factoryId') || undefined;
   const navGroups = useMemo(
-    () => filterMenuByPermissions(buildNavGroups(t, factoryScopeId), permissionCodes, isAdmin, roleName),
-    [t, factoryScopeId, permissionCodes, isAdmin, roleName],
+    () => filterMenuByPermissions(buildNavGroups(t, factoryScopeId, userEmail), permissionCodes, isAdmin, roleName),
+    [t, factoryScopeId, userEmail, permissionCodes, isAdmin, roleName],
   );
 
   const counts = useSidebarBadgeStore((s) => s.counts);

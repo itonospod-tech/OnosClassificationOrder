@@ -6,6 +6,50 @@
 > **Route:** `/adm/zalo` · `/adm/zalo/settings`
 > **API:** `POST|DELETE /v1/zalo-chat/session` · proxy `/api/zalo-multi/*` (NGOÀI tiền tố `api/v1`)
 
+## Quyền đọc dữ liệu Zalo đi theo TÀI KHOẢN, không theo role (15/09/2026)
+
+Trước đây mọi `SuperAdmin`/`Admin` vào màn chat là `owner` — thấy toàn bộ hội
+thoại. Hệ thống có **8 tài khoản SuperAdmin** và danh sách còn dài ra mỗi khi có
+người mới tham gia, nên quyền đọc nội dung chat tự nới theo mà không ai nhận ra.
+
+Từ nay quyền này gắn vào **danh sách trắng email**, hard-code trong mã nguồn:
+
+| Tài khoản | Vai trò |
+|---|---|
+| `tuankudo199@gmail.com` | Người duy nhất được đọc |
+| `automation@onosfactory.com` | Cron đồng bộ nhóm, tóm tắt, và đường gửi của AI agent |
+
+**Vì sao hard-code chứ không để env / `system_configs`:** để ở env hoặc DB thì ai
+có quyền vào máy chủ hoặc vào DB đều sửa được lặng lẽ. Để trong mã nguồn thì muốn
+đổi phải có commit + deploy, luôn còn dấu vết trong lịch sử git. Đây là quyết định
+về quyền riêng tư, không phải một tham số cấu hình.
+
+### Cài đặt
+
+| Lớp | Nơi |
+|---|---|
+| Luật (hàm thuần + spec) | `apps/api/src/utils/zalo-access.ts` |
+| Guard | `apps/api/src/guards/zalo-access.guard.ts` — **fail-closed** |
+| Decorator | `AuthZalo()` ở `apps/api/src/decorators/http.decorator.ts` |
+| Cấp phiên màn chat | `ZaloChatService.vaiTro(role, email)` — xét danh sách trắng TRƯỚC role |
+| Ẩn menu | `apps/web/src/constants/zaloAccess.ts` + `Sidebar.tsx` |
+
+`ZaloAccessGuard` phải chạy **sau** `AuthGuard` (nơi gắn `request.user`), nên mọi
+endpoint dùng `AuthZalo()` thay vì tự ghép `UseGuards` — đặt guard ở cấp controller
+sẽ chạy trước `AuthGuard` và chặn cả người được phép. Guard fail-closed: không đọc
+được người dùng thì từ chối, để nếu thứ tự guard bị đổi thì hỏng theo hướng *chặn
+tất cả* (thấy ngay) chứ không phải *mở tất cả* (không ai thấy).
+
+Danh sách ở FE chỉ để ẩn menu; **chốt thật ở BE**. Đổi danh sách phải sửa cả hai
+file, nếu không thì hoặc menu ẩn mà API vẫn mở, hoặc menu hiện rồi bấm vào báo 403.
+
+### Vẫn còn một đường: Agent API
+
+`X-Agent-Api-Key` không phải tài khoản người dùng nên không đi qua chốt này. Ai có
+khoá đó vẫn đọc được `zalo_group_summaries`, `zalo_identities` và các endpoint
+`/v1/agent/zalo/*`. Đó là chủ đích — AI agent cần chúng — nhưng có nghĩa **khoá
+agent phải được giữ như một bí mật**, không chia cho người chỉ cần quyền dev.
+
 ## 1. Overview
 
 Nhúng module Zalo của nhà cung cấp (`@zero-126/*`) vào OnosFactory để quản lý **nick Zalo của sale**:

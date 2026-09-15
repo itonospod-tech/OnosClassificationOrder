@@ -21,7 +21,8 @@ export class ZaloChatController {
 
   @Post('session')
   // Mở cho MỌI nhân sự đã đăng nhập (08/09/2026): vai trò trong engine do
-  // `vaiTro()` quyết (Admin → owner, còn lại → member), và member CHƯA thấy gì
+  // `vaiTro()` quyết: trước hết phải nằm trong danh sách trắng `ZALO_ALLOWED_EMAILS`,
+  // sau đó Admin → owner, còn lại → member (member CHƯA thấy gì
   // cho tới khi có rule/grant bên dialog "Phân quyền". Khoá cứng ở decorator
   // như trước thì rule theo role/scope của nhà cung cấp không bao giờ khớp ai.
   @Auth([])
@@ -36,7 +37,7 @@ export class ZaloChatController {
 
     // Nơi quyết định vai trò phải là MỘT chỗ (service), không phải danh sách
     // role rải ở decorator lẫn service.
-    const vai = this.zaloChatService.vaiTro(user.role?.name);
+    const vai = this.zaloChatService.vaiTro(user.role?.name, user.email);
     if (!vai) {
       void reply.header('set-cookie', this.zaloChatService.cookieXoa());
       reply.status(HttpStatus.FORBIDDEN);

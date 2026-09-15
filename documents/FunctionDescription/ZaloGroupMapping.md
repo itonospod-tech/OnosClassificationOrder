@@ -8,6 +8,13 @@
 
 
 
+## Quyền đọc: chỉ hai tài khoản trong danh sách trắng (15/09/2026)
+
+Mọi endpoint của module này dùng `AuthZalo()` thay cho `@Auth()`: ngoài role còn
+phải nằm trong danh sách trắng email (`apps/api/src/utils/zalo-access.ts`). Bản tóm
+tắt nhóm là nội dung rút ra từ chat, nên nó chịu cùng chốt với màn chat.
+Chi tiết và lý do: `ZaloChat.md`.
+
 ## Gộp về một engine — `onosceo` đã dừng hẳn (11/09/2026)
 
 Trước đây chạy SONG SONG hai engine Zalo, và hai script đồng bộ đọc engine ở `onosceo`. Các nick đã được quét lại trên engine prod ở `onosnew`, nên phiên bên cũ thành `qr_pending` — máy cũ ngừng thu tin mới nhưng **vẫn giữ toàn bộ lịch sử**.

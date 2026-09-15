@@ -5,6 +5,8 @@ import type { DirectoryUser, ZaloProxyUser } from '@zero-126/zalo-sdk/next';
 import { Model } from 'mongoose';
 import { RoleType, Status } from 'shared';
 
+import { duocTruyCapZalo } from '@/utils/zalo-access';
+
 import { ApiConfigService } from '../../shared/services/api-config.service';
 import { UserEntity } from '../user/user.entity';
 import { ZALO_COOKIE_PATHS, ZALO_SESSION_COOKIE, ZALO_SESSION_TTL_SEC } from './zalo-chat.constants';
@@ -55,7 +57,11 @@ export class ZaloChatService {
    * Muốn mở cho Manager/Support sau này thì thêm nhánh `member` ở đây, KHÔNG
    * phải nới ở proxy — proxy chỉ đọc lại thứ đã ký.
    */
-  vaiTro(role?: string): ZaloProxyUser['role'] | null {
+  vaiTro(role?: string, email?: string): ZaloProxyUser['role'] | null {
+    // Chốt danh sách trắng đứng TRƯỚC mọi xét role: quyền đọc chat không đi theo
+    // role, vì role SuperAdmin còn được cấp thêm mỗi khi có người mới tham gia.
+    // Xem `utils/zalo-access.ts`.
+    if (!duocTruyCapZalo(email)) return null;
     if (role === RoleType.SuperAdmin || role === RoleType.Admin) return 'owner';
     // Nhân sự khác vào với tier `member`: engine CHƯA cho thấy gì cho tới khi có
     // rule theo role/scope hoặc grant lẻ (dialog "Phân quyền" của nhà cung cấp).
@@ -184,7 +190,7 @@ export class ZaloChatService {
     const tenXuong = new Map(factories.map((f) => [String(f._id), String(f.shortName || f.name || '')]));
 
     return rows.flatMap((u) => {
-      const vai = this.vaiTro(u.role?.name);
+      const vai = this.vaiTro(u.role?.name, u.email);
       if (!vai) return [];
 
       return [

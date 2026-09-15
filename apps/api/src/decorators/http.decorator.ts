@@ -1,10 +1,11 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { applyDecorators, createParamDecorator, SetMetadata, UseGuards, UseInterceptors } from '@nestjs/common';
-import { ApiBearerAuth, ApiUnauthorizedResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiForbiddenResponse, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { AuthGuard, PublicRoute } from 'core';
 import type { PermissionType, RoleType } from 'shared';
 
 import { PermissionsGuard, RateLimiterGuard, RolesGuard } from '@/guards';
+import { ZaloAccessGuard } from '@/guards/zalo-access.guard';
 import { AuthUserInterceptor } from '@/interceptors';
 
 export function Auth(
@@ -54,3 +55,15 @@ export const AccessToken = createParamDecorator((data: unknown, ctx: ExecutionCo
 
   return request.headers.authorization.replace('Bearer ', '');
 });
+
+/**
+ * `@Auth()` cộng chốt danh sách trắng cho dữ liệu Zalo.
+ *
+ * Thứ tự quan trọng: `Auth()` gắn `AuthGuard` (nơi tạo `request.user`), rồi mới
+ * tới `ZaloAccessGuard` đọc email. Đặt `ZaloAccessGuard` ở cấp controller sẽ
+ * chạy TRƯỚC `AuthGuard` và chặn cả người được phép — vì thế mọi endpoint Zalo
+ * dùng decorator này chứ không tự ghép `UseGuards` tay.
+ */
+export function AuthZalo(roles: RoleType[] = [], permission: PermissionType[] = []): MethodDecorator {
+  return applyDecorators(Auth(roles, permission), UseGuards(ZaloAccessGuard), ApiForbiddenResponse({ description: 'Không được cấp quyền đọc dữ liệu Zalo' }));
+}
