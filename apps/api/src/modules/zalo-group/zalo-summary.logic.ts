@@ -156,15 +156,20 @@ export function nhanChang(stage?: string): string {
  *
  * `bayGio` mặc định là lúc gọi — giữ nguyên hành vi cũ; test truyền mốc cố định.
  */
-export function moTaDon(d: Record<string, unknown>, bayGio: Date = new Date()): string {
-  const ngayTu = (moc: unknown) => Math.floor((bayGio.getTime() - new Date(moc as Date).getTime()) / 86_400_000);
-
+export function moTaDon(d: Record<string, unknown>, _bayGio: Date = new Date()): string {
+  // MỐC TUYỆT ĐỐI, KHÔNG PHẢI TUỔI TƯƠNG ĐỐI. Bản tóm tắt được lưu lại và đọc
+  // nhiều ngày sau, nên "đã 3 ngày" viết hôm nay sẽ vẫn đọc là "3 ngày" vào
+  // tuần sau — người đọc không có cách nào biết câu đó viết lúc nào. Chuyện này
+  // đã xảy ra thật: nhóm tóm tắt ngày 29/08 ghi "treo 3 ngày", đọc ngày 16/09
+  // ai cũng tưởng mới treo, thực tế 21 ngày (báo cáo đội agent 16/09/2026).
+  // Ghi ngày cụ thể thì câu chữ đúng mãi mãi, ai đọc cũng tự trừ ra tuổi thật.
+  // `_bayGio` giữ lại cho tương thích chữ ký — không còn dùng để tính tuổi.
   if (d.cancelledAt) return 'ĐÃ HỦY';
   if (d.heldAt) {
-    return `ĐANG BỊ GIỮ ${ngayTu(d.heldAt)} ngày${d.holdReason ? ` (lý do: ${String(d.holdReason)})` : ''}`;
+    return `ĐANG BỊ GIỮ từ ${dinhDangLuc(new Date(d.heldAt as Date))}${d.holdReason ? ` (lý do: ${String(d.holdReason)})` : ''}`;
   }
   if (d.fulfillmentCompletedAt) {
-    return `đã xong sản xuất ${ngayTu(d.fulfillmentCompletedAt)} ngày trước`;
+    return `đã xong sản xuất lúc ${dinhDangLuc(new Date(d.fulfillmentCompletedAt as Date))}`;
   }
 
   const phan: string[] = [nhanChang(d.currentFulfillmentStage as string | undefined)];
@@ -172,7 +177,7 @@ export function moTaDon(d: Record<string, unknown>, bayGio: Date = new Date()): 
     phan.push(`ĐANG CÓ LỖI: ${String(d.productionError)}${d.productionErrorNote ? ` — ${String(d.productionErrorNote)}` : ''}`);
   }
   if (d.inProductionAt) {
-    phan.push(`vào sản xuất ${ngayTu(d.inProductionAt)} ngày trước`);
+    phan.push(`vào sản xuất lúc ${dinhDangLuc(new Date(d.inProductionAt as Date))}`);
   }
 
   return phan.join(', ');
@@ -391,6 +396,56 @@ export function apDungSanMucDo(mucDoMoHinh: string, bangChung: BangChungDon): { 
  * Quyết định một nhóm có vào hàng đợi không, và đọc kiểu gì — tách khỏi
  * `getQueue` để kiểm thử được. `null` = không xếp.
  */
+export type LyDoBoQuaTomTat = 'chua-co-tin' | 'nhom-im-lau' | 'khong-co-tin-moi';
+
+export interface PhanLoaiHangDoi {
+  /** `null` = không xếp lượt này. */
+  xepHang: { tuMoc: Date | null; docLaiTuDau: boolean; denMocTin: Date | null } | null;
+  /** Chỉ có khi `xepHang === null` — vì sao nhóm này không được tóm tắt lại. */
+  lyDoBoQua: LyDoBoQuaTomTat | null;
+}
+
+/**
+ * Cùng bộ luật với `quyetDinhHangDoi`, nhưng NÓI RA lý do bỏ qua thay vì trả
+ * `null` câm.
+ *
+ * Vì sao cần: bên ngoài nhìn vào bảng tóm tắt chỉ thấy "bản này cũ 18 ngày" mà
+ * không biết cũ vì cố ý (nhóm im, không có tin mới) hay vì summarizer bỏ sót.
+ * Đội agent đã phải đoán và đoán sai theo hướng "hệ chạy không đều" (báo cáo
+ * 16/09/2026). Lý do được ghi thẳng vào bản ghi để công cụ bên kia tự lọc.
+ */
+export function phanLoaiHangDoi(x: {
+  lastMessageAt?: Date | null;
+  denMocTin?: Date | null;
+  docDayDuLuc?: Date | null;
+  now: number;
+  ngayDocLai: number;
+  ngayBoQua: number;
+}): PhanLoaiHangDoi {
+  // Nhóm chưa có tin, hoặc im quá lâu → bỏ qua, khỏi tốn tiền gọi mô hình.
+  if (!x.lastMessageAt) return { xepHang: null, lyDoBoQua: 'chua-co-tin' };
+  if (x.lastMessageAt.getTime() < x.now - x.ngayBoQua * 86_400_000) {
+    return { xepHang: null, lyDoBoQua: 'nhom-im-lau' };
+  }
+  // Đã tóm tắt tới đúng tin cuối rồi thì không có gì mới để đọc.
+  if (x.denMocTin && x.denMocTin.getTime() >= x.lastMessageAt.getTime()) {
+    return { xepHang: null, lyDoBoQua: 'khong-co-tin-moi' };
+  }
+
+  const docLai = !x.docDayDuLuc || x.now - x.docDayDuLuc.getTime() > x.ngayDocLai * 86_400_000;
+
+  return {
+    xepHang: {
+      // Đọc lại từ đầu thì bỏ mốc, lấy toàn bộ.
+      tuMoc: docLai ? null : (x.denMocTin ?? null),
+      docLaiTuDau: docLai,
+      denMocTin: x.denMocTin ?? null,
+    },
+    lyDoBoQua: null,
+  };
+}
+
+/** Bản rút gọn của `phanLoaiHangDoi` — giữ cho chỗ gọi chỉ cần biết có xếp hay không. */
 export function quyetDinhHangDoi(x: {
   lastMessageAt?: Date | null;
   denMocTin?: Date | null;
@@ -399,17 +454,5 @@ export function quyetDinhHangDoi(x: {
   ngayDocLai: number;
   ngayBoQua: number;
 }): { tuMoc: Date | null; docLaiTuDau: boolean; denMocTin: Date | null } | null {
-  // Nhóm chưa có tin, hoặc im quá lâu → bỏ qua, khỏi tốn tiền gọi mô hình.
-  if (!x.lastMessageAt || x.lastMessageAt.getTime() < x.now - x.ngayBoQua * 86_400_000) return null;
-  // Đã tóm tắt tới đúng tin cuối rồi thì không có gì mới để đọc.
-  if (x.denMocTin && x.denMocTin.getTime() >= x.lastMessageAt.getTime()) return null;
-
-  const docLai = !x.docDayDuLuc || x.now - x.docDayDuLuc.getTime() > x.ngayDocLai * 86_400_000;
-
-  return {
-    // Đọc lại từ đầu thì bỏ mốc, lấy toàn bộ.
-    tuMoc: docLai ? null : (x.denMocTin ?? null),
-    docLaiTuDau: docLai,
-    denMocTin: x.denMocTin ?? null,
-  };
+  return phanLoaiHangDoi(x).xepHang;
 }

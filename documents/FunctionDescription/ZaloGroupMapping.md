@@ -605,11 +605,61 @@ cron dùng**, không phải trả nữa.
 |---|---|
 | Cron | `zalo-summary-sweep`, `0 */4 * * *` giờ VN (6 lượt/ngày) |
 | Trần mỗi lượt | `ZALO_SUMMARY_SWEEP_LIMIT`, mặc định **30 nhóm** — mỗi nhóm là MỘT lần gọi mô hình |
-| Chọn nhóm | `getQueue()` sẵn có: chốt riêng tư (chỉ `seller`/`operation`), bỏ nhóm im > `ZALO_SUMMARY_IDLE_DAYS` (14), bỏ nhóm đã tóm tắt tới đúng tin cuối |
+| Chọn nhóm | `getQueue()` → `phanLoaiHangDoi()`: chốt riêng tư (chỉ `seller`/`operation`), bỏ nhóm im > `ZALO_SUMMARY_IDLE_DAYS` (14), bỏ nhóm đã tóm tắt tới đúng tin cuối — lý do bỏ qua ghi vào `lyDoBoQua`, xem mục dưới |
 | Đọc lại từ đầu | mỗi `ZALO_SUMMARY_REREAD_DAYS` (7) — cắt bệnh trôi dần của tóm tắt cuốn chiếu |
 
 Lượt quét chỉ **kéo tin + xếp hàng**; worker BullMQ sẵn có làm phần gọi mô hình,
 nên một nhóm hỏng không làm dừng cả lượt.
+
+### Vì sao một bản tóm tắt "cũ" thường KHÔNG phải lỗi (16/09/2026)
+
+Đội agent đo lúc 18h 16/09: 153 nhóm có tóm tắt, **57 nhóm cũ hơn 48 giờ**, và
+kết luận summarizer chạy không đều. Đọc lại luật xếp hàng thì phần lớn là **cố
+ý**: `phanLoaiHangDoi()` bỏ nhóm theo ba lý do, và cả ba đều đúng thiết kế.
+
+| Lý do | Nghĩa | Bản tóm tắt cũ có sai không |
+|---|---|---|
+| `chua-co-tin` | nhóm chưa có tin nào | không có gì để tóm tắt |
+| `nhom-im-lau` | tin cuối cũ hơn `ZALO_SUMMARY_IDLE_DAYS` (14) | không, nhưng **đóng băng vĩnh viễn** — xem cảnh báo dưới |
+| `khong-co-tin-moi` | `denMocTin >= lastMessageAt` | KHÔNG — bản cũ vẫn phủ tới đúng tin cuối |
+| `qua-tran-luot` | tới hạn nhưng vượt `ZALO_SUMMARY_SWEEP_LIMIT` lượt này | không, ca sau làm tiếp |
+| `khong-co-link-phan-tich` | bản mồ côi — không khớp nhóm nào (xem dưới) | không tra được |
+
+Từ 16/09 mỗi lượt quét **đóng dấu lên bản ghi** để bên đọc khỏi phải đoán:
+
+- **`lanChayCuoi`** — lần summarizer XÉT nhóm này gần nhất, ghi kể cả khi không
+  sinh bản mới. `lanChayCuoi` mới mà `tomTatLuc` cũ = hệ có chạy, cố ý bỏ qua;
+  `lanChayCuoi` cũng cũ = cron mới là chỗ hỏng.
+- **`lyDoBoQua`** — một trong bốn giá trị ở bảng trên, `$unset` khi nhóm được
+  xếp hàng lại.
+
+Đóng dấu chạy **trước** khi gọi mô hình (lượt quét có chạy là sự thật kể cả khi
+phần tóm tắt phía sau hỏng) và **không upsert** — nhóm chưa từng tóm tắt thì
+không đẻ bản ghi rỗng, vì bên đọc đếm số dòng bảng này ra "số nhóm có tóm tắt".
+
+**Bản tóm tắt mồ côi** (`lyDoBoQua = 'khong-co-link-phan-tich'`): có dòng trong
+`zalo_group_summaries` nhưng `groupGlobalId` không còn nhóm phân tích được nào
+mang. Đo 16/09 trên prod: **22/153 bản**. Nguồn gốc gần như chắc chắn là đợt gộp
+hai engine Zalo (11/09) — mỗi engine tự cấp id, đợt gộp khớp hội thoại theo khoá
+tự nhiên chứ không theo id, nên bản tóm tắt sinh ở thời engine cũ trỏ vào một id
+không còn tồn tại. Lượt quét **chỉ đánh dấu, KHÔNG xoá**: bản mồ côi vẫn là tóm
+tắt thật của một nhóm thật và thường còn ghi việc đang treo; xoá là mất luôn
+phần đó. Muốn dọn thì đối chiếu theo `title` trước rồi quyết từng bản.
+
+⚠️ **Hai chỗ còn đóng băng thật, chưa vá:**
+
+1. **`mucDo` sống mãi theo bản tóm tắt cuối.** Nhóm gắn `gap` rồi im hơn 14 ngày
+   sẽ rơi khỏi hàng đợi và giữ cờ đỏ vĩnh viễn — 16/09 có 6 nhóm như vậy, ảnh
+   chụp từ 2–18 ngày trước. Bên đọc phải tự hạ cờ theo `tomTatLuc`, hoặc phải
+   thêm luật hết hạn cờ ở đây.
+2. **Nhóm im > 14 ngày không bao giờ được tóm tắt lại**, nên bản cuối cùng của
+   nó đứng yên mãi. Đúng về chi phí, sai về cảm giác người đọc.
+
+**Tuổi tương đối đã bị cấm trong thân tóm tắt** (`moTaDon`): trước đây khối ngữ
+cảnh đơn ghi "ĐANG BỊ GIỮ 3 ngày", câu đó đóng băng cùng bản tóm tắt nên đọc 18
+ngày sau vẫn là "3 ngày" — đúng cái đã lọt vào báo cáo cho Chủ tịch. Nay ghi mốc
+tuyệt đối (`ĐANG BỊ GIỮ từ 31/08 09:00`), người đọc tự trừ ra tuổi thật. Có test
+chốt: cùng một đơn, đọc sau 30 ngày phải ra đúng một chuỗi.
 
 ⚠️ **Engine chặn `limit` ≤ 200 mỗi lời gọi đọc tin**, và xin quá thì nó trả `400
 invalid_query` chứ KHÔNG cắt bớt. Lượt quét đầu tiên (12:00 ngày 13/09) xin 400
