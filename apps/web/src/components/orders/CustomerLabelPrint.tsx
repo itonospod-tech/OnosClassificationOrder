@@ -16,6 +16,12 @@ const LABEL_ID = 'customer-label-print';
 const PAGE_CLASS = 'customer-label-page';
 
 /**
+ * ⚠️ **HIỆN KHÔNG CÓ NƠI GỌI** — chốt 16/09/2026: tem nhỏ chuyển sang mẫu tem
+ * hệ cũ (barcode `N-<productionId>`, khổ 60×40mm) ở `BarcodeLabelPrint`. File
+ * này giữ nguyên để bật lại bằng đúng một dòng nếu quay lại tem QR; trang tra
+ * cứu công khai `/track/:productionId` vẫn chạy bình thường, chỉ là mã không
+ * còn được in dưới dạng QR lên tem.
+ *
  * Nhãn dán cho khách, khổ **40×60mm** (4×6cm, dọc) — khổ tem decal rời phổ
  * biến ở xưởng, KHÔNG phải 4×6 inch. In được **1 hoặc nhiều** đơn trong cùng
  * một lệnh in (mỗi đơn 1 con tem = 1 trang).

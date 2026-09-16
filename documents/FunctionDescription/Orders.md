@@ -1644,9 +1644,23 @@ ok = !cancelledAt
 ### 16.5 Permissions
 Dùng **role gate `isAdmin`** (SuperAdmin/Admin) cả FE lẫn BE — KHÔNG thêm permission-catalog. Cancel là **soft** (`cancelledAt`), khác `deleteOrder` (`deletedAt`).
 
-### 16.6 "In nhãn khách" — tem 4×6cm dán kiện hàng
+### 16.6 "In tem nhỏ" — tem 60×40mm dán sản phẩm
 
-> **File FE:** `apps/web/src/components/orders/CustomerLabelPrint.tsx` (mục menu từng dòng ở `OrderRowActionsMenu.tsx`, nút in hàng loạt ở `BulkEditToolbar.tsx`), i18n `orders.json` → `rowActionsMenu.printCustomerLabel` + `customerLabel.scanHint`/`trackingCaption` + `bulkEdit.printLabel*`/`noLabel`/`labelPartial`/`labelTooMany`
+> **File FE:** `apps/web/src/components/orders/BarcodeLabelPrint.tsx` với `size="60x40"` (mục menu từng dòng ở `OrderRowActionsMenu.tsx`, nút in hàng loạt ở `BulkEditToolbar.tsx`), i18n `orders.json` → `rowActionsMenu.printSmallLabel`/`noLabel` + `bulkEdit.printLabel*`/`noLabel`/`labelPartial`/`labelTooMany`
+
+**Đổi 16/09/2026 (chốt từ CEO):** tem nhỏ dùng **đúng bố cục tem hệ cũ** (heading `userSku / orderId(i/n)` · ngày vào sản xuất · Code128 `N-<productionId>` · SKU + biến thể — xem §16.7 cho bố cục đầy đủ), khổ **60×40mm ngang**, thay cho tem QR 40×60mm trước đây. Hai nút in giờ dùng CHUNG một component và CHUNG một endpoint `POST /orders/barcode-labels`, chỉ khác prop `size`:
+
+| Nút | Khổ | Dán ở đâu |
+|---|---|---|
+| "In tem nhỏ" | 60×40mm | sản phẩm |
+| "In tem túi PE" (§16.7) | 75×50mm | túi PE |
+
+**Bề rộng module Code128 theo khổ** — mã `N-XX-#####-#####` cố định 16 ký tự → ~211 module, cộng quiet zone tối thiểu 10 module mỗi bên: điều kiện là `231 × module ≤ lòng tem`. Khổ 75×50 (lòng 69mm) dùng `width={1}` = 0,265mm; khổ 60×40 (lòng 56mm) KHÔNG lọt ở 1px (cần 61mm) nên hạ còn `0.9` = 0,238mm → mã 50,3mm + quiet zone ~2,9mm mỗi bên; máy in decal 203dpi làm tròn lên 2 dot = 0,25mm nên vẫn đọc chắc. **Không hạ dưới ~0,19mm** — đó là ngưỡng máy quét bắt đầu trượt mã.
+
+**Tem QR cũ:** `CustomerLabelPrint.tsx` được GIỮ trong repo nhưng hiện **không có nơi gọi** — bật lại bằng một dòng nếu quay lại tem QR. Trang tra cứu công khai `/track/:productionId` không bị ảnh hưởng (xem [`PublicOrderTracking.md`](PublicOrderTracking.md)), chỉ là mã không còn được in dưới dạng QR lên tem.
+
+<details>
+<summary>Bố cục tem QR 40×60mm cũ (không còn in — giữ để tham chiếu)</summary>
 
 Mục **"In nhãn khách"** (`Printer`) nằm ĐẦU menu "...", nên có mặt ở mọi bảng liệt kê ở §16.4 — trong đó có bảng công đoạn **In** của Task Fulfillment (`PrintOrderTable` qua `PrintWorkshopView`), nơi xưởng thực sự cần tem. Bấm là in thẳng, không có bước xem trước: hộp thoại in của trình duyệt đã là bước xác nhận.
 
@@ -1719,9 +1733,11 @@ Mỗi tem là 1 trang: `.customer-label-page { break-after: page }` cho MỌI te
 
 `@page { size: 40mm 60mm; margin: 0 }` chỉ tồn tại trong lúc nhãn được mount (state `printingLabel`) nên không đụng các lệnh in khác của ứng dụng. Sau khi in xong, `afterprint` (kèm hẹn giờ dự phòng cho trình duyệt không bắn sự kiện đó) gỡ nhãn xuống. QR render bằng `QRCodeSVG` (`qrcode.react`) — **SVG chứ không phải canvas**, vì canvas hay ra tem trắng ở một số đường in; và `window.print()` được gọi sau 2 khung hình để SVG kịp lên màn.
 
-### 16.7 "In tem barcode" — tem xưởng 75×50mm quét trạm
+</details>
 
-Nút **"In tem barcode"** (`Printer`) trên `BulkEditToolbar` (cạnh "In nhãn khách") — tick chọn N đơn rồi bấm, **mỗi productionId 1 trang** tem ngang **75×50mm** cho máy quét 1D ở các trạm. Layout dựng theo đúng tem OnosPod cũ mà xưởng đã quen mắt:
+### 16.7 "In tem túi PE" — tem 75×50mm quét trạm
+
+Nút **"In tem túi PE"** (`Printer`) trên `BulkEditToolbar` (cạnh "In tem nhỏ") — tick chọn N đơn rồi bấm, **mỗi productionId 1 trang** tem ngang **75×50mm** cho máy quét 1D ở các trạm. Layout dựng theo đúng tem OnosPod cũ mà xưởng đã quen mắt (tem nhỏ §16.6 dùng CÙNG bố cục này, chỉ khác khổ):
 
 ```
 PRINTERVAL / GM-02336-03868(1/1)   ← userSku khách / orderId(item thứ i / tổng n item)
@@ -1735,8 +1751,8 @@ AOP-CUS-SHAPE-TIE      10.6x62.2   ← SKU sản phẩm (trái) · biến thể 
 - **Dữ liệu tem BE trả sẵn** qua `POST /orders/barcode-labels` (`@Auth(ORDER_VIEW_ROLES)`, body `{ids: string[]}` max 500 — POST vì 500 id không nhét vừa query string): `OrderService.getBarcodeLabels()` trả `BarcodeLabel[]` theo ĐÚNG thứ tự ids. Hai giá trị phải resolve server-side:
   - **`sku`** — `OrderEntity` KHÔNG lưu SKU; lấy `variations[].sku` của Product Config (select đúng `variations.sku`, không lộ giá) rồi `resolveBarcodeSkuBase()` (`order/barcode-label.ts`, pure + có spec `barcode-label.spec.ts`): variation nào norm-endsWith size của đơn → cắt đuôi size (`AOP-CUS-SHAPE-TIE-10.6X62.2` + size `10.6x62.2` → `AOP-CUS-SHAPE-TIE`); không khớp → tiền tố chung dài nhất của các variation; bét nhất trả nguyên variation đầu. CỐ Ý không populate variations vào `getOrders` — phình payload mọi danh sách đơn chỉ để phục vụ lúc in.
   - **`itemIndex/itemTotal`** — vị trí item trong TOÀN BỘ item còn sống (không `cancelledAt`) của cùng **(orderId, userEmail)** trên hệ thống (ghép `userEmail` vì `orderId` chỉ unique theo nguồn đơn), KHÔNG phải trong lô đang in: chọn 1/2 item để in thì tem vẫn ghi (1/2) — số này để xưởng gom đủ kiện. Thứ tự item cố định sort theo `productionId` → in lại tem không đổi số. Đơn không có `orderId` → (1/1) và heading rơi về productionId.
-- **Đơn hủy bị BE loại lặng lẽ** (`cancelledAt: {$exists: false}`) → FE so `rows.length` với `selectedIds.length`, lệch thì `toast.warning` (`bulkEdit.labelPartial`) — cùng quy tắc và cùng trần `MAX_LABELS_PER_PRINT = 500` với "In nhãn khách" (§16.6).
-- **Cơ chế in** (`components/orders/BarcodeLabelPrint.tsx`): giống hệt tem khách §16.6 — portal ra `document.body`, `display: none` anh chị em, `@page {size: 75mm 50mm}` chỉ sống lúc mount, ngắt trang mọi tem trừ `:last-child`, in sau 2 khung hình. Barcode `width={1}`: mã cố định 16 ký tự → ~211 module ≈ 56mm luôn lọt lòng tem 69mm; KHÔNG kéo giãn SVG bằng CSS (JsBarcode xuất svg không viewBox — scale CSS chỉ cắt hình chứ không phóng vạch).
+- **Đơn hủy bị BE loại lặng lẽ** (`cancelledAt: {$exists: false}`) → FE so `rows.length` với `selectedIds.length`, lệch thì `toast.warning` (`bulkEdit.labelPartial`) — cùng quy tắc và cùng trần `MAX_LABELS_PER_PRINT = 500` với "In tem nhỏ" (§16.6).
+- **Cơ chế in** (`components/orders/BarcodeLabelPrint.tsx`, dùng chung cho cả hai khổ §16.6/§16.7): portal ra `document.body`, `display: none` anh chị em, `@page {size: 75mm 50mm}` chỉ sống lúc mount, ngắt trang mọi tem trừ `:last-child`, in sau 2 khung hình. Barcode `width={1}`: mã cố định 16 ký tự → ~211 module ≈ 56mm luôn lọt lòng tem 69mm; KHÔNG kéo giãn SVG bằng CSS (JsBarcode xuất svg không viewBox — scale CSS chỉ cắt hình chứ không phóng vạch).
 
 FE: `services/order.ts` `getBarcodeLabels` · i18n `bulkEdit.printBarcodeBtn/printBarcodeTitle`. Shared: `GetBarcodeLabelsDto`/`BarcodeLabelZod`/`GetBarcodeLabelsResDto` (`production-order.dto.ts`).
 
