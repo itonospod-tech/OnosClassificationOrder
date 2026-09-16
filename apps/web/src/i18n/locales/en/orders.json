@@ -349,7 +349,10 @@
   },
   "heldBadge": {
     "label": "On hold",
-    "title": "Order is on hold — release it to continue"
+    "title": "Order is on hold — release it to continue",
+    "onospodReason": "Held by OnosPod",
+    "onospodFlag": "OnosPod on hold",
+    "onospodFlagTitle": "OnosPod has this order on hold, but it was not held here (already finished, cancelled, or someone released it)"
   },
   "cells": {
     "changedTo": "Changed → {{name}}",

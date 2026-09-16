@@ -1,4 +1,5 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { Cron } from '@nestjs/schedule';
 import { TelegramService } from 'core';
 import { Logger } from 'winston';
@@ -8,6 +9,7 @@ import { ApiConfigService } from '@/shared/services';
 import { TelegramNotificationService } from '../telegram-notification/telegram-notification.service';
 import { DailyOrdersAggregator } from './aggregators/daily-orders-aggregator';
 import type { ReportKind } from './types';
+import { laTienTrinhChayCron } from '@/utils/cron-guard';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 
@@ -38,6 +40,7 @@ export class ScheduledReportsService implements OnModuleInit {
     private readonly telegram: TelegramNotificationService,
     private readonly telegramService: TelegramService,
     private readonly config: ApiConfigService,
+    private readonly adapterHost: HttpAdapterHost,
     @Inject('winston') private readonly logger: Logger,
   ) {}
 
@@ -55,11 +58,15 @@ export class ScheduledReportsService implements OnModuleInit {
 
   @Cron('30 11 * * *', { name: 'scheduled-reports-noon', timeZone: TZ })
   async noonReport(): Promise<void> {
+    // Chỉ chạy ở tiến trình HTTP — xem `utils/cron-guard.ts`.
+    if (!laTienTrinhChayCron(this.adapterHost)) return;
     await this.runScheduled();
   }
 
   @Cron('0 17 * * *', { name: 'scheduled-reports-evening', timeZone: TZ })
   async eveningReport(): Promise<void> {
+    // Chỉ chạy ở tiến trình HTTP — xem `utils/cron-guard.ts`.
+    if (!laTienTrinhChayCron(this.adapterHost)) return;
     await this.runScheduled();
   }
 

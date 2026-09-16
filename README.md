@@ -1,6 +1,15 @@
-# Workspace Starter
+# OnosFactory
 
-Bộ khung dự án sạch gồm **NestJS + Fastify** (backend) và **React + Vite + Ant Design** (frontend), tổ chức theo dạng monorepo với pnpm + Turborepo. Đã được dọn dẹp gọn lại còn luồng **Auth + Dashboard** để làm điểm khởi đầu.
+Hệ thống quản lý xưởng in theo đơn (print-on-demand): khách/seller đặt đơn, đơn
+chạy qua dây chuyền 8 chặng từ soát tool tới đóng gói, rồi gửi đi Mỹ.
+
+Monorepo pnpm + Turborepo, gồm 4 app: **API** (NestJS + Fastify), **web** nội bộ
+(React + Vite + Tailwind/Radix), **seller** cho khách (Next.js), và **design-worker**
+xử lý ảnh.
+
+> **System architecture:** [`documents/Architecture/README.md`](documents/Architecture/README.md)
+> — workspace layout, order lifecycle, data layer, cross-cutting constraints.
+> File này chỉ gồm local setup.
 
 ---
 

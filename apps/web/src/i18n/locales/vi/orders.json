@@ -349,7 +349,10 @@
   },
   "heldBadge": {
     "label": "Đang giữ",
-    "title": "Đơn đang được giữ — mở lại để tiếp tục"
+    "title": "Đơn đang được giữ — mở lại để tiếp tục",
+    "onospodReason": "Giữ theo OnosPod",
+    "onospodFlag": "OnosPod đang giữ",
+    "onospodFlagTitle": "Bên OnosPod đang giữ đơn này nhưng hệ thống không tự giữ (đơn đã xong, đã hủy, hoặc đã có người mở giữ)"
   },
   "cells": {
     "changedTo": "Đã đổi → {{name}}",

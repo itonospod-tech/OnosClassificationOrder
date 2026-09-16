@@ -73,7 +73,8 @@
     "zaloGroups": "Seller Support",
     "zaloChat": "Zalo chat",
     "ceoDashboard": "CEO Dashboard",
-    "telegram": "Telegram"
+    "telegram": "Telegram",
+    "guideDtf": "DTF guide"
   },
   "header": {
     "toggleSidebar": "Toggle sidebar",

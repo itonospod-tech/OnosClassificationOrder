@@ -23,6 +23,8 @@ const PublicCatalogDetail = lazy(() => import('./pages/catalog/detail'));
 
 // Tra cứu đơn công khai — cùng component cho `/track` (ô nhập mã) và `/track/:productionId`.
 const PublicTrack = lazy(() => import('./pages/track'));
+// Hướng dẫn lên đơn công khai — cùng nhóm route public, KHÔNG qua PrivateRoute.
+const PublicOrderGuide = lazy(() => import('./pages/guide/order'));
 
 const CustomerLogin = lazy(() => import('./pages/customer/login'));
 const CustomerRegister = lazy(() => import('./pages/customer/register'));
@@ -128,6 +130,15 @@ function App() {
           element={
             <Suspense fallback={<Loading />}>
               <PublicTrack />
+            </Suspense>
+          }
+        />
+
+        <Route
+          path={PATHS.ORDER_GUIDE}
+          element={
+            <Suspense fallback={<Loading />}>
+              <PublicOrderGuide />
             </Suspense>
           }
         />

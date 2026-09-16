@@ -26,3 +26,11 @@ export const AGENT_API_RATE_LIMIT_PER_MIN = 600;
 
 /** Cửa sổ tính hạn mức, mili giây. */
 export const AGENT_API_RATE_LIMIT_TTL_MS = 60_000;
+
+/**
+ * Trần gửi Zalo mỗi phút — CHẶT hơn hạn mức đọc rất nhiều.
+ *
+ * Đọc nhầm thì tốn một truy vấn; gửi nhầm thì có người thật đọc được, và một
+ * agent lặp vòng có thể spam cả nhóm trước khi ai kịp tắt.
+ */
+export const AGENT_ZALO_SEND_PER_MIN = 10;

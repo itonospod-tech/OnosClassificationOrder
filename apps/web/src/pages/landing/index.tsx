@@ -3,6 +3,7 @@ import React from 'react';
 import BackToTop from '@/components/public/BackToTop';
 import PublicFooter from '@/components/public/PublicFooter';
 import PublicHeader from '@/components/public/PublicHeader';
+import { useHashScroll } from '@/components/public/useHashScroll';
 
 import Benefits from './sections/Benefits';
 import Capabilities from './sections/Capabilities';
@@ -25,6 +26,9 @@ import Trust from './sections/Trust';
  * gạch chân vẽ tay, band tối) kế thừa từ trang thương hiệu onosglobal.com.
  */
 function Landing() {
+  // Link `/#how`… từ header/footer của trang public khác tải lại SPA → trình duyệt không tự cuộn được (Landing.md §2.1).
+  useHashScroll();
+
   return (
     <div className="flex min-h-screen flex-col bg-white text-[#0f110f] antialiased">
       <PublicHeader />

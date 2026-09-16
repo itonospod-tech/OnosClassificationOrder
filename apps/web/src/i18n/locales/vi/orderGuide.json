@@ -1,0 +1,279 @@
+{
+  "hero": {
+    "eyebrow": "Hướng dẫn lên đơn",
+    "titleLead": "Lên đơn trên cổng seller",
+    "titleAccent": "từng bước một",
+    "subtitle": "Ba việc hay làm nhất, mỗi bước kèm ảnh chụp màn hình thật và chú thích đánh số: tạo đơn trên form, đẩy đơn vào sản xuất rồi theo dõi, và import nhiều đơn từ file.",
+    "uiNote": "Ảnh chụp từ giao diện tiếng Việt của cổng seller. Mọi tên, địa chỉ, mã đơn và số tiền trong ảnh đều là dữ liệu mẫu.",
+    "flowLabel": "Luồng {{n}}",
+    "stepCount": "{{count}} bước"
+  },
+  "nav": {
+    "label": "Chuyển nhanh giữa các luồng",
+    "form": "Tạo đơn",
+    "push": "Đẩy SX & theo dõi",
+    "import": "Import file",
+    "faq": "Hỏi đáp"
+  },
+  "step": {
+    "label": "Bước {{n}}/{{total}}",
+    "note": "Lưu ý:"
+  },
+  "shot": {
+    "frameLabel": "Cổng seller",
+    "zoom": "Phóng to",
+    "zoomAria": "Phóng to ảnh: {{title}}",
+    "marker": "Chú thích {{n}}: {{label}}",
+    "close": "Đóng ảnh phóng to",
+    "swipeHint": "Vuốt ngang trên ảnh để xem hết",
+    "calloutsLabel": "Chú thích cho ảnh"
+  },
+  "actions": {
+    "order": "Đặt đơn ngay",
+    "signIn": "Đăng nhập"
+  },
+  "flows": {
+    "form": {
+      "cardTitle": "Tạo đơn trên form",
+      "cardDesc": "Chọn dòng sản phẩm, biến thể, thêm file thiết kế và địa chỉ giao hàng ngay trên cổng seller.",
+      "titleLead": "Tạo đơn",
+      "titleAccent": "trên form",
+      "subtitle": "Hợp khi đặt vài đơn lẻ. Đơn tạo xong nằm ở tab “Chờ đẩy SX” để bạn kiểm lại trước khi sản xuất.",
+      "steps": {
+        "login": {
+          "title": "Đăng nhập cổng seller",
+          "body": "Mở cổng seller và đăng nhập bằng email, mật khẩu của tài khoản khách hàng OnosFactory. Chưa có tài khoản thì bấm “Đặt đơn ngay” ở đầu trang này để đăng ký.",
+          "alt": "Màn đăng nhập cổng seller gồm ô email, ô mật khẩu, ô Ghi nhớ đăng nhập và nút Đăng nhập",
+          "callouts": {
+            "1": { "label": "EMAIL", "detail": "Email của tài khoản khách hàng." },
+            "2": { "label": "MẬT KHẨU", "detail": "Mật khẩu đăng nhập. Bấm biểu tượng con mắt ở cuối ô để xem lại mật khẩu vừa gõ." },
+            "3": { "label": "Đăng nhập", "detail": "Vào cổng seller." }
+          }
+        },
+        "chooseLine": {
+          "title": "Chọn dòng sản phẩm",
+          "body": "Ở thanh bên trái, mở “Quản lý đơn” rồi chọn dòng sản phẩm muốn đặt — trong ảnh là 2D (DTG/DTF). Mỗi dòng có danh sách đơn riêng và hai nút ở đầu trang: đặt đơn trên form hoặc import từ file.",
+          "alt": "Trang đơn hàng dòng 2D (DTG/DTF), menu Quản lý đơn đang mở ở thanh bên, hai nút Import CSV và Đặt đơn ở góc trên",
+          "callouts": {
+            "1": { "label": "Quản lý đơn", "detail": "Mở ra các dòng sản phẩm: 3D, 2D, Gỗ, Thêu, LED, Canvas." },
+            "2": { "label": "2D (DTG/DTF)", "detail": "Chọn đúng dòng sản phẩm của đơn." },
+            "3": { "label": "Đặt đơn 2D (DTG/DTF)", "detail": "Mở form tạo đơn cho dòng này — bước tiếp theo." },
+            "4": { "label": "Import CSV", "detail": "Import nhiều đơn cùng lúc từ file — xem luồng 3." }
+          }
+        },
+        "pickProduct": {
+          "title": "Chọn sản phẩm",
+          "body": "Màn “Đặt đơn mới” chia hai phần: bên trái là sản phẩm của dòng đã chọn, bên phải là giỏ đơn, địa chỉ giao hàng và ghi chú. Bấm vào thẻ sản phẩm cần đặt. Một đơn có thể gồm nhiều sản phẩm, dùng chung một địa chỉ giao.",
+          "alt": "Màn Đặt đơn mới: lưới thẻ sản phẩm bên trái, khối Sản phẩm trong đơn và Địa chỉ giao hàng bên phải",
+          "callouts": {
+            "1": { "label": "Đặt đơn mới · 2D (DTG/DTF)", "detail": "Tiêu đề cho biết bạn đang đặt đơn cho dòng sản phẩm nào." },
+            "2": { "label": "Thẻ sản phẩm", "detail": "Mỗi thẻ có tên, giá và số biến thể. Bấm vào thẻ để chọn màu, cỡ và thêm file." },
+            "3": { "label": "Sản phẩm trong đơn", "detail": "Giỏ đơn — trống cho tới khi bạn thêm sản phẩm; số trong ngoặc là số sản phẩm đã thêm." }
+          }
+        },
+        "variant": {
+          "title": "Chọn màu, kích cỡ và số lượng",
+          "body": "Bấm màu và kích cỡ cần in, rồi nhập số lượng. Mã SKU và giá dưới tên sản phẩm đổi theo biến thể đang chọn. Chọn nhầm sản phẩm thì bấm “Đổi sản phẩm khác”.",
+          "alt": "Khối cấu hình sản phẩm: tên, SKU và giá, hàng nút màu, hàng nút kích cỡ và ô số lượng",
+          "callouts": {
+            "1": { "label": "Tên sản phẩm, SKU và giá", "detail": "Kiểm lại SKU và giá sau khi chọn biến thể." },
+            "2": { "label": "COLOUR", "detail": "Nhóm màu (tên nhóm tuỳ sản phẩm) — nút đang chọn được tô màu nhấn." },
+            "3": { "label": "ITEM SIZE", "detail": "Nhóm kích cỡ." },
+            "4": { "label": "Số lượng", "detail": "Số lượng cần in cho sản phẩm này." }
+          }
+        },
+        "files": {
+          "title": "Thêm ảnh mockup và file thiết kế",
+          "body": "Dán link file (ví dụ Google Drive) hoặc bấm nút tải lên ở cuối mỗi ô. Ảnh mockup là bắt buộc; mỗi vị trí in (mặt trước, mặt sau…) có một ô thiết kế riêng. Xong thì bấm “Thêm vào đơn hàng”.",
+          "note": "Cần ít nhất một file thiết kế. Từng ô vị trí in ghi “không bắt buộc”, nhưng nút “Thêm vào đơn hàng” chỉ bấm được khi đã có ảnh mockup và ít nhất một file thiết kế.",
+          "alt": "Khối file sản xuất: ô Số lượng, ô Ảnh mockup bắt buộc, hai ô Link thiết kế cho mặt trước và mặt sau, nút Thêm vào đơn hàng",
+          "callouts": {
+            "1": { "label": "Ảnh mockup *", "detail": "Ảnh mockup do bạn cung cấp để xưởng đối chiếu khi sản xuất — không phải ảnh mẫu của sản phẩm." },
+            "2": { "label": "Link thiết kế — Mặt trước", "detail": "File thiết kế cho vị trí in này. Mỗi vị trí in có một ô riêng; cả sản phẩm cần ít nhất một file." },
+            "3": { "label": "Thêm vào đơn hàng", "detail": "Đưa sản phẩm vào giỏ. Muốn thêm sản phẩm khác thì chọn tiếp ở danh sách bên trái." }
+          }
+        },
+        "address": {
+          "title": "Nhập địa chỉ giao hàng và gửi đơn",
+          "body": "Ở cột bên phải, điền địa chỉ người nhận — một địa chỉ dùng chung cho mọi sản phẩm trong đơn; ô có dấu * là bắt buộc. Thêm ghi chú nếu cần rồi bấm “Đặt đơn”.",
+          "alt": "Cột bên phải của màn đặt đơn: form Địa chỉ giao hàng điền dữ liệu mẫu, ô Ghi chú và nút Đặt đơn",
+          "callouts": {
+            "1": { "label": "ĐỊA CHỈ *", "detail": "Địa chỉ giao hàng của người nhận." },
+            "2": { "label": "SỐ ĐIỆN THOẠI *", "detail": "Số điện thoại người nhận — bắt buộc." },
+            "3": { "label": "GHI CHÚ", "detail": "Ghi chú thêm cho đơn (không bắt buộc)." },
+            "4": { "label": "Đặt đơn (… sản phẩm)", "detail": "Gửi đơn; số trong ngoặc là số sản phẩm trong giỏ." }
+          }
+        },
+        "pending": {
+          "title": "Đơn mới nằm ở tab “Chờ đẩy SX”",
+          "body": "Gửi xong, trang quay về danh sách đơn của dòng sản phẩm và mở sẵn tab “Chờ đẩy SX”. Mỗi đơn đã có mã sản xuất riêng.",
+          "note": "Đơn ở tab này CHƯA vào sản xuất. Kiểm lại rồi đẩy sản xuất theo luồng 2 bên dưới.",
+          "alt": "Danh sách đơn dòng 2D đang mở tab Chờ đẩy SX với một đơn vừa tạo",
+          "callouts": {
+            "1": { "label": "Chờ đẩy SX", "detail": "Tab các đơn đã tạo nhưng chưa đưa vào sản xuất; số trong ngoặc là số đơn đang chờ." },
+            "2": { "label": "Mã sản xuất", "detail": "Mã riêng của đơn, dùng xuyên suốt tới trang tra cứu. Bấm biểu tượng bên cạnh để chép." },
+            "3": { "label": "Chờ đẩy SX", "detail": "Trạng thái hiện tại của đơn." }
+          }
+        }
+      }
+    },
+    "push": {
+      "cardTitle": "Đẩy sản xuất và theo dõi",
+      "cardDesc": "Chọn đơn đang chờ, xác nhận giá chốt, rồi theo dõi tiến trình và gửi link tra cứu cho người mua.",
+      "titleLead": "Đẩy sản xuất",
+      "titleAccent": "và theo dõi",
+      "subtitle": "Đơn từ form hay từ file đều chỉ vào sản xuất sau khi bạn push. Từ đó trạng thái đơn được cập nhật theo từng chặng.",
+      "openTrack": "Mở trang tra cứu đơn",
+      "steps": {
+        "select": {
+          "title": "Chọn đơn cần sản xuất",
+          "body": "Ở tab “Chờ đẩy SX”, tick các đơn muốn sản xuất (ô ở tiêu đề bảng chọn tất cả) rồi bấm “Push … đơn”. Muốn đẩy riêng một đơn thì bấm “Push” ở cuối dòng; nút “Hủy” bên cạnh để hủy đơn chưa đẩy.",
+          "alt": "Tab Chờ đẩy SX với ba đơn đã tick, nút Push 3 đơn ở góc phải, nút Push và Hủy cuối mỗi dòng",
+          "callouts": {
+            "1": { "label": "Chờ đẩy SX", "detail": "Chỉ đơn ở tab này mới đẩy sản xuất được." },
+            "2": { "label": "Ô chọn đơn", "detail": "Tick từng đơn, hoặc ô ở tiêu đề bảng để chọn tất cả." },
+            "3": { "label": "Push … đơn", "detail": "Đẩy toàn bộ đơn đã tick." },
+            "4": { "label": "Push", "detail": "Đẩy riêng đơn trên dòng này." }
+          }
+        },
+        "confirm": {
+          "title": "Kiểm tra giá chốt và xác nhận",
+          "body": "Hộp “Push to production” liệt kê từng đơn sắp đẩy, mỗi sản phẩm kèm số lượng và thành tiền, tổng cộng ở cuối. Kiểm lại rồi bấm “Xác nhận push”.",
+          "alt": "Hộp xác nhận Push to production liệt kê ba đơn, thành tiền từng sản phẩm, tổng cộng và nút Xác nhận push",
+          "callouts": {
+            "1": { "label": "Push to production — … đơn", "detail": "Số đơn sẽ được đưa vào sản xuất." },
+            "2": { "label": "Đơn giá và thành tiền", "detail": "Giá một sản phẩm và thành tiền theo số lượng." },
+            "3": { "label": "Tổng cộng", "detail": "Tổng tiền các đơn đang đẩy. Dòng chữ phía trên ghi rõ đây là giá chốt tại thời điểm push." },
+            "4": { "label": "Xác nhận push (…)", "detail": "Xác nhận để đưa đơn vào sản xuất." }
+          }
+        },
+        "status": {
+          "title": "Đơn rời tab chờ và bắt đầu chạy",
+          "body": "Sau khi push, đơn rời tab “Chờ đẩy SX”. Cột “Trạng thái” cho biết trạng thái đơn và chặng sản xuất đang làm; cả hai được cập nhật dần khi đơn đi qua từng chặng.",
+          "alt": "Danh sách đơn sau khi push: đơn đã đổi trạng thái, cột Trạng thái hiện thêm chặng sản xuất",
+          "callouts": {
+            "1": { "label": "Tab trạng thái", "detail": "Đơn đã push chuyển sang tab ứng với trạng thái mới; số trong ngoặc là số đơn." },
+            "2": { "label": "Trạng thái đơn", "detail": "Được cập nhật sau khi push." },
+            "3": { "label": "Chặng hiện tại", "detail": "Chặng sản xuất đơn đang ở." },
+            "4": { "label": "Mã sản xuất", "detail": "Bấm mã để mở trang chi tiết đơn." }
+          }
+        },
+        "detail": {
+          "title": "Xem chi tiết và tiến trình",
+          "body": "Trang chi tiết cho thấy tiến trình sản xuất theo từng chặng, thông tin đơn, thiết kế theo vị trí in, mockup và địa chỉ giao hàng. Sau khi đã push, bạn vẫn sửa được ảnh mockup và địa chỉ giao hàng ngay trên trang này.",
+          "alt": "Trang chi tiết đơn: danh sách chặng Tiến trình sản xuất, khối Thông tin đơn có link tra cứu công khai, khối Mockup có nút Lưu thay đổi, khối Địa chỉ giao hàng có nút Sửa địa chỉ",
+          "callouts": {
+            "1": { "label": "Mã sản xuất", "detail": "Mã của đơn đang xem." },
+            "2": { "label": "Tiến trình sản xuất", "detail": "Từng chặng kèm tình trạng như “Đang làm”, “Chưa tới”." },
+            "3": { "label": "LINK TRA CỨU CÔNG KHAI", "detail": "Bấm biểu tượng bên cạnh để chép link, gửi cho người mua tự theo dõi." },
+            "4": { "label": "Lưu thay đổi", "detail": "Dán link ảnh mockup mới vào ô bên cạnh rồi bấm lưu." },
+            "5": { "label": "Sửa địa chỉ", "detail": "Mở form sửa địa chỉ giao hàng của đơn." }
+          }
+        },
+        "track": {
+          "title": "Người mua tự tra cứu đơn",
+          "body": "Link tra cứu có dạng /track/<mã sản xuất> và mở được mà không cần đăng nhập. Người mua cũng có thể dán mã sản xuất vào ô tìm kiếm rồi bấm “Tra cứu” để xem trạng thái và tiến trình. Trang tra cứu không hiển thị giá.",
+          "alt": "Trang tra cứu công khai: ô nhập mã và nút Tra cứu, mã sản xuất cùng chặng hiện tại, danh sách tiến trình sản xuất",
+          "callouts": {
+            "1": { "label": "Tra cứu", "detail": "Dán mã sản xuất vào ô bên trái rồi bấm — không cần tài khoản." },
+            "2": { "label": "MÃ SẢN XUẤT", "detail": "Mã đơn đang xem, có nút chép bên cạnh." },
+            "3": { "label": "Tiến trình sản xuất", "detail": "Cập nhật theo từng chặng." }
+          }
+        }
+      }
+    },
+    "import": {
+      "cardTitle": "Import đơn từ file",
+      "cardDesc": "Điền nhiều đơn vào file mẫu; hệ thống kiểm tra từng dòng trước khi tạo đơn.",
+      "titleLead": "Import đơn",
+      "titleAccent": "từ file CSV",
+      "subtitle": "Hợp khi có nhiều đơn cùng lúc. Dùng file mẫu quen thuộc của OnosPod; nhận .csv, .xlsx và .xls.",
+      "steps": {
+        "open": {
+          "title": "Mở trang import và tải file mẫu",
+          "body": "Trong trang đơn của dòng sản phẩm, bấm “Import CSV”. Tải file mẫu, điền mỗi sản phẩm một dòng, rồi bấm “Chọn file”. Nhiều dòng cùng order_id được gộp thành một đơn nhiều sản phẩm; tối đa 500 dòng mỗi lần import.",
+          "alt": "Trang Import đơn từ file với nút Tra SKU, nút Tải file mẫu và vùng Chọn file",
+          "callouts": {
+            "1": { "label": "Tải file mẫu", "detail": "File mẫu đúng các cột hệ thống đọc." },
+            "2": { "label": "Tra SKU", "detail": "Mở danh mục sản phẩm để tra mã SKU." },
+            "3": { "label": "Chọn file", "detail": "Chọn file đã điền; hệ thống kiểm tra từng dòng trước khi cho import." }
+          }
+        },
+        "lookupSku": {
+          "title": "Tra mã SKU cho từng biến thể",
+          "body": "Cột sku trong file phải khớp đúng mã trong danh mục. Mở chi tiết sản phẩm, xem bảng “Biến thể & giá”: mỗi dòng là một biến thể màu + cỡ với SKU riêng.",
+          "alt": "Bảng Biến thể & giá trong chi tiết sản phẩm, liệt kê SKU và biến thể màu, cỡ của từng dòng",
+          "callouts": {
+            "1": { "label": "Chép SKU để điền cột sku trong file import", "detail": "Gợi ý ngay trên bảng." },
+            "2": { "label": "SKU", "detail": "Cột mã SKU — điền đúng mã này vào cột sku của file." },
+            "3": { "label": "Mã SKU của biến thể", "detail": "Bấm biểu tượng cạnh mã để chép." }
+          }
+        },
+        "previewErrors": {
+          "title": "Sửa các ô lỗi trong bảng xem trước",
+          "body": "Chọn file xong, bảng xem trước hiện từng dòng. Ô sai bị bôi đỏ kèm lý do; cột “Sản phẩm hệ thống” cho biết SKU khớp sản phẩm nào. Còn lỗi thì nút Import bị khoá — sửa file rồi chọn lại.",
+          "alt": "Bảng xem trước import còn hai ô lỗi bôi đỏ: số lượng sai định dạng và SKU không có trong danh mục; nút Import bị mờ",
+          "callouts": {
+            "1": { "label": "… ô lỗi", "detail": "Tổng số ô cần sửa." },
+            "2": { "label": "Số lượng phải là số nguyên dương", "detail": "Ví dụ ô số lượng ghi chữ thay vì số." },
+            "3": { "label": "SKU … không tồn tại trong catalog", "detail": "SKU không khớp sản phẩm nào — kiểm lại mã ở bước trước." },
+            "4": { "label": "Import … đơn", "detail": "Bị khoá khi file còn lỗi." }
+          }
+        },
+        "previewValid": {
+          "title": "Kiểm tra lại rồi import",
+          "body": "Khi mọi dòng hợp lệ, xem cột “Sản phẩm hệ thống” để chắc SKU đã khớp đúng sản phẩm, màu, cỡ và giá, rồi bấm “Import”.",
+          "alt": "Bảng xem trước import với nhãn Tất cả dòng hợp lệ, cột Sản phẩm hệ thống hiện ảnh, biến thể và giá, nút Import sáng",
+          "callouts": {
+            "1": { "label": "Tất cả dòng hợp lệ", "detail": "Không còn ô lỗi." },
+            "2": { "label": "Sản phẩm hệ thống", "detail": "Sản phẩm, biến thể và giá nhận ra từ SKU." },
+            "3": { "label": "Import … đơn", "detail": "Tạo toàn bộ đơn trong file." }
+          }
+        },
+        "result": {
+          "title": "Xem kết quả và đẩy sản xuất",
+          "body": "Hệ thống báo số đơn tạo mới, số đơn trùng (bỏ qua) và số lỗi, kèm trạng thái từng đơn theo order_id. Đơn trùng là đơn đã có sẵn cùng order_id và identifier. Bấm “Xem đơn vừa tạo” để sang danh sách đơn.",
+          "note": "Đơn import cũng vào tab “Chờ đẩy SX” và chưa sản xuất cho tới khi bạn push — làm tiếp như luồng 2.",
+          "alt": "Kết quả import: số đơn tạo mới, trùng và lỗi, hai đơn trạng thái Đã tạo và nút Xem đơn vừa tạo",
+          "callouts": {
+            "1": { "label": "… tạo mới", "detail": "Số đơn đã tạo; bên cạnh là số đơn trùng và số lỗi." },
+            "2": { "label": "Đã tạo", "detail": "Trạng thái từng đơn theo order_id trong file." },
+            "3": { "label": "Xem đơn vừa tạo", "detail": "Mở tab “Chờ đẩy SX” để đẩy sản xuất các đơn vừa tạo." }
+          }
+        }
+      }
+    }
+  },
+  "faq": {
+    "eyebrow": "Hỏi đáp",
+    "titleLead": "Câu hỏi",
+    "titleAccent": "thường gặp",
+    "items": {
+      "notInProduction": {
+        "q": "Tôi đã gửi đơn nhưng sao chưa thấy sản xuất?",
+        "a": "Đơn tạo trên form hay import từ file đều vào tab “Chờ đẩy SX” trước. Tick chọn đơn, bấm “Push” rồi xác nhận thì đơn mới vào sản xuất."
+      },
+      "designRequired": {
+        "q": "Vì sao nút “Thêm vào đơn hàng” chưa bấm được?",
+        "a": "Nút chỉ sáng khi đã có ảnh mockup và ít nhất một file thiết kế. Từng ô vị trí in ghi “không bắt buộc”, nhưng không thể để trống tất cả."
+      },
+      "editCancel": {
+        "q": "Tôi muốn hủy hoặc sửa đơn thì làm sao?",
+        "a": "Đơn còn ở tab “Chờ đẩy SX” có nút “Hủy” ngay trên dòng đơn. Đơn đã push thì vẫn sửa được ảnh mockup và địa chỉ giao hàng ở trang chi tiết đơn."
+      },
+      "shareTracking": {
+        "q": "Người mua của tôi theo dõi đơn bằng cách nào?",
+        "a": "Gửi cho họ link tra cứu công khai trong trang chi tiết đơn (dạng /track/<mã sản xuất>), hoặc gửi mã sản xuất để họ dán vào trang tra cứu. Không cần tài khoản, và trang tra cứu không hiển thị giá."
+      },
+      "importDuplicates": {
+        "q": "Import lại cùng một file có bị tạo trùng đơn?",
+        "a": "Đơn có cùng order_id và identifier với một đơn đã có được báo “trùng” và bỏ qua. Mỗi lần import tối đa 500 dòng; nhiều dòng cùng order_id được gộp thành một đơn."
+      }
+    }
+  },
+  "cta": {
+    "title": "Sẵn sàng lên đơn đầu tiên?",
+    "subtitle": "Tạo tài khoản khách hàng rồi làm theo các bước ở trên. Vướng ở bước nào thì gửi email cho chúng tôi.",
+    "support": "Hỗ trợ:"
+  }
+}

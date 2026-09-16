@@ -430,3 +430,134 @@ export class GetAgentSellerSupportResDto {
   success!: boolean;
   data!: AgentSellerSupportItem[];
 }
+
+// ---------------------------------------------------------------------------
+// Gửi tin Zalo — ngoại lệ DUY NHẤT của luật chỉ-đọc (BR-3). Chốt chặn ở
+// `agent-zalo-send.logic.ts`: chỉ nhóm nội bộ/vận hành, CẤM nhóm khách.
+// ---------------------------------------------------------------------------
+
+/**
+ * Hai chế độ gửi, chọn bằng SỰ CÓ MẶT của `groupGlobalId`:
+ *
+ * - có `groupGlobalId` → gửi NHÓM, chốt theo `kind` nhóm; `conversationId` (nếu
+ *   có) phải thuộc chính nhóm đó.
+ * - không có → NHẮN RIÊNG theo `conversationId`, chốt theo VAI người nhận.
+ *
+ * Hai chốt khác nhau nên không gộp được; và để `conversationId` tự quyết định
+ * chế độ là cách chắc chắn một ngày nào đó một id nhóm đi lọt vào đường DM.
+ */
+export const AgentZaloSendZod = z
+  .object({
+    /** Mã nhóm Zalo (khoá dùng chung với `zalo_group_links`, cũng là khoá báo cáo). */
+    groupGlobalId: z.string().min(4).max(120).optional(),
+    content: z.string().min(1).max(8000),
+    /** Gửi nhóm: chọn nick gửi, bỏ trống = tự thử. Nhắn riêng: BẮT BUỘC, là hội thoại 1-1. */
+    conversationId: z.string().min(4).max(120).optional(),
+    /**
+     * Gửi dưới ĐÚNG nick này (tên hiển thị, vd `"Onos Ai"`). Chỉ áp cho gửi nhóm.
+     *
+     * Nick là danh tính bộ phận, nên khi có tham số này hệ thống KHÔNG tự đổi
+     * sang nick khác nếu nick đó gửi không được — trả lỗi nêu tên nick.
+     */
+    accountName: z.string().min(1).max(120).optional(),
+    /** Cho phép lùi sang nick khác khi nick chỉ định gửi không được. Mặc định KHÔNG. */
+    allowFallback: z.boolean().optional(),
+  })
+  .refine((v) => !!v.groupGlobalId || !!v.conversationId, {
+    message: 'Phải cho biết gửi đi đâu: groupGlobalId (nhóm) hoặc conversationId (nhắn riêng).',
+  });
+export class AgentZaloSendDto extends createZodDto(extendApi(AgentZaloSendZod)) {}
+
+export const AgentZaloSendResZod = z.object({
+  success: z.literal(true),
+  data: z.object({
+    conversationId: z.string(),
+    groupTitle: z.string().optional(),
+    /** Nick công ty đã thực sự gửi tin — dùng để đối chiếu danh tính. */
+    sentAsNick: z.string().optional(),
+    /**
+     * Chỉ có khi nhắn riêng. Trả về để agent đối chiếu mình vừa nhắn cho AI —
+     * `zaloUid` không dùng làm danh tính được (phụ thuộc nick đang nhìn), nên
+     * vai + tên hiển thị là thứ duy nhất kiểm lại được.
+     */
+    recipient: z.object({ displayName: z.string().optional(), role: z.string() }).optional(),
+    sentAt: z.string(),
+  }),
+});
+export class AgentZaloSendResDto extends createZodDto(extendApi(AgentZaloSendResZod)) {}
+
+// ---------------------------------------------------------------------------
+// NGHE tin Zalo — đọc tin theo nhóm + hộp thư sự kiện đã lọc.
+// Luật ở `agent-zalo-inbound.logic.ts`: chỉ nhóm nội bộ/vận hành, và chỉ tin do
+// Chủ tịch gửi hoặc tag trúng nick công ty mới thành sự kiện.
+// ---------------------------------------------------------------------------
+
+/** Khoá blob `system_configs` giữ uid Chủ tịch + danh sách bên đăng ký nhận. */
+export const AGENT_ZALO_INBOUND_CONFIG_KEY = 'agent_zalo_inbound_config';
+
+export const AgentZaloSenderZod = z.object({
+  zaloUid: z.string().optional(),
+  displayName: z.string().optional(),
+  /**
+   * `chairman` xét trước bảng danh tính; `ai-support` giữ riêng để agent không
+   * tự nói với mình. Lưu ý uid Zalo phụ thuộc nick đang nhìn — một người có
+   * nhiều uid, nên vai suy từ TẬP uid chứ không từ một uid.
+   */
+  role: z.enum(['chairman', 'staff', 'ai-support', 'customer', 'unknown']),
+});
+
+export const AgentZaloMentionZod = z.object({
+  uid: z.string().optional(),
+  name: z.string().optional(),
+  /** Có phải nick TRỢ LÝ AI không — điều kiện kích hoạt (b). */
+  laNickAgent: z.boolean(),
+});
+
+export const AgentZaloMessageZod = z.object({
+  messageId: z.string(),
+  zaloMsgId: z.string().optional(),
+  groupGlobalId: z.string(),
+  groupTitle: z.string().optional(),
+  kind: z.string(),
+  conversationId: z.string(),
+  sentAt: z.string(),
+  content: z.string().optional(),
+  contentType: z.string(),
+  attachments: z.array(z.any()).optional(),
+  replyToId: z.string().nullable().optional(),
+  sender: AgentZaloSenderZod,
+  mentions: z.array(AgentZaloMentionZod),
+});
+export type AgentZaloMessage = z.infer<typeof AgentZaloMessageZod>;
+
+export const GetAgentZaloMessagesZod = z.object({
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  /** Mốc ISO — chỉ lấy tin gửi SAU mốc này. */
+  since: z.string().optional(),
+});
+export class GetAgentZaloMessagesDto extends createZodDto(extendApi(GetAgentZaloMessagesZod)) {}
+
+export class GetAgentZaloMessagesResDto extends createZodDto(
+  extendApi(z.object({ success: z.literal(true), data: z.array(AgentZaloMessageZod), total: z.number() })),
+) {}
+
+/** Một lượt đáng đánh thức agent. */
+export const AgentZaloTriggerZod = z.object({
+  triggerId: z.string(),
+  reason: z.enum(['chairman', 'mention']),
+  receivedAt: z.string(),
+  message: AgentZaloMessageZod,
+});
+export type AgentZaloTrigger = z.infer<typeof AgentZaloTriggerZod>;
+
+export const GetAgentZaloInboxZod = z.object({
+  /** Con trỏ = `triggerId` của lượt cuối đã xử lý. */
+  cursor: z.string().optional(),
+  since: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+});
+export class GetAgentZaloInboxDto extends createZodDto(extendApi(GetAgentZaloInboxZod)) {}
+
+export class GetAgentZaloInboxResDto extends createZodDto(
+  extendApi(z.object({ success: z.literal(true), data: z.array(AgentZaloTriggerZod), total: z.number(), nextCursor: z.string().optional() })),
+) {}

@@ -617,7 +617,7 @@ function CustomerOrderImport() {
           <h1 className="text-lg font-semibold">{t('importCsv.title')}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">{t('importCsv.subtitle')}</p>
         </div>
-        <a href="/customer-order-template.csv" download>
+        <a href="/customer-order-template.xlsx" download>
           <Button size="sm" variant="secondary">
             <Download size={14} className="mr-1.5" />
             {t('importCsv.downloadTemplate')}

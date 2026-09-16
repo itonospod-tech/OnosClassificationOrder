@@ -6,6 +6,140 @@
 > **Route:** `/adm/zalo-groups`
 > **API:** `GET /v1/zalo-groups`, `GET /v1/zalo-groups/coverage`, `GET /v1/zalo-groups/suggestions`, `POST /v1/zalo-groups/sync`, `PATCH /v1/zalo-groups/:id`
 
+
+
+## Quyền đọc: chỉ hai tài khoản trong danh sách trắng (15/09/2026)
+
+Mọi endpoint của module này dùng `AuthZalo()` thay cho `@Auth()`: ngoài role còn
+phải nằm trong danh sách trắng email (`apps/api/src/utils/zalo-access.ts`). Bản tóm
+tắt nhóm là nội dung rút ra từ chat, nên nó chịu cùng chốt với màn chat.
+Chi tiết và lý do: `ZaloChat.md`.
+
+## Gộp về một engine — `onosceo` đã dừng hẳn (11/09/2026)
+
+Trước đây chạy SONG SONG hai engine Zalo, và hai script đồng bộ đọc engine ở `onosceo`. Các nick đã được quét lại trên engine prod ở `onosnew`, nên phiên bên cũ thành `qr_pending` — máy cũ ngừng thu tin mới nhưng **vẫn giữ toàn bộ lịch sử**.
+
+### Vì sao không tắt thẳng được
+
+Đo trước khi chuyển: `onosceo` có **179 nhóm / 29.784 tin từ 18/08**, `onosnew` chỉ có **153 nhóm / 16.385 tin từ 07/09**. Engine chỉ biết tới một nhóm sau khi kéo được nhóm đó về, mà `Onos Ai` — nick phủ rộng nhất — mới kéo 37/178 nhóm. Tắt lúc đó là mất **62 nhóm** (42 trong số đó còn dùng trong 14 ngày) và 20 ngày lịch sử.
+
+### Cách chuyển
+
+Chép theo **KHOÁ TỰ NHIÊN, không theo id**: hội thoại nhận dạng bằng `(zalo_account_id, external_thread_id)`, tin nhắn bằng `(conversation_id, zalo_msg_id)`. Mỗi engine tự cấp id riêng cho cùng một nhóm, nên chép theo id là nhân đôi 117 nhóm có ở cả hai bên. Nhóm đã có thì chỉ nhét tin cũ vào hội thoại sẵn có; nhóm chưa có thì chèn mới và **giữ nguyên id cũ** (đã kiểm: 0 id đụng nhau) để liên kết trả lời/cảm xúc còn nguyên.
+
+Ba chỗ phải xử lý riêng:
+
+| Vấn đề | Cách làm |
+|---|---|
+| `zalo_account_id` khác nhau giữa hai engine | ánh xạ qua `zalo_uid` |
+| `replied_by_user_id` trỏ sang `engine_users` của máy cũ (2 người vs 27) | bỏ trống — chỉ là nhãn "ai trả lời từ CRM" |
+| Nick `Onos` chỉ có ở máy cũ, `owner_user_id` cũng chỉ có ở máy cũ | chép kèm, gán chủ sở hữu đang dùng, **xoá `session_data` + đặt `qr_pending`** để engine không thử đăng nhập bằng phiên của máy khác |
+
+**Bẫy đã mắc:** bản chạy đầu thiếu `COMMIT` sau `BEGIN`. psql huỷ sạch lúc thoát mà **KHÔNG báo lỗi** — màn hình vẫn in đủ số liệu như thành công. Chỉ phát hiện khi đo lại thấy số nhóm không đổi. Script SQL nào mở `BEGIN` thủ công thì phải kiểm có `COMMIT` trước khi tin vào kết quả in ra.
+
+### Kết quả
+
+| | Trước | Sau |
+|---|---|---|
+| Nhóm (`group_global_id`) | 153 | **215** |
+| Tin nhắn | 16.387 | **46.171** |
+| Lịch sử từ | 07/09 | **18/08** |
+
+8 nick đang chạy giữ nguyên `connected` + còn phiên. Engine cũ (`zalo-onos-zalo-engine-1`, DB, Redis trên `onosceo`) **đã dừng**, volume giữ nguyên làm kho tra cứu — bật lại được nếu cần đối chiếu.
+
+### Công cụ đo
+
+`apps/api/scripts/check-zalo-engine-parity.mjs` — so hai engine, in thẳng `✅ TẮT ĐƯỢC` hay `⛔ CHƯA`, kèm danh sách nhóm còn thiếu. Muốn chạy lại phải bật container bên `onosceo` lên trước.
+
+Hai script đồng bộ nay mặc định đọc **`onosnew`** (`--ssh/--container/--db` để trỏ nơi khác).
+
+### Nhãn hội thoại của engine — chuyển nốt 12/09/2026
+
+Đợt chuyển 11/09 mang hội thoại và tin nhắn, nhưng **bỏ sót nhãn**: engine mới có
+0 nhãn trong khi máy cũ giữ 14 định nghĩa và 142 lượt gắn do ops làm tay. Đã chép
+đủ **142/142**.
+
+Bảy nhãn thật (mỗi nick một bộ, nên 14 dòng): `KHACH` · `NOIBO` · `NOIBO_HEP` ·
+`NCC` · `KYTHUAT` · `CHUA` · `CHUTICH`.
+
+Cách chép: bật **CHỈ container DB** của máy cũ — bật cả engine là nó khôi phục
+phiên Zalo và đá hết nick đang chạy trên máy mới. Ánh xạ nick qua `zalo_uid` và
+hội thoại qua `(zalo_uid, external_thread_id)`; id nội bộ hai engine khác nhau
+nên không dùng được. Giữ nguyên UUID của nhãn + `ON CONFLICT DO NOTHING` để chạy
+lại không sinh trùng (đã kiểm: chạy hai lần vẫn 142).
+
+**Nhãn cũ là dữ liệu ops đã xét, nên nó soi ra chỗ lệch với `kind` hiện tại.** Đối
+chiếu 114 nhóm có nhãn: 22 nhóm có nhãn mà `kind` vẫn là `unreviewed`.
+
+Người dùng chốt áp luôn rồi tự xem lại, nên **13 nhóm đã được gắn** (12 → `seller`
+kèm khách, 1 → `operation`); `unreviewed` giảm 92 → 79. Việc này đi NGƯỢC ghi chú
+cố ý ở `getSuggestions()` ("chỉ đoán, không tự gắn — gắn tự động là sớm muộn cũng
+quy nhầm doanh thu sang khách khác, mà sai kiểu đó rất khó phát hiện"), nên mọi
+nhóm bị đụng đều mang dấu vết trong `note`:
+
+```
+zalo_group_links.note bắt đầu bằng "Phân loại chép từ nhãn engine Zalo cũ 12/09/2026"
+```
+
+Không có dấu vết thì "để tôi xem lại" là bất khả thi — không ai nhớ nổi 13 nhóm nào.
+
+**Bản đồ nhãn → `kind`:** `KHACH`→seller · `NOIBO`/`NOIBO_HEP`/`CHUTICH`→internal ·
+`NCC`/`KYTHUAT`→operation. `CHUA` cố ý KHÔNG có mặt: bên cũ nó nghĩa là *chưa xét*,
+nên không mang thông tin để áp.
+
+**9 nhóm để lại cho người xét**, vì tự động sẽ đoán bừa: 2 nhóm nhãn `CHUA`; 6 nhóm
+nhãn `KHACH` nhưng tên không theo khuôn mã seller (`BOD - Mr Khang Ecomlite`,
+`OnosEx/ Zeno boss`…) — mà `kind=seller` bị chặn nếu thiếu `customerId`; và 1 nhóm
+mã `THANHDOT06` **gần giống** `THANHDONAL06/07` đang có. Chốt chống nhầm: mã chung
+7 ký tự đầu với khách sẵn có thì không tạo khách mới — tạo khách thứ hai cho cùng
+một seller làm hỏng mọi báo cáo nối nhóm ↔ đơn.
+
+12 khách mới sinh ra từ đây mang `source='zalo-group'`, `userEmail` để trống (khớp
+đơn qua `userSku`). Đã kiểm sau khi chạy: 0 nhóm `seller` thiếu khách, 0 nhóm khác
+`seller` mà có khách.
+
+**Không bật AppModule để làm việc này.** Context đầy đủ trên prod kéo theo mailer,
+RabbitMQ và **đăng ký lại repeatable job của BullMQ** — quá xâm lấn cho một lần sửa
+dữ liệu. Script chỉ dùng hàm thuần `khopTenNhom` từ bản build, còn bất biến thì chép
+tay từ `updateLink()` sau khi đối chiếu từng dòng.
+
+## Nối nhóm ↔ khách: gợi ý theo khuôn tên + tạo khách ngay tại màn nối (11/09/2026)
+
+Mục tiêu: biến trang này thành **source of truth** cho quan hệ nhóm Zalo ↔ khách, thay vì chỉ nối được tới những khách do đơn hàng sinh ra.
+
+### Vì sao đổi
+
+Đo trên prod 11/09/2026, trong **52 nhóm chưa xét**, luật cũ (`title.includes(userSku)`) chỉ gợi ý được **7**. Soi phần trượt thì thấy **hai nguyên nhân khác hẳn nhau**:
+
+1. **Luật khớp quá thô** — tên nhóm có khuôn `OnosPod/ 2025/ TUYEN/ KL/ TOPUP` và mã hay dính đuôi loại tài khoản (`VUDANDEBIT`, `SIMPLEHUBDEBIT`, `XHAODEBIT`). So chuỗi con bỏ sót cả hai.
+2. **Không có gì để khớp vào** — 19 nhóm trỏ tới seller THẬT (`TRINITY`, `VUDAN`, `SIMPLEHUB`, `ANHDUC06`…) nhưng **0 đơn hàng**, mà bảng `customers` sinh ra TỪ đơn hàng nên những seller đó không tồn tại. Không thuật toán nào cứu được; những nhóm này trước đây biến khỏi danh sách gợi ý mà không ai biết vì sao.
+
+### Cách làm
+
+`apps/api/src/modules/zalo-group/zalo-title.logic.ts` (hàm thuần + `zalo-title.logic.spec.ts`, test dùng **tên nhóm nguyên văn từ prod**):
+
+- `macUngVien(title)` — tách theo `/`, rồi theo khoảng trắng và ngoặc; bỏ năm, bỏ từ chung (`ONOSPOD`, `VIP`, `KL`, `DEBIT`…); cắt đuôi loại tài khoản nhưng **giữ cả bản đầy đủ**, mã dài đứng trước.
+- `theoKhuonSeller(title)` — có tiền tố `onospod`/`onosex` và ≥ 3 đoạn `/`. **Chỉ nhóm theo khuôn này mới được đề nghị tạo khách mới**; nhóm nội bộ đặt tên tự do ("Nhóm vải siêm - A Soi Mê Linh") vẫn moi ra được vài từ trông như mã, đề nghị tạo khách từ đó là đẩy rác vào bảng khách mà rác ở đó rất khó dọn.
+- **Bỏ dấu TRƯỚC khi lọc ký tự.** Làm ngược lại thì "Nhóm" thành `NHM`, "Việt" thành `VIT` — mã rác trông y như mã thật (lỗi đã mắc ở bản đầu).
+
+`ZaloGroupSuggestionZod` thêm `action: 'link' | 'create'`; `customerId` thành tuỳ chọn (chỉ có với `link`).
+
+`UpdateZaloGroupLinkZod` thêm **`newCustomerSku`** — tạo khách mang mã đó rồi ghép trong CÙNG một lần gọi. Mã đã tồn tại thì ghép vào khách đó, **không tạo trùng**. Loại trừ lẫn nhau với `customerId`. Chốt "nhóm khách phải có khách" ở `updateLink` cũng tính `newCustomerSku`, nếu không thì thao tác thường gặp nhất của ops (đặt loại "nhóm khách" + tạo khách mới trong một lần bấm) bị chính chốt đó từ chối.
+
+**Kết quả đo lại trên 52 nhóm đó:** 2 ghép khách sẵn có + 17 đề nghị tạo khách = **19 nhóm xử lý được**, 26 nhóm còn lại không đề nghị gì (đúng — chúng là nhóm vận hành/nội bộ).
+
+### Bẫy đã vá: khách tạo từ nhóm bị nhân đôi
+
+Khách tạo ở đây chưa biết email nên mang `userEmail: ''`. Nhưng unique index của `customers` là cặp **(userSku, userEmail)**, và `CustomerService.sync()` upsert theo đúng cặp đó — nên khi seller bắt đầu đặt đơn với email thật, sync sẽ tạo **bản ghi thứ hai** cho cùng một seller và mọi báo cáo theo khách đếm đôi.
+
+`sync()` nay **nhận lại chỗ giữ sẵn** trước khi upsert: mã nào đang có bản ghi email rỗng thì điền email vào bản ghi đó (mỗi mã nhận một email; mã có nhiều email thì phần upsert tạo nốt như cũ). Cùng khuôn "claim" mà khách tự đăng ký đang dùng. Kiểm trên dev 11/09/2026: tạo khách từ nhóm → cắm một đơn mang email thật → chạy sync → vẫn **đúng 1 bản ghi**, và nó mang email mới.
+
+### Giao diện cho ops
+
+- **Hộp gợi ý**: dòng `create` có nhãn "sẽ tạo khách mới" để người duyệt phân biệt với dòng ghép thường; tick sẵn như cũ, vẫn phải bấm nút.
+- **Hộp sửa nhóm**: khi chọn loại "nhóm khách", dưới ô chọn khách có thêm ô gõ mã khách mới (tự viết hoa, khoá lại khi đã chọn khách sẵn có).
+- Đánh dấu "không phải nhóm khách" thì dùng ô phân loại sẵn có — chuyển sang `operation`/`internal` là nhóm rời khỏi hàng chờ.
+
 ## 1. Overview
 
 Nối mỗi **nhóm Zalo** với **khách hàng (seller)** trong OnosFactory, để về sau
@@ -384,6 +518,148 @@ ký hàm trong `packages/core`** — chỉ đổi giá trị truyền vào ở `
 vẫn cần cờ này: so mốc là thứ client dễ quên nhất, mà quên thì agent trả lời khách
 bằng dữ liệu cũ với giọng chắc chắn. Tính ở máy chủ thì mọi client được bảo vệ như
 nhau. Đề xuất của dev tích hợp — họ đã dính đúng lỗi đó ở hệ báo cáo bên mình.
+
+## Gắn phân loại suy từ KHUÔN TÊN nhóm (15/09/2026)
+
+Chủ tịch đổi tên nhóm hàng loạt theo khuôn (`OnosPod/`, `OnosEx/`, `BOD -`,
+`NCC/`, `OnosNB/`, `Vải/`, `Khẩn cấp:`), nên tên nhóm giờ mã hoá luôn phân loại.
+
+**Luật không do người viết script đặt.** Script đọc các nhóm ops ĐÃ xét, tính mỗi
+tiền tố dẫn tới `kind` nào, và chỉ áp khi tiền tố đó có **≥3 nhóm mẫu** và **≥80%
+áp đảo**. Tự gõ bảng "OnosPod = khách" là nhét phán đoán của người viết script vào
+dữ liệu vận hành; học từ quyết định của ops thì sai ở đâu cũng truy ngược được, và
+luật tự cập nhật khi ops xét thêm.
+
+Sáu tiền tố đủ điều kiện: `ONOSPOD` (43 mẫu, 95% seller) · `ONOSNB` (14, 93%
+operation) · `ONOSEX` (10, 100% seller) · `BOD` (8, 88% seller) · `VẢI` (5, 100%
+operation) · `VNP` (3, 100% operation) · `ONOSPOD PN` (3, 100% seller). Các tiền tố
+còn lại rơi vào *ít mẫu* hoặc *lẫn lộn* → để người xét.
+
+**Kết quả: 23 nhóm** (22 → `seller` kèm khách, 1 → `operation`); chưa xét 92 → 69;
+7 khách mới `source='zalo-group'`. Bất biến sau khi chạy: 0 nhóm `seller` thiếu
+khách, 0 nhóm khác `seller` mà có khách. Dấu vết: `note` bắt đầu bằng
+`Phân loại suy từ khuôn tên nhóm 15/09/2026`.
+
+Chốt chống nhầm mã (trùng 7 ký tự đầu với khách sẵn có) bắt đúng ba ca đáng ngờ và
+để lại cho người xét: `THANHDOT06` cạnh `THANHDONAL06/07`, `VUTHANH` cạnh
+`VUTHANHV4`, `ANHDUC06` cạnh `ANHDUC06V4` — tạo khách thứ hai cho cùng một seller
+là hỏng mọi báo cáo nối nhóm ↔ đơn.
+
+**Đường gửi của agent không bị ảnh hưởng.** 22 nhóm chuyển sang `seller` vốn đang
+là `unreviewed` — cả hai đều nằm ngoài danh sách trắng gửi, nên không mất quyền
+nhắn nào; nhóm duy nhất sang `operation` thì được thêm. Đã kiểm sau khi chạy: gửi
+nhóm nội bộ ✅, đọc nhóm vận hành ✅, gửi nhóm khách vẫn bị chặn ✅.
+
+## Tách `internal` khỏi `private` — tóm tắt giờ phủ cả nhóm nội bộ (13/09/2026)
+
+Bên tiêu thụ xin phủ tóm tắt cho `kind=internal` (agent tài chính/nội bộ cần
+nhóm như *Kế Toán Onos Group*). Làm được, nhưng yêu cầu đó bỏ sót một mảnh: nhãn
+`internal` CHÍNH LÀ chốt riêng tư, nên cho nó vào diện phân tích là **mất luôn
+cái nhãn để nói "đừng đọc nhóm này"**.
+
+Mà tài liệu và thực tế đang nói hai chuyện khác nhau. Enum viết `Internal` =
+"nhóm riêng tư / không liên quan công việc (nhóm gia đình, nhóm lớp, nhóm tổ dân
+phố)". Đo trên prod: **10/10 nhóm mang nhãn này là việc công ty** — Kế Toán Onos
+Group, Report Ceo, Tín Dụng Onos - Vietinbank, Thanh toán IT, Phát triển hệ
+thống… Không một nhóm gia đình/lớp/tổ dân phố nào. Người vận hành đã dùng nhãn
+theo nghĩa "nội bộ công ty" từ đầu.
+
+Nên tách hẳn:
+
+| `kind` | Nghĩa | Phân tích / tóm tắt | Agent đọc & nhắn |
+|---|---|---|---|
+| `seller` | Nhóm khách (phải có `customerId`) | ✅ | ⛔ (chốt riêng ở agent) |
+| `operation` | Nhóm vận hành, có đối tác ngoài | ✅ | ✅ |
+| `internal` | **Nội bộ CÔNG TY** | ✅ (mới) | ✅ |
+| `private` | **Riêng tư của nhân viên** (MỚI) | ⛔ bao giờ cũng vậy | ⛔ |
+| `unreviewed` | Chưa ai xét | ⛔ | ⛔ |
+
+`ZALO_GROUP_ANALYZABLE_KINDS` thêm `Internal`, nên `getQueue()` và
+`assertDuocDocChat()` phủ nhóm nội bộ mà không phải sửa chỗ nào khác — đó là lợi
+ích của việc mọi chốt đọc chat đi qua đúng một hằng số.
+
+**Không nhóm nào bị dời sang `private`** vì hiện chưa có nhóm riêng tư nào bị gắn
+nhãn; nhãn sinh ra để dùng cho lần tới, khi một nhóm gia đình lọt vào danh sách
+chờ xét. Badge màu đỏ, khác hẳn `internal` màu ngọc — hai nhãn cùng màu là mời
+người xét bấm nhầm đúng chỗ không được nhầm.
+
+Chốt gửi/nghe của agent (`NHOM_DUOC_GUI`, `nhomDuocNghe`) là danh sách **TRẮNG**,
+nên `private` tự bị loại, và mọi nhãn sinh ra sau này cũng vậy. Viết dạng đen
+(chặn `seller`, cho phần còn lại) thì mỗi nhãn mới là một lỗ hổng im lặng.
+
+## Tóm tắt nhóm giờ có LỊCH — 4 tiếng một lượt (13/09/2026)
+
+Trước đây **không có lịch nào**. Bộ tóm tắt do người chạy tay bằng
+`scripts/summarize-zalo-groups.mjs`, và dấu vết nói đúng điều đó: 56 bản ngày
+09/09, 18 bản 08/09, 3 bản 10/09, rồi dừng. Bên tiêu thụ (agent) thấy `tomTatLuc`
+đứng yên 3 ngày và đoán "cron hỏng sau đợt gộp engine" — không có cron nào để hỏng.
+
+**Vì sao script phải ở ngoài, và vì sao giờ không cần nữa.** Engine Zalo từng nằm
+trên máy khác (`onosceo`) nên API không gọi tới được; script đứng giữa: ssh sang
+đọc Postgres của engine rồi POST vào `/zalo-groups/summarize` kèm **JWT admin**.
+Ràng buộc đó mất khi engine dời về cùng máy (11–12/09), nên vòng lặp vào trong
+được — và cái giá mà thiết kế cũ sắp phải trả, **một token admin nằm trên đĩa cho
+cron dùng**, không phải trả nữa.
+
+| | |
+|---|---|
+| Cron | `zalo-summary-sweep`, `0 */4 * * *` giờ VN (6 lượt/ngày) |
+| Trần mỗi lượt | `ZALO_SUMMARY_SWEEP_LIMIT`, mặc định **30 nhóm** — mỗi nhóm là MỘT lần gọi mô hình |
+| Chọn nhóm | `getQueue()` sẵn có: chốt riêng tư (chỉ `seller`/`operation`), bỏ nhóm im > `ZALO_SUMMARY_IDLE_DAYS` (14), bỏ nhóm đã tóm tắt tới đúng tin cuối |
+| Đọc lại từ đầu | mỗi `ZALO_SUMMARY_REREAD_DAYS` (7) — cắt bệnh trôi dần của tóm tắt cuốn chiếu |
+
+Lượt quét chỉ **kéo tin + xếp hàng**; worker BullMQ sẵn có làm phần gọi mô hình,
+nên một nhóm hỏng không làm dừng cả lượt.
+
+⚠️ **Engine chặn `limit` ≤ 200 mỗi lời gọi đọc tin**, và xin quá thì nó trả `400
+invalid_query` chứ KHÔNG cắt bớt. Lượt quét đầu tiên (12:00 ngày 13/09) xin 400
+tin/hội thoại nên trượt sạch 30 nhóm trong một giây — và trượt theo kiểu khó thấy
+nhất: lỗi bị bắt ở tầng dưới (`ZaloEngineService`), nên log của lượt quét chỉ hiện
+"đã xếp hàng 0/30", đọc y như "không nhóm nào có gì mới". `tinCuaHoiThoai()` giờ tự
+chia trang; trang 1 là tin MỚI NHẤT (đã kiểm: 2.323 tin → 400 tin, 400 khác nhau,
+không trùng giữa hai trang).
+
+### Lỗi cùng đợt: đọc tin nhóm bị nhân bản
+
+`GET /v1/agent/zalo/groups/:id/messages` trả **mỗi tin một lần cho mỗi nick công
+ty** trong nhóm: nhóm 2 nick trả 30 tin cho 15 câu thật; nhóm 7 nick thì 7 lần.
+Đúng cái bẫy `Architecture/Common_Pitfalls.md §12`, lần này ở endpoint agent đang
+đọc hằng ngày.
+
+Phần gộp + khử trùng theo `zaloMsgId` đã dời vào **`modules/zalo-engine/`**
+(`ZaloEngineService`) làm cửa đọc engine duy nhất, dùng chung cho bộ API agent và
+bộ tóm tắt. Để mỗi bên tự khử trùng thì sớm muộn một bên sửa một bên không, mà lỗi
+đó không hiện thành lỗi — nó hiện thành "mỗi câu đọc được bảy lần".
+
+## Loại danh tính `chairman` + uid Zalo phụ thuộc nick đang nhìn (12/09/2026)
+
+`ZaloIdentityKind` thêm `Chairman`. Không phải để đẹp bảng: Chủ tịch nhắn trong
+nhóm là **một điều kiện kích hoạt agent** (`AgentApi.md` §3.4), nên nó phải diễn
+đạt được ở tầng dữ liệu chứ không nằm ở hằng số trong mã. Luật gợi ý
+(`zalo-identity.logic.ts`) **không bao giờ tự đoán** loại này — đây là phán đoán
+của người, đánh dấu ở màn *Danh tính*.
+
+**Phải đánh dấu ĐỦ mọi dòng của ông, không phải một dòng.** Đo trên prod 12/09:
+
+| Người | Số uid | Vì sao |
+|---|---|---|
+| Chủ tịch ("Onos") | **8** | mỗi nick công ty thấy ông dưới một uid riêng |
+| "Hoàng Anh" | 8 | như trên |
+| nick trợ lý "Onos Ai" | 7 | khi bị người khác @ |
+
+uid Zalo **phụ thuộc nick đang nhìn**. Bảng `zalo_identities` vì thế có nhiều
+dòng cho cùng một người, và đó là đúng — khoá theo `zaloUid` vẫn là lựa chọn
+đúng (xem ghi chú đầu `zalo-identity-kind.ts`), chỉ là một người chiếm nhiều khoá.
+Thiếu một dòng thì trong nhóm mà nick đó trực, agent im lặng **không có triệu
+chứng gì**.
+
+Thêm một hệ quả đã suýt ship hỏng: `zalo_accounts.zalo_uid` (uid nick tự nhìn
+mình) **KHÁC** uid người khác thấy nó, nên so `mentions[].uid` với bảng account
+luôn trượt. Chi tiết + cách phòng: `Architecture/Common_Pitfalls.md §12`.
+
+Công cụ: `apps/api/scripts/setup-zalo-inbound.mjs --chairman <uid,uid,...>
+--agent-nick <uid,...> --sync-identities` (ghi cả blob cấu hình lẫn bảng danh
+tính, để hai nguồn không lệch nhau).
 
 ## Vận hành trên production (từ 02/09/2026)
 

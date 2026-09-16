@@ -13,8 +13,9 @@
     "unreviewed": "Chưa xét",
     "seller": "Nhóm khách",
     "operation": "Nhóm vận hành",
-    "internal": "Nội bộ / riêng tư",
-    "all": "Tất cả phân loại"
+    "internal": "Nội bộ công ty",
+    "all": "Tất cả phân loại",
+    "private": "Riêng tư"
   },
   "table": {
     "group": "Nhóm Zalo",
@@ -45,7 +46,8 @@
     "applyAll": "Gắn tất cả dòng đã chọn",
     "applied": "Đã gắn {{count}} nhóm",
     "empty": "Không có gợi ý nào — mọi nhóm còn lại phải gắn tay",
-    "selectAll": "Chọn tất cả"
+    "selectAll": "Chọn tất cả",
+    "willCreate": "sẽ tạo khách mới"
   },
   "edit": {
     "title": "Gắn nhóm",
@@ -59,7 +61,10 @@
     "selectOwner": "Chọn người phụ trách…",
     "clear": "Bỏ chọn",
     "save": "Lưu",
-    "saved": "Đã lưu nhóm \"{{title}}\""
+    "saved": "Đã lưu nhóm \"{{title}}\"",
+    "newCustomer": "Khách chưa có trong danh sách?",
+    "newCustomerPlaceholder": "Gõ mã khách, ví dụ TRINITY",
+    "newCustomerHint": "Tạo khách mới mang mã này rồi ghép luôn. Mã đã có thì ghép vào khách đó, không tạo trùng."
   },
   "tab": {
     "groups": "Nhóm",
@@ -93,7 +98,8 @@
       "unknown": "Chưa xét",
       "ai-support": "Trợ lý AI",
       "staff": "Nhân viên",
-      "customer": "Khách / bên ngoài"
+      "customer": "Khách / bên ngoài",
+      "chairman": "Chủ tịch"
     },
     "allKinds": "Tất cả",
     "pending": "Chưa xác nhận",

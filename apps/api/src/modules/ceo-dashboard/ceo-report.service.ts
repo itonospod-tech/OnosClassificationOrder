@@ -1,11 +1,16 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { ConflictException, Injectable, Logger, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model } from 'mongoose';
 import type { CeoOverview, CeoReport, CeoReportKind } from 'shared';
 
+import { laTienTrinhChayCron } from '@/utils/cron-guard';
+import { laThangTron } from '@/utils/report-period';
+
 import { tachJson } from '../zalo-group/zalo-summary.logic';
+import { buildCeoChartSvg } from './ceo-chart';
 import { CeoDashboardService } from './ceo-dashboard.service';
 import { CeoReportDocument, CeoReportEntity } from './ceo-report.entity';
 
@@ -44,11 +49,13 @@ Trả về JSON đúng khuôn: tomTat (2–3 câu tóm tắt kỳ: làm được
 
 const kindOf = (from: string, to: string, days: number): CeoReportKind => {
   if (days === 1) return 'day';
-  // Thứ trong tuần / ngày trong tháng tính theo giờ VN: dịch mốc +7h rồi đọc bằng getUTC*.
+  // Thứ trong tuần tính theo giờ VN: dịch mốc +7h rồi đọc bằng getUTC*.
   const vnF = new Date(new Date(`${from}T00:00:00+07:00`).getTime() + 7 * 3_600_000);
-  const vnTNext = new Date(new Date(`${to}T00:00:00+07:00`).getTime() + 7 * 3_600_000 + 864e5);
   if (days === 7 && vnF.getUTCDay() === 1) return 'week';
-  if (vnF.getUTCDate() === 1 && vnTNext.getUTCDate() === 1) return 'month';
+  // Phép nhận biết tháng dùng CHUNG với báo cáo khách hàng — hai bộ gán khác
+  // nhãn cho cùng một kỳ thì agent bày sai một trong hai.
+  if (laThangTron(from, to)) return 'month';
+
   return 'custom';
 };
 const vnDay = (d: Date) => new Date(d.getTime() + 7 * 3_600_000).toISOString().slice(0, 10);
@@ -67,6 +74,7 @@ export class CeoReportService {
   constructor(
     @InjectModel(CeoReportEntity.name) private readonly reportModel: Model<CeoReportDocument>,
     private readonly dashboard: CeoDashboardService,
+    private readonly adapterHost: HttpAdapterHost,
   ) {}
 
   isGenerating(from: string, to: string): boolean {
@@ -76,6 +84,28 @@ export class CeoReportService {
   async getLatest(from: string, to: string): Promise<CeoReport | null> {
     const doc = await this.reportModel.findOne({ periodKey: `${from}_${to}` }).sort({ generatedAt: -1 }).lean();
     return doc ? this.toDto(doc as unknown as CeoReportEntity & { _id: unknown }) : null;
+  }
+
+  /**
+   * Ảnh báo cáo (PNG) cho kỳ — thứ agent tải về rồi gửi thẳng Telegram/Zalo.
+   *
+   * Dựng TẠI MÁY CHỦ, agent không phải vẽ gì. Dùng lại `getOverview` (đã cache
+   * 5 phút) nên gọi nhiều lần trong một kỳ gần như không tốn gì; nhận định thì
+   * lấy bản mới nhất của kỳ, chưa có thì ảnh chỉ gồm số liệu.
+   *
+   * KHÔNG lưu ảnh vào Mongo: nhị phân trong document sẽ lọt ra `POST
+   * /agent/query` (API-19 mở hết mọi bảng) làm phồng phản hồi, mà dựng lại chỉ
+   * mất vài chục mili giây.
+   */
+  async renderChartPng(from: string, to: string): Promise<Buffer> {
+    const [overview, report] = await Promise.all([this.dashboard.getOverview(from, to), this.getLatest(from, to)]);
+    const svg = buildCeoChartSvg({ overview, report });
+
+    // `sharp` nạp động: module này còn được nạp ở tiến trình microservice, và
+    // nhị phân native của sharp không cần thiết ở đó.
+    const sharp = (await import('sharp')).default;
+
+    return sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
   }
 
   /** Sinh nhận định mới cho kỳ; đang chạy cùng kỳ → 409. */
@@ -125,18 +155,24 @@ export class CeoReportService {
   // ── Cron (giờ VN) — bỏ qua im lặng khi tắt bằng env; lỗi chỉ ghi log, không làm hỏng tiến trình. ──
   @Cron('0 7 * * *', { name: 'ceo-report-daily', timeZone: TZ })
   async cronDaily(): Promise<void> {
+    // Chỉ chạy ở tiến trình HTTP — xem `utils/cron-guard.ts`.
+    if (!laTienTrinhChayCron(this.adapterHost)) return;
     if (!CRON_ENABLED) return;
     const y = vnDay(new Date(Date.now() - 864e5));
     await this.chayCron(y, y);
   }
   @Cron('10 7 * * 1', { name: 'ceo-report-weekly', timeZone: TZ })
   async cronWeekly(): Promise<void> {
+    // Chỉ chạy ở tiến trình HTTP — xem `utils/cron-guard.ts`.
+    if (!laTienTrinhChayCron(this.adapterHost)) return;
     if (!CRON_ENABLED) return;
     const sun = new Date(Date.now() - 864e5);
     await this.chayCron(vnDay(new Date(sun.getTime() - 6 * 864e5)), vnDay(sun));
   }
   @Cron('20 7 1 * *', { name: 'ceo-report-monthly', timeZone: TZ })
   async cronMonthly(): Promise<void> {
+    // Chỉ chạy ở tiến trình HTTP — xem `utils/cron-guard.ts`.
+    if (!laTienTrinhChayCron(this.adapterHost)) return;
     if (!CRON_ENABLED) return;
     const lastDay = new Date(Date.now() - 864e5);
     const to = vnDay(lastDay);

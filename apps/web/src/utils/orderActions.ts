@@ -17,6 +17,10 @@ export const isCancelled = (o: { cancelledAt?: string | Date | null }): boolean 
 /** True nếu đơn đang bị GIỮ (hold) — tạm dừng mọi thao tác tới khi mở lại. */
 export const isHeld = (o: { heldAt?: string | Date | null }): boolean => !!o.heldAt;
 
+/** Hiện nhãn "OnosPod đang giữ" — cờ `onospodHold` có mà đơn bên mình KHÔNG giữ (Orders.md §9d). */
+export const showOnospodHoldFlag = (o: { heldAt?: string | Date | null; onospodHold?: unknown }): boolean =>
+  !o.heldAt && !!o.onospodHold;
+
 /**
  * Role được phép giữ / mở giữ đơn — MIRROR `ORDER_WRITE_ROLES` ở
  * `apps/api/src/modules/order/order.controller.ts`. FE chỉ hiện nút cho các role

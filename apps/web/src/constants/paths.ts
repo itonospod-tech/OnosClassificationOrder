@@ -28,6 +28,10 @@ export const PATHS = {
   FULFILLMENT_TEAM: '/ffm/fulfillment/team',
   FULFILLMENT_STATS: '/ffm/fulfillment/stats',
 
+  // Hướng dẫn quy trình DTF theo vai — trang NỘI BỘ (DtfRoleGuide.md). Ảnh ở thư mục public `/guide/dtf/`;
+  // route cố ý nằm dưới `/ffm` nên không trùng thư mục ảnh (bẫy trùng tên: OrderGuide.md §6.1).
+  DTF_GUIDE: '/ffm/guide/dtf',
+
   // ---- Root router /adm — các trang dùng chung / quản trị ----
   // `/adm/settings` (bare) redirect về mục đầu tiên user có quyền — mỗi mục
   // cài đặt là 1 route con `:section` (menu trái trong trang, lazy-mount).
@@ -83,6 +87,10 @@ export const PATHS = {
   // danh sách trắng hẹp — xem `public-track.service.ts`.
   TRACK: '/track',
   TRACK_DETAIL: '/track/:productionId',
+  // Hướng dẫn khách lên đơn từng bước, ảnh chụp thật Seller Portal — xem OrderGuide.md.
+  // KHÔNG dùng '/guide/order': trùng thư mục ảnh public/guide/order/ → Vite dev trả 500 và
+  // nginx try_files khớp thư mục trước index.html (OrderGuide.md §6.1).
+  ORDER_GUIDE: '/guide/ordering',
 
   ERROR_403: '/forbidden',
   ERROR_404: '/error/404',

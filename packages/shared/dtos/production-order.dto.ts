@@ -15,6 +15,7 @@ import {
   type ProductionOrderTracking,
 } from '../client';
 import { BooleanFlagZod, IDZod } from '../constants/common-zod';
+import { HOLD_SOURCES } from '../constants/hold-reason';
 import { VnpShipmentInfoZod } from './vnp-shipping.dto';
 
 export const DesignerStatusZod = z.nativeEnum(DesignerStatus);
@@ -196,6 +197,24 @@ export const ProductionOrderZod = BaseEntityZod.extend({
    */
   heldAt: z.date().optional(),
   holdReason: z.string().optional(),
+  /**
+   * Nguồn lượt giữ hiện tại (Orders.md §9d): `manual` (nhân viên) | `onospod`
+   * (đồng bộ tự giữ). Thiếu trường trên đơn đang giữ = `manual`. Bị `$unset`
+   * cùng `heldAt` khi mở giữ. Chỉ đơn `onospod` được đồng bộ tự nhả.
+   */
+  holdSource: z.enum(HOLD_SOURCES).optional(),
+  /**
+   * Cờ "OnosPod đang giữ" — có khi item MRP bên OnosPod đang `On Hold`, BẤT KỂ
+   * đơn bên mình có bị giữ hay không (đơn đã xong / nhân viên đã bỏ qua vẫn
+   * mang cờ để FE hiện nhãn). `onHoldAt` = thời điểm đợt giữ bên OnosPod
+   * (log `On Hold` mới nhất), `seenAt` = lần đầu đồng bộ thấy đợt này.
+   */
+  onospodHold: z.object({ onHoldAt: z.date(), seenAt: z.date() }).nullable().optional(),
+  /**
+   * Nhân viên đã mở giữ đơn trong khi OnosPod vẫn giữ → lưu `onHoldAt` của đợt
+   * bị bỏ qua. Đồng bộ KHÔNG giữ lại cho tới khi OnosPod có đợt giữ MỚI HƠN mốc này.
+   */
+  onospodHoldDismissedAt: z.date().optional(),
   /**
    * Snapshot địa chỉ ship lấy từ OnosPod — chỉ dùng cho cron "lấy ngược địa
    * chỉ" (đơn giữ lý do `HOLD_REASON_WAITING_ADDRESS`). Lần đầu = snapshot mốc
@@ -747,6 +766,30 @@ export const ImportFromOnosPodZod = z.object({
 });
 export class ImportFromOnosPodDto extends createZodDto(extendApi(ImportFromOnosPodZod)) {}
 
+// ─── Đồng bộ giữ đơn theo OnosPod (Orders.md §9d) ──────────────────────────
+// Kết quả 1 lượt đồng bộ. `status='aborted'` = KHÔNG ghi gì cả (lỗi fetch,
+// thiếu config, nghi ngờ dữ liệu, vượt trần nhả) — `reason` nói lý do.
+export const OnospodHoldSyncResultZod = z.object({
+  status: z.enum(['ok', 'aborted']),
+  reason: z.string().optional(),
+  window: z.object({ start: z.string(), end: z.string() }),
+  /** Số item `On Hold` nhận từ OnosPod trong cửa sổ quét. */
+  fetched: z.number().int().nonnegative(),
+  held: z.array(z.string()),
+  unheld: z.array(z.string()),
+  /** Chỉ gắn/cập nhật cờ `onospodHold` (đơn đã xong/hủy, đơn nhân viên đang giữ, đợt bị bỏ qua). */
+  flagged: z.array(z.string()),
+  flagCleared: z.array(z.string()),
+  /** OnosPod vẫn giữ nhưng nhân viên đã mở giữ đợt này → không giữ lại. */
+  dismissedSkipped: z.array(z.string()),
+  /** Đơn giữ-do-đồng-bộ vắng khỏi tập On Hold nhưng nằm ngoài cửa sổ quét → không nhả. */
+  outOfWindowKept: z.array(z.string()),
+  /** productionId OnosPod đang giữ nhưng không có đơn bên mình. */
+  notFound: z.number().int().nonnegative(),
+  unchanged: z.number().int().nonnegative(),
+});
+export type OnospodHoldSyncResult = z.infer<typeof OnospodHoldSyncResultZod>;
+
 export const ImportFromOnosPodResZod = ResZod.extend({
   data: z.object({
     imported: z.number(),
@@ -779,6 +822,9 @@ export const ImportFromOnosPodResZod = ResZod.extend({
         error: z.string().optional(),
       }),
     ),
+    // Lượt đồng bộ giữ đơn chạy ngay sau import (Orders.md §9d). Vắng khi đồng
+    // bộ ném lỗi bất ngờ — lỗi đó KHÔNG làm hỏng kết quả import.
+    holdSync: OnospodHoldSyncResultZod.optional(),
   }),
 });
 export class ImportFromOnosPodResDto extends createZodDto(extendApi(ImportFromOnosPodResZod)) {}
@@ -2687,6 +2733,12 @@ export const RecoverHeldOrdersResZod = ResZod.extend({
   }),
 });
 export class RecoverHeldOrdersResDto extends createZodDto(extendApi(RecoverHeldOrdersResZod)) {}
+
+// ─── Đồng bộ giữ đơn theo OnosPod (Orders.md §9d) ──────────────────────────
+// Schema kết quả `OnospodHoldSyncResultZod` khai báo cạnh `ImportFromOnosPodResZod`
+// (dùng chung cho trường `holdSync` của kết quả import).
+export const SyncOnospodHoldResZod = ResZod.extend({ data: OnospodHoldSyncResultZod });
+export class SyncOnospodHoldResDto extends createZodDto(extendApi(SyncOnospodHoldResZod)) {}
 
 // ─── Kiểm tra design mới thủ công (nút action menu Danh sách đơn, 1 đơn) ──
 // Dùng chung logic với recoverHeldOrders() nhưng áp dụng cho MỌI đơn (không

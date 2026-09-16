@@ -30,6 +30,8 @@ export const ZaloIdentityZod = BaseEntityZod.extend({
   messageCount: z.number().default(0),
   /** Hệ thống đoán từ `groupCount`; người vẫn phải xác nhận. */
   suggestedKind: z.nativeEnum(ZaloIdentityKind).optional(),
+  /** Nhóm người này từng nhắn — cơ sở để suy ra khách. */
+  groupGlobalIds: z.string().array().optional(),
 
   confirmedByUserId: IDZod.optional(),
   confirmedAt: z.date().optional(),
@@ -89,6 +91,8 @@ export const SyncZaloIdentitiesResZod = ResZod.extend({
     updated: z.number(),
     /** Số người hệ thống tự đoán được, chờ người xác nhận. */
     suggested: z.number(),
+    /** Số người vừa được nối vào khách nhờ nhóm họ nhắn (không đè liên kết gắn tay). */
+    linked: z.number().default(0),
   }),
 });
 export class SyncZaloIdentitiesResDto extends createZodDto(extendApi(SyncZaloIdentitiesResZod)) {}

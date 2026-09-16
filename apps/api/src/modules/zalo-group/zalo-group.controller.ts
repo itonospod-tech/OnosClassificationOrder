@@ -28,7 +28,7 @@ import {
 } from 'shared';
 import { Logger } from 'winston';
 
-import { Auth } from '@/decorators/http.decorator';
+import { AuthZalo } from '@/decorators/http.decorator';
 
 import type { UserDocument } from '../user/user.entity';
 import { ZaloGroupService } from './zalo-group.service';
@@ -60,7 +60,7 @@ export class ZaloGroupController {
   ) {}
 
   @Get()
-  @Auth(ZALO_GROUP_VIEW_ROLES)
+  @AuthZalo(ZALO_GROUP_VIEW_ROLES)
   @ApiOperation({ summary: 'Danh sách nhóm Zalo đã đồng bộ (lọc theo phân loại / khách / chưa gắn)' })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: GetZaloGroupLinksDto })
@@ -76,7 +76,7 @@ export class ZaloGroupController {
   }
 
   @Get('coverage')
-  @Auth(ZALO_GROUP_VIEW_ROLES)
+  @AuthZalo(ZALO_GROUP_VIEW_ROLES)
   @ApiOperation({ summary: 'Bảng phủ sóng: còn bao nhiêu nhóm chưa xét, bao nhiêu khách chưa có nhóm' })
   @HttpCode(HttpStatus.OK)
   async getCoverage(@AuthUser() user: UserDocument): Promise<ZaloGroupCoverageResDto> {
@@ -88,7 +88,7 @@ export class ZaloGroupController {
   }
 
   @Get('suggestions')
-  @Auth(ZALO_GROUP_EDIT_ROLES)
+  @AuthZalo(ZALO_GROUP_EDIT_ROLES)
   @ApiOperation({ summary: 'Gợi ý ghép nhóm ↔ khách theo tên nhóm (chỉ gợi ý, người vẫn phải duyệt)' })
   @HttpCode(HttpStatus.OK)
   async getSuggestions(@AuthUser() user: UserDocument): Promise<GetZaloGroupSuggestionsResDto> {
@@ -100,7 +100,7 @@ export class ZaloGroupController {
   }
 
   @Post('sync')
-  @Auth(ZALO_GROUP_EDIT_ROLES)
+  @AuthZalo(ZALO_GROUP_EDIT_ROLES)
   @ApiOperation({ summary: 'Nạp nhóm từ engine Zalo (onosceo) — KHÔNG đụng tới phân loại/khách đã gắn' })
   @HttpCode(HttpStatus.OK)
   async syncGroups(
@@ -120,7 +120,7 @@ export class ZaloGroupController {
   }
 
   @Patch(':id')
-  @Auth(ZALO_GROUP_EDIT_ROLES)
+  @AuthZalo(ZALO_GROUP_EDIT_ROLES)
   @ApiOperation({ summary: 'Gắn / gỡ khách, đổi phân loại, chỉ định người phụ trách cho một nhóm' })
   @HttpCode(HttpStatus.OK)
   async updateLink(
@@ -138,7 +138,7 @@ export class ZaloGroupController {
   // ─── Tóm tắt tình hình nhóm ──────────────────────────────────────
 
   @Get('summaries')
-  @Auth(ZALO_GROUP_VIEW_ROLES)
+  @AuthZalo(ZALO_GROUP_VIEW_ROLES)
   @ApiOperation({ summary: 'Bảng tóm tắt tình hình các nhóm (gấp lên đầu)' })
   @HttpCode(HttpStatus.OK)
   async getSummaries(
@@ -153,7 +153,7 @@ export class ZaloGroupController {
   }
 
   @Get('summary-queue')
-  @Auth(ZALO_GROUP_EDIT_ROLES)
+  @AuthZalo(ZALO_GROUP_EDIT_ROLES)
   @ApiOperation({ summary: 'Nhóm đang chờ tóm tắt + mốc tin cần lấy từ (cho script đồng bộ)' })
   @HttpCode(HttpStatus.OK)
   async getSummaryQueue(@AuthUser() user: UserDocument): Promise<GetZaloSummaryQueueResDto> {
@@ -165,7 +165,7 @@ export class ZaloGroupController {
   }
 
   @Post('summarize')
-  @Auth(ZALO_GROUP_EDIT_ROLES)
+  @AuthZalo(ZALO_GROUP_EDIT_ROLES)
   @ApiOperation({
     summary: 'Đẩy một nhóm vào hàng đợi tóm tắt (trả về ngay, worker chạy nền)',
   })
@@ -191,7 +191,7 @@ export class ZaloGroupController {
   }
 
   @Patch('summaries/:groupGlobalId/task')
-  @Auth(ZALO_GROUP_VIEW_ROLES)
+  @AuthZalo(ZALO_GROUP_VIEW_ROLES)
   @ApiOperation({ summary: 'Tick / bỏ tick một việc trong danh sách của nhóm' })
   @HttpCode(HttpStatus.OK)
   async toggleTask(
@@ -217,7 +217,7 @@ export class ZaloGroupController {
   // ─── Định danh: ai là ai trong nhóm ──────────────────────────────
 
   @Get('identities')
-  @Auth(ZALO_GROUP_VIEW_ROLES)
+  @AuthZalo(ZALO_GROUP_VIEW_ROLES)
   @ApiOperation({ summary: 'Danh sách người gửi trong nhóm Zalo + phân loại' })
   @HttpCode(HttpStatus.OK)
   async getIdentities(
@@ -232,7 +232,7 @@ export class ZaloGroupController {
   }
 
   @Get('identities/counts')
-  @Auth(ZALO_GROUP_VIEW_ROLES)
+  @AuthZalo(ZALO_GROUP_VIEW_ROLES)
   @ApiOperation({ summary: 'Đếm định danh theo phân loại + số người chưa xác nhận' })
   @HttpCode(HttpStatus.OK)
   async getIdentityCounts(@AuthUser() user: UserDocument): Promise<{ success: true; data: Record<string, number> }> {
@@ -244,7 +244,7 @@ export class ZaloGroupController {
   }
 
   @Post('identities/sync')
-  @Auth(ZALO_GROUP_EDIT_ROLES)
+  @AuthZalo(ZALO_GROUP_EDIT_ROLES)
   @ApiOperation({ summary: 'Nạp người gửi từ engine Zalo + gieo đề xuất phân loại' })
   @HttpCode(HttpStatus.OK)
   async syncIdentities(
@@ -264,7 +264,7 @@ export class ZaloGroupController {
   }
 
   @Post('identities/apply-suggestions')
-  @Auth(ZALO_GROUP_EDIT_ROLES)
+  @AuthZalo(ZALO_GROUP_EDIT_ROLES)
   @ApiOperation({ summary: 'Áp hàng loạt đề xuất của máy cho người chưa ai xác nhận' })
   @HttpCode(HttpStatus.OK)
   async applyIdentitySuggestions(
@@ -282,7 +282,7 @@ export class ZaloGroupController {
   }
 
   @Patch('identities/:zaloUid')
-  @Auth(ZALO_GROUP_EDIT_ROLES)
+  @AuthZalo(ZALO_GROUP_EDIT_ROLES)
   @ApiOperation({ summary: 'Xác nhận / sửa phân loại một người gửi' })
   @HttpCode(HttpStatus.OK)
   async updateIdentity(

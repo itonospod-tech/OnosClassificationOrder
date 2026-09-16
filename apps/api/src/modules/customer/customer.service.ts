@@ -330,6 +330,36 @@ export class CustomerService {
       },
     ]);
 
+    // Nhận lại "chỗ giữ sẵn" tạo từ nhóm Zalo trước khi upsert.
+    //
+    // Khách tạo ở màn nối nhóm chưa biết email nên mang `userEmail: ''`. Đơn về
+    // sau lại mang email thật, mà unique index là cặp (userSku, userEmail) —
+    // upsert thẳng sẽ đẻ ra bản ghi THỨ HAI cho cùng một seller, và từ đó mọi
+    // báo cáo theo khách đếm đôi. Nên điền email vào bản ghi trống trước, đúng
+    // khuôn "claim" mà khách tự đăng ký đang dùng.
+    const coEmail = pairs.filter((p) => (p._id.userEmail || '').trim());
+    if (coEmail.length > 0) {
+      const skus = [...new Set(coEmail.map((p) => p._id.userSku))];
+      const choTrong = await this.customerModel.find({ userSku: { $in: skus }, userEmail: '' }).select('userSku').lean();
+      const dangCho = new Set(choTrong.map((c) => String((c as { userSku?: string }).userSku)));
+      if (dangCho.size > 0) {
+        // Mỗi mã chỉ nhận MỘT email — mã có nhiều email thì để phần upsert bên
+        // dưới tạo các bản ghi còn lại như trước, không đoán cái nào là chính.
+        const nhan = new Map<string, string>();
+        for (const p of coEmail) {
+          if (dangCho.has(p._id.userSku) && !nhan.has(p._id.userSku)) nhan.set(p._id.userSku, p._id.userEmail);
+        }
+        if (nhan.size > 0) {
+          await this.customerModel.bulkWrite(
+            [...nhan].map(([userSku, userEmail]) => ({
+              updateOne: { filter: { userSku, userEmail: '' }, update: { $set: { userEmail } } },
+            })),
+            { ordered: false },
+          );
+        }
+      }
+    }
+
     let created = 0;
     if (pairs.length > 0) {
       const res = await this.customerModel.bulkWrite(

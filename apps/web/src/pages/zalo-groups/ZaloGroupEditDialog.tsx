@@ -35,6 +35,10 @@ export default function ZaloGroupEditDialog({ group, onClose, onSaved }: Props) 
 
   const [kind, setKind] = useState<ZaloGroupKind>(group.kind);
   const [customerId, setCustomerId] = useState<string>(group.customerId ?? '');
+  // Mã khách gõ tay khi seller chưa có trong bảng khách. Xem `newCustomerSku`
+  // ở BE: bảng khách sinh ra TỪ đơn hàng nên seller chưa đặt đơn thì chưa tồn
+  // tại, và trước đây ops phải sang trang khác tạo rồi quay lại.
+  const [newSku, setNewSku] = useState('');
   const [ownerUserId, setOwnerUserId] = useState<string>(group.ownerUserId ?? '');
   const [note, setNote] = useState<string>(group.note ?? '');
   const [saving, setSaving] = useState(false);
@@ -72,15 +76,20 @@ export default function ZaloGroupEditDialog({ group, onClose, onSaved }: Props) 
   // từ chối nếu để lẫn, báo lỗi ở đây thì người dùng phải sửa hai lần.
   const handleKindChange = (next: ZaloGroupKind) => {
     setKind(next);
-    if (next !== ZaloGroupKind.Seller) setCustomerId('');
+    if (next !== ZaloGroupKind.Seller) {
+      setCustomerId('');
+      setNewSku('');
+    }
   };
 
   const submit = async () => {
     setSaving(true);
     try {
+      const sku = newSku.trim();
       await RepositoryRemote.zaloGroup.updateLink(group._id, {
         kind,
-        customerId: customerId || null,
+        // Hai đường loại trừ nhau — BE từ chối nếu gửi cả hai.
+        ...(kind === ZaloGroupKind.Seller && sku ? { newCustomerSku: sku } : { customerId: customerId || null }),
         ownerUserId: ownerUserId || null,
         note: note.trim() || null,
       });
@@ -139,6 +148,18 @@ export default function ZaloGroupEditDialog({ group, onClose, onSaved }: Props) 
                 ))}
               </select>
               <p className="mt-1 text-xs text-slate-500">{t('edit.customerHint')}</p>
+
+              <div className="mt-3 rounded-md border border-dashed border-slate-300 p-2 dark:border-slate-700">
+                <Label className="text-xs">{t('edit.newCustomer')}</Label>
+                <Input
+                  className="mt-1 font-mono"
+                  placeholder={t('edit.newCustomerPlaceholder')}
+                  value={newSku}
+                  onChange={(e) => setNewSku(e.target.value.toUpperCase())}
+                  disabled={!!customerId}
+                />
+                <p className="mt-1 text-xs text-slate-500">{t('edit.newCustomerHint')}</p>
+              </div>
             </div>
           )}
 

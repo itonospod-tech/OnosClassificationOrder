@@ -229,7 +229,7 @@ export function FulfillmentTaskCard({
 
           {/* Đơn đang bị giữ — BE chặn mọi transition, card phải nói rõ lý do
               thay vì để công nhân bấm "Bắt đầu" rồi ăn 400. */}
-          {isHeld && <HeldBadge reason={order.holdReason} />}
+          {isHeld && <HeldBadge reason={order.holdReason} source={order.holdSource} />}
 
           {order.type && (
             <Hint content={t('taskCard.typeTooltip', { type: order.type })} forceRich>

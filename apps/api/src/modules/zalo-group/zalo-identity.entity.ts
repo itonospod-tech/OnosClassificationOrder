@@ -35,6 +35,16 @@ export class ZaloIdentityEntity extends DatabaseEntityAbstract {
    */
   @Prop({ default: 0, index: true })
   groupCount: number;
+  /**
+   * Các nhóm người này từng nhắn.
+   *
+   * Đồng bộ vẫn GỬI danh sách này từ đầu nhưng trước 11/09/2026 không ai lưu —
+   * nó chỉ được dùng thoáng qua để đoán phân loại rồi bỏ. Không lưu thì không
+   * có đường nào đi từ NGƯỜI sang KHÁCH: mình biết nick nào là khách và biết
+   * nhóm nào của seller nào, nhưng không biết nick nào ở nhóm nào.
+   */
+  @Prop({ type: [String], default: [], index: true })
+  groupGlobalIds: string[];
 
   @Prop({ default: 0 })
   messageCount: number;

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bot, Check, Search, User, UserCog } from 'lucide-react';
+import { Bot, Check, Crown, Search, User, UserCog } from 'lucide-react';
 import type { ZaloIdentity } from 'shared';
 import { ZALO_IDENTITY_KINDS, ZaloIdentityKind } from 'shared';
 import { toast } from 'sonner';
@@ -20,6 +20,7 @@ const PAGE_SIZE = 30;
 
 const KIND_ICON: Record<string, typeof User> = {
   [ZaloIdentityKind.AiSupport]: Bot,
+  [ZaloIdentityKind.Chairman]: Crown,
   [ZaloIdentityKind.Staff]: UserCog,
   [ZaloIdentityKind.Customer]: User,
   [ZaloIdentityKind.Unknown]: Search,

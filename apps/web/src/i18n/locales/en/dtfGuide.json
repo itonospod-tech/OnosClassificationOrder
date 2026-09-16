@@ -1,0 +1,778 @@
+{
+  "title": "DTF workflow guide by role",
+  "subtitle": "What each role in the DTF workshop does, who hands work to it and who it hands work to — step by step, with real screenshots of the system.",
+  "demoNote": "Screenshots use DEMO DATA (order codes DEMO-DTF-…, factory DEMO-DTF, demo accounts). The error catalog in the screenshots is a demo catalog — error names and numbers in the real workshop differ.",
+  "uiNote": "Screenshots show the Vietnamese interface: button and menu names are quoted in Vietnamese exactly as on screen, with the English meaning in brackets.",
+  "shotFrameLabel": "Workshop system",
+  "flow": {
+    "title": "How a DTF order moves between roles",
+    "hint": "Click a box to open that role's guide.",
+    "ariaLabel": "DTF order flow diagram between roles",
+    "scrollHint": "Swipe sideways to see the whole diagram.",
+    "nodes": {
+      "import": { "who": "Input", "title": "Order enters production", "desc": "Order import or customer push to production" },
+      "support": { "who": "Support", "title": "Tool check", "desc": "Sets “Note kq Tool 1” (tool result note)" },
+      "designer-leader": { "who": "Designer Leader", "title": "Assign a designer", "desc": "Or a Designer claims it" },
+      "designer": { "who": "Designer", "title": "Fix the design file", "desc": "Complete → note becomes ok" },
+      "fulfillment-print": { "who": "Worker", "title": "Print (“In”)", "desc": "Print order table" },
+      "fulfillment-press": { "who": "Worker", "title": "Press (“Ép”)", "desc": "Stage kanban" },
+      "fulfillment-qc-post-press": { "who": "Worker", "title": "Post-press QC (“QC sau ép”)", "desc": "Kanban + scanning" },
+      "sew": { "who": "Automatic", "title": "Sew-in + sew-out", "desc": "Completes itself — the DTF workshop has no sewing" },
+      "fulfillment-pack": { "who": "Worker", "title": "Packing (“Đóng hàng”)", "desc": "Confirmed by hand, order by order" },
+      "done": { "who": "End", "title": "Production completed", "desc": "Customer is notified" },
+      "admin": { "who": "Workshop manager (Admin)", "title": "Monitor & unblock the whole flow", "desc": "Stage funnel, hold / release orders, assign a worker to every stage" }
+    },
+    "edges": {
+      "ok": "Ok",
+      "error": "Error / no PDF file",
+      "assign": "Assign",
+      "designDone": "Complete (note → ok)",
+      "auto": "auto"
+    },
+    "back": {
+      "title": "When an error is reported — the order is pushed back",
+      "desc": "The receiving stage sees the order under “Làm lại” / “Cần làm lại” (redo); stages that already finished it see it under “Đang chờ quay lại” (waiting for it to return). Click a row to open the reporting role.",
+      "items": {
+        "printTool": { "from": "Print", "to": "Support (tool check)", "how": "“Lỗi xưởng” (workshop error) cell = “Thiếu file để in” (missing print file)" },
+        "printDesigner": { "from": "Print", "to": "Designer", "how": "“Báo lỗi” (report error) button" },
+        "press": { "from": "Press", "to": "Print or Designer", "how": "“Báo lỗi” (report error) button" },
+        "qc": { "from": "Post-press QC", "to": "Press / Print / Designer", "how": "“Báo lỗi” button, or scanning an “E-…” error code (target comes from the error catalog and may be tool check)" },
+        "pack": { "from": "Packing", "to": "An earlier stage", "how": "“Báo lỗi” button — pick the chip of the stage that caused the error (the “May…” sewing chips send it to post-press QC)" }
+      }
+    },
+    "crosscut": {
+      "hold": "Hold: an order on hold is locked for every action until someone releases it (“Mở giữ”, in the order row's “…” menu). Support, Designer Leader, stage workers and managers can all hold / release; Designers cannot.",
+      "scan": "Scanning: scan “N-<production code>”, then scan the order code again / the OK code / press Enter to finish the stage; scan an “E-…” error code twice to report an error (recorded on the Scan page)."
+    }
+  },
+  "picker": {
+    "label": "Choose a role",
+    "yours": "Your role"
+  },
+  "section": {
+    "goal": "Goal",
+    "stepCount": "{{n}} steps",
+    "entry": "Where you work",
+    "from": "Receives work from",
+    "to": "Hands work to",
+    "openRole": "See {{role}}",
+    "toc": "Steps in this role",
+    "steps": "Steps",
+    "stepLabel": "Step {{n}}/{{total}}",
+    "stepNote": "Note:",
+    "errors": "Errors & redo",
+    "notes": "Good to know"
+  },
+  "roles": {
+    "support": {
+      "name": "Support — Tool check",
+      "short": "Support",
+      "goal": "Check the files of every new order in production: if the print files are fine, choose Ok so the order goes straight to Print; if files are missing or wrong, mark an error so a Designer fixes them. Also handle orders the Print worker sends back as “Thiếu file để in” (missing print file).",
+      "entry": "Dashboard › “Soát tool” (tool check). After signing in the system opens the Dashboard directly.",
+      "from": "New orders entering production (order import or customer push) and orders the Print worker returns for missing files.",
+      "to": "Ok → Print worker. Error / no PDF file → the Designer Leader's “Cần gán designer” (needs a designer) block.",
+      "steps": {
+        "01-login": {
+          "title": "Sign in",
+          "body": "Open the workshop system sign-in page, enter the staff account email and password, then click “Tiếp tục” (Continue). Support accounts land directly on the Dashboard.",
+          "alt": "Sign-in form with Email, Password fields and the Continue button",
+          "callouts": {
+            "1": { "label": "Email", "detail": "Staff account email." },
+            "2": { "label": "“Mật khẩu” (Password)", "detail": "Sign-in password." },
+            "3": { "label": "“Tiếp tục” (Continue)", "detail": "Enter the system — Support goes to the Dashboard." }
+          }
+        },
+        "02-tool-check-overview": {
+          "title": "Open the tool check tab",
+          "body": "Click Dashboard › “Soát tool” (tool check). At the top is the “Tổng quan theo ngày” (daily overview) table by production date; below are 4 stat cards and 2 work lists: “Cần làm lại” (redo) and “Chưa soát” (not checked). The default period is 7 days.",
+          "alt": "Tool check tab with the daily overview table, stat cards and 2 list buttons",
+          "callouts": {
+            "1": { "label": "“Soát tool” (tool check)", "detail": "Menu Dashboard › Soát tool." },
+            "2": { "label": "“IN TRẢ VỀ (CẦN LÀM LẠI)” (returned by print)", "detail": "Orders the Print worker returned for missing files — handle these first." },
+            "3": { "label": "“Chưa soát (n)” (not checked)", "detail": "Opens the list of orders without a tool result note." },
+            "4": { "label": "“7 ngày” (7 days)", "detail": "Period by production date, 7 days by default." }
+          }
+        },
+        "03-unreviewed-list": {
+          "title": "The “Chưa soát” (not checked) list",
+          "body": "Click “Chưa soát (n)”. Each row is one order; edit “Note kq Tool 1” (tool result note), “File sửa lỗi” (file to fix) and “Ghi chú file lỗi” (file error note) directly in the row.",
+          "alt": "Not-checked list with Order code, tool result note, file to fix and file error note columns",
+          "callouts": {
+            "1": { "label": "Order code", "detail": "The order's production code (click the icon next to it to copy)." },
+            "2": { "label": "“NOTE KQ TOOL 1” (tool result note)", "detail": "Check result: Ok / Lỗi (error) / Không có file PDF (no PDF file) / Không có tool (no tool)." },
+            "3": { "label": "“FILE SỬA LỖI” (file to fix)", "detail": "Pick which file position the designer must fix." },
+            "4": { "label": "“GHI CHÚ FILE LỖI” (file error note)", "detail": "Short description of the file problem for the designer." }
+          }
+        },
+        "04-note-options": {
+          "title": "Choose the check result",
+          "body": "Click the order's “Note kq Tool 1” cell. “Ok” = files are fine, the order moves to Print right away. “Lỗi” (error) or “Không có file PDF” (no PDF file) = the order goes to the “Cần gán designer” (needs a designer) block for the Designer Leader.",
+          "note": "When marking an error, it is best to set “File sửa lỗi” and type “Ghi chú file lỗi” FIRST, then switch the note to “Lỗi” — the designer then sees exactly what to fix.",
+          "alt": "Options of the tool result note cell: clear, no tool, error, Ok, no PDF file",
+          "callouts": {
+            "1": { "label": "Ok", "detail": "Print files are fine — the order moves to Print right away." },
+            "2": { "label": "“Lỗi” (error)", "detail": "The file needs redesign — the order goes to “Cần gán designer”." },
+            "3": { "label": "“Không có file PDF” (no PDF file)", "detail": "PDF file missing — also waits for a designer." }
+          }
+        },
+        "05-rework-list": {
+          "title": "The “Cần làm lại” (redo) list",
+          "body": "Click “Cần làm lại (n)”: orders the Print worker reported as “Thiếu file để in” (missing print file). Re-check: if the files are actually fine → set “Note kq Tool 1” back to “Ok” and the order returns to Print. If it needs redesign → click “Đã soát xong” (check done) and the order goes to a designer (the previous one, auto-assigned, or the “Cần gán designer” block).",
+          "alt": "Redo list with the workshop error Missing print file and the Check done button",
+          "callouts": {
+            "1": { "label": "Order code", "detail": "Order returned by Print." },
+            "2": { "label": "“Lỗi xưởng” (workshop error)", "detail": "The error the Print worker reported." },
+            "3": { "label": "“Note kq Tool 1” (tool result note)", "detail": "Files are actually fine → set back to Ok, the order returns to Print." },
+            "4": { "label": "“Đã soát xong” (check done)", "detail": "Needs redesign → send to a designer." }
+          }
+        },
+        "06-hold-dialog": {
+          "title": "Put an order on hold for the customer",
+          "body": "In Order management › “Danh sách đơn” (order list), open the row's “…” menu › “Giữ đơn” (hold order). Pick a preset reason or type one, then click “Giữ đơn”. An order on hold is locked for every action until it is released (“Mở giữ”).",
+          "note": "Be careful with the reason “Đợi khách sửa design” (waiting for the customer to fix the design): it automatically clears the check result and unassigns the designer.",
+          "alt": "Hold order dialog with preset reasons, a reason box and the Hold order button",
+          "callouts": {
+            "1": { "label": "“Chờ khách xác nhận” (waiting for customer confirmation)", "detail": "Preset reason — click to fill it in." },
+            "2": { "label": "“Lý do giữ” (hold reason)", "detail": "Edit it or type your own (optional)." },
+            "3": { "label": "“Giữ đơn” (hold order)", "detail": "Confirm the hold." }
+          }
+        }
+      },
+      "errors": {
+        "printMissingFile": "The Print worker reports “Thiếu file để in” → the order returns to the “Cần làm lại” list (step 5); stages that already worked on it see it under “Đang chờ quay lại”.",
+        "wrongOk": "Marked “Ok” on an order with missing files by mistake: the order is already at Print — ask the Print worker to report “Thiếu file để in” so it comes back, or tell the manager.",
+        "waitCustomer": "The order must wait for the customer → hold it (step 6). Once the customer replies, Support releases it with “Mở giữ” from the same “…” menu — no need to ask a manager."
+      },
+      "notes": {
+        "menus": "Support accounts do not have the “Nhật ký bù lỗi” (error log) or “Task của tôi” (my tasks) menus — Support's work lives in the tool check tab.",
+        "priorityFirst": "Priority orders are always listed first.",
+        "allFactories": "The tool check tab counts orders from every factory — the factory picker in the header does not filter this tab."
+      }
+    },
+    "designer-leader": {
+      "name": "Designer Leader",
+      "short": "Designer Leader",
+      "goal": "Keep checked-with-error orders from waiting: assign them to designers, balance the load between designers and manage team members.",
+      "entry": "Dashboard › Designer (the “Cần gán designer” block) and Administration › People & permissions › “Team Designer”.",
+      "from": "Support: orders checked as “Lỗi” (error) / “Không có file PDF” (no PDF file) that nobody has taken yet.",
+      "to": "Designer — the order lands in the “Cần làm” (to do) column of the assignee's My tasks.",
+      "steps": {
+        "01-assign-backlog": {
+          "title": "The “Cần gán designer” (needs a designer) block",
+          "body": "In the Designer tab, the “Cần gán designer” block groups by product the checked-with-error orders nobody has taken. The period follows the tab's shared date filter (7 days by default).",
+          "alt": "Needs-a-designer block with a product group and the Claim, Assign design and Auto-assign buttons",
+          "callouts": {
+            "1": { "label": "“Cần gán designer” (needs a designer)", "detail": "Total orders waiting for assignment." },
+            "2": { "label": "Select whole group", "detail": "Tick to select every order of the product." },
+            "3": { "label": "“Gán design (0)” (assign design)", "detail": "Assign the selected orders to one designer." },
+            "4": { "label": "“Tự động gán” (auto-assign)", "detail": "Splits by the auto-assign configuration — factories without a configuration cannot be assigned this way." }
+          }
+        },
+        "02-select-orders": {
+          "title": "Select orders to assign",
+          "body": "Click the product name to open the group and tick each order. The assign buttons show how many orders are selected — in the screenshot 2 orders are ticked: one ticked order is visible at the bottom, the other is further down, outside the frame. A Leader can assign to someone else or claim the orders personally.",
+          "alt": "Opened product group with 2 orders ticked (one visible, the other further down), Assign design (2) and Claim (2) buttons",
+          "callouts": {
+            "1": { "label": "Order checkbox", "detail": "Tick each order. Only one ticked box is visible — the second one is further down, outside the frame." },
+            "2": { "label": "“Gán design (n)” (assign design)", "detail": "Assign the selected orders to a designer." },
+            "3": { "label": "“Nhận về mình (n)” (claim)", "detail": "The Leader takes the work personally." }
+          }
+        },
+        "03-assign-dialog": {
+          "title": "Assign to a designer",
+          "body": "Click “Gán design”. The dialog summarises the status of the selected orders; choose a designer (with the number of orders they currently hold) and click “Gán” (assign). Orders already Ok, in progress or done are skipped automatically.",
+          "alt": "Assign designer for 2 orders dialog with current status, designer select and Assign button",
+          "callouts": {
+            "1": { "label": "“Trạng thái hiện tại:” (current status)", "detail": "In-progress / done / Ok orders are skipped automatically." },
+            "2": { "label": "“Gán cho designer” (assign to designer)", "detail": "Prefer someone holding fewer orders." },
+            "3": { "label": "“Gán” (assign)", "detail": "Confirm the assignment." }
+          }
+        },
+        "04-designer-team": {
+          "title": "Manage the designer team",
+          "body": "Administration › People & permissions › “Team Designer”: add designers, turn them on/off, reset passwords, filter active / disabled people. Disabled people do not appear in the assign picker.",
+          "alt": "Team Designer page with the member list, status switches and the Add sub-designer button",
+          "callouts": {
+            "1": { "label": "“Thêm sub-designer” (add sub-designer)", "detail": "Create a new designer account." },
+            "2": { "label": "“Bật/Tắt” (on/off)", "detail": "Turn off people who are away — they cannot get new orders (people with tasks in progress cannot be turned off)." },
+            "3": { "label": "Reset password", "detail": "Reset the designer's password." },
+            "4": { "label": "“Đang bật” (active)", "detail": "Filter the list by status." }
+          }
+        },
+        "05-team-matrix": {
+          "title": "See each designer's load",
+          "body": "The “Tất cả designer theo ngày” (all designers by day) table in the Designer tab: each designer's orders by production date. If someone has a large backlog, give new orders to someone else.",
+          "alt": "All designers by day table, one row per designer, one column per day",
+          "callouts": {
+            "1": { "label": "“Tất cả designer theo ngày” (all designers by day)", "detail": "Designer × day matrix." },
+            "2": { "label": "Designer row", "detail": "One row = one designer." }
+          }
+        }
+      },
+      "errors": {
+        "reworkUnassigned": "The workshop reports a design error on an order nobody holds → the order returns to “Cần gán designer”. If someone already holds it, it goes straight to that person's “Cần làm lại” (redo) column (it cannot be reassigned).",
+        "cannotDo": "A Designer who clicks “Không làm được” (cannot do) must pick a replacement in the dialog — the order goes to that person's “Cần làm”, not back to the assign block."
+      },
+      "notes": {
+        "mixedBacklog": "The “Cần gán designer” block can also list orders that do NOT need a designer: orders Print reported as “Thiếu file để in” (waiting for Support) and workshop-caused errors being redone at Print (status “Làm lại In”). Check the Status column before assigning.",
+        "noAutoAssign": "If an order does not match the designer auto-assign configuration (its customer, product or factory is not assigned to any designer — an Admin configures this under Administration › “Cài đặt” (Settings) › “Tự động gán designer” (auto-assign designers)), checked-with-error orders stay in this block until the Leader assigns them or a Designer claims them.",
+        "rememberAdminOnly": "The “Ghi nhớ cấu hình” (remember configuration) button in the assign block is only visible to Admin / SuperAdmin accounts."
+      }
+    },
+    "designer": {
+      "name": "Designer",
+      "short": "Designer",
+      "goal": "Redo the design files of the orders assigned to you, then click Complete so the order flows to Print.",
+      "entry": "Work › “Task của tôi” (my tasks) — the system opens this page right after sign-in.",
+      "from": "Assigned by the Designer Leader, claimed from the “Cần gán designer” block, or handed over by another designer (“Không làm được”).",
+      "to": "Print worker — on Complete the tool result note becomes ok and the order enters Print – waiting.",
+      "steps": {
+        "01-my-tasks": {
+          "title": "The My tasks page",
+          "body": "The page only shows your own work. The default period is 7 days by production date; the “Chi tiết theo ngày” (details by day) block shows which days still have a backlog. The kanban columns run Cần làm (to do) → Cần làm lại (redo) → Đang chờ quay lại (waiting to return) → Đang làm (in progress) → Đã xong (done) → Đã sửa (fixed). The redo, waiting-to-return and fixed columns hide themselves when empty — no order had been fixed when this screenshot was taken, so there is no Fixed column, only the “Đã sửa” count card showing 0.",
+          "alt": "My tasks page with greeting, period buttons, details by day block, filters and the kanban",
+          "callouts": {
+            "1": { "label": "“Xin chào, <your name>” (hello)", "detail": "The work page of the signed-in designer." },
+            "2": { "label": "“7 ngày” (7 days)", "detail": "Default period of 7 days." },
+            "3": { "label": "“Chi tiết theo ngày” (details by day)", "detail": "Unfinished orders per day — clear older days first." },
+            "4": { "label": "Search", "detail": "Quick search by code." }
+          }
+        },
+        "02-task-card": {
+          "title": "The order card",
+          "body": "Each card shows the mockup, production code and tool check result. Cards have NO Take / Complete buttons — change status by dragging the card to another column, or tick cards and use the toolbar.",
+          "alt": "Order card in the To do column with mockup, Error label, production code and KLĐ button",
+          "callouts": {
+            "1": { "label": "Production code", "detail": "Click the code for order details and files. The red label above it (e.g. “Lỗi”, error) is the tool result note — the result Support set." },
+            "2": { "label": "Mockup", "detail": "Click to see a larger image." },
+            "3": { "label": "“KLĐ” (cannot do)", "detail": "Hand the order over to another designer." }
+          }
+        },
+        "03-task-detail": {
+          "title": "View details and files",
+          "body": "Click the production code to open order details: product info, mockup, design files, the “File sửa lỗi” (file to fix) block with the position + note Support set, and the “Timeline designer”.",
+          "note": "The “NOTE TOOL” field in this dialog currently shows the raw code (e.g. “error”) instead of the label “Lỗi” — they mean the same.",
+          "alt": "Order detail dialog with mockup, design file list, designer timeline and the file to fix block",
+          "callouts": {
+            "1": { "label": "“File design (n)”", "detail": "The order's design files." },
+            "2": { "label": "“File sửa lỗi” (file to fix)", "detail": "File position Support asked to fix + note." },
+            "3": { "label": "“Timeline designer”", "detail": "When it was assigned, started, completed." }
+          }
+        },
+        "04-start-bulk": {
+          "title": "Take the work",
+          "body": "Tick the checkbox on cards in the To do column → the bottom toolbar shows “Nhận làm” (take) — same as dragging the card to In progress. Hold Shift while ticking to select a range of cards.",
+          "alt": "A card in To do is ticked; the bottom toolbar has Take and Cannot do buttons",
+          "callouts": {
+            "1": { "label": "Card checkbox", "detail": "Shift + click to select a range of cards." },
+            "2": { "label": "“Nhận làm” (take)", "detail": "Start working on the selected orders." },
+            "3": { "label": "“Đã chọn n” (n selected)", "detail": "Number of selected cards." }
+          }
+        },
+        "05-complete-bulk": {
+          "title": "Complete",
+          "body": "When the file is done: tick the card in In progress and click “Hoàn thành” (complete). The order's tool result note becomes ok automatically and the order moves to Print – waiting.",
+          "alt": "A card in In progress is ticked; the toolbar has the Complete button",
+          "callouts": {
+            "1": { "label": "In-progress card", "detail": "Order whose file is finished." },
+            "2": { "label": "“Hoàn thành” (complete)", "detail": "The order goes to the Print worker." }
+          }
+        },
+        "06-rework-card": {
+          "title": "Orders to redo",
+          "body": "The “Cần làm lại” (redo) column: the workshop reported a design error, and the yellow block on the card describes it. Drag the card to In progress to take the redo, and when the fix is done click “Hoàn thành” (complete) as in step 5. An order that had to be redone goes into the “Đã sửa” (fixed) column instead of “Đã xong” (done) — that column only appears when it has orders — and is counted on the “Đã sửa” count card: the redone orders you completed in the selected period.",
+          "alt": "Card in the Redo column with a yellow workshop error description",
+          "callouts": {
+            "1": { "label": "Workshop error description", "detail": "What the workshop reported — fix exactly this." },
+            "2": { "label": "Production code", "detail": "After the fix, click Complete — the order moves to the “Đã sửa” column (shown only when it has orders) and adds to the “Đã sửa” count card." }
+          }
+        },
+        "07-watching": {
+          "title": "Waiting to return",
+          "body": "The “Đang chờ quay lại” (waiting to return) column: orders you finished that the Print worker sent back to Support for missing files. It is not your turn yet — when Support clicks “Đã soát xong” (check done), the order comes back to your “Cần làm lại”.",
+          "alt": "Card in the Waiting to return column",
+          "callouts": {
+            "1": { "label": "Waiting card", "detail": "Not your turn yet — for tracking only." }
+          }
+        },
+        "08-reject-modal": {
+          "title": "Cannot do",
+          "body": "Click “KLĐ” on the card. You must choose a designer to take over (with the number of orders they have in progress); the reason is optional. Click “Không làm được” (cannot do) — the order moves to that person's To do column.",
+          "alt": "Report file cannot be done dialog with Transfer to designer, Reason and the Cannot do button",
+          "callouts": {
+            "1": { "label": "“Chuyển cho designer *” (transfer to designer)", "detail": "The replacement (with their in-progress count)." },
+            "2": { "label": "“Lý do” (reason)", "detail": "Optional, up to 500 characters." },
+            "3": { "label": "“Không làm được” (cannot do)", "detail": "Confirm the hand-over." }
+          }
+        }
+      },
+      "errors": {
+        "rework": "The workshop reports a design error → the order goes to “Cần làm lại” (step 6).",
+        "watching": "The Print worker sends the order back to Support for missing files → it sits in “Đang chờ quay lại” (step 7) until Support finishes checking.",
+        "cannotDo": "Cannot do it → hand it over to another designer (step 8)."
+      },
+      "notes": {
+        "noEdit": "Designers cannot edit the tool result note or the assignee — the note becomes ok when you click Complete.",
+        "allFactories": "My tasks counts orders from every factory — the factory picker in the header does not filter this page."
+      }
+    },
+    "fulfillment-print": {
+      "name": "Print worker",
+      "short": "Print",
+      "goal": "Print the orders of your factory that Support checked Ok or a designer finished, then pass them to Press.",
+      "entry": "Work › “Task Fulfillment” — the Print stage is an order TABLE, not a kanban. Scanning station: Order management › “Quét mã” (scan).",
+      "from": "Support (checked Ok) and Designer (file completed).",
+      "to": "Press worker — when printing is done the order enters Press – waiting.",
+      "steps": {
+        "01-print-table": {
+          "title": "Open the print table",
+          "body": "After sign-in the system opens the Dashboard — click Work › “Task Fulfillment”. The table lists EVERY order of the factory that entered production today; only orders checked Ok have action buttons.",
+          "alt": "Task Fulfillment table for the Print stage with status chips, period buttons, filters and the order table",
+          "callouts": {
+            "1": { "label": "“Task Fulfillment”", "detail": "Menu Work › Task Fulfillment." },
+            "2": { "label": "“Đang chờ” (waiting)", "detail": "Row of print status chips with counts — click to filter the table." },
+            "3": { "label": "“Hôm nay” (today)", "detail": "Default: orders that entered production today. Older backlog → choose “Hôm qua” (yesterday) / “7 ngày” (7 days)." },
+            "4": { "label": "“Thao tác In” (print actions)", "detail": "Start / Complete / Report error buttons for each order." }
+          }
+        },
+        "02-start": {
+          "title": "Start printing",
+          "body": "Waiting orders have a “Bắt đầu” (start) button (and “Báo lỗi”, report error). To print several at once: tick the rows, then click “Bắt đầu (n)” on the bottom toolbar.",
+          "alt": "A ticked order row with the Start button and the Start (1) toolbar at the bottom",
+          "callouts": {
+            "1": { "label": "“Bắt đầu” (start)", "detail": "Start printing this order — it moves to In progress." },
+            "2": { "label": "Row checkbox", "detail": "Tick several rows; hold Shift to select a range." },
+            "3": { "label": "“Bắt đầu (n)” (start)", "detail": "Start every ticked order." }
+          }
+        },
+        "03-complete": {
+          "title": "Complete",
+          "body": "In-progress orders have “Hoàn thành” (complete) and “Báo lỗi” (report error). When printing is done click “Hoàn thành” — the order moves to Press – waiting automatically.",
+          "alt": "Order row being printed with Complete and Report error buttons",
+          "callouts": {
+            "1": { "label": "Production code", "detail": "Order being printed." },
+            "2": { "label": "“Hoàn thành” (complete)", "detail": "Printing done — the order moves to Press." },
+            "3": { "label": "“Báo lỗi” (report error)", "detail": "Problem with the print file — send the order back to Designer." }
+          }
+        },
+        "04-report-error": {
+          "title": "Report an error to Designer",
+          "body": "Click “Báo lỗi”, write the reason, then click “Đẩy về xử lý” (send back). At the Print stage the only receiver is Designer; the print table keeps the row, shown in red, until the order comes back.",
+          "alt": "Report order error dialog with the Designer chip, the error reason box and the Send back button",
+          "callouts": {
+            "1": { "label": "Designer", "detail": "The designer gets the order back in the “Cần làm lại” column." },
+            "2": { "label": "“Lý do lỗi *” (error reason)", "detail": "Required — state the error so the fixer knows what to fix." },
+            "3": { "label": "“Đẩy về xử lý” (send back)", "detail": "Send the order to Designer." }
+          }
+        },
+        "05-error-cell": {
+          "title": "Missing print file → back to Support",
+          "body": "For a missing print file, do NOT use “Báo lỗi” (it only goes to Designer): click the row's “Lỗi xưởng” (workshop error) cell and choose “Thiếu file để in” (missing print file) — the order returns to Support for re-checking.",
+          "note": "This list also contains errors of other stages (e.g. post-press QC errors). Only choose an error that matches the Print stage's work.",
+          "alt": "Workshop error cell list with the Missing print file item tagged Tool check",
+          "callouts": {
+            "1": { "label": "“Lỗi xưởng” (workshop error)", "detail": "Click the cell to open the error list." },
+            "2": { "label": "“Thiếu file để in” (missing print file)", "detail": "Tool check source — the order goes to Support's “Cần làm lại” list." }
+          }
+        },
+        "06-rework-watching": {
+          "title": "Orders to redo",
+          "body": "The “Làm lại” (redo) chip: orders a later stage (Press, post-press QC) pushed back to Print; the status cell shows where it came from and why. A red row = an order with an unresolved error. The “Đang chờ quay lại” (waiting to return) chip: orders Print finished that are being reworked elsewhere — for tracking only.",
+          "note": "Orders that post-press QC reported by scanning an error code (red row, e.g. “In lệch”, print offset) have NO buttons in the table. Reprint them via the Scan page: scan the order code → stage screen → when printed, scan the order code again / OK / Enter (step 7).",
+          "alt": "Print table filtered by the Redo chip: one red row without buttons and one row with the Start button",
+          "callouts": {
+            "1": { "label": "“Làm lại” (redo)", "detail": "Order to reprint — handle it like a new one: Start → Complete." },
+            "2": { "label": "“Bị đẩy về từ QC sau ép” (pushed back from post-press QC)", "detail": "The stage that pushed it back and why. This row has no buttons — use the Scan page." },
+            "3": { "label": "“Bắt đầu” (start)", "detail": "Orders Press pushed back with “Báo lỗi” still have buttons — take the reprint." },
+            "4": { "label": "“Đang chờ quay lại” (waiting to return)", "detail": "For tracking only — not Print's turn yet." }
+          }
+        },
+        "07-scan": {
+          "title": "Scan at the station",
+          "body": "Order management › “Quét mã” (scan). Scan the order barcode “N-…” → your stage screen appears (large image, large text). When printed, scan the SAME order code again (or the OK code, or press Enter) to complete — the system starts and completes the stage in one go.",
+          "alt": "My stage · Print screen after scanning an order, with the Complete block, Report error block and Complete (Enter) button",
+          "callouts": {
+            "1": { "label": "Production code", "detail": "The order just scanned." },
+            "2": { "label": "“✔ Hoàn thành” (complete)", "detail": "Scan the order code again / the OK code / Enter = Print stage done." },
+            "3": { "label": "“⚠ Báo lỗi — quét 2 lần” (report error — scan twice)", "detail": "Scan the “E-…” error code on the station sheet, then the same code again to record it." },
+            "4": { "label": "“Hoàn thành (Enter)” (complete)", "detail": "Click by hand if not using a scanner." }
+          }
+        }
+      },
+      "errors": {
+        "designer": "Broken print file / wrong design → “Báo lỗi” to Designer (step 4).",
+        "missingFile": "Missing print file → “Lỗi xưởng” cell = “Thiếu file để in”, the order goes to Support (step 5).",
+        "reworkNoButton": "Orders post-press QC reported by scanning have no buttons in the table → reprint through the Scan page (steps 6–7).",
+        "held": "Orders on hold (“Đang giữ” label) still show “Bắt đầu” in the print table, but clicking it is rejected because the order is on hold. The row's “…” menu has “Mở giữ” (release hold), but only click it once whoever held the order (usually Support or a manager) says the hold reason is resolved — if unsure, wait."
+      },
+      "notes": {
+        "openMenu": "After sign-in the system opens the Dashboard — click Work › “Task Fulfillment” to reach the print table.",
+        "today": "By default the table only shows orders that entered production TODAY. For older backlog choose “Hôm qua” (yesterday) or “7 ngày” (7 days).",
+        "qrWording": "The scan screen still says “Quét QR lỗi” (scan error QR), but the station sheet uses 1D barcodes — scan the “E-…” code on the sheet."
+      }
+    },
+    "fulfillment-press": {
+      "name": "Press worker",
+      "short": "Press",
+      "goal": "Heat-press the orders Print finished, then pass them to post-press QC; when you find an error, send the order back to Print or Designer.",
+      "entry": "Work › “Task Fulfillment” — the “Task của tôi — Ép” (my tasks — press) kanban.",
+      "from": "Print worker.",
+      "to": "Post-press QC worker.",
+      "steps": {
+        "01-kanban": {
+          "title": "Press kanban",
+          "body": "At the top are count cards per column, the “Tìm / Quét mã” (search / scan) box, the period (7 days by default) and the kanban. The “Làm lại” (redo) / “Đang chờ quay lại” (waiting to return) columns hide themselves when empty.",
+          "alt": "My tasks — Press page with count cards, search / scan box, period buttons and kanban",
+          "callouts": {
+            "1": { "label": "“Đang chờ” (waiting)", "detail": "Orders waiting for you." },
+            "2": { "label": "“Tìm / Quét mã” (search / scan)", "detail": "Scan “N-…” then Enter → opens the order to complete / report an error; type text to filter the kanban." },
+            "3": { "label": "“7 ngày” (7 days)", "detail": "Default period of 7 days by production date." },
+            "4": { "label": "Waiting column", "detail": "Dragging a card from Waiting to In progress = Start." }
+          }
+        },
+        "02-scan-dialog": {
+          "title": "Scan right on the kanban",
+          "body": "Scan the order code in the “Tìm / Quét mã” box → the order's stage screen opens. Green bar “đúng công đoạn của bạn” (your stage) → scan the order code again / OK or click “Hoàn thành (Enter)” to finish.",
+          "note": "On this screen, scanning an “E-…” error code does NOT record an error. Report errors with the “Báo lỗi” button, or scan error codes on the Order management › “Quét mã” page.",
+          "alt": "My stage · Press screen with the green your-stage bar, the Complete block and Complete (Enter) button",
+          "callouts": {
+            "1": { "label": "“đúng công đoạn của bạn” (your stage)", "detail": "Green bar: the order is at Press, you can act on it." },
+            "2": { "label": "“✔ Hoàn thành” (complete)", "detail": "Scan the order code again / the OK code / Enter." },
+            "3": { "label": "“Báo lỗi” (report error)", "detail": "Opens the error screen for this order." },
+            "4": { "label": "“Hoàn thành (Enter)” (complete)", "detail": "Starts and completes in one go." }
+          }
+        },
+        "03-card-actions": {
+          "title": "Card buttons",
+          "body": "Waiting cards have “Bắt đầu” (start); in-progress cards have “Hoàn thành” (complete) and “Báo lỗi” (report error). Cards in Done / Waiting to return have no buttons.",
+          "alt": "Waiting cards with the Start button, an in-progress card with Complete and Report error buttons",
+          "callouts": {
+            "1": { "label": "“Bắt đầu” (start)", "detail": "Take the order." },
+            "2": { "label": "“Hoàn thành” (complete)", "detail": "Pressing done — the order moves to post-press QC." },
+            "3": { "label": "“Báo lỗi” (report error)", "detail": "Send the order back to Print or Designer." }
+          }
+        },
+        "04-rework-dialog": {
+          "title": "Report an error at Press",
+          "body": "Click “Báo lỗi” on an in-progress card, choose the receiver (default: the stage right before — Print), write the reason and click “Đẩy về xử lý” (send back). Print gets the order under “Làm lại”; Press sees it under “Đang chờ quay lại”.",
+          "alt": "Report order error dialog with the Designer chip, the selected Print chip and the error reason box",
+          "callouts": {
+            "1": { "label": "“In” (Print)", "detail": "Printing error — Print redoes it." },
+            "2": { "label": "Designer", "detail": "Design file error." },
+            "3": { "label": "“Lý do lỗi *” (error reason)", "detail": "Required." },
+            "4": { "label": "“Đẩy về xử lý” (send back)", "detail": "Send the order to the chosen receiver." }
+          }
+        },
+        "05-watching": {
+          "title": "Waiting to return",
+          "body": "The “Đang chờ quay lại” column: orders Press already worked on (or sent back) that are now at an earlier stage. When an order returns to Press it goes into “Làm lại”; when done it moves to “Đã sửa” (fixed).",
+          "alt": "Waiting to return column with 2 cards showing Currently at: Print",
+          "callouts": {
+            "1": { "label": "“Đang chờ quay lại” (waiting to return)", "detail": "Tracking only — not your turn yet." },
+            "2": { "label": "“Đang ở: In” (currently at: Print)", "detail": "The stage holding the order." }
+          }
+        },
+        "06-stage-errors": {
+          "title": "The Press station's error catalog",
+          "body": "Order management › “Danh mục lỗi công đoạn” (stage error catalog): workers add errors for their own station (the stage is locked to Press) with a push-back target, then tick errors to print the barcode sheet for the station.",
+          "note": "Errors cannot be edited after adding, only hidden / shown. The catalog is shared by all factories.",
+          "alt": "Press stage error catalog with the add error box, the error list with barcodes and the Print (1) button",
+          "callouts": {
+            "1": { "label": "“Công đoạn: Ép” (stage: Press)", "detail": "Worker accounts are locked to their own stage." },
+            "2": { "label": "“Tên lỗi” (error name)", "detail": "Type the error name, then choose “Đẩy về công đoạn” (push back to stage) below." },
+            "3": { "label": "“Thêm & tạo Barcode” (add & create barcode)", "detail": "Saves the error — the “E-…” barcode is generated automatically." },
+            "4": { "label": "“In (n)” (print)", "detail": "Print the barcode sheet of the ticked errors (with the COMPLETE label)." }
+          }
+        }
+      },
+      "errors": {
+        "back": "Error caused by Print or by the design file → “Báo lỗi” (step 4); the order goes to Print or Designer, and Press follows it under “Đang chờ quay lại”.",
+        "returned": "An order returns to Press → “Làm lại” column; when done it moves to “Đã sửa”."
+      },
+      "notes": {
+        "openMenu": "After sign-in the system opens the Dashboard — click Work › “Task Fulfillment”.",
+        "rawFactory": "The “Xưởng:” (factory) line under the kanban title currently shows the factory's internal ID string instead of its name — this is not your mistake.",
+        "qrWording": "The scan screen still says “Quét QR lỗi” (scan error QR), but the station sheet uses 1D barcodes — scan the “E-…” code on the sheet."
+      }
+    },
+    "fulfillment-qc-post-press": {
+      "name": "Post-press QC worker",
+      "short": "Post-press QC",
+      "goal": "Inspect items after pressing: if they pass, complete so the order moves to Packing; if not, send it back to Press, Print or Designer.",
+      "alert": "Each stage of a factory is held by exactly one person. If Task Fulfillment says “Tài khoản chưa được gán Stage Fulfillment” (account has no fulfillment stage) or you see no post-press QC orders for your factory, ask an Admin to check your account is assigned the right factory + the “QC sau ép” stage (Manager role, steps 9–10).",
+      "entry": "Work › “Task Fulfillment” — the “Task của tôi — QC sau ép” kanban; scanning station: Order management › “Quét mã” (scan).",
+      "from": "Press worker.",
+      "to": "Packing worker — the DTF workshop has no sewing: after QC, sew-in + sew-out complete automatically.",
+      "steps": {
+        "01-kanban": {
+          "title": "Post-press QC kanban",
+          "body": "The DTF workshop has no sewing: once QC is done, sew-in + sew-out complete AUTOMATICALLY and the order goes straight to Packing – waiting.",
+          "alt": "My tasks — Post-press QC page with count cards and the Waiting, In progress, Done, Fixed, Waiting to return columns",
+          "callouts": {
+            "1": { "label": "“Đang chờ” (waiting)", "detail": "Orders Press finished that are waiting for QC." },
+            "2": { "label": "Waiting column", "detail": "Orders waiting for inspection." },
+            "3": { "label": "In progress column", "detail": "Orders being inspected." },
+            "4": { "label": "Waiting to return column", "detail": "Orders you reported, being redone at Print / Press." }
+          }
+        },
+        "02-scan-ok": {
+          "title": "Passed — scan to complete",
+          "body": "Order management › “Quét mã”: scan the “N-…” code of an order waiting for QC → stage screen. If it passes: scan the order code again or the OK code (or Enter) → QC done, the order moves to Packing – waiting.",
+          "alt": "My stage · Post-press QC screen with Current stage post-press QC and the Complete (Enter) button",
+          "callouts": {
+            "1": { "label": "“Công đoạn của tôi · QC sau ép” (my stage · post-press QC)", "detail": "The screen of the signed-in account's own stage." },
+            "2": { "label": "“Công đoạn hiện tại” (current stage)", "detail": "The order is at post-press QC." },
+            "3": { "label": "“✔ Hoàn thành” (complete)", "detail": "Scan the order code again / OK / Enter." },
+            "4": { "label": "“Hoàn thành (Enter)” (complete)", "detail": "Click by hand if not using a scanner." }
+          }
+        },
+        "03-scan-error-2x": {
+          "title": "Failed — scan the error code twice",
+          "body": "With the order open, scan the “E-…” error code on the station sheet → the error is SELECTED (not recorded yet) and the push-back target comes from the catalog. Scan the SAME code again (or press Enter) to record it and send the order back. Scanned the wrong one → scan another code to change it.",
+          "alt": "Assign error dialog with the selected error highlighted red, the Workshop-caused · back to Press block and the Assign & scan next button",
+          "callouts": {
+            "1": { "label": "Selected error", "detail": "The error scanned the first time (highlighted red)." },
+            "2": { "label": "“Do xưởng · Đẩy về Ép” (workshop-caused · back to Press)", "detail": "Error source + receiver come from the catalog, not set by hand." },
+            "3": { "label": "“Quét lại CÙNG MÃ / Enter” (scan the same code again)", "detail": "Confirmation step — only now is the error recorded." },
+            "4": { "label": "“Gán lỗi & Quét tiếp” (assign & scan next)", "detail": "Click by hand instead of the second scan." }
+          }
+        },
+        "04-rework-dialog": {
+          "title": "Report an error from the kanban card",
+          "body": "Without a scanner: click “Báo lỗi” on an in-progress card, choose Designer / “In” (Print) / “Ép” (Press) — Press by default, the stage right before — write the reason and click “Đẩy về xử lý” (send back).",
+          "alt": "Report order error dialog with Designer, Print and the selected Press chip and the error reason box",
+          "callouts": {
+            "1": { "label": "“Ép” (Press)", "detail": "Default: the stage right before." },
+            "2": { "label": "“In” (Print)", "detail": "Printing error — Print redoes it, and Press redoes it after." },
+            "3": { "label": "Designer", "detail": "Design file error." },
+            "4": { "label": "“Lý do lỗi *” (error reason)", "detail": "Required." }
+          }
+        },
+        "05-barcode-sheet": {
+          "title": "Print the station barcode sheet",
+          "body": "Order management › “Danh mục lỗi công đoạn”: tick “Lỗi của “QC sau ép”” (errors of post-press QC) to select the whole list, then click “In” (print) or “Xuất PDF” (export PDF) — one A8 page per label, the first page is the COMPLETE label = the OK code.",
+          "alt": "Post-press QC error catalog with every error ticked, the Print (4) and Export PDF (4) buttons",
+          "callouts": {
+            "1": { "label": "Select all", "detail": "Tick to select every error of the stage." },
+            "2": { "label": "Scan code E-…", "detail": "Barcode content — the scanner types exactly this string." },
+            "3": { "label": "“In (n)” (print)", "detail": "Print straight to the printer." },
+            "4": { "label": "“Xuất PDF (n)” (export PDF)", "detail": "Download a PDF of A8 labels to print later." }
+          }
+        }
+      },
+      "errors": {
+        "scan": "Found an error while inspecting → scan the error code twice (step 3); the order goes to the target set in the error catalog.",
+        "dialog": "No scanner → “Báo lỗi” on the in-progress card (step 4).",
+        "watching": "Orders you sent back sit in “Đang chờ quay lại”; when they return to QC they go into “Làm lại”."
+      },
+      "notes": {
+        "openMenu": "After sign-in the system opens the Dashboard — click Work › “Task Fulfillment”.",
+        "noSew": "The DTF workshop has no sewing stage: once QC is done the order is already at Packing — no need to wait for sewing.",
+        "scanPageOnly": "Scanning an error code twice is only recorded on Order management › “Quét mã”; scanning in the kanban search box does not record errors."
+      }
+    },
+    "fulfillment-pack": {
+      "name": "Packing worker",
+      "short": "Packing",
+      "goal": "Pack the orders QC finished and confirm completion — the last stage; once done the order has completed production.",
+      "alert": "Each stage of a factory is held by exactly one person. If Task Fulfillment says “Tài khoản chưa được gán Stage Fulfillment” (account has no fulfillment stage) or you see no Packing orders for your factory, ask an Admin to check your account is assigned the right factory + the “Đóng hàng” stage (Manager role, steps 9–10).",
+      "entry": "Work › “Task Fulfillment” — the “Task của tôi — Đóng hàng” kanban; scanning station: Order management › “Quét mã” (scan).",
+      "from": "Post-press QC worker (sew-in + sew-out complete automatically).",
+      "to": "Production completed — the customer is notified.",
+      "steps": {
+        "01-kanban": {
+          "title": "Packing kanban",
+          "body": "The last stage. If the factory has “Tự hoàn thành Đóng hàng” (auto-complete packing) turned on (the manager sets it in the Factory tab), new orders reaching this stage complete automatically without waiting for you; if it is off, you confirm each order by hand as in the steps below.",
+          "alt": "My tasks — Packing page with the Waiting, In progress, Done and Fixed columns",
+          "callouts": {
+            "1": { "label": "“Đang chờ” (waiting)", "detail": "Orders QC finished that are waiting to be packed." },
+            "2": { "label": "Waiting column", "detail": "Orders to pack." },
+            "3": { "label": "In progress column", "detail": "Orders being packed." },
+            "4": { "label": "Done column", "detail": "Orders that completed production." }
+          }
+        },
+        "02-bulk-complete": {
+          "title": "Complete several orders",
+          "body": "Packing only: tick the whole-column checkbox in Waiting, then click “Hoàn thành” (complete) — the system starts and completes each order, no need to move them through In progress.",
+          "alt": "Whole Waiting column selected, toolbar showing 3 selected with Start and Complete buttons",
+          "callouts": {
+            "1": { "label": "Select whole column", "detail": "Tick every order in the Waiting column." },
+            "2": { "label": "“Đã chọn n” (n selected)", "detail": "Number of selected orders." },
+            "3": { "label": "“Hoàn thành” (complete)", "detail": "Finish packing every selected order." }
+          }
+        },
+        "03-report-error": {
+          "title": "Report an error at Packing",
+          "body": "The “Báo lỗi” button is on in-progress cards. Choose the stage that gets the order back, write the reason and click “Đẩy về xử lý” (send back). The dialog still shows the “May nhận vào” (sew-in) / “May xuất ra” (sew-out) chips even though the DTF workshop has no sewing.",
+          "note": "The pre-selected chip is “May xuất ra” (sew-out). The DTF workshop has no sewing, so choosing “May xuất ra” or “May nhận vào” (sew-in) makes the system send the order to post-press QC — exactly like choosing “QC sau ép”. If Press, Print or the design file caused the error, switch the chip to that one.",
+          "alt": "Report order error dialog at Packing with 6 stage chips, post-press QC chip selected",
+          "callouts": {
+            "1": { "label": "“QC sau ép” (post-press QC)", "detail": "Post-press QC gets the order back in its “Làm lại” (redo) column." },
+            "2": { "label": "“May xuất ra” (sew-out)", "detail": "Pre-selected — the DTF workshop has no sewing, so the order goes to post-press QC instead of stopping at a sewing stage." },
+            "3": { "label": "“Lý do lỗi *” (error reason)", "detail": "Required." },
+            "4": { "label": "“Đẩy về xử lý” (send back)", "detail": "Send the order to the chosen stage." }
+          }
+        },
+        "04-scan-complete": {
+          "title": "Scan to complete",
+          "body": "Order management › “Quét mã”: scan the “N-…” code of an order waiting at Packing → stage screen. When packed, scan the order code again / OK / Enter → the order completes production.",
+          "alt": "My stage · Packing screen with Waiting status and the Complete block",
+          "callouts": {
+            "1": { "label": "“Đang chờ” (waiting)", "detail": "The order's Packing status." },
+            "2": { "label": "“✔ Hoàn thành” (complete)", "detail": "Scan the order code again / OK / Enter." },
+            "3": { "label": "“Làm XONG → quét LẠI mã đơn (hoặc mã “OK”)” (when done, scan the order code again or OK)", "detail": "No need to touch the computer." },
+            "4": { "label": "“Hoàn thành (Enter)” (complete)", "detail": "Starts and completes in one go." }
+          }
+        },
+        "05-scan-done": {
+          "title": "Result after scanning",
+          "body": "Scan the order code, then the OK code: the stage screen closes itself, the scan box is ready for the next order and the history reads “Đã hoàn thành · Hoàn thành Đóng hàng” (completed · packing completed).",
+          "alt": "Scan complete / report error page with an empty scan box and a history row saying completed",
+          "callouts": {
+            "1": { "label": "Scan box", "detail": "Refocuses itself — scan the next order right away." },
+            "2": { "label": "“Đã hoàn thành” (completed)", "detail": "The order just completed production." },
+            "3": { "label": "“Thành công” (successful)", "detail": "Successful scans in this session." }
+          }
+        }
+      },
+      "errors": {
+        "changeChip": "Reporting an error: leaving the “May xuất ra” chip sends the order to post-press QC; if Press / Print / the design file caused it, switch the chip to that one (step 3).",
+        "onlyInProgress": "The “Báo lỗi” button is only on in-progress cards — for a waiting order, click “Bắt đầu” (start) first."
+      },
+      "notes": {
+        "openMenu": "After sign-in the system opens the Dashboard — click Work › “Task Fulfillment”.",
+        "autoPack": "If the manager turns on “Tự hoàn thành Đóng hàng” for the factory, NEW orders reaching Packing complete automatically and no longer wait at this stage.",
+        "qrWording": "The scan page still says “quét QR lỗi” (scan error QR), but the station sheet uses 1D barcodes — scan the “E-…” code on the sheet."
+      }
+    },
+    "admin": {
+      "name": "Workshop manager (Admin permission)",
+      "short": "Manager",
+      "goal": "Watch orders flow through the DTF workshop's stages, unblock stuck orders (hold / release, assign errors) and make sure every stage has someone holding it.",
+      "alert": "When a DTF factory goes live: check on the Users page (steps 9–10) that every regular stage of the factory — Print, Press, post-press QC, Packing — has someone holding it (Packing needs nobody if the factory has “Tự hoàn thành Đóng hàng” turned on, step 8). Orders reaching a stage with nobody stop there, and Admin / Manager accounts cannot act on a worker's kanban on their behalf.",
+      "entry": "Dashboard with the factory picker in the header; Order management; Catalog › Products (Factory tab); Administration › People & permissions › Users.",
+      "from": "The whole flow — this role does not receive work in turns like the others.",
+      "to": "Assigns stage holders, configures the factory, unblocks orders for every role.",
+      "steps": {
+        "01-factory-scope": {
+          "title": "Choose the DTF factory",
+          "body": "Click the “Xưởng” (factory) picker in the header (every /ffm page) and choose the DTF factory — Dashboard, order list… only count that factory's orders. The scope lives in the URL (?factoryId=), so it survives page changes.",
+          "alt": "Factory picker menu open with All factories and the ticked DTF factory",
+          "callouts": {
+            "1": { "label": "“Xưởng: …” (factory)", "detail": "Click to change the factory in view." },
+            "2": { "label": "Selected factory", "detail": "The selected factory has a tick." },
+            "3": { "label": "“Tất cả xưởng” (all factories)", "detail": "Clear the filter — see the whole plant." }
+          }
+        },
+        "02-lifecycle": {
+          "title": "Order lifecycle — find the bottleneck",
+          "body": "Dashboard › “Vòng đời đơn” (order lifecycle) for the DTF factory: the funnel strip at the top (quick lookup of one order), the “Công đoạn tắc nghẽn” (bottleneck stage) card and the per-stage funnel — shows where orders pile up.",
+          "alt": "Order lifecycle tab with the funnel strip, bottleneck stage card and stage funnel",
+          "callouts": {
+            "1": { "label": "“Tra cứu productionId” (look up productionId)", "detail": "Paste a production code to see one order's journey." },
+            "2": { "label": "“Vòng đời đơn” (order lifecycle)", "detail": "Menu Dashboard › Vòng đời đơn." },
+            "3": { "label": "“Công đoạn tắc nghẽn” (bottleneck stage)", "detail": "The stage with the most waiting orders." },
+            "4": { "label": "“Phễu công đoạn” (stage funnel)", "detail": "Each box: waiting / in progress / rework / errors of one stage." }
+          }
+        },
+        "03-workshop-list": {
+          "title": "The factory's order list",
+          "body": "Order management › “Danh sách đơn” (order list): the stage strip Tool check → … → Packing (orders at each stage), quick-filter pills and the product type column on the left. Default date: today.",
+          "alt": "Order list page with the stage strip, quick-filter pills and the product type column",
+          "callouts": {
+            "1": { "label": "Stage strip", "detail": "Click a stage to filter orders currently at it." },
+            "2": { "label": "“Đang giữ” (on hold)", "detail": "Filter orders on hold." },
+            "3": { "label": "Product type", "detail": "Left column: filter by product." },
+            "4": { "label": "“Hôm nay” (today)", "detail": "Change the production date to view." }
+          }
+        },
+        "04-hold-unhold": {
+          "title": "Release a held order",
+          "body": "An order on hold is locked for every stage action. Once the hold reason is resolved: click the “Đang giữ” pill, open the product group, open the row's “…” menu › “Mở giữ” (release hold). Not only managers: Support, Designer Leader and stage workers can also release from this menu; Designers cannot.",
+          "alt": "Order row with the On hold label and the action menu open showing Release hold",
+          "callouts": {
+            "1": { "label": "Held order", "detail": "“Đang giữ” (on hold) label with the hold reason." },
+            "2": { "label": "“Mở giữ” (release hold)", "detail": "Unlock — the order returns to the production flow." }
+          }
+        },
+        "05-error-log": {
+          "title": "Error log",
+          "body": "Order management › “Nhật ký bù lỗi” (error log): every order with an error after entering print. Severity is based on hours since entering production (Mới / new < 2h · Cần làm / to do 2–4h · Gấp / urgent 4–6h · Khẩn cấp / critical > 6h). The table is wide — scroll sideways for “Chặng hiện tại” (current stage), “Nêu lỗi” (error description), “Người sửa” (fixer).",
+          "note": "This page is NOT filtered by the factory picker — it shows error orders from every factory; check the Factory column or use the search box.",
+          "alt": "Error log page with the To handle tab, severity chips and the error order table",
+          "callouts": {
+            "1": { "label": "“Cần xử lý” (to handle)", "detail": "Error orders not yet resolved." },
+            "2": { "label": "“Mức độ” (severity)", "detail": "Dark red = waiting longest, handle first." },
+            "3": { "label": "“Lỗi xưởng” (workshop error)", "detail": "The reported error; scroll further right for “Chặng hiện tại” (which stage the order is at)." },
+            "4": { "label": "Production code", "detail": "Example: an order QC reported as “In lệch” (print offset), now being redone at Print." }
+          }
+        },
+        "06-scan-assign-error": {
+          "title": "Assign an error with the scanner",
+          "body": "Order management › “Quét mã”: a manager account (holding no stage) scanning “N-…” goes straight to the ASSIGN ERROR screen for the order's current stage, with no Complete button. Scan “E-…” once to select, twice (or Enter) to record.",
+          "alt": "Assign error dialog with the post-press QC stage's error codes and the Assign & scan next button",
+          "callouts": {
+            "1": { "label": "“Gán lỗi · <order code>” (assign error)", "detail": "Assign errors only — completing a stage is the worker's job." },
+            "2": { "label": "Selected error", "detail": "Error list of the stage the order is at (in the screenshot: post-press QC)." },
+            "3": { "label": "“Do xưởng · Đẩy về Ép” (workshop-caused · back to Press)", "detail": "Follows the catalog." },
+            "4": { "label": "“Gán lỗi & Quét tiếp” (assign & scan next)", "detail": "Record it (or scan the same code again)." }
+          }
+        },
+        "07-stage-error-catalog": {
+          "title": "Stage error catalog",
+          "body": "Order management › “Danh mục lỗi công đoạn”: Admin can pick any of the 6 stages to add errors, see barcode codes and print station sheets (workers are locked to their own stage).",
+          "note": "The catalog is SHARED by every factory — errors added for DTF also appear in other factories.",
+          "alt": "Stage error catalog with 6 stage chips, the add error box and the post-press QC error list",
+          "callouts": {
+            "1": { "label": "“Công đoạn” (stage)", "detail": "Admin can choose any of the 6 stages." },
+            "2": { "label": "“Tên lỗi” (error name)", "detail": "Add a new error + choose the push-back target." },
+            "3": { "label": "Code E-…", "detail": "The error barcode content." },
+            "4": { "label": "“Xuất PDF” (export PDF)", "detail": "Tick errors, then print / export the barcode sheet as PDF." }
+          }
+        },
+        "08-factory-flow": {
+          "title": "Configure the factory flow",
+          "body": "Catalog › Products › Factory tab › Edit: “Luồng sản xuất” (production flow) = “Bỏ may — QC xong nhảy thẳng Đóng hàng” (no sewing — QC goes straight to packing) and the “Tự hoàn thành Đóng hàng” (auto-complete packing) switch. The switch only applies to NEW orders; existing backlog uses the “Hoàn thành đơn tồn ở Đóng hàng” (complete packing backlog) button (Admin / SuperAdmin only).",
+          "alt": "Edit factory dialog with the production flow select, the auto-complete packing switch and the complete packing backlog button",
+          "callouts": {
+            "1": { "label": "“Luồng sản xuất” (production flow)", "detail": "DTF factory: “Bỏ may — QC xong nhảy thẳng Đóng hàng”." },
+            "2": { "label": "“Tự hoàn thành Đóng hàng” (auto-complete packing)", "detail": "Off → a Packing worker must confirm. On → orders reaching Packing complete automatically." },
+            "3": { "label": "“Hoàn thành đơn tồn ở Đóng hàng” (complete packing backlog)", "detail": "One-off cleanup of every order waiting at the factory's Packing stage." }
+          }
+        },
+        "09-users-list": {
+          "title": "Who holds each stage",
+          "body": "Administration › People & permissions › Users: each worker has the Fulfillment role plus a factory label. Each (factory, stage) pair has exactly 1 person.",
+          "alt": "Users page with the Role column showing Fulfillment badges and factory labels, and the Add user button",
+          "callouts": {
+            "1": { "label": "Fulfillment", "detail": "Role of stage workers." },
+            "2": { "label": "Factory label", "detail": "The factory whose orders the worker sees." },
+            "3": { "label": "“Thêm user” (add user)", "detail": "Create an account for a stage that has nobody." }
+          }
+        },
+        "10-users-worker": {
+          "title": "Add a worker for an empty stage",
+          "body": "Click “Thêm user”, fill in name / email / password, choose Role = Fulfillment → the “Xưởng *” (factory) and “Stage Fulfillment *” fields appear. Click “Lưu” (save): orders reaching that stage go into this person's tasks automatically.",
+          "alt": "Add user dialog with Role Fulfillment, the Factory field and Stage Fulfillment set to post-press QC",
+          "callouts": {
+            "1": { "label": "Role", "detail": "Choose Fulfillment." },
+            "2": { "label": "“Xưởng *” (factory)", "detail": "The factory this person works in." },
+            "3": { "label": "“Stage Fulfillment *”", "detail": "The stage this person holds — a duplicate of an existing holder is rejected." }
+          }
+        }
+      },
+      "errors": {
+        "stuck": "Orders pile up at one stage → check Order lifecycle (step 2), then check whether that stage has someone holding it (step 9).",
+        "hold": "Orders on hold too long → filter the “Đang giữ” pill and release (“Mở giữ”) once resolved (step 4).",
+        "errorLog": "Errors left too long → Error log, handle by severity (step 5).",
+        "noWorker": "A stage has nobody → assign someone (step 10). SuperAdmin also has “Chuyển hoàn thành” (force complete), but it does not go through real QC / Packing."
+      },
+      "notes": {
+        "errorLogNoFactory": "The error log is not filtered by the factory picker.",
+        "catalogShared": "The stage error catalog is shared by every factory.",
+        "noOverride": "For Admin / Manager accounts the Task Fulfillment page only says “Tài khoản chưa được gán Stage Fulfillment” (account has no fulfillment stage) — they cannot work on behalf of a worker.",
+        "allFactories": "The tool check tab, the Designer tab and My tasks count orders from every factory even when a factory is selected in the header."
+      }
+    }
+  }
+}

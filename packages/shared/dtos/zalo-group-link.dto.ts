@@ -99,6 +99,18 @@ export const UpdateZaloGroupLinkZod = z.object({
   kind: z.nativeEnum(ZaloGroupKind).optional(),
   /** Truyền `null` để gỡ liên kết khách. */
   customerId: IDZod.nullable().optional(),
+  /**
+   * Tạo khách MỚI mang mã này rồi ghép luôn — dùng khi nhóm trỏ tới seller chưa
+   * từng đặt đơn nên chưa có bản ghi khách. Loại trừ lẫn nhau với `customerId`.
+   * Mã đã tồn tại thì ghép vào khách đó chứ không tạo trùng.
+   */
+  newCustomerSku: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .regex(/^[A-Za-z0-9._-]+$/, 'Mã khách chỉ gồm chữ, số và . _ -')
+    .optional(),
   ownerUserId: IDZod.nullable().optional(),
   note: z.string().max(1000).nullable().optional(),
 });
@@ -138,7 +150,18 @@ export class SyncZaloGroupsResDto extends createZodDto(extendApi(SyncZaloGroupsR
 export const ZaloGroupSuggestionZod = z.object({
   groupGlobalId: z.string(),
   title: z.string().optional(),
-  customerId: IDZod,
+  /**
+   * `link` = ghép vào khách ĐANG CÓ. `create` = tên nhóm mang mã seller nhưng
+   * chưa có khách nào mang mã đó — duyệt là tạo khách rồi ghép.
+   *
+   * Vì sao cần loại thứ hai (đo prod 11/09/2026): bảng `customers` sinh ra TỪ
+   * đơn hàng, nên 19/52 nhóm chưa xét trỏ tới seller thật mà chưa từng đặt đơn
+   * — không có gì để ghép vào, và trước đây chúng biến mất khỏi danh sách gợi ý
+   * mà không ai biết vì sao.
+   */
+  action: z.enum(['link', 'create']),
+  /** Chỉ có với `action='link'`. */
+  customerId: IDZod.optional(),
   userSku: z.string(),
   customerName: z.string().optional(),
   /** 0..1 — càng cao càng chắc. Khớp nguyên `userSku` trong tên nhóm là cao nhất. */

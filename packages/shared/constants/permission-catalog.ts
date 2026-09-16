@@ -46,6 +46,8 @@ export const PERMISSION_CATALOG: PermissionItem[] = [
   { code: 'page.customers', label: 'Quản trị khách hàng', group: 'page' },
   { code: 'page.agent_api', label: 'Hướng dẫn Agent API', group: 'page' },
   { code: 'page.zalo_groups', label: 'Nối nhóm Zalo với khách hàng', group: 'page' },
+  // Trang hướng dẫn quy trình DTF theo vai (`/ffm/guide/dtf`, DtfRoleGuide.md) — trang tĩnh, không gọi API.
+  { code: 'page.guide_dtf', label: 'Hướng dẫn quy trình DTF theo vai', group: 'page' },
 
   // ─── Order actions ──────────────────────────────────────────────
   { code: 'order.import', label: 'Import đơn hàng', group: 'order' },
@@ -264,6 +266,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Partial<Record<RoleType, string[]>> = {
     'page.products',
     'page.tool_check',
     'page.unmapped_factory',
+    'page.guide_dtf',
     'order.import',
     'order.transfer',
     'order.view_workshop_table',
@@ -300,6 +303,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Partial<Record<RoleType, string[]>> = {
     'page.designer_stats',
     'page.my_tasks',
     'page.workshop_config',
+    'page.guide_dtf',
     'order.import',
     'order.delete',
     'order.transfer',
@@ -342,6 +346,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Partial<Record<RoleType, string[]>> = {
     'page.orders',
     'page.my_tasks',
     'page.designer_stats', // xem tab Dashboard Designer (thống kê toàn team)
+    'page.guide_dtf',
     'order.view_workshop_table',
     'order.field.toolResult.view',
     'order.field.toolResult.edit',
@@ -399,6 +404,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Partial<Record<RoleType, string[]>> = {
     // Quét barcode để gán lỗi nhanh + tự quản danh mục lỗi công đoạn mình (QR).
     'page.scan_error',
     'page.stage_errors',
+    'page.guide_dtf',
   ],
 };
 

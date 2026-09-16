@@ -26,7 +26,7 @@ Hai luồng đơn cùng tồn tại (plan §1.3):
 
 ### 2.1 CSV import theo template cũ
 
-1. Khách mở `/customer/orders/import`, tải file mẫu (`apps/web/public/customer-order-template.csv` — copy nguyên template hệ cũ) hoặc dùng file sẵn có.
+1. Khách mở `/customer/orders/import`, tải file mẫu **`customer-order-template.xlsx`** (nút "Tải file mẫu" trỏ vào bản `.xlsx`) hoặc dùng file sẵn có. Bản `.csv` cùng tên GIỮ LẠI cho link cũ/khách quen dùng CSV. File mẫu có ở CẢ `apps/web/public/` lẫn `apps/seller/public/` — sửa là phải sửa cả 2, giống hệt nhau. **Vì sao mẫu chính là `.xlsx`:** khối hướng dẫn cuối file có tiếng Việt và ô nhiều dòng — CSV mở bằng MS Excel (Windows) ra chữ hỏng nếu thiếu BOM UTF-8 và vỡ hàng nếu thiếu CRLF; `.xlsx` không có hai bẫy đó. Mọi ô trong `.xlsx` ép kiểu TEXT (`z='@'`) để `postcode`/`telephone` không mất số 0 đầu. Nếu vẫn phải chạm bản `.csv` thì bắt buộc ghi lại kèm BOM UTF-8 + CRLF.
 2. FE parse tại browser (`parseTemplateRows()` trong `import.tsx`, lib `xlsx`):
    - **Trim header** (template thật có `order_id `, `quantity `... thừa khoảng trắng), match không phân biệt hoa thường.
    - **Cắt ở dòng trống hoàn toàn đầu tiên** — block hướng dẫn UPDATED/NOTE cuối template tự bị bỏ, không sinh lỗi ảo.

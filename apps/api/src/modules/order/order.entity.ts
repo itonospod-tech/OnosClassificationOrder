@@ -210,6 +210,27 @@ export class OrderEntity extends DatabaseEntityAbstract {
   holdReason?: string;
 
   /**
+   * Nguồn lượt giữ hiện tại — `manual` (nhân viên) | `onospod` (đồng bộ tự giữ,
+   * Orders.md §9d). Đơn đang giữ thiếu trường này = `manual` (đơn giữ cũ).
+   * `$unset` cùng `heldAt` khi mở giữ. Chỉ `onospod` được đồng bộ tự nhả.
+   * Index sparse: đồng bộ quét `{ holdSource: 'onospod' }` mỗi lượt.
+   */
+  @Prop({ type: String, index: true, sparse: true })
+  holdSource?: 'manual' | 'onospod';
+
+  /**
+   * Cờ "OnosPod đang giữ" — item MRP bên OnosPod đang `On Hold`, bất kể đơn
+   * bên mình có giữ hay không. `onHoldAt` = thời điểm đợt giữ bên OnosPod,
+   * `seenAt` = lần đầu đồng bộ thấy đợt này. Index sparse ở `OrderSchema.index`.
+   */
+  @Prop({ _id: false, type: raw({ onHoldAt: Date, seenAt: Date }) })
+  onospodHold?: { onHoldAt: Date; seenAt: Date } | null;
+
+  /** `onHoldAt` của đợt giữ OnosPod mà nhân viên đã mở giữ — không giữ lại đợt đó. */
+  @Prop()
+  onospodHoldDismissedAt?: Date;
+
+  /**
    * Snapshot địa chỉ ship lấy từ OnosPod — CHỈ dùng cho cron "lấy ngược địa chỉ"
    * khi đơn giữ lý do `HOLD_REASON_WAITING_ADDRESS` (xem
    * `OrderService.getHeldOrdersForRecovery` + `OnospodOrderLookupService`).
@@ -568,6 +589,9 @@ export const OrderSchema = SchemaFactory.createForClass(OrderEntity);
 
 // Thống kê "Không làm được" theo từng người bàn giao.
 OrderSchema.index({ 'designerRejections.fromUserId': 1 });
+
+// Đồng bộ giữ đơn theo OnosPod (Orders.md §9d) — mỗi lượt nạp đơn đang mang cờ.
+OrderSchema.index({ 'onospodHold.onHoldAt': 1 }, { sparse: true });
 
 OrderSchema.virtual('factory', {
   ref: 'FactoryEntity',

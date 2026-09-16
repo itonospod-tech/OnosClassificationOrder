@@ -17,6 +17,7 @@ import { SystemConfigModule } from '../system-config/system-config.module';
 import { UserEntity, UserSchema } from '../user/user.entity';
 import { WorkshopConfigModule } from '../workshop-config/workshop-config.module';
 import { DriveFileNameService } from './drive-file-name.service';
+import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodImportService } from './onospod-import.service';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
 import { OrderController } from './order.controller';
@@ -56,6 +57,7 @@ import { OrderService } from './order.service';
     RoleRepository,
     DriveFileNameService,
     OnospodImportService,
+    OnospodHoldSyncService,
     OnospodOrderLookupService,
   ],
   exports: [OrderService],

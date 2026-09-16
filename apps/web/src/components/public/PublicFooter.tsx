@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Mail } from 'lucide-react';
 
 import { PATHS } from '@/constants/paths';
@@ -14,6 +14,7 @@ const COLUMNS: { titleKey: string; links: { key: string; href?: string; to?: str
       { key: 'how', href: '#how' },
       { key: 'why', href: '#why' },
       { key: 'benefits', href: '#benefits' },
+      { key: 'orderGuide', to: PATHS.ORDER_GUIDE },
       { key: 'track', to: PATHS.TRACK },
     ],
   },
@@ -36,6 +37,10 @@ const COLUMNS: { titleKey: string; links: { key: string; href?: string; to?: str
 
 function PublicFooter() {
   const { t } = useTranslation('landing');
+  const { pathname } = useLocation();
+
+  // Cùng cơ chế `PublicHeader`: ngoài trang chủ thì neo `#...` phải thành `/#...`, không thì bấm không có tác dụng.
+  const hashHref = (hash: string) => (pathname === PATHS.LANDING ? hash : `${PATHS.LANDING}${hash}`);
 
   return (
     <footer className="bg-ink-900 text-white">
@@ -84,7 +89,10 @@ function PublicFooter() {
                         {t(`footer.links.${link.key}`)}
                       </Link>
                     ) : (
-                      <a href={link.href} className="text-sm text-white/60 transition-colors hover:text-white">
+                      <a
+                        href={hashHref(link.href as string)}
+                        className="text-sm text-white/60 transition-colors hover:text-white"
+                      >
                         {t(`footer.links.${link.key}`)}
                       </a>
                     )}

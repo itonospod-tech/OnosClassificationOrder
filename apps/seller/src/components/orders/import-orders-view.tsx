@@ -385,7 +385,7 @@ export function ImportOrdersView({ line }: { line: ProductLine }) {
             <Link href={`/portal/catalog${line ? `?line=${line}` : ''}`} prefetch={false}>
               <Button variant="outline" size="sm"><BookOpen size={13} className="mr-1.5" />{t('seller:catalog.lookupSku')}</Button>
             </Link>
-            <a href="/customer-order-template.csv" download>
+            <a href="/customer-order-template.xlsx" download>
               <Button variant="secondary" size="sm"><Download size={13} className="mr-1.5" />{t('customerPortal:importCsv.downloadTemplate')}</Button>
             </a>
           </div>

@@ -17,12 +17,13 @@ import { MultiIconSelectCell } from '@/components/orders/cells/MultiIconSelectCe
 import { PrioritySelectCell } from '@/components/orders/cells/PrioritySelectCell';
 import { ProductionErrorSelectCell } from '@/components/orders/cells/ProductionErrorSelectCell';
 import { TextEditCell } from '@/components/orders/cells/TextEditCell';
-import { HeldBadge } from '@/components/orders/HeldBadge';
+import { HeldBadge, OnospodHoldBadge } from '@/components/orders/HeldBadge';
 import { ReworkReasonNote } from '@/components/orders/ReworkReasonNote';
 import { Badge } from '@/components/ui/badge';
 
 import { cn } from '@/utils/cn';
 import { formatDate } from '@/utils/date';
+import { showOnospodHoldFlag } from '@/utils/orderActions';
 import { getOrderStatusInfo, makeOrderStatusTranslate, ORDER_STATUS_TONE_CLASS } from '@/utils/orderStatusLabel';
 import { formatCountdown, getActiveStageKey, getStageDeadline } from '@/utils/priorityEstimate';
 
@@ -141,6 +142,10 @@ export type WorkshopOrderRow = {
   // Giữ đơn (hold) — badge "Đang giữ" + khóa mọi thao tác (reversible).
   heldAt?: string | null;
   holdReason?: string;
+  /** `onospod` = đồng bộ tự giữ theo OnosPod (Orders.md §9d). */
+  holdSource?: string | null;
+  /** Cờ "OnosPod đang giữ" — hiện nhãn khi đơn bên mình không giữ. */
+  onospodHold?: { onHoldAt?: string; seenAt?: string } | null;
 };
 
 function buildDesignerStatusMeta(t: TFunction<'orders'>): Record<DesignerStatus, { label: string; cls: string; tooltip: string }> {
@@ -1128,7 +1133,8 @@ export const PRINT_COLS: WorkshopColMeta[] = (() => {
     render: (r, ctx) => (
       <div className="flex flex-col gap-0.5">
         {baseProductionIdCol.render(r, ctx)}
-        {r.heldAt && !r.cancelledAt && <HeldBadge reason={r.holdReason} />}
+        {r.heldAt && !r.cancelledAt && <HeldBadge reason={r.holdReason} source={r.holdSource} />}
+        {showOnospodHoldFlag(r) && <OnospodHoldBadge />}
       </div>
     ),
   };

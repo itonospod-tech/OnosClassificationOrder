@@ -57,7 +57,7 @@ PublicHeader (sticky, dùng chung với /catalog)
 ├── Hero            — lời hứa + CTA "Đặt đơn ngay" + ảnh minh hoạ trang tiến trình đơn
 ├── Capabilities    — 4 lý do đặt đơn ở Onos, KHÔNG con số (band tối)
 ├── ProblemSolution — 4 nỗi đau của KHÁCH khi đặt gia công     (#why)
-├── HowItWorks      — 4 bước đặt đơn + CTA lặp lại             (#how)
+├── HowItWorks      — 4 bước đặt đơn + CTA lặp lại + link "Xem hướng dẫn chi tiết" (#how)
 ├── Showcase        — 3 row: catalog → theo dõi → hậu trường   (#workflow)
 ├── Benefits        — 6 kết quả khách nhận được                (#benefits)
 ├── Trust           — dải chữ chạy + 3 chỉ báo yên tâm         (#quality)
@@ -73,6 +73,7 @@ PublicFooter + BackToTop
 | Khách hàng đăng ký/đặt đơn  | `CUSTOMER_REGISTER`     | header, hero, HowItWorks, FinalCta, footer      |
 | Cổng khách hàng (đăng nhập) | `CUSTOMER_LOGIN`        | header, HowItWorks, FinalCta, footer            |
 | Catalog công khai           | `CATALOG`               | header (mục "Sản phẩm")                         |
+| Hướng dẫn lên đơn (ảnh chụp thật từng bước) | `ORDER_GUIDE` (`/guide/ordering`) | link chữ "Xem hướng dẫn chi tiết" cạnh 2 CTA ở `HowItWorks` + footer (cột "Đặt đơn") — xem [`OrderGuide.md`](OrderGuide.md) |
 | Tra cứu đơn công khai       | `TRACK`                 | footer (cột "Đặt đơn") — xem `PublicOrderTracking.md` |
 | Đăng nhập nhân viên         | `LOGIN` (`/adm/login`)  | CTA cuối (chữ nhỏ), footer, menu mobile         |
 | Tuyển dụng                  | `COMPANY_CAREERS`       | CTA cuối, footer                                |
@@ -80,6 +81,27 @@ PublicFooter + BackToTop
 
 Anchor nội bộ: `#why`, `#how`, `#workflow`, `#benefits`, `#quality`, `#team` —
 mọi section đích đều có `scroll-mt-24` để không bị header sticky che.
+
+**Neo trong header VÀ footer dùng chung cơ chế `hashHref`:** đứng ở trang chủ thì giữ `#how`, đứng ở trang
+public khác (`/guide/ordering`, `/track`, `/catalog`…) thì thành `/#how` để quay về trang chủ rồi mới cuộn.
+Footer từng để cứng `#how`/`#why`/`#benefits`/`#team` nên bấm ở trang khác không có tác dụng (TEST-01, 11/09/2026) —
+thêm link neo mới ở `PublicHeader`/`PublicFooter` thì đi qua `hashHref`, đừng viết `href="#..."` trần.
+
+**Cuộn tới neo khi đến từ trang khác — `useHashScroll()` (`components/public/useHashScroll.ts`, gọi ở `Landing`):**
+link `/#how` là `<a>` thường → trình duyệt TẢI LẠI cả SPA và tìm `#how` ngay khi HTML vừa về, lúc React chưa vẽ
+section nào → không cuộn, `scrollY` kẹt 0 (TEST-02 B4, 11/09/2026 — header và footer cùng lỗi). Hook đọc
+`location.hash` sau khi render rồi `scrollTo` tới `top phần tử + scrollY − scroll-margin-top` (tức `scroll-mt-24`
+của section), và **căn lại mỗi frame** trong 2s (kéo dài tới 600ms sau sự kiện `load`, trần 10s) vì font tiêu đề/ảnh
+tải xong làm đổi chiều cao phía trên. `Reveal` chỉ đổi `opacity`/`transform` nên không làm lệch vị trí.
+- **Dừng ngay** khi người dùng `wheel`/`touchstart`/`keydown`/`pointerdown` hoặc tự cuộn khỏi chỗ đã căn → không giành cuộn.
+- **Không có hash → không làm gì** (mở `/` luôn ở đầu trang).
+- **Bấm neo ngay trên trang chủ:** trình duyệt tự nhảy như cũ; React Router nhận `popstate` → hook thấy đã đúng chỗ, không cuộn thêm.
+- **Back/Forward:** mỗi mục lịch sử có `location.key` riêng → quay về URL có hash thì cuộn lại tới mục đó; Back về trang không hash (vd `/guide/ordering`) do trình duyệt xử lý như tải trang thường.
+- Trang public mới có neo được link từ trang khác → gọi `useHashScroll()` ở component trang đó.
+
+Đã kiểm (Playwright, 1280px): từ `/guide/ordering` và `/track` bấm footer `#how`/`#team` và header `#how`/`#quality`
+→ `scrollY` khớp vị trí mục (±0px sau khi ổn định); trên `/` bấm `#how`/`#benefits` vẫn đúng; `/` không hash → 0;
+Back → `/guide/ordering`, Forward → `/#how` đúng vị trí; 390px mở thẳng `/#team` lệch 22px (trong ngưỡng ±40).
 
 ### 2.2 Đổi ngôn ngữ
 
@@ -119,6 +141,7 @@ Không có. State duy nhất là 3 state UI cục bộ:
 | `PublicHeader.tsx`     | Header sticky dùng chung. `NAV_ITEMS` có `to` (route) hoặc `hash` (neo); khi **không ở trang chủ**, mục neo tự đổi thành `/#...` để quay về landing rồi cuộn.        |
 | `PublicFooter.tsx`     | Footer `ink-900`: brand + địa điểm + email hỗ trợ + 3 cột link + copyright.                                                                                          |
 | `BackToTop.tsx`        | Nút tròn tím `fixed bottom-6 right-6`.                                                                                                                               |
+| `useHashScroll.ts`     | Hook cuộn tới `#id` trong URL sau khi trang render + căn lại khi bố cục phía trên còn đổi; dừng khi người dùng tự cuộn. Dùng ở `Landing` — xem §2.1.                  |
 | `PublicProductCard.tsx` + `catalogPrice.ts` | Thẻ sản phẩm + helper giá — chỉ dùng ở `/catalog`, xem [`Catalog.md`](Catalog.md).                                              |
 
 ### 4.2 Ảnh minh hoạ giao diện — `pages/landing/mockups/`

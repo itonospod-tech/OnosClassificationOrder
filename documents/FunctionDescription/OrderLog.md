@@ -16,6 +16,7 @@ Audit trail cho mọi thay đổi trên `OrderEntity`. Mỗi log record bao gồ
 - hành động (`create | update | delete | import | bulk_update`)
 - thay đổi gì (field + before/after)
 - nơi xuất phát (ip + userAgent)
+  - Thao tác HỆ THỐNG không có user: đồng bộ giữ đơn theo OnosPod ghi `hold`/`unhold` mỗi đơn 1 dòng, `userAgent = 'onospod-hold-sync'`, `before`/`after` = `'Giữ theo OnosPod'` (Orders.md §9d). Cron §9c cũng ghi không user (ip/userAgent của lời gọi cron).
 
 Mục tiêu: forensic — không xóa, không TTL (volume xưởng nhỏ, cần dữ liệu lịch sử dài hạn).
 

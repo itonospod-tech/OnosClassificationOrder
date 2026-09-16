@@ -1,6 +1,6 @@
 import { ZALO_STAFF_MIN_GROUPS, ZaloGroupKind, ZaloIdentityKind } from 'shared';
 
-import { doanPhanLoai } from './zalo-identity.logic';
+import { doanPhanLoai, nhanKhachTuNhom } from './zalo-identity.logic';
 
 /**
  * Test NỀN cho heuristic phân loại người gửi — ghi lại hành vi HIỆN TẠI trước
@@ -35,5 +35,32 @@ describe('doanPhanLoai — đoán từ số nhóm', () => {
 
   it('2–4 nhóm → để người xét', () => {
     expect(doanPhanLoai(3)).toBe(ZaloIdentityKind.Unknown);
+  });
+});
+
+describe('nhanKhachTuNhom — suy khách từ nhóm người đó nhắn', () => {
+  const map = { khachTheoNhom: new Map([['g1', 'KH_A'], ['g2', 'KH_A'], ['g3', 'KH_B']]) };
+
+  it('người ở các nhóm CÙNG một khách → nhận khách đó', () => {
+    expect(nhanKhachTuNhom(ZaloIdentityKind.Customer, ['g1', 'g2'], map)).toBe('KH_A');
+  });
+
+  it('người ở nhóm của HAI khách → không đoán, trả null', () => {
+    // Gán đại một trong hai là bịa quan hệ, và cái sai đó đi thẳng vào báo cáo.
+    expect(nhanKhachTuNhom(ZaloIdentityKind.Customer, ['g1', 'g3'], map)).toBeNull();
+  });
+
+  it('nhóm chưa nối khách thì bỏ qua, không cản phần còn lại', () => {
+    expect(nhanKhachTuNhom(ZaloIdentityKind.Customer, ['g1', 'chua-noi'], map)).toBe('KH_A');
+  });
+
+  it('không phải khách thì không gán, dù chỉ ở một nhóm', () => {
+    expect(nhanKhachTuNhom(ZaloIdentityKind.Staff, ['g1'], map)).toBeNull();
+    expect(nhanKhachTuNhom(ZaloIdentityKind.Unknown, ['g1'], map)).toBeNull();
+  });
+
+  it('chưa có danh sách nhóm (dữ liệu cũ) thì trả null chứ không nổ', () => {
+    expect(nhanKhachTuNhom(ZaloIdentityKind.Customer, undefined, map)).toBeNull();
+    expect(nhanKhachTuNhom(ZaloIdentityKind.Customer, [], map)).toBeNull();
   });
 });

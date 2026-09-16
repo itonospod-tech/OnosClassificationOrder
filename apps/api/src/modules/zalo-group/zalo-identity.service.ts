@@ -7,7 +7,7 @@ import { ZaloIdentityKind } from 'shared';
 import { ZaloGroupLinkEntity } from './zalo-group-link.entity';
 import type { ZaloIdentityDocument } from './zalo-identity.entity';
 import { ZaloIdentityEntity } from './zalo-identity.entity';
-import { doanPhanLoai as doanPhanLoaiThuan } from './zalo-identity.logic';
+import { doanPhanLoai as doanPhanLoaiThuan, nhanKhachTuNhom } from './zalo-identity.logic';
 
 @Injectable()
 export class ZaloIdentityService {
@@ -29,19 +29,24 @@ export class ZaloIdentityService {
    * KHÔNG bao giờ ghi đè `kind` của bản ghi người đã xác nhận. Đồng bộ mà xoá
    * công người duyệt thì lần sau không ai dám chạy.
    */
-  async sync(dto: SyncZaloIdentitiesDto): Promise<{ created: number; updated: number; suggested: number }> {
+  async sync(dto: SyncZaloIdentitiesDto): Promise<{ created: number; updated: number; suggested: number; linked: number }> {
     let created = 0;
     let updated = 0;
     let suggested = 0;
+    let linked = 0;
 
     // Loại của từng nhóm, nạp MỘT lần: người ở đúng một nhóm vận hành là đối
     // tác chứ không phải khách — heuristic cần biết nhóm đó là loại gì.
+    const nhomDaNap = await this.linkModel.find({}).select('groupGlobalId kind customerId').lean();
     const loaiNhom = new Map(
-      (await this.linkModel.find({}).select('groupGlobalId kind').lean()).map((l) => [
-        String(l.groupGlobalId),
-        (l as { kind?: string }).kind ?? null,
-      ]),
+      nhomDaNap.map((l) => [String(l.groupGlobalId), (l as { kind?: string }).kind ?? null]),
     );
+    // Nhóm khách nào của khách nào — để suy NGƯỜI → KHÁCH ngay trong lượt đồng bộ.
+    const khachTheoNhom = new Map<string, string>();
+    for (const l of nhomDaNap) {
+      const cid = (l as { customerId?: string }).customerId;
+      if (cid) khachTheoNhom.set(String(l.groupGlobalId), String(cid));
+    }
 
     for (const it of dto.identities) {
       // `undefined` = snapshot cũ không gửi danh sách nhóm → đoán như trước.
@@ -49,6 +54,18 @@ export class ZaloIdentityService {
         it.groupGlobalIds && it.groupGlobalIds.length === 1 ? (loaiNhom.get(it.groupGlobalIds[0]) ?? null) : undefined;
       const goiY = this.doanPhanLoai(it.groupCount, it.laTaiKhoanCongTy, loaiNhomDuyNhat);
       if (goiY !== ZaloIdentityKind.Unknown) suggested += 1;
+
+      // Nối người với khách theo nhóm họ nhắn.
+      //
+      // CHỈ dựa vào phân loại ĐÃ LƯU, không dựa vào đề xuất của máy: bản đầu
+      // 11/09/2026 nối theo đề xuất và đẻ ra bản ghi mâu thuẫn — `kind` vẫn là
+      // `unknown` (vì `$setOnInsert`) nhưng đã mang `customerId`, tức máy tự
+      // khẳng định một quan hệ chưa ai duyệt. Cả hệ này chạy theo kỷ luật "máy
+      // đề xuất, người duyệt"; nối tự động theo phỏng đoán là phá đúng chỗ đó.
+      const hienTai = await this.identityModel.findOne({ zaloUid: it.zaloUid }).select('kind customerId').lean();
+      const phanLoai = ((hienTai as { kind?: ZaloIdentityKind } | null)?.kind ?? ZaloIdentityKind.Unknown);
+      const khachSuyRa = nhanKhachTuNhom(phanLoai, it.groupGlobalIds, { khachTheoNhom });
+      if (khachSuyRa && !(hienTai as { customerId?: string } | null)?.customerId) linked += 1;
 
       const res = await this.identityModel.updateOne(
         { zaloUid: it.zaloUid },
@@ -58,6 +75,10 @@ export class ZaloIdentityService {
             groupCount: it.groupCount,
             messageCount: it.messageCount,
             suggestedKind: goiY,
+            // Lưu lại để nối NGƯỜI → NHÓM → KHÁCH (`nhanKhachTuNhom`).
+            ...(it.groupGlobalIds ? { groupGlobalIds: it.groupGlobalIds } : {}),
+            // KHÔNG ghi đè khách người ta đã gắn tay — đồng bộ chỉ điền chỗ trống.
+            ...(khachSuyRa && !(hienTai as { customerId?: string } | null)?.customerId ? { customerId: khachSuyRa } : {}),
             syncedAt: new Date(),
           },
           // `kind` chỉ đặt lúc TẠO MỚI. Người đã xác nhận rồi thì đồng bộ sau
@@ -71,7 +92,7 @@ export class ZaloIdentityService {
       else if (res.matchedCount > 0) updated += 1;
     }
 
-    return { created, updated, suggested };
+    return { created, updated, suggested, linked };
   }
 
   /** Đề xuất phân loại từ bằng chứng đếm được. */

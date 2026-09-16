@@ -1,0 +1,279 @@
+{
+  "hero": {
+    "eyebrow": "Ordering guide",
+    "titleLead": "Placing orders in the seller portal,",
+    "titleAccent": "step by step",
+    "subtitle": "The three things you do most, each step with a real screenshot and numbered callouts: create an order in the form, push orders to production and track them, and import many orders from a file.",
+    "uiNote": "Screenshots show the Vietnamese interface of the seller portal, so button and label names are quoted in Vietnamese with their meaning in brackets. All names, addresses, order codes and amounts in the images are sample data.",
+    "flowLabel": "Flow {{n}}",
+    "stepCount": "{{count}} steps"
+  },
+  "nav": {
+    "label": "Jump between flows",
+    "form": "Create order",
+    "push": "Push & track",
+    "import": "Import file",
+    "faq": "FAQ"
+  },
+  "step": {
+    "label": "Step {{n}}/{{total}}",
+    "note": "Note:"
+  },
+  "shot": {
+    "frameLabel": "Seller portal",
+    "zoom": "Zoom",
+    "zoomAria": "Zoom image: {{title}}",
+    "marker": "Callout {{n}}: {{label}}",
+    "close": "Close zoomed image",
+    "swipeHint": "Swipe sideways on the image to see all of it",
+    "calloutsLabel": "Image callouts"
+  },
+  "actions": {
+    "order": "Place an order",
+    "signIn": "Sign in"
+  },
+  "flows": {
+    "form": {
+      "cardTitle": "Create an order in the form",
+      "cardDesc": "Pick a product line and variant, add artwork and the shipping address right in the seller portal.",
+      "titleLead": "Create an order",
+      "titleAccent": "in the form",
+      "subtitle": "Best for a few individual orders. A new order waits in the “Chờ đẩy SX” (Awaiting production) tab so you can review it before production.",
+      "steps": {
+        "login": {
+          "title": "Sign in to the seller portal",
+          "body": "Open the seller portal and sign in with the email and password of your OnosFactory customer account. No account yet? Use “Place an order” at the top of this page to register.",
+          "alt": "Seller portal sign-in screen with email field, password field, Remember me checkbox and Sign in button",
+          "callouts": {
+            "1": { "label": "“EMAIL”", "detail": "The email of your customer account." },
+            "2": { "label": "“MẬT KHẨU” (Password)", "detail": "Your password. Click the eye icon at the end of the field to check what you typed." },
+            "3": { "label": "“Đăng nhập” (Sign in)", "detail": "Enter the seller portal." }
+          }
+        },
+        "chooseLine": {
+          "title": "Choose a product line",
+          "body": "In the left sidebar, open “Quản lý đơn” (Order management) and pick the product line you want to order — 2D (DTG/DTF) in the screenshot. Each line has its own order list and two buttons at the top: order in the form, or import from a file.",
+          "alt": "2D (DTG/DTF) order page with the Order management menu open in the sidebar and the Import CSV and Place order buttons at the top",
+          "callouts": {
+            "1": { "label": "“Quản lý đơn” (Order management)", "detail": "Expands into the product lines: 3D, 2D, Wood, Embroidery, LED, Canvas." },
+            "2": { "label": "“2D (DTG/DTF)”", "detail": "Pick the product line your order belongs to." },
+            "3": { "label": "“Đặt đơn 2D (DTG/DTF)” (Order 2D)", "detail": "Opens the order form for this line — the next step." },
+            "4": { "label": "“Import CSV”", "detail": "Import many orders at once from a file — see flow 3." }
+          }
+        },
+        "pickProduct": {
+          "title": "Pick a product",
+          "body": "The “Đặt đơn mới” (New order) screen has two parts: the products of the chosen line on the left, and the cart, shipping address and note on the right. Click the product card you want. One order can hold several products that share one shipping address.",
+          "alt": "New order screen: product card grid on the left, Products in order and Shipping address panels on the right",
+          "callouts": {
+            "1": { "label": "“Đặt đơn mới · 2D (DTG/DTF)” (New order)", "detail": "The heading tells you which product line you are ordering for." },
+            "2": { "label": "Product card", "detail": "Each card shows the name, price and number of variants. Click it to choose colour, size and add files." },
+            "3": { "label": "“Sản phẩm trong đơn” (Products in order)", "detail": "The cart — empty until you add a product; the number in brackets is how many products are in it." }
+          }
+        },
+        "variant": {
+          "title": "Choose colour, size and quantity",
+          "body": "Click the colour and size to print, then enter the quantity. The SKU and price under the product name follow the selected variant. Picked the wrong product? Click “Đổi sản phẩm khác” (Change product).",
+          "alt": "Product configuration panel: name, SKU and price, a row of colour buttons, a row of size buttons and the quantity field",
+          "callouts": {
+            "1": { "label": "Product name, SKU and price", "detail": "Double-check the SKU and price after choosing a variant." },
+            "2": { "label": "“COLOUR”", "detail": "Colour group (the group name depends on the product) — the selected button is highlighted." },
+            "3": { "label": "“ITEM SIZE”", "detail": "Size group." },
+            "4": { "label": "“Số lượng” (Quantity)", "detail": "How many of this product to print." }
+          }
+        },
+        "files": {
+          "title": "Add the mockup and artwork files",
+          "body": "Paste a file link (for example Google Drive) or use the upload button at the end of each field. The mockup is required; each print position (front, back…) has its own artwork field. Then click “Thêm vào đơn hàng” (Add to order).",
+          "note": "At least one artwork file is required. Each print position is labelled “không bắt buộc” (optional), but “Thêm vào đơn hàng” (Add to order) only becomes clickable once there is a mockup and at least one artwork file.",
+          "alt": "Production files panel: quantity field, required Mockup image field, two artwork link fields for front and back, and the Add to order button",
+          "callouts": {
+            "1": { "label": "“Ảnh mockup *” (Mockup image)", "detail": "The mockup you provide for the workshop to check against — not the product’s sample photo." },
+            "2": { "label": "“Link thiết kế — Mặt trước” (Artwork link — Front)", "detail": "Artwork for this print position. Each position has its own field; the product needs at least one file." },
+            "3": { "label": "“Thêm vào đơn hàng” (Add to order)", "detail": "Puts the product in the cart. To add another product, pick it from the list on the left." }
+          }
+        },
+        "address": {
+          "title": "Enter the shipping address and submit",
+          "body": "In the right-hand column, fill in the recipient’s address — one address shared by every product in the order; fields marked * are required. Add a note if needed, then click “Đặt đơn” (Place order).",
+          "alt": "Right-hand column of the order screen: shipping address form filled with sample data, the note field and the Place order button",
+          "callouts": {
+            "1": { "label": "“ĐỊA CHỈ *” (Address)", "detail": "The recipient’s shipping address." },
+            "2": { "label": "“SỐ ĐIỆN THOẠI *” (Phone)", "detail": "Recipient phone number — required." },
+            "3": { "label": "“GHI CHÚ” (Note)", "detail": "Extra note for the order (optional)." },
+            "4": { "label": "“Đặt đơn (… sản phẩm)” (Place order)", "detail": "Submits the order; the number in brackets is how many products are in the cart." }
+          }
+        },
+        "pending": {
+          "title": "The new order waits in “Chờ đẩy SX”",
+          "body": "After submitting, you land on the order list of the product line with the “Chờ đẩy SX” (Awaiting production) tab open. Every order already has its own production code.",
+          "note": "Orders in this tab are NOT in production yet. Review them, then push them to production as in flow 2 below.",
+          "alt": "2D order list with the Awaiting production tab open and one newly created order",
+          "callouts": {
+            "1": { "label": "“Chờ đẩy SX” (Awaiting production)", "detail": "Tab of orders created but not yet sent to production; the number in brackets is how many are waiting." },
+            "2": { "label": "Production code", "detail": "The order’s own code, used all the way to the tracking page. Click the icon next to it to copy." },
+            "3": { "label": "“Chờ đẩy SX” (Awaiting production)", "detail": "The order’s current status." }
+          }
+        }
+      }
+    },
+    "push": {
+      "cardTitle": "Push to production and track",
+      "cardDesc": "Select waiting orders, confirm the locked-in price, then follow progress and send the tracking link to your buyer.",
+      "titleLead": "Push to production",
+      "titleAccent": "and track",
+      "subtitle": "Orders from the form or from a file only enter production after you push them. From then on the order status is updated stage by stage.",
+      "openTrack": "Open the order tracking page",
+      "steps": {
+        "select": {
+          "title": "Select the orders to produce",
+          "body": "In the “Chờ đẩy SX” (Awaiting production) tab, tick the orders to produce (the box in the table header selects all), then click “Push … đơn” (Push … orders). To push a single order, click “Push” at the end of its row; “Hủy” (Cancel) next to it cancels an order that has not been pushed.",
+          "alt": "Awaiting production tab with three ticked orders, the Push 3 orders button on the right and Push and Cancel buttons on each row",
+          "callouts": {
+            "1": { "label": "“Chờ đẩy SX” (Awaiting production)", "detail": "Only orders in this tab can be pushed to production." },
+            "2": { "label": "Order checkbox", "detail": "Tick orders one by one, or the header box to select all." },
+            "3": { "label": "“Push … đơn” (Push … orders)", "detail": "Pushes every ticked order." },
+            "4": { "label": "“Push”", "detail": "Pushes just the order on this row." }
+          }
+        },
+        "confirm": {
+          "title": "Check the locked-in price and confirm",
+          "body": "The “Push to production” dialog lists each order about to be pushed, every product with its quantity and amount, and the total at the bottom. Review it, then click “Xác nhận push” (Confirm push).",
+          "alt": "Push to production dialog listing three orders, the amount for each product, the total and the Confirm push button",
+          "callouts": {
+            "1": { "label": "“Push to production — … đơn” (… orders)", "detail": "How many orders will enter production." },
+            "2": { "label": "Unit price and amount", "detail": "Price per item and the amount for the quantity." },
+            "3": { "label": "“Tổng cộng” (Total)", "detail": "Total for the orders being pushed. The line above it states this is the price locked in at push time." },
+            "4": { "label": "“Xác nhận push (…)” (Confirm push)", "detail": "Confirms and sends the orders to production." }
+          }
+        },
+        "status": {
+          "title": "Orders leave the waiting tab and get going",
+          "body": "After pushing, orders leave the “Chờ đẩy SX” (Awaiting production) tab. The “Trạng thái” (Status) column shows the order status and the production stage in progress; both update as the order moves through each stage.",
+          "alt": "Order list after pushing: orders have a new status and the Status column now shows the production stage",
+          "callouts": {
+            "1": { "label": "Status tab", "detail": "Pushed orders move to the tab matching their new status; the number in brackets is the order count." },
+            "2": { "label": "Order status", "detail": "Updated once the order is pushed." },
+            "3": { "label": "Current stage", "detail": "The production stage the order is at." },
+            "4": { "label": "Production code", "detail": "Click the code to open the order detail page." }
+          }
+        },
+        "detail": {
+          "title": "View details and progress",
+          "body": "The detail page shows production progress stage by stage, order information, artwork per print position, the mockup and the shipping address. Even after pushing, you can still change the mockup and the shipping address on this page.",
+          "alt": "Order detail page: list of production progress stages, Order info panel with the public tracking link, Mockup panel with a Save changes button, Shipping address panel with an Edit address button",
+          "callouts": {
+            "1": { "label": "Production code", "detail": "The code of the order you are viewing." },
+            "2": { "label": "“Tiến trình sản xuất” (Production progress)", "detail": "Each stage with its state, such as “Đang làm” (In progress) or “Chưa tới” (Not reached)." },
+            "3": { "label": "“LINK TRA CỨU CÔNG KHAI” (Public tracking link)", "detail": "Click the icon next to it to copy the link and send it to your buyer." },
+            "4": { "label": "“Lưu thay đổi” (Save changes)", "detail": "Paste a new mockup image link into the field next to it, then save." },
+            "5": { "label": "“Sửa địa chỉ” (Edit address)", "detail": "Opens a form to edit the order’s shipping address." }
+          }
+        },
+        "track": {
+          "title": "Buyers track the order themselves",
+          "body": "The tracking link looks like /track/<production code> and opens without signing in. Buyers can also paste the production code into the search box and click “Tra cứu” (Look up) to see status and progress. The tracking page never shows prices.",
+          "alt": "Public tracking page: code field and Look up button, production code with current stage, production progress list",
+          "callouts": {
+            "1": { "label": "“Tra cứu” (Look up)", "detail": "Paste the production code into the field on the left and click — no account needed." },
+            "2": { "label": "“MÃ SẢN XUẤT” (Production code)", "detail": "The code being viewed, with a copy button next to it." },
+            "3": { "label": "“Tiến trình sản xuất” (Production progress)", "detail": "Updated stage by stage." }
+          }
+        }
+      }
+    },
+    "import": {
+      "cardTitle": "Import orders from a file",
+      "cardDesc": "Fill many orders into the template; every row is checked before orders are created.",
+      "titleLead": "Import orders",
+      "titleAccent": "from a CSV file",
+      "subtitle": "Best when you have many orders at once. Uses the familiar OnosPod template; accepts .csv, .xlsx and .xls.",
+      "steps": {
+        "open": {
+          "title": "Open the import page and get the template",
+          "body": "On the product line’s order page, click “Import CSV”. Download the template, fill in one row per product, then click “Chọn file” (Choose file). Rows sharing an order_id are grouped into one order with several products; at most 500 rows per import.",
+          "alt": "Import orders from file page with the Look up SKU button, Download template button and the Choose file area",
+          "callouts": {
+            "1": { "label": "“Tải file mẫu” (Download template)", "detail": "A template with exactly the columns the system reads." },
+            "2": { "label": "“Tra SKU” (Look up SKU)", "detail": "Opens the product catalog to find SKU codes." },
+            "3": { "label": "“Chọn file” (Choose file)", "detail": "Pick your filled-in file; every row is checked before import is allowed." }
+          }
+        },
+        "lookupSku": {
+          "title": "Find the SKU of each variant",
+          "body": "The sku column in your file must match a catalog code exactly. Open the product detail and look at the “Biến thể & giá” (Variants & prices) table: each row is one colour + size variant with its own SKU.",
+          "alt": "Variants & prices table in the product detail, listing the SKU and colour/size variant of each row",
+          "callouts": {
+            "1": { "label": "“Chép SKU để điền cột sku trong file import” (Copy the SKU into the sku column)", "detail": "A hint right on the table." },
+            "2": { "label": "“SKU”", "detail": "The SKU column — put exactly this code in the file’s sku column." },
+            "3": { "label": "Variant SKU", "detail": "Click the icon next to the code to copy it." }
+          }
+        },
+        "previewErrors": {
+          "title": "Fix the errors in the preview table",
+          "body": "Once a file is chosen, the preview table shows every row. Invalid cells are highlighted red with the reason; the “Sản phẩm hệ thống” (System product) column shows which product each SKU matched. While errors remain, the Import button is locked — fix the file and choose it again.",
+          "alt": "Import preview with two red error cells: quantity in the wrong format and a SKU not in the catalog; the Import button is dimmed",
+          "callouts": {
+            "1": { "label": "“… ô lỗi” (… error cells)", "detail": "Total number of cells to fix." },
+            "2": { "label": "“Số lượng phải là số nguyên dương” (Quantity must be a positive whole number)", "detail": "For example, the quantity cell contains a word instead of a number." },
+            "3": { "label": "“SKU … không tồn tại trong catalog” (SKU … not in catalog)", "detail": "The SKU matches no product — recheck the code from the previous step." },
+            "4": { "label": "“Import … đơn” (Import … orders)", "detail": "Locked while the file has errors." }
+          }
+        },
+        "previewValid": {
+          "title": "Review, then import",
+          "body": "When every row is valid, check the “Sản phẩm hệ thống” (System product) column to be sure each SKU matched the right product, colour, size and price, then click “Import”.",
+          "alt": "Import preview labelled All rows valid, the System product column showing image, variant and price, and the Import button enabled",
+          "callouts": {
+            "1": { "label": "“Tất cả dòng hợp lệ” (All rows valid)", "detail": "No error cells left." },
+            "2": { "label": "“Sản phẩm hệ thống” (System product)", "detail": "Product, variant and price recognised from the SKU." },
+            "3": { "label": "“Import … đơn” (Import … orders)", "detail": "Creates every order in the file." }
+          }
+        },
+        "result": {
+          "title": "Check the result and push to production",
+          "body": "The system reports how many orders were created, how many were duplicates (skipped) and how many failed, plus the status of each order by order_id. A duplicate is an order that already exists with the same order_id and identifier. Click “Xem đơn vừa tạo” (View new orders) to go to the order list.",
+          "note": "Imported orders also land in “Chờ đẩy SX” (Awaiting production) and are not produced until you push them — continue as in flow 2.",
+          "alt": "Import result: counts of created, duplicate and failed orders, two orders marked Created and the View new orders button",
+          "callouts": {
+            "1": { "label": "“… tạo mới” (… created)", "detail": "Number of orders created; next to it are the duplicate and error counts." },
+            "2": { "label": "“Đã tạo” (Created)", "detail": "Status of each order by order_id in the file." },
+            "3": { "label": "“Xem đơn vừa tạo” (View new orders)", "detail": "Opens the “Chờ đẩy SX” (Awaiting production) tab so you can push the new orders." }
+          }
+        }
+      }
+    }
+  },
+  "faq": {
+    "eyebrow": "FAQ",
+    "titleLead": "Frequently asked",
+    "titleAccent": "questions",
+    "items": {
+      "notInProduction": {
+        "q": "I submitted an order — why isn’t it in production?",
+        "a": "Orders from the form or from a file first land in the “Chờ đẩy SX” (Awaiting production) tab. Tick the orders, click “Push” and confirm — only then do they enter production."
+      },
+      "designRequired": {
+        "q": "Why can’t I click “Thêm vào đơn hàng” (Add to order)?",
+        "a": "The button only becomes active once there is a mockup and at least one artwork file. Each print position is labelled “không bắt buộc” (optional) on its own, but they cannot all be empty."
+      },
+      "editCancel": {
+        "q": "How do I cancel or change an order?",
+        "a": "Orders still in “Chờ đẩy SX” (Awaiting production) have a “Hủy” (Cancel) button right on the row. After an order is pushed, you can still change its mockup and shipping address on the order detail page."
+      },
+      "shareTracking": {
+        "q": "How can my buyer follow the order?",
+        "a": "Send them the public tracking link from the order detail page (/track/<production code>), or send the production code so they can paste it into the tracking page. No account is needed, and the tracking page never shows prices."
+      },
+      "importDuplicates": {
+        "q": "Will importing the same file again create duplicate orders?",
+        "a": "An order with the same order_id and identifier as an existing order is reported as a duplicate and skipped. Each import takes at most 500 rows; rows sharing an order_id are grouped into one order."
+      }
+    }
+  },
+  "cta": {
+    "title": "Ready to place your first order?",
+    "subtitle": "Create a customer account, then follow the steps above. Stuck on a step? Email us.",
+    "support": "Support:"
+  }
+}

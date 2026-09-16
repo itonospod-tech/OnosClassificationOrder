@@ -174,6 +174,8 @@ for (row of rows):
 
 `toolResult` **KHÔNG còn được default từ product config lúc import** (API OnosPod lẫn CSV) — đơn mới luôn tạo với `toolResult` rỗng, để hàng đợi "Public API cho tool ngoài soát" (`GET /v1/orders/design-review/next`, xem `§18` bên dưới) nhận diện đúng đơn chưa soát và tự chạy tool, thay vì bị default từ config che mất. `ProductConfigEntity.toolResult` (field cấu hình "Kết quả Tool mặc định") vẫn còn trong schema nhưng KHÔNG còn nơi nào đọc để copy vào đơn nữa.
 
+**Đơn đang GIỮ không bị ghi đè design khi import lại** (TASK-04, áp MỌI nguồn gọi `importOrders()`: CSV, OnosPod, `pushToProduction` của Customer Portal): đơn đã tồn tại mà `heldAt` có giá trị (giữ tay hay giữ theo OnosPod §9d đều vậy) → bỏ `designs`/`designsOriginal`/`designsStatus` khỏi `$set` và KHÔNG tạo design job cho đơn đó; mọi trường khác (`status`, `factoryId`, `type`, tracking…) vẫn cập nhật như cũ. Lý do: `designsOriginal` là mốc so sánh của cron lấy ngược design (§9c) — import ghi đè thì cron mất dấu khách đã sửa design. Hàm đọc `heldAt` trong cùng `findOne` snapshot `beforeDoc` trước upsert.
+
 ### 3.4 Trùng productionId
 - **Update**, **không** tạo duplicate
 - Field nào row mới có → overwrite, field nào không có → giữ nguyên giá trị cũ
@@ -649,13 +651,14 @@ Permission code chi tiết — xem `packages/shared/constants/permission-catalog
 - `OrderEntity.heldAt?: Date` (index) + `holdReason?: string` (`order.entity.ts`). Set khác null ⇒ đơn "đang giữ".
 - Shared `ProductionOrderZod`: `heldAt` + `holdReason`. Filter param `held: z.coerce.boolean()` trong `GetProductionOrdersZod` (held=true → chỉ đơn giữ; false → chỉ đơn không giữ; bỏ trống → cả 2). Filter param `holdReason: z.string()` (exact match, tự ngụ ý `held=true` vì field bị `$unset` cùng `heldAt` lúc mở giữ) — bỏ trống → KHÔNG lọc theo lý do (mặc định).
 - `ORDER_LOG_ACTIONS` thêm `'hold'` + `'unhold'`.
+- **Nguồn giữ + cờ OnosPod** (§9d): `holdSource?: 'manual' | 'onospod'` (index sparse) — `holdOrder`/`bulkSetHold` set `'manual'`, đồng bộ OnosPod set `'onospod'`; mọi đường mở giữ `$unset` cùng `heldAt`. Đơn đang giữ thiếu trường = `manual`. `onospodHold?: { onHoldAt, seenAt }` (index sparse `onospodHold.onHoldAt`) = cờ "OnosPod đang giữ", độc lập với `heldAt`. `onospodHoldDismissedAt?: Date` = đợt giữ OnosPod đã bị nhân viên mở giữ. Hằng `HOLD_REASON_ONOSPOD`/`HoldSource` ở `packages/shared/constants/hold-reason.ts`.
 
 ### 9b.2 Endpoints (`@Auth(ORDER_WRITE_ROLES)`)
 | Method | Path | Service | Mô tả |
 |--------|------|---------|-------|
-| POST | `/v1/orders/:id/hold` | `holdOrder` | Set `heldAt=now` + `holdReason`. 400 nếu đã giữ / đã hủy. Log `hold`. |
-| POST | `/v1/orders/:id/unhold` | `unholdOrder` | `$unset heldAt/holdReason`. 400 nếu không đang giữ. Log `unhold`. |
-| PATCH | `/v1/orders/bulk-hold` | `bulkSetHold` | `{ ids, hold: boolean, reason? }`. hold=true chỉ set đơn chưa giữ & chưa hủy; false chỉ clear đơn đang giữ. Trả `{ matched, modified }`. |
+| POST | `/v1/orders/:id/hold` | `holdOrder` | Set `heldAt=now` + `holdReason` + `holdSource='manual'`. 400 nếu đã giữ / đã hủy. Log `hold`. |
+| POST | `/v1/orders/:id/unhold` | `unholdOrder` | `$unset heldAt/holdReason/holdSource`. Đơn mang cờ `onospodHold` → set `onospodHoldDismissedAt = onospodHold.onHoldAt` (§9d). 400 nếu không đang giữ. Log `unhold`. Báo khách `order.unheld` TRỪ đơn `holdSource='onospod'` (§9d.4). |
+| PATCH | `/v1/orders/bulk-hold` | `bulkSetHold` | `{ ids, hold: boolean, reason? }`. hold=true chỉ set đơn chưa giữ & chưa hủy (kèm `holdSource='manual'`); false chỉ clear đơn đang giữ (`$unset holdSource` luôn; đơn mang cờ OnosPod được `bulkWrite` mốc `onospodHoldDismissedAt` riêng từng đơn TRƯỚC `updateMany`). Log vẫn gộp 1 dòng như cũ. Trả `{ matched, modified }`. |
 
 **Giữ với lý do `HOLD_REASON_WAITING_DESIGN` ("Đợi khách sửa design") → reset `toolResult` + `toolResultNote` về rỗng VÀ hủy gán designer hiện tại** (cả `holdOrder` lẫn `bulkSetHold`, cùng `$set` với `heldAt`/`holdReason`, ghi thẳng qua Mongo — KHÔNG qua `updateField()` nên KHÔNG kích hoạt side-effect hook thường theo `toolResultNote`) — design cũ coi như không còn giá trị:
 - `toolResult` rỗng khiến đơn tự rơi lại vào điều kiện `toolResult: { $in: [null, ''] }` của hàng đợi `getNextDesignReviewOrder()` (§18) → tool ngoài tự soát lại NGAY KHI mở giữ; `toolResultNote` rỗng để mọi luồng nội bộ khác đọc field này (Soát tool, Dashboard, auto-gán designer...) cũng coi đơn là "chưa soát" nhất quán. KHÔNG đụng `toolCheckErrorNotes` (lịch sử bền vững).
@@ -778,6 +781,13 @@ address_1,address_2,city,state,postcode,country,email,phone}`.
   hành vi cũ, khớp CHÍNH XÁC lý do — chạy tự động không người giám sát nên
   cần thận trọng hơn). Đơn không giữ → chỉ cập nhật `designs`, KHÔNG đụng
   `heldAt`.
+  **Tương tác với đồng bộ giữ OnosPod (§9d):** mọi nhánh mở giữ ở đây
+  (`forceUnhold` của nút "Kiểm tra design mới" 1 đơn/hàng loạt, lý do "Đợi khách
+  sửa design", nhánh địa chỉ bên dưới) đều `$unset holdSource`, và nếu đơn mang
+  cờ `onospodHold` thì set `onospodHoldDismissedAt = onospodHold.onHoldAt` — đồng
+  bộ sẽ KHÔNG giữ lại đơn cho tới khi OnosPod có đợt giữ mới hơn. Đơn giữ theo
+  OnosPod có `holdReason = 'Giữ theo OnosPod'` nên cron `recoverHeldOrders()`
+  (khớp CHÍNH XÁC 2 lý do) không bao giờ nhặt.
 - **Địa chỉ**: nếu `order.shippingAddress` chưa có baseline → **lần check đầu
   chỉ SNAPSHOT** (`$set shippingAddress`), **KHÔNG tự mở giữ** (chưa biết có
   đổi hay không). Từ lần thứ 2 trở đi mới so sánh snapshot đã lưu với dữ liệu
@@ -892,6 +902,119 @@ với cron import.
 - Shared DTO: `BulkCheckOrderDesignZod`/`BulkCheckOrderDesignDto` +
   `BulkCheckOrderDesignResZod`/`BulkCheckOrderDesignResDto`
   (`packages/shared/dtos/production-order.dto.ts`).
+
+## 9d. Đồng bộ giữ đơn theo OnosPod
+
+> **Mục tiêu (TASK-04):** bên OnosPod đặt item sang `On Hold` → đơn cùng
+> `productionId` bên mình tự GIỮ; OnosPod nhả → tự NHẢ đơn do đồng bộ giữ. Không
+> báo khách, không tác dụng phụ lên tool/designer/công đoạn.
+
+### 9d.1 Nguồn tín hiệu (đã xác minh bằng gọi thật, chỉ đọc)
+- Chỉ có ở **mức item MRP** trên `qc.onospod.com`: `MrpProduct.mrp_status = "On Hold"`.
+  Cấp đơn `api.onospod.com` KHÔNG có trạng thái giữ.
+- Người đặt giữ là nhân viên OnosPod; **không có lý do giữ** (`mrp_log` chỉ ghi
+  `"Change product to: On Hold"`). Khi nhả, OnosPod đẩy thẳng item sang `Packing`/`In Sewing`.
+- Khớp đơn: `increment_id` = `productionId` bên mình.
+- Query `paginateMrpProduct(mrp_status: "On Hold", start, end, perpage: 200)` —
+  **bắt buộc có `start`/`end`** (thiếu → trả 0), khoảng ngày lọc theo `mrp_created_at`.
+- Thời điểm đợt giữ (`onHoldAt`): log `mrp_log[]` có `mrp_status = "On Hold"` MỚI NHẤT
+  → fallback `mrp_updated_at` → `mrp_created_at` (`resolveOnHoldAt`).
+
+### 9d.2 Files
+| File | Vai trò |
+|---|---|
+| `apps/api/src/modules/order/onospod-hold-sync.plan.ts` | Hàm THUẦN `planOnospodHoldSync()` — mọi luật quyết định + an toàn. Spec `onospod-hold-sync.plan.spec.ts`. |
+| `apps/api/src/modules/order/onospod-hold-sync.service.ts` | Điều phối fetch → plan → ghi có điều kiện + log + cảnh báo Telegram. |
+| `apps/api/src/modules/order/onospod-qc.client.ts` | `fetchMrpProductPage()` — HTTP/GraphQL dùng chung với `OnospodImportService` (hành vi import không đổi). |
+| `packages/shared/constants/hold-reason.ts` | `HOLD_REASON_ONOSPOD = 'Giữ theo OnosPod'` + `HoldSource`. KHÔNG thêm vào preset chip FE. |
+| `packages/shared/dtos/production-order.dto.ts` | `holdSource`/`onospodHold`/`onospodHoldDismissedAt` trong `ProductionOrderZod` + `OnospodHoldSyncResultZod`/`SyncOnospodHoldResDto` + `ImportFromOnosPodResZod.holdSync`. |
+| `apps/web/src/components/orders/HeldBadge.tsx` | `HeldBadge source` + `OnospodHoldBadge`/`showOnospodHoldFlag`. |
+
+### 9d.3 Trường trên `OrderEntity`
+| Trường | Ý nghĩa |
+|---|---|
+| `holdSource?: 'manual' \| 'onospod'` | Nguồn lượt giữ hiện tại. Đơn giữ cũ thiếu trường = `manual`. |
+| `onospodHold?: { onHoldAt, seenAt }` | Cờ "OnosPod đang giữ" — có khi OnosPod đang giữ, BẤT KỂ bên mình giữ hay không. `seenAt` = lần đầu đồng bộ thấy ĐỢT này (cùng `onHoldAt` thì không ghi lại). |
+| `onospodHoldDismissedAt?: Date` | `onHoldAt` của đợt mà nhân viên đã mở giữ. |
+
+### 9d.4 Luật (hàm thuần `planOnospodHoldSync`)
+Mỗi lượt nạp đơn (loại đơn xóa mềm) khớp 1 trong: `productionId` ∈ tập On Hold ·
+`holdSource='onospod'` và đang giữ · đang mang cờ.
+
+**OnosPod đang giữ item:**
+| Đơn bên mình | Hành động |
+|---|---|
+| Chưa giữ, chưa hủy, `fulfillmentCompletedAt` rỗng, chưa bỏ qua đợt này | **GIỮ**: `heldAt=now`, `holdReason='Giữ theo OnosPod'`, `holdSource='onospod'`, cờ. Log `hold`. |
+| Đã hoàn thành fulfillment / đã hủy | KHÔNG giữ, chỉ gắn cờ (FE hiện nhãn "OnosPod đang giữ"). |
+| Nhân viên đang giữ (`manual` hoặc thiếu nguồn) | Không đổi lý do/nguồn, chỉ gắn cờ. |
+| Đã giữ theo OnosPod | Cùng đợt → không ghi gì; đợt mới → chỉ làm mới cờ. |
+| `onospodHoldDismissedAt ≥ onHoldAt` (nhân viên đã mở giữ đợt này) | KHÔNG giữ lại; chỉ gắn cờ. Đợt mới hơn mốc → giữ bình thường. |
+
+**OnosPod KHÔNG còn giữ item:**
+| Đơn bên mình | Hành động |
+|---|---|
+| `holdSource='onospod'` đang giữ, `inProductionAt` trong cửa sổ | **NHẢ**: `$unset heldAt/holdReason/holdSource/onospodHold`. Log `unhold`. |
+| `holdSource='onospod'` nhưng `inProductionAt` ngoài cửa sổ (hoặc thiếu) | KHÔNG nhả (`outOfWindowKept`) — có thể chỉ vì item trôi khỏi cửa sổ 60 ngày. |
+| Nhân viên đang giữ, mang cờ | Giữ nguyên trạng thái giữ, chỉ gỡ cờ. |
+
+Mở giữ thủ công (1 đơn / hàng loạt / `forceUnhold` §9c / nhánh địa chỉ §9c) một đơn
+đang mang cờ → set `onospodHoldDismissedAt = onospodHold.onHoldAt`. Áp cho MỌI đơn
+mang cờ, không riêng `holdSource='onospod'` — nhân viên đã thấy nhãn OnosPod mà vẫn
+mở giữ thì đồng bộ không được giữ lại ngay lượt sau.
+
+**Báo khách khi nhân viên mở giữ thủ công** (USER chốt 11/09/2026): đơn có
+`holdSource='onospod'` NGAY TRƯỚC lúc nhả → KHÔNG gọi `emitCustomerOrderEvent`
+(`order.unheld` — không chuông portal, không webhook), vì khách chưa từng được báo
+đơn bị giữ. Đơn giữ tay (`manual` hoặc thiếu nguồn) báo như cũ. Quyết định ở hàm
+thuần `shouldNotifyCustomerOnManualUnhold()` (`onospod-hold-sync.plan.ts`, spec
+`onospod-hold-unhold-notify.spec.ts`):
+- `unholdOrder`: xét `holdSource` của snapshot `before`.
+- `bulkSetHold(hold=false)`: đọc các đơn đang giữ TRƯỚC `updateMany` (sau `$unset`
+  không còn `holdSource`), chỉ báo tập đơn giữ tay; danh sách lẫn hai loại → chỉ
+  đơn giữ tay được báo.
+- `forceUnhold` (§9c "Kiểm tra design mới") và nhánh địa chỉ §9c vốn KHÔNG bắn sự
+  kiện nào — giữ nguyên.
+- Log `unhold` và `onospodHoldDismissedAt` KHÔNG đổi (vẫn ghi cho mọi đơn).
+
+### 9d.5 Không tác dụng phụ
+- KHÔNG gọi `emitCustomerOrderEvent` (không webhook `order.held/unheld`, không chuông portal). Nhân viên mở giữ tay một đơn giữ theo OnosPod cũng không báo (§9d.4, cuối mục).
+- KHÔNG reset tool, KHÔNG hủy gán designer, KHÔNG đổi công đoạn — chỉ các trường ở §9d.3 + `heldAt`/`holdReason`.
+- Log mỗi đơn 1 dòng `hold`/`unhold` riêng (không gộp), shape giống `holdOrder`/`unholdOrder`, **không có user**, `userAgent = 'onospod-hold-sync'` (+ ip của lời gọi cron nếu có). Ghi cờ không log.
+- Ghi CÓ ĐIỀU KIỆN (`updateOne` kèm `heldAt $exists`, `holdSource`, `cancelledAt`, `fulfillmentCompletedAt`) → chạy lặp/chồng lượt không ghi trùng, không log trùng. Trong cùng tiến trình, lượt gọi chồng nhận chung kết quả lượt đang chạy.
+
+### 9d.6 An toàn — `status='aborted'`, KHÔNG ghi gì
+- Thiếu config `ONOSPOD_QC_API_URL`/`ONOSPOD_QC_BEARER_TOKEN`.
+- Lỗi HTTP/GraphQL, thiếu `paginate.total_items`, số trang > 10, tổng item nhận ≠ `total_items`, item sai trạng thái (bộ lọc không áp), item thiếu `increment_id` hoặc mốc thời gian.
+- Tập On Hold RỖNG trong khi đang có đơn giữ-do-đồng-bộ (nghi ngờ).
+- Số đơn cần nhả > 20 (`ONOSPOD_HOLD_SYNC_MAX_UNHOLD`), hoặc ≥ 5 đơn VÀ > 50% số đơn đang giữ-do-đồng-bộ. Ngưỡng dưới 5 để 1–2 đơn giữ theo OnosPod vẫn nhả được.
+
+Hai trường hợp nghi ngờ/vượt trần gửi cảnh báo Telegram (`TelegramService`, kênh
+`TELEGRAM_NOTIFICATION_CHANNEL_ID` → fallback `TELEGRAM_CHANNEL_ID`, chỉ khi
+`TELEGRAM_NOTIFICATION_ENABLED=true`; cùng nội dung không gửi lại trong 6 giờ);
+không có kênh → chỉ log error. Lỗi fetch chỉ log error (tránh spam 10 phút/lần khi token hết hạn).
+
+### 9d.7 Kích hoạt
+| Đường | Chi tiết |
+|---|---|
+| `GET /v1/orders/onospod-hold-sync/cron` | Public (`@Auth([], [], { public: true })`), log ip/userAgent. Trả `SyncOnospodHoldResDto` `{ status, reason?, window, fetched, held[], unheld[], flagged[], flagCleared[], dismissedSkipped[], outOfWindowKept[], notFound, unchanged }` (mảng = `productionId`). |
+| Cuối `importFromOnosPod` | Nút "Lấy đơn từ OnosPod" + `import-from-onospod/cron` chạy thêm 1 lượt sau import, kết quả ở `data.holdSync`. Bọc try/catch — lỗi đồng bộ không làm hỏng kết quả import. |
+
+KHÔNG dùng `@Cron` nội bộ. **Lịch khuyến nghị: 10 phút/lần**, người vận hành tự đặt
+crontab ngoài, ví dụ:
+
+```
+*/10 * * * * curl -fsS https://api.onosfactory.com/api/v1/orders/onospod-hold-sync/cron > /dev/null
+```
+
+### 9d.8 Giao diện
+- Đơn giữ theo OnosPod hiện `HeldBadge` như mọi đơn giữ, lý do dịch `heldBadge.onospodReason` ("Giữ theo OnosPod" / "Held by OnosPod"); khóa thao tác y như §9b.3.
+- Đơn mang cờ mà bên mình KHÔNG giữ → nhãn nhỏ viền hổ phách `heldBadge.onospodFlag` ("OnosPod đang giữ") ở Danh sách đơn (`ListOrderTab`), bảng xưởng (`OrderTableWorkshop`, `OrderTableClassic`) và cột Production của bảng In (`workshopTableConfig`). Chỉ báo, không khóa.
+
+### 9d.9 Giới hạn
+- OnosPod không có lý do giữ → lý do bên mình luôn là "Giữ theo OnosPod".
+- Cửa sổ quét 60 ngày theo `mrp_created_at` (`ONOSPOD_HOLD_SYNC_WINDOW_DAYS`): item giữ cũ hơn không được giữ mới; đơn đã giữ-do-đồng-bộ trôi ra ngoài cửa sổ thì KHÔNG tự nhả (nhả tay).
+- Đơn chưa từng import (không có `productionId` bên mình) → chỉ đếm `notFound`.
+- Không phản chiếu ngược: giữ/nhả bên mình KHÔNG đẩy sang OnosPod.
 
 ---
 
@@ -1968,6 +2091,7 @@ Response mẫu (`SetDesignReviewResultResDto` — `data` = `ProductionOrderZod` 
 | Không xác định xưởng | `pages/orders/unmapped/index.tsx` | inline — reset `search`/`selected`/`page` |
 | Task Fulfillment | `pages/fulfillment/my-tasks/index.tsx` (`FulfillmentKanbanView`) | inline — reset `search`/`filters`/`dateFrom`/`dateTo`/`selected` (`dayFilter` tự clear qua effect có sẵn khi đổi ngày) |
 | Task của tôi | `pages/designer/my-tasks/index.tsx` | inline — reset `search`/`filters`/`dateFrom`/`dateTo`/`selected` |
+| Hướng dẫn DTF | `pages/guide/dtf/index.tsx` | inline — bỏ `?role=` (về vai của tài khoản) + cuộn lên đầu trang (trang không có filter; xem `DtfRoleGuide.md` §2.3) |
 
 **CHƯA wire** (biết rõ, chưa làm — không phải bỏ sót):
 - **Dashboard** (7 tab `?tab=...`) — mỗi tab filter riêng nằm trong component con (`OrderStatsTab`, `OrderStatusTab`, `OrderFactoryTab`, `LifecycleTab`, `ToolCheckTab`, `PersonErrorTab`, `DesignerStatsTab`) — cần khảo sát + sửa riêng từng tab, chưa làm trong lượt này.

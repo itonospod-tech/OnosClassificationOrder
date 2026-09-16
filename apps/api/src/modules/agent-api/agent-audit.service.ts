@@ -3,7 +3,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { AgentApiRepository } from './agent-api.repository';
 
 export type AgentAuditRecord = {
-  capability: 'list_tables' | 'read_rows' | 'query' | 'docs_catalog' | 'docs_get' | 'seller_support' | 'ceo_overview' | 'ceo_report';
+  capability: 'list_tables' | 'read_rows' | 'query' | 'docs_catalog' | 'docs_get' | 'seller_support' | 'ceo_overview' | 'ceo_report' | 'ceo_report_chart' | 'customer_report' | 'zalo_send' | 'zalo_read' | 'zalo_inbox';
   table?: string;
   docSlug?: string;
   queryDigest?: unknown;

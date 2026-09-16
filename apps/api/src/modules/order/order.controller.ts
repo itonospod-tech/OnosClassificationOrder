@@ -80,6 +80,7 @@ import {
   SetProductionErrorResDto,
   SyncDesignByCustomerDto,
   SyncDesignByCustomerResDto,
+  SyncOnospodHoldResDto,
   ToolCheckDoneResDto,
   TransferOrderDto,
   TransferOrderResDto,
@@ -94,6 +95,7 @@ import { Logger } from 'winston';
 import { Auth, ClientIp, UserAgent } from '@/decorators';
 
 import type { UserDocument } from '../user/user.entity';
+import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodImportService } from './onospod-import.service';
 import { OrderService } from './order.service';
 
@@ -140,6 +142,7 @@ export class OrderController {
   constructor(
     private readonly orderService: OrderService,
     private readonly onospodImportService: OnospodImportService,
+    private readonly onospodHoldSyncService: OnospodHoldSyncService,
     @Inject('winston') private readonly logger: Logger,
   ) {}
 
@@ -753,6 +756,24 @@ export class OrderController {
       message: JSON.stringify({ method: 'GET', url: '/orders/import-from-onospod/cron', ip, userAgent }),
     });
     return this.onospodImportService.importFromOnosPod({}, { ip, userAgent });
+  }
+
+  // Public — cron đồng bộ trạng thái GIỮ theo OnosPod (item MRP "On Hold").
+  // Giữ đơn chưa xong, nhả đơn do đồng bộ giữ khi OnosPod nhả. Lỗi/nghi ngờ →
+  // `status='aborted'`, không ghi gì. Xem Orders.md §9d. Lịch khuyến nghị 10 phút.
+  @Get('onospod-hold-sync/cron')
+  @Auth([], [], { public: true })
+  @ApiOperation({ summary: '[Public] Cron: đồng bộ giữ/nhả đơn theo trạng thái On Hold bên OnosPod' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SyncOnospodHoldResDto })
+  async onospodHoldSyncCron(
+    @ClientIp() ip: string,
+    @UserAgent() userAgent: string,
+  ): Promise<SyncOnospodHoldResDto> {
+    this.logger.info({
+      message: JSON.stringify({ method: 'GET', url: '/orders/onospod-hold-sync/cron', ip, userAgent }),
+    });
+    return { success: true, data: await this.onospodHoldSyncService.sync({ ip, trigger: 'cron' }) };
   }
 
   // Public — cron riêng, tách khỏi import-from-onospod/cron ở trên. Quét đơn

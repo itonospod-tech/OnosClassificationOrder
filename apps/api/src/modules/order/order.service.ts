@@ -126,6 +126,7 @@ import {
   FulfillmentTransitionAction,
   HOLD_REASON_WAITING_ADDRESS,
   HOLD_REASON_WAITING_DESIGN,
+  HoldSource,
   isVariationColorLabel,
   LIFECYCLE_STAGE_KEYS,
   normalizeProductionOrderTracking,
@@ -165,6 +166,7 @@ import { WorkshopConfigRepository } from '../workshop-config/workshop-config.rep
 import { resolveBarcodeSkuBase } from './barcode-label';
 import { DriveFileNameService } from './drive-file-name.service';
 import { planForceComplete } from './force-complete-plan';
+import { shouldNotifyCustomerOnManualUnhold } from './onospod-hold-sync.plan';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
 import { OrderDocument, OrderEntity } from './order.entity';
 import { OrderRepository } from './order.repository';
@@ -1399,7 +1401,8 @@ export class OrderService implements OnModuleInit {
     return ORDER_LIST_CACHE_PREFIX + Buffer.from(JSON.stringify(norm)).toString('base64');
   }
 
-  private async invalidateListCache(): Promise<void> {
+  // Public để `OnospodHoldSyncService` (ghi thẳng Mongo) xóa cache danh sách sau khi đổi trạng thái giữ.
+  async invalidateListCache(): Promise<void> {
     try {
       const keys = await this.redisCacheService.findKeysByPrefix(ORDER_LIST_CACHE_PREFIX);
       if (keys.length === 0) return;
@@ -5112,7 +5115,12 @@ export class OrderService implements OnModuleInit {
     if ((before as unknown as { cancelledAt?: Date | null }).cancelledAt) {
       throw new BadRequestException('Đơn đã hủy — không thể giữ.');
     }
-    const set: Record<string, unknown> = { heldAt: new Date(), holdReason: dto.reason ?? '' };
+    // `holdSource='manual'` — đồng bộ OnosPod (§9d) KHÔNG bao giờ tự nhả đơn nhân viên giữ.
+    const set: Record<string, unknown> = {
+      heldAt: new Date(),
+      holdReason: dto.reason ?? '',
+      holdSource: HoldSource.Manual,
+    };
     // Giữ đơn vì CHỜ KHÁCH SỬA DESIGN → design cũ coi như không còn giá trị,
     // reset `toolResult` (Kết quả Tool — field quyết định hàng đợi "chưa soát"
     // của `getNextDesignReviewOrder`) + `toolResultNote` (Note kq Tool — field
@@ -5159,9 +5167,15 @@ export class OrderService implements OnModuleInit {
     if (!(before as unknown as { heldAt?: Date | null }).heldAt) {
       throw new BadRequestException('Đơn không ở trạng thái giữ.');
     }
+    // OnosPod vẫn đang giữ đơn này (có cờ) mà nhân viên mở giữ → ghi mốc bỏ qua
+    // đợt đó, để đồng bộ KHÔNG giữ lại cho tới khi OnosPod có đợt giữ mới (§9d).
+    const flagAt = (before as unknown as { onospodHold?: { onHoldAt?: Date | null } | null }).onospodHold?.onHoldAt;
     const updated = await this.orderModel.findByIdAndUpdate(
       id,
-      { $unset: { heldAt: 1, holdReason: 1 } },
+      {
+        $unset: { heldAt: 1, holdReason: 1, holdSource: 1 },
+        ...(flagAt ? { $set: { onospodHoldDismissedAt: flagAt } } : {}),
+      },
       { new: true },
     );
     if (!updated) throw new NotFoundException('Order not found');
@@ -5173,7 +5187,10 @@ export class OrderService implements OnModuleInit {
       after: null,
       ctx,
     });
-    this.emitCustomerOrderEvent('order.unheld', [updated]);
+    // Đơn giữ THEO OnosPod: khách chưa từng được báo giữ → mở giữ cũng không báo (§9d.5).
+    if (shouldNotifyCustomerOnManualUnhold(before as unknown as { heldAt?: Date | null; holdSource?: string | null })) {
+      this.emitCustomerOrderEvent('order.unheld', [updated]);
+    }
     void this.invalidateListCache();
     return { success: true, data: updated } as unknown as HoldOrderResDto;
   }
@@ -5344,8 +5361,15 @@ export class OrderService implements OnModuleInit {
       deletedAt: { $exists: false },
     } as Record<string, unknown>;
     let result: { matchedCount: number; modifiedCount: number };
+    // Mở giữ hàng loạt: _id các đơn ĐƯỢC báo khách, chốt từ trạng thái TRƯỚC khi
+    // nhả (sau `$unset` không còn `holdSource`). Đơn giữ theo OnosPod bị loại (§9d.5).
+    let unholdNotifyIds: Set<string> | null = null;
     if (dto.hold) {
-      const set: Record<string, unknown> = { heldAt: new Date(), holdReason: dto.reason ?? '' };
+      const set: Record<string, unknown> = {
+        heldAt: new Date(),
+        holdReason: dto.reason ?? '',
+        holdSource: HoldSource.Manual,
+      };
       // Cùng logic với `holdOrder()` — chờ khách sửa design → reset toolResult +
       // toolResultNote + hủy gán designer hiện tại.
       if (dto.reason === HOLD_REASON_WAITING_DESIGN) {
@@ -5364,9 +5388,28 @@ export class OrderService implements OnModuleInit {
         { $set: set },
       );
     } else {
+      // Đơn OnosPod đang giữ (có cờ) → ghi mốc bỏ qua đợt đó TRƯỚC khi mở giữ,
+      // để đồng bộ KHÔNG giữ lại (Orders.md §9d). Mỗi đơn mốc riêng nên không
+      // gộp được vào updateMany bên dưới.
+      const heldBefore = await this.orderModel
+        .find({ ...baseFilter, heldAt: { $exists: true } })
+        .select('heldAt holdSource onospodHold')
+        .lean();
+      unholdNotifyIds = new Set(heldBefore.filter((o) => shouldNotifyCustomerOnManualUnhold(o)).map((o) => String(o._id)));
+      const flagged = heldBefore.filter((o) => !!o.onospodHold?.onHoldAt);
+      if (flagged.length > 0) {
+        await this.orderModel.bulkWrite(
+          flagged.map((o) => ({
+            updateOne: {
+              filter: { _id: o._id, heldAt: { $exists: true } },
+              update: { $set: { onospodHoldDismissedAt: o.onospodHold?.onHoldAt } },
+            },
+          })),
+        );
+      }
       result = await this.orderModel.updateMany(
         { ...baseFilter, heldAt: { $exists: true } },
-        { $unset: { heldAt: 1, holdReason: 1 } },
+        { $unset: { heldAt: 1, holdReason: 1, holdSource: 1 } },
       );
     }
     void this.orderLogService.write({
@@ -5386,7 +5429,9 @@ export class OrderService implements OnModuleInit {
         .select('productionId userSku userEmail heldAt')
         .lean()
         .then((rows) => {
-          const changed = rows.filter((r) => (dto.hold ? !!r.heldAt : !r.heldAt));
+          const changed = rows.filter((r) =>
+            dto.hold ? !!r.heldAt : !r.heldAt && !!unholdNotifyIds?.has(String(r._id)),
+          );
           if (changed.length === 0) return;
           this.emitCustomerOrderEvent(
             dto.hold ? 'order.held' : 'order.unheld',
@@ -5429,6 +5474,7 @@ export class OrderService implements OnModuleInit {
       designsOriginal?: DesignFields;
       heldAt?: Date | null;
       holdReason?: string | null;
+      onospodHold?: { onHoldAt?: Date | null } | null;
       toolResult?: string | null;
       toolResultNote?: string | null;
     },
@@ -5514,9 +5560,12 @@ export class OrderService implements OnModuleInit {
       !opts?.skipSideEffects &&
       !!order.heldAt &&
       (order.holdReason === HOLD_REASON_WAITING_DESIGN || !!opts?.forceUnhold);
+    // Mở giữ (kể cả `forceUnhold` của nút "Kiểm tra design mới") một đơn OnosPod
+    // vẫn đang giữ → ghi mốc bỏ qua đợt đó, đồng bộ không giữ lại (Orders.md §9d).
+    if (shouldUnhold && order.onospodHold?.onHoldAt) set.onospodHoldDismissedAt = order.onospodHold.onHoldAt;
     const updatedOrder = await this.orderModel.findByIdAndUpdate(
       order._id,
-      shouldUnhold ? { $set: set, $unset: { heldAt: 1, holdReason: 1 } } : { $set: set },
+      shouldUnhold ? { $set: set, $unset: { heldAt: 1, holdReason: 1, holdSource: 1 } } : { $set: set },
       { new: true },
     );
     // Log riêng design đã đổi field nào (before/after) — CÙNG convention với
@@ -5625,8 +5674,12 @@ export class OrderService implements OnModuleInit {
       }
 
       await this.orderModel.findByIdAndUpdate(order._id, {
-        $set: { shippingAddress: lookup.shipping },
-        $unset: { heldAt: 1, holdReason: 1 },
+        $set: {
+          shippingAddress: lookup.shipping,
+          // Cùng luật mở giữ ở `unholdOrder` — OnosPod đang giữ thì bỏ qua đợt đó (§9d).
+          ...(order.onospodHold?.onHoldAt ? { onospodHoldDismissedAt: order.onospodHold.onHoldAt } : {}),
+        },
+        $unset: { heldAt: 1, holdReason: 1, holdSource: 1 },
       });
       void this.orderLogService.write({
         orderId: String(order._id),
@@ -7542,12 +7595,24 @@ export class OrderService implements OnModuleInit {
           .findOne(
             { productionId: data.productionId },
             // `priority: 1` thêm ngoài keys của `data` — cần biết đơn cũ đã có
-            // priority chưa để quyết định auto-gán bên dưới. `heldAt`/`holdReason`
-            // cho guard snapshot địa chỉ của đơn giữ chờ sửa địa chỉ bên dưới.
+            // priority chưa để quyết định auto-gán bên dưới. `heldAt: 1` — đơn
+            // đang giữ không bị ghi đè design; `holdReason: 1` — guard snapshot
+            // địa chỉ của đơn giữ chờ sửa địa chỉ (cả hai xem ngay dưới).
             { ...Object.fromEntries(Object.keys(data).map((k) => [k, 1])), priority: 1, heldAt: 1, holdReason: 1 },
           )
           .lean();
         const existed = !!beforeDoc;
+        // Đơn ĐANG GIỮ (mọi nguồn: nhân viên / đồng bộ OnosPod) → import lại KHÔNG
+        // ghi đè `designs`/`designsOriginal`/`designsStatus` và không tạo design
+        // job. `designsOriginal` là mốc so sánh của cron lấy ngược design (§9c) —
+        // ghi đè là cron mất dấu khách đã sửa design. Các trường khác cập nhật như cũ.
+        const heldBefore = !!(beforeDoc as { heldAt?: Date | null } | null)?.heldAt;
+        if (heldBefore) {
+          const d = data as Record<string, unknown>;
+          delete d.designs;
+          delete d.designsOriginal;
+          delete d.designsStatus;
+        }
         // Đơn đang GIỮ chờ khách sửa địa chỉ + đã có snapshot → KHÔNG cho
         // re-import (OnosPod hàng ngày) đè snapshot bằng địa chỉ hiện tại:
         // snapshot cũ chính là baseline để cron `recoverHeldOrders()` (§9c)
@@ -7592,8 +7657,8 @@ export class OrderService implements OnModuleInit {
           }
           // Gom design job sau khi đã có orderId thật. Dedup theo
           // (designKey, sourceUrl) — 2 đơn cùng URL chỉ tạo 1 job, worker
-          // updateMany cho cả 2.
-          for (const job of designJobs) {
+          // updateMany cho cả 2. Đơn đang giữ → không tạo job (design không ghi).
+          for (const job of heldBefore ? [] : designJobs) {
             const key = `${job.designKey}::${job.sourceUrl}`;
             let entry = designJobMap.get(key);
             if (!entry) {

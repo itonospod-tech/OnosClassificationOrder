@@ -17,6 +17,20 @@ export enum ZaloIdentityKind {
    * viên nào vào". Gộp chung là mất luôn câu đó.
    */
   AiSupport = 'ai-support',
+  /**
+   * Chủ tịch.
+   *
+   * Tách khỏi `Staff` vì đây là một ĐIỀU KIỆN KÍCH HOẠT: ông nhắn trong nhóm là
+   * agent phải tỉnh dậy xem có việc của mình không. Gộp vào `staff` thì điều
+   * kiện đó không diễn đạt được.
+   *
+   * ⚠️ Một người có NHIỀU dòng ở bảng này. Đo trên dữ liệu thật 12/09: uid Zalo
+   * phụ thuộc NICK ĐANG NHÌN — "Hoàng Anh" mang 8 uid khác nhau, mỗi nick công
+   * ty thấy một uid. Nên đánh dấu Chủ tịch phải đánh dấu ĐỦ mọi dòng của ông,
+   * không phải một dòng. Thiếu dòng nào thì trong nhóm mà nick đó trực, agent
+   * im lặng mà không có triệu chứng gì.
+   */
+  Chairman = 'chairman',
   /** Nhân viên công ty — kể cả khi dùng tài khoản Zalo cá nhân. */
   Staff = 'staff',
   /** Phía khách hàng. */
@@ -28,6 +42,7 @@ export const ZALO_IDENTITY_KINDS = Object.values(ZaloIdentityKind);
 export const ZALO_IDENTITY_KIND_LABELS: Record<ZaloIdentityKind, string> = {
   [ZaloIdentityKind.Unknown]: 'Chưa xét',
   [ZaloIdentityKind.AiSupport]: 'Trợ lý AI',
+  [ZaloIdentityKind.Chairman]: 'Chủ tịch',
   [ZaloIdentityKind.Staff]: 'Nhân viên',
   [ZaloIdentityKind.Customer]: 'Khách hàng',
 };
@@ -36,6 +51,7 @@ export const ZALO_IDENTITY_KIND_LABELS: Record<ZaloIdentityKind, string> = {
 export const ZALO_IDENTITY_CHAT_LABELS: Record<ZaloIdentityKind, string> = {
   [ZaloIdentityKind.Unknown]: 'CHƯA RÕ',
   [ZaloIdentityKind.AiSupport]: 'TRỢ LÝ AI',
+  [ZaloIdentityKind.Chairman]: 'CHỦ TỊCH',
   [ZaloIdentityKind.Staff]: 'NHÂN VIÊN',
   [ZaloIdentityKind.Customer]: 'KHÁCH',
 };

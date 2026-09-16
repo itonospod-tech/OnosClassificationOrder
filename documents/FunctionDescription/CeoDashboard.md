@@ -90,3 +90,13 @@ Dev (bản sao prod ~50k đơn): 7 ngày **716 ms** lần đầu, **13 ms** khi 
 ## 7. Permissions
 
 SuperAdmin / Admin. Endpoint `@Auth([SuperAdmin, Admin])`; sidebar `onlyForRoles`; trang tự chặn vai khác.
+
+## Ảnh báo cáo cho agent (10/09/2026)
+
+`GET /api/v1/agent/ceo-report/chart.png?from&to` trả PNG 1000×720 dựng **tại máy chủ**, để agent gửi thẳng Telegram/Zalo mà không phải vẽ gì.
+
+- **Dựng bằng SVG viết tay** (`apps/api/src/modules/ceo-dashboard/ceo-chart.ts`, hàm thuần + `ceo-chart.spec.ts`) rồi `sharp` đổi sang PNG. Không kéo puppeteer/canvas: prod không có trình duyệt, và ảnh này chỉ có cột kép, cột ngang, thanh tiến độ. PNG chứ không SVG vì **Telegram/Zalo không nhận SVG**.
+- **Font `DejaVu Sans`** — đã kiểm trên chính máy prod (gói `fonts-dejavu-core` có sẵn, `libfontconfig1` có, chỉ thiếu CLI `fc-list` nên đừng dùng lệnh đó để kết luận là máy không có font). Thiếu font thì chữ thành ô vuông mà KHÔNG báo lỗi → đổi font phải render thử trên prod.
+- **KHÔNG lưu ảnh vào Mongo**: `POST /agent/query` mở hết mọi bảng (API-19) nên nhị phân trong document sẽ lọt ra và phồng phản hồi. Dựng lại chỉ mất vài chục mili giây và `getOverview` đã cache 5 phút.
+- Nhận **mọi** khoảng ngày (khác `ceo-report` phải khớp đúng `periodKey`); chưa có nhận định thì ảnh chỉ gồm số liệu và ghi rõ điều đó.
+

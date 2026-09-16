@@ -85,6 +85,7 @@
     "titleLead": "Bốn bước",
     "titleAccent": "từ ý tưởng tới hàng",
     "subtitle": "Không cần gọi điện, không cần chờ báo giá mới bắt đầu được.",
+    "guideLink": "Xem hướng dẫn chi tiết",
     "steps": {
       "account": {
         "title": "Tạo tài khoản",
@@ -297,6 +298,7 @@
       "customerRegister": "Tạo tài khoản",
       "customerSignIn": "Đăng nhập khách hàng",
       "staffSignIn": "Đăng nhập nhân viên",
+      "orderGuide": "Hướng dẫn lên đơn",
       "track": "Tra cứu đơn hàng"
     },
     "locations": {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ClipboardCheck, LayoutGrid, MapPin, UserPlus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, ClipboardCheck, LayoutGrid, MapPin, UserPlus } from 'lucide-react';
 
 import { PATHS } from '@/constants/paths';
 
@@ -58,6 +59,17 @@ function HowItWorks() {
             <PillLink to={PATHS.CUSTOMER_LOGIN} variant="outline" withArrow={false}>
               {t('actions.customerSignIn')}
             </PillLink>
+            {/* Hướng dẫn chi tiết từng bước kèm ảnh chụp thật — `PATHS.ORDER_GUIDE` (OrderGuide.md). */}
+            <Link
+              to={PATHS.ORDER_GUIDE}
+              className="group/guide inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.1em] text-brand-600 transition-colors hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 sm:ml-2"
+            >
+              {t('howItWorks.guideLink')}
+              <ArrowRight
+                size={14}
+                className="transition-transform group-hover/guide:translate-x-0.5 motion-reduce:transition-none"
+              />
+            </Link>
           </div>
         </Reveal>
       </div>

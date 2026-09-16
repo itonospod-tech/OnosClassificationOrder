@@ -13,8 +13,9 @@
     "unreviewed": "Unreviewed",
     "seller": "Customer group",
     "operation": "Operations group",
-    "internal": "Internal / private",
-    "all": "All kinds"
+    "internal": "Company internal",
+    "all": "All kinds",
+    "private": "Private"
   },
   "table": {
     "group": "Zalo group",
@@ -45,7 +46,8 @@
     "applyAll": "Link all selected rows",
     "applied": "Linked {{count}} groups",
     "empty": "No suggestions — the remaining groups must be linked by hand",
-    "selectAll": "Select all"
+    "selectAll": "Select all",
+    "willCreate": "will create customer"
   },
   "edit": {
     "title": "Link group",
@@ -59,7 +61,10 @@
     "selectOwner": "Select owner…",
     "clear": "Clear",
     "save": "Save",
-    "saved": "Saved group \"{{title}}\""
+    "saved": "Saved group \"{{title}}\"",
+    "newCustomer": "Customer not in the list?",
+    "newCustomerPlaceholder": "Type a customer code, e.g. TRINITY",
+    "newCustomerHint": "Creates a customer with this code and links it. An existing code links to that customer instead of duplicating it."
   },
   "tab": {
     "groups": "Groups",
@@ -93,7 +98,8 @@
       "unknown": "Unreviewed",
       "ai-support": "AI support",
       "staff": "Staff",
-      "customer": "Customer / external"
+      "customer": "Customer / external",
+      "chairman": "Chairman"
     },
     "allKinds": "All",
     "pending": "Unconfirmed",

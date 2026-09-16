@@ -16,7 +16,7 @@ import { PaginationBar } from '@/components/common/PaginationBar';
 import { Spinner } from '@/components/common/Spinner';
 import { BulkEditToolbar } from '@/components/orders/BulkEditToolbar';
 import { CancelledBadge } from '@/components/orders/CancelledBadge';
-import { HeldBadge } from '@/components/orders/HeldBadge';
+import { HeldBadge, OnospodHoldBadge } from '@/components/orders/HeldBadge';
 import { OrderDetailDialog } from '@/components/orders/OrderDetailDialog';
 import { OrderFilterBar, type OrderFilterFacet } from '@/components/orders/OrderFilterBar';
 import { OrderLogTimelineDialog } from '@/components/orders/OrderLogTimelineDialog';
@@ -36,7 +36,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
-import { isCancelled, isHeld } from '@/utils/orderActions';
+import { isCancelled, isHeld, showOnospodHoldFlag } from '@/utils/orderActions';
 
 import { useDebounce } from '@/hooks/useDebounce';
 import { useIsNoTool } from '@/hooks/useIsNoTool';
@@ -141,7 +141,8 @@ const OrderRowItem = React.memo(function OrderRowItem({
         >
           <div className="flex flex-col gap-1">
             {gi === 0 && cancelled && <CancelledBadge reason={row.cancelReason} />}
-            {gi === 0 && held && !cancelled && <HeldBadge reason={row.holdReason} />}
+            {gi === 0 && held && !cancelled && <HeldBadge reason={row.holdReason} source={row.holdSource} />}
+            {gi === 0 && showOnospodHoldFlag(row) && <OnospodHoldBadge />}
             <GroupCellContent group={g} renderedByKey={renderedByKey} />
           </div>
         </TableCell>

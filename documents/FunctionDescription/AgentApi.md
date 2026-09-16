@@ -9,7 +9,9 @@
 
 ## 1. Overview
 
-Bộ API **chỉ đọc** phục vụ một AI agent nội bộ trả lời khách hàng qua tin nhắn. Agent cần hai thứ: **hiểu nghiệp vụ** (đọc tài liệu) và **tra được dữ liệu thực** (đọc đơn của khách).
+Bộ API phục vụ một AI agent nội bộ trả lời khách hàng qua tin nhắn. Agent cần hai thứ: **hiểu nghiệp vụ** (đọc tài liệu) và **tra được dữ liệu thực** (đọc đơn của khách).
+
+**Chỉ đọc, trừ đúng một đường.** `POST /v1/agent/zalo/send` (§3.3) là thao tác GHI duy nhất — gửi tin vào nhóm Zalo **nội bộ/vận hành**, CẤM tuyệt đối nhóm khách hàng. Nó tách hẳn khỏi `AgentApiRepository` để phần đọc vẫn giữ nguyên bất biến BR-3.
 
 ### ⚠️ `API-19` — nguyên tắc đã ĐẢO CHIỀU
 
@@ -69,6 +71,15 @@ Guard chạy **trước** mọi validate tham số. Nếu làm ngược lại, m
 | `GET` | `/v1/agent/tables` | Liệt kê **mọi collection** (`API-19`), kèm mô tả bảng và **chính sách đầy đủ từng trường** (`API-18`) — xem §3.1 |
 | `GET` | `/v1/agent/tables/:table/rows` | Đọc thô, phân trang theo con trỏ trên `_id`. Query: `limit`, `cursor`, `fields`, `filter` (`API-6`) |
 | `POST` | `/v1/agent/query` | Truy vấn có kiểm soát: lọc, sắp xếp, đếm, nhóm, tổng hợp |
+| `GET` | `/v1/agent/seller-support` | Gộp sẵn một seller: tóm tắt nhóm Zalo + số đơn sống + sản phẩm hay đặt (`ZaloGroupMapping.md`) |
+| `GET` | `/v1/agent/ceo-overview` | Bảng số CEO Dashboard một kỳ |
+| `GET` | `/v1/agent/ceo-report` | Nhận định tiếng Việt hệ thống tự sinh cho kỳ đó |
+| `GET` | `/v1/agent/ceo-report/chart.png` | Ảnh biểu đồ dựng sẵn ở server — agent **không tự vẽ** |
+| `GET` | `/v1/agent/customer-report` | Báo cáo khách: tụt sâu / tăng mạnh / VIP (`AgentGuide/CustomerReport.md`) |
+| **`POST`** | **`/v1/agent/zalo/send`** | **GHI — gửi tin vào nhóm Zalo nội bộ/vận hành. Xem §3.3** |
+| `GET` | `/v1/agent/zalo/groups/:groupGlobalId/messages` | Đọc tin của một nhóm nội bộ/vận hành. Xem §3.4 |
+| `GET` | `/v1/agent/zalo/inbox` | Sự kiện đã lọc, từ một con trỏ. Xem §3.4 |
+| `GET` | `/v1/agent/zalo/dm/:conversationId/messages` | Đọc hội thoại riêng. Chốt theo VAI người kia — §3.5 |
 | `GET` | `/v1/agent/docs` | Danh mục tài liệu nghiệp vụ |
 | `GET` | `/v1/agent/docs/:slug` | Nội dung markdown của một tài liệu |
 
@@ -208,6 +219,199 @@ nhất để điều đó không xảy ra là không có định nghĩa thứ ha
 > vì khi đó việc mở rộng chỉ phục vụ một trang quản trị — đổi thứ agent nhìn thấy để tiện cho trang là
 > đánh đổi sai. Nay nó phục vụ chính agent, và người dùng đã xác nhận chưa có agent thật nào gọi
 > production nên không phá vỡ tương thích với ai.
+
+### 3.3 `POST /v1/agent/zalo/send` — ngoại lệ DUY NHẤT của luật chỉ-đọc
+
+> **File:** `agent-zalo-send.logic.ts` (luật, hàm thuần + spec) · `agent-zalo-send.service.ts` (gọi engine)
+> **Tài liệu cho agent:** `documents/AgentGuide/ZaloSend.md`
+
+Mọi endpoint khác của bộ này là chỉ đọc (BR-3) — sai thì cùng lắm trả nhầm số.
+Đường này nhắn ra ngoài, tới người thật, và **không rút lại được**. Vì thế luật
+chặn nằm trong một **hàm thuần có test riêng**, không rải trong service.
+
+**Vì sao đặt ở đây thay vì nhờ nhà cung cấp engine mở thêm.** Engine Zalo đã gửi
+được từ lâu (`POST /conversations/:id/messages`), và app này vốn gọi engine mỗi
+ngày cho màn chat. Thứ duy nhất còn thiếu là một lớp mỏng **có chốt chặn** — agent
+không có phiên người dùng nên không đi qua proxy của màn chat được. Xác thực với
+engine dùng đúng cơ chế proxy đang chạy: `x-service-token` = `{ts}.{HMAC-SHA256(ts, ZALO_ENGINE_SECRET)}`
+cộng bốn header danh tính, trong đó `x-user-id: 'agent-api'` để nhật ký bên engine
+không lẫn agent với người thật.
+
+**Chốt chặn** (`chonHoiThoai`):
+
+| `zalo_group_links.kind` | Kết quả |
+|---|---|
+| `internal`, `operation` | Cho gửi |
+| `seller` | **400 CẤM** — nhóm khách hàng |
+| `unreviewed` | 400 — chưa phân loại thì chưa biết bên kia là ai |
+
+`conversationId` do agent truyền **phải thuộc nhóm đã duyệt**; nếu không thì chỉ
+cần biết một id hội thoại bất kỳ là nhắn được vào nhóm khách, và chốt phân loại
+nhóm thành vô nghĩa. Bỏ trống thì **thử lần lượt mọi hội thoại của nhóm** — mỗi nick
+trong nhóm có một hội thoại riêng, gửi bằng nick nào cũng vào đúng nhóm đó, mà nick
+rớt kết nối là chuyện thường. Lần chạy thật đầu tiên trên prod trúng ngay ca này:
+engine trả `account_not_connected` vì nick giữ hội thoại đầu đang chờ quét lại QR,
+trong khi nick thứ hai của nhóm vẫn sống. Chỉ đi tiếp khi thân lỗi đúng là
+`account_not_connected` (`nickRotKetNoi`) — đó là lỗi **trước** lúc gửi; thử lại mù
+trên lỗi khác thì có nguy cơ tin đã đi rồi mà nhắn thêm lần nữa.
+
+Nội dung quá `4000` ký tự bị **cắt** chứ không từ chối: tin quá dài thường là agent
+dán nhầm cả báo cáo, gửi được phần đầu vẫn hơn im lặng.
+
+**Ghim nick (`accountName`) — thêm 15/09/2026.** Với bên gọi, nick công ty là
+danh tính BỘ PHẬN (`Onos Ai` = CEO, `Cfo` = tài chính, `Onos Kế Toán` = kế toán).
+Vòng thử-lần-lượt vốn thêm vào để cứu "nhóm câm khi nick đầu chết" lại **âm thầm
+đổi danh tính người gửi**: một tin của CEO ra dưới nick `Cfo` và người trong nhóm
+đọc thành chỉ đạo của phòng tài chính.
+
+| Tham số | Hành vi |
+|---|---|
+| `accountName` | Gửi đúng nick đó; nick hỏng → lỗi nêu tên nick, **tắt vòng thử** |
+| `accountName` + `allowFallback` | Nick đó trước, hỏng mới lùi |
+| không truyền | Giữ nguyên hành vi cũ |
+
+Sai danh tính hại hơn không gửi được, nên mặc định của nhánh có `accountName` là
+KHÔNG lùi. Nick không thuộc nhóm bị chặn trước khi gửi, kèm danh sách nick đang có
+(`chonTheoNick`) — bên gọi cần phân biệt "gõ sai tên" với "nick không ở trong nhóm".
+
+Mọi đáp án gửi trả `sentAsNick`, kể cả DM và cả khi không ghim: thứ tự
+`conversationIds` không mang ý nghĩa gì, nên đó là cách duy nhất bên gọi đối chiếu
+được danh tính đã ra nhóm. Nick của một hội thoại lấy từ `zaloAccount.displayName`
+bên engine (`ZaloEngineService.nickCuaHoiThoai`).
+
+**Hạn mức riêng** `AGENT_ZALO_SEND_PER_MIN = 10` (chứ không dùng chung hạn mức đọc),
+và **ghi vết cả lượt bị chặn** vào `agentApiLogs` capability `zalo_send` — biết agent
+định nhắn vào đâu quan trọng ngang biết nó đã nhắn gì.
+
+Nguyên văn lỗi từ engine chỉ vào log Winston; agent nhận câu đã diễn giải
+(`dienGiaiLoiEngine`) để không lộ đường dẫn nội bộ.
+
+**Thử nick khác khi nào** (`thuNickKhac`) — chỉ với lỗi xảy ra TRƯỚC lúc gửi, vì
+thử tiếp sau khi tin đã đi là nhắn hai lần cho người thật:
+
+| Thân lỗi | Thử nick tiếp? |
+|---|---|
+| `account_not_connected` | ✅ nick rớt phiên |
+| `zalo_tu_choi` mã **161** — *"Nhóm này không tồn tại"* | ✅ nick ĐÃ RỜI nhóm |
+| mã Zalo khác / lỗi khác | ⛔ chưa biết xảy ra trước hay sau khi gửi |
+
+Mã 161 thêm vào sau ca thật 13–14/09: nhóm *OnosNB/ CSKH Nội Bộ* từ chối mọi lượt
+gửi suốt hai ngày trong khi người thật vẫn gõ tay trong đó. Nhóm có 4 nick; nick
+ĐẦU danh sách đã rời nhóm từ 07/09 nên Zalo trả 161, còn hai nick khác vẫn nhắn
+hằng ngày. Luật cũ chỉ đi tiếp khi `account_not_connected` nên dừng ngay ở nick
+đầu — một nick chết làm câm cả nhóm, đúng thứ vòng thử-lần-lượt sinh ra để tránh.
+
+`MA_ZALO` là bảng mã bồi dần từ lỗi gặp thật (engine không tài liệu hoá). Mã lạ trả
+về kèm chữ "chưa có trong bảng" thay vì 502 trần — thông báo không nói được gì thì
+bên nhận chỉ còn cách thử lại, mà thử lại là đúng thứ không giúp gì ở đây.
+
+**Đường ghi này KHÔNG đi qua `AgentApiRepository`.** Lớp đó cố ý chỉ phơi
+`find`/`aggregate` để giữ BR-3 bằng *hình dạng* chứ không bằng kỷ luật; nếu nhét
+thao tác ghi vào đó thì bất biến kia mất hiệu lực cho toàn bộ phần đọc.
+
+### 3.4 Nghe tin Zalo — `zalo/groups/:id/messages`, `zalo/inbox`, và webhook
+
+> **File:** `agent-zalo-inbound.logic.ts` (luật, hàm thuần + spec) · `agent-zalo-read.service.ts` · `agent-zalo-inbound.service.ts` · `agent-zalo-inbound.controller.ts` · `agent-zalo-trigger.entity.ts`
+> **Tài liệu cho agent:** `documents/AgentGuide/ZaloListen.md`
+> **Cấu hình:** `system_configs` khoá `agent_zalo_inbound_config`, dựng bằng `apps/api/scripts/setup-zalo-inbound.mjs`
+
+Engine Zalo **đã có sẵn** cả hai nửa: `GET /api/zalo-multi/conversations/:id/messages`
+và một hệ đăng ký webhook (`GET/POST /api/zalo-multi/webhooks`, sự kiện
+`message.received`…) chưa ai dùng. Lớp này không dựng lại chúng — nó thêm ba thứ
+engine không biết, và **đó mới là toàn bộ giá trị của lớp này**.
+
+**1. Engine không biết `kind`.** Nó đẩy mọi nhóm. Nếu để agent đăng ký thẳng với
+engine thì nội dung nhóm khách hàng và nhóm cá nhân nhân viên rời khỏi hệ thống —
+phá đúng cái chốt riêng tư mà `kind=internal` sinh ra để giữ. Nên đường đi bắt
+buộc là **engine → hệ thống này → agent**, không phải engine → agent.
+
+**2. Chi phí.** Nhóm nội bộ + vận hành: **855 tin thật/ngày**. Đánh thức agent
+trên mỗi tin ≈ 18–28 triệu token/ngày (số hệ cũ đã trả giá để biết). Lọc còn
+**156 lượt/ngày**: Chủ tịch gửi, hoặc tag trúng nick trợ lý.
+
+**3. Vai người gửi.** `senderType` của engine chỉ có `contact`/`self`.
+
+#### Hai cái bẫy trong dữ liệu Zalo — cả hai đều hỏng ÂM THẦM
+
+**uid phụ thuộc NICK ĐANG NHÌN.** Đo 12/09 trên prod: "Hoàng Anh" mang **8 uid**,
+mỗi nick công ty thấy một uid riêng; Chủ tịch mang 8. Không tồn tại "uid của một
+người", chỉ có **tập uid** — nên `chairmanZaloUids`/`agentNickZaloUids` là mảng,
+và đó không phải để linh hoạt mà vì một chuỗi là sai.
+
+Hệ quả nặng hơn: `zalo_accounts.zalo_uid` là uid nick **tự nhìn mình**, còn
+`mentions[].uid` là uid **người khác thấy nó**. So hai bảng đó với nhau luôn trượt —
+kiểm chứng: không một uid nào trong 12 uid bị tag nhiều nhất khớp `zalo_accounts`.
+Bản đầu của tính năng này so đúng như vậy, và bộ lọc tag **chết hoàn toàn** mà
+không có triệu chứng nào. Nguồn đúng là `zalo_identities` (khoá theo uid phía
+contact) cộng tập uid khai tường minh trong config.
+
+**Một câu nói = nhiều bản ghi.** Engine lưu một dòng cho MỖI nick công ty có mặt
+trong nhóm: 7 ngày = 26.034 dòng cho 12.189 tin thật (2,1×, cao nhất 7 bản). Khoá
+chống trùng vì thế là `<groupGlobalId>:<zaloMsgId>` (`khoaChongTrung()`), KHÔNG
+phải id bản ghi — khoá sai là agent bị gọi dậy 2–7 lần cho cùng một câu và trả lời
+lại từng lần.
+
+#### Luồng
+
+```
+engine ──message.received──► POST /v1/agent/zalo/inbound   (chữ ký x-webhook-signature, HMAC-SHA256 hex)
+                                   │  tra conversationId → nhóm (rẻ nhất trước, chặn nhóm khách KHÔNG tốn lời gọi engine)
+                                   │  Chủ tịch? → biết ngay từ payload
+                                   │  không? → đọc lại tin lấy mentions (engine không gửi mentions)
+                                   ▼
+                             agentZaloTriggers (TTL 14 ngày, unique khoaChongTrung)
+                                   │
+                    ┌──────────────┴──────────────┐
+              đẩy tới subscribers            GET /v1/agent/zalo/inbox
+              (x-signature HMAC hex)         (cùng kho, không phải nguồn thứ hai)
+```
+
+**Lưu TRƯỚC rồi mới đẩy**, và đẩy trượt **không** ném ngược lên engine: sự kiện đã
+bền, bên nhận poll lại là có; ném lỗi chỉ khiến engine giao lại mãi thứ đã xử lý
+xong. Cùng lý do, tin bị loại trả `200` — "không đáng đánh thức ai" là kết quả
+đúng, không phải lỗi giao.
+
+Đường `/agent/zalo/inbound` nằm ở **controller riêng** vì `AgentApiController` gắn
+`AgentApiKeyGuard` cho cả lớp, mà engine không có khoá agent. Nó cũng cần **thân
+thô** để kiểm chữ ký nên được thêm vào hook `preParsing` ở `main-nest.ts` cạnh
+`/api/v1/partner`.
+
+⚠️ **Sửa blob cấu hình thẳng trong Mongo thì PHẢI xoá cache Redis.**
+`SystemConfigService.get()` cache blob **1 tiếng**; đường `set()` tự dọn, còn script
+ghi thẳng collection thì không. Triệu chứng khi quên: đăng ký bên nhận xong, sự
+kiện vẫn vào kho bình thường nhưng **không được đẩy đi, và không có lỗi nào** —
+vì lúc đọc, danh sách bên nhận vẫn rỗng. `setup-zalo-inbound.mjs` đã tự xoá
+`system_config:agent_zalo_inbound_config` sau mỗi lần ghi.
+
+`ZaloIdentityKind` thêm `Chairman`: đánh dấu Chủ tịch là việc của người vận hành ở
+màn *Danh tính*, không phải hằng số trong mã — và phải đánh dấu **đủ mọi dòng** của
+ông vì lý do uid ở trên.
+
+### 3.5 Nhắn riêng (DM) — chốt chặn phải KHÁC đường nhóm
+
+Nhóm dựa vào `kind` do người vận hành xét. Hội thoại 1-1 **không có gì tương
+đương**, nên thứ duy nhất đứng giữa agent và một người lạ là bảng danh tính. Vì
+thế đường DM **mặc định CẤM** (`kiemNguoiNhanDm`): chỉ `chairman`/`staff` đi qua.
+
+`unknown` bị chặn **ngang hàng với `customer`**. Đo 12/09 trên prod: trong 61
+người đang có hội thoại riêng với nick công ty, chỉ **7** đã được xét (4 chủ tịch
++ 3 nhân viên); 31 `unknown`, 22 chưa có dòng danh tính, 1 khách. Coi "chưa ai
+xét" là an toàn nghĩa là mở 53 hội thoại riêng với người không rõ là ai — và bỏ
+luôn ý nghĩa của việc xét. `ai-support` cũng bị chặn: hai nick AI nhắn nhau thì
+không có ai dừng.
+
+**Chế độ chọn bằng SỰ CÓ MẶT của `groupGlobalId`**, không suy từ hình dạng id:
+có → đường nhóm, không → đường DM. Nếu để `conversationId` tự quyết định thì sớm
+muộn một id hội thoại thuộc nhóm đi lọt vào đường DM và bỏ qua chốt nhóm; ngược
+lại, đưa id nhóm vào đường DM bị từ chối thẳng (`threadType !== 'user'`).
+
+Đáp lại đường gửi DM có `recipient {displayName, role}` — `zaloUid` không dùng
+làm danh tính được (phụ thuộc nick đang nhìn, xem §3.4), nên vai + tên là thứ duy
+nhất agent tự kiểm lại được.
+
+Tra hội thoại bằng `GET /api/zalo-multi/conversations/:id` **đích danh**, không
+duyệt danh sách: `GET /conversations` bị engine lọc theo quyền người gọi và trả
+rỗng cho `agent-api`, còn lấy theo id thì không.
 
 ## 4. UI Components
 

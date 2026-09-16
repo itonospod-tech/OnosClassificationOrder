@@ -1,0 +1,3215 @@
+[
+  {
+    "role": "support",
+    "title": "Support — Soát tool",
+    "steps": [
+      {
+        "role": "support",
+        "step": 1,
+        "file": "support/01-login.webp",
+        "width": 462,
+        "height": 332,
+        "screen": "/adm/login",
+        "shows": "Màn đăng nhập hệ thống xưởng: nhập email và mật khẩu tài khoản nhân viên.",
+        "masked": [],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 27.7,
+            "boxPct": {
+              "x": 7.6,
+              "y": 20.2,
+              "w": 84.8,
+              "h": 15.1
+            },
+            "label": "Email",
+            "detail": "Email tài khoản nhân viên."
+          },
+          {
+            "n": 2,
+            "xPct": 50,
+            "yPct": 54.2,
+            "boxPct": {
+              "x": 7.6,
+              "y": 46.7,
+              "w": 84.8,
+              "h": 15.1
+            },
+            "label": "Mật khẩu",
+            "detail": "Mật khẩu đăng nhập."
+          },
+          {
+            "n": 3,
+            "xPct": 50,
+            "yPct": 81.9,
+            "boxPct": {
+              "x": 7.6,
+              "y": 74.4,
+              "w": 84.8,
+              "h": 15.1
+            },
+            "label": "Tiếp tục",
+            "detail": "Vào hệ thống — Support về trang Dashboard."
+          }
+        ]
+      },
+      {
+        "role": "support",
+        "step": 2,
+        "file": "support/02-tool-check-overview.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/dashboard?tab=tool-check",
+        "shows": "Tab Soát tool: thẻ số liệu trong kỳ, dải tổng quan theo ngày vào sản xuất và 2 danh sách việc cần làm.",
+        "masked": [
+          "Vòng đời đơn",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Soát tool — chỉ giữ đơn DEMO-DTF-*, KPI / bảng theo ngày / bộ lọc dựng lại từ đơn demo"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 9,
+            "yPct": 25.1,
+            "boxPct": {
+              "x": 1.9,
+              "y": 22.8,
+              "w": 14.2,
+              "h": 4.6
+            },
+            "label": "Soát tool",
+            "detail": "Menu Dashboard › Soát tool."
+          },
+          {
+            "n": 2,
+            "xPct": 48.2,
+            "yPct": 74.1,
+            "boxPct": {
+              "x": 39.1,
+              "y": 72.7,
+              "w": 18.3,
+              "h": 2.9
+            },
+            "label": "IN TRẢ VỀ (CẦN LÀM LẠI)",
+            "detail": "Số đơn công nhân In trả về vì thiếu file — làm trước."
+          },
+          {
+            "n": 3,
+            "xPct": 30.2,
+            "yPct": 85.4,
+            "boxPct": {
+              "x": 26.3,
+              "y": 83.3,
+              "w": 7.8,
+              "h": 4.2
+            },
+            "label": "Chưa soát (3)",
+            "detail": "Danh sách đơn chưa có Note kq Tool."
+          },
+          {
+            "n": 4,
+            "xPct": 32.3,
+            "yPct": 14.7,
+            "boxPct": {
+              "x": 29.8,
+              "y": 12.3,
+              "w": 4.9,
+              "h": 4.7
+            },
+            "label": "7 ngày",
+            "detail": "Kỳ xem theo ngày vào sản xuất, mặc định 7 ngày."
+          }
+        ]
+      },
+      {
+        "role": "support",
+        "step": 3,
+        "file": "support/03-unreviewed-list.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/dashboard?tab=tool-check",
+        "shows": "Danh sách \"Chưa soát\": mỗi dòng một đơn, sửa trực tiếp Note kq Tool 1, File sửa lỗi và ghi chú.",
+        "masked": [
+          "Vòng đời đơn",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Soát tool — chỉ giữ đơn DEMO-DTF-*, KPI / bảng theo ngày / bộ lọc dựng lại từ đơn demo"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 23.1,
+            "yPct": 63.9,
+            "boxPct": {
+              "x": 20.3,
+              "y": 62.5,
+              "w": 5.7,
+              "h": 2.9
+            },
+            "label": "DEMO-DTF-01",
+            "detail": "Mã sản xuất của đơn (bấm biểu tượng bên cạnh để chép)."
+          },
+          {
+            "n": 2,
+            "xPct": 60.2,
+            "yPct": 49.9,
+            "boxPct": {
+              "x": 55.4,
+              "y": 47.2,
+              "w": 9.6,
+              "h": 5.6
+            },
+            "label": "NOTE KQ TOOL 1",
+            "detail": "Kết quả soát: Ok / Lỗi / Không có file PDF / Không có tool."
+          },
+          {
+            "n": 3,
+            "xPct": 68.3,
+            "yPct": 49.9,
+            "boxPct": {
+              "x": 64.3,
+              "y": 47.2,
+              "w": 8,
+              "h": 5.6
+            },
+            "label": "FILE SỬA LỖI",
+            "detail": "Chọn vị trí file cần designer sửa."
+          },
+          {
+            "n": 4,
+            "xPct": 79.1,
+            "yPct": 49.9,
+            "boxPct": {
+              "x": 71.6,
+              "y": 47.2,
+              "w": 15,
+              "h": 5.6
+            },
+            "label": "GHI CHÚ FILE LỖI",
+            "detail": "Mô tả ngắn lỗi file cho designer."
+          }
+        ]
+      },
+      {
+        "role": "support",
+        "step": 4,
+        "file": "support/04-note-options.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/dashboard?tab=tool-check",
+        "shows": "Bấm ô Note kq Tool 1 để chọn kết quả soát. Ok cho đơn đi thẳng In; Lỗi đưa đơn vào hàng chờ gán designer.",
+        "masked": [
+          "Vòng đời đơn",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Soát tool — chỉ giữ đơn DEMO-DTF-*, KPI / bảng theo ngày / bộ lọc dựng lại từ đơn demo"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 65.5,
+            "yPct": 80.3,
+            "boxPct": {
+              "x": 56.6,
+              "y": 77.9,
+              "w": 17.8,
+              "h": 4.8
+            },
+            "label": "Ok",
+            "detail": "Đủ file in — đơn sang công đoạn In ngay."
+          },
+          {
+            "n": 2,
+            "xPct": 65.5,
+            "yPct": 76.6,
+            "boxPct": {
+              "x": 56.6,
+              "y": 74.2,
+              "w": 17.8,
+              "h": 4.8
+            },
+            "label": "Lỗi",
+            "detail": "File cần thiết kế lại — đơn vào \"Cần gán designer\"."
+          },
+          {
+            "n": 3,
+            "xPct": 65.5,
+            "yPct": 83.9,
+            "boxPct": {
+              "x": 56.6,
+              "y": 81.6,
+              "w": 17.8,
+              "h": 4.8
+            },
+            "label": "Không có file PDF",
+            "detail": "Thiếu file PDF — cũng chờ gán designer."
+          }
+        ]
+      },
+      {
+        "role": "support",
+        "step": 5,
+        "file": "support/05-rework-list.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/dashboard?tab=tool-check",
+        "shows": "Danh sách \"Cần làm lại\": đơn công nhân In báo \"Thiếu file để in\". Soát lại rồi đổi Note về Ok, hoặc bấm \"Đã soát xong\" để chuyển designer.",
+        "masked": [
+          "Vòng đời đơn",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Soát tool — chỉ giữ đơn DEMO-DTF-*, KPI / bảng theo ngày / bộ lọc dựng lại từ đơn demo"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 23.1,
+            "yPct": 64,
+            "boxPct": {
+              "x": 20.3,
+              "y": 62.6,
+              "w": 5.7,
+              "h": 2.9
+            },
+            "label": "DEMO-DTF-12",
+            "detail": "Đơn bị In trả về."
+          },
+          {
+            "n": 2,
+            "xPct": 80.4,
+            "yPct": 65.2,
+            "boxPct": {
+              "x": 75.6,
+              "y": 60.3,
+              "w": 9.6,
+              "h": 9.8
+            },
+            "label": "Lỗi xưởng",
+            "detail": "Lỗi công nhân In đã báo."
+          },
+          {
+            "n": 3,
+            "xPct": 55.7,
+            "yPct": 65.2,
+            "boxPct": {
+              "x": 53.2,
+              "y": 60.3,
+              "w": 5,
+              "h": 9.8
+            },
+            "label": "Note kq Tool 1",
+            "detail": "File thật ra đủ → đổi về Ok, đơn quay lại In."
+          },
+          {
+            "n": 4,
+            "xPct": 93.4,
+            "yPct": 65.2,
+            "boxPct": {
+              "x": 89.1,
+              "y": 63.1,
+              "w": 8.7,
+              "h": 4.2
+            },
+            "label": "Đã soát xong",
+            "detail": "Cần thiết kế lại → chuyển designer (cũ / tự gán / hàng chờ)."
+          }
+        ]
+      },
+      {
+        "role": "support",
+        "step": 6,
+        "file": "support/06-hold-dialog.webp",
+        "width": 496,
+        "height": 460,
+        "screen": "/ffm/orders/workshop?factoryId=2P3OLNPYCQS5T685&wfrom=2026-09-11&wto=2026-09-11",
+        "shows": "Giữ đơn từ menu \"…\" ở Danh sách đơn: chọn lý do có sẵn hoặc tự gõ. Đơn giữ bị khoá mọi thao tác tới khi mở lại.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 61.4,
+            "yPct": 40.1,
+            "boxPct": {
+              "x": 46.5,
+              "y": 36.1,
+              "w": 29.8,
+              "h": 7.8
+            },
+            "label": "Chờ khách xác nhận",
+            "detail": "Lý do có sẵn — bấm để điền nhanh."
+          },
+          {
+            "n": 2,
+            "xPct": 50,
+            "yPct": 59.8,
+            "boxPct": {
+              "x": 8.9,
+              "y": 50.1,
+              "w": 82.3,
+              "h": 19.6
+            },
+            "label": "Lý do giữ",
+            "detail": "Có thể sửa hoặc tự gõ lý do (không bắt buộc)."
+          },
+          {
+            "n": 3,
+            "xPct": 81.6,
+            "yPct": 85.4,
+            "boxPct": {
+              "x": 72.2,
+              "y": 80.4,
+              "w": 19,
+              "h": 10
+            },
+            "label": "Giữ đơn",
+            "detail": "Xác nhận giữ đơn."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "role": "designer-leader",
+    "title": "Designer Leader",
+    "steps": [
+      {
+        "role": "designer-leader",
+        "step": 1,
+        "file": "designer-leader/01-assign-backlog.webp",
+        "width": 1212,
+        "height": 144,
+        "screen": "/ffm/dashboard?tab=designer&factoryId=2P3OLNPYCQS5T685",
+        "shows": "Khối \"Cần gán designer\" ở tab Designer: đơn đã soát lỗi chưa có ai nhận, gom theo sản phẩm.",
+        "masked": [
+          "Vòng đời đơn",
+          "Tổng quan 7 ngày",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Vòng đời đơn — số liệu theo xưởng demo (?factoryId=), danh sách xưởng chỉ giữ DEMO-DTF",
+          "Designer theo ngày — chỉ giữ designer demo, cộng lại tổng",
+          "Xếp hạng hiệu suất — chỉ giữ designer demo",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Cần gán designer — chỉ giữ đơn DEMO-DTF-*",
+          "Bộ lọc sản phẩm / khách — chỉ giữ DEMO"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 12.3,
+            "yPct": 31.6,
+            "boxPct": {
+              "x": 6.3,
+              "y": 19.8,
+              "w": 12,
+              "h": 23.6
+            },
+            "label": "Cần gán designer",
+            "detail": "Tổng số đơn đang chờ gán."
+          },
+          {
+            "n": 2,
+            "xPct": 5.4,
+            "yPct": 69.8,
+            "boxPct": {
+              "x": 4.3,
+              "y": 60.8,
+              "w": 2.1,
+              "h": 18.1
+            },
+            "label": "Chọn cả nhóm",
+            "detail": "Tick để chọn mọi đơn của sản phẩm."
+          },
+          {
+            "n": 3,
+            "xPct": 81.3,
+            "yPct": 31.6,
+            "boxPct": {
+              "x": 75.3,
+              "y": 17,
+              "w": 11.9,
+              "h": 29.2
+            },
+            "label": "Gán design (0)",
+            "detail": "Gán các đơn đã chọn cho 1 designer."
+          },
+          {
+            "n": 4,
+            "xPct": 92.5,
+            "yPct": 31.6,
+            "boxPct": {
+              "x": 87.1,
+              "y": 17,
+              "w": 10.9,
+              "h": 29.2
+            },
+            "label": "Tự động gán",
+            "detail": "Chia theo cấu hình tự động gán (xưởng chưa cấu hình thì không gán được)."
+          }
+        ]
+      },
+      {
+        "role": "designer-leader",
+        "step": 2,
+        "file": "designer-leader/02-select-orders.webp",
+        "width": 1184,
+        "height": 812,
+        "screen": "/ffm/dashboard?tab=designer",
+        "shows": "Mở nhóm sản phẩm, tick từng đơn cần gán; nút gán cho biết số đơn đang chọn.",
+        "masked": [
+          "Vòng đời đơn",
+          "Tổng quan 7 ngày",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Designer theo ngày — chỉ giữ designer demo, cộng lại tổng",
+          "Xếp hạng hiệu suất — chỉ giữ designer demo",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Cần gán designer — chỉ giữ đơn DEMO-DTF-*",
+          "Bộ lọc sản phẩm / khách — chỉ giữ DEMO",
+          "Team Designer — chỉ giữ tài khoản demo"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 3.1,
+            "yPct": 78,
+            "boxPct": {
+              "x": 2,
+              "y": 76.4,
+              "w": 2.2,
+              "h": 3.2
+            },
+            "label": "Ô chọn đơn",
+            "detail": "Tick từng đơn."
+          },
+          {
+            "n": 2,
+            "xPct": 80.8,
+            "yPct": 5.6,
+            "boxPct": {
+              "x": 74.8,
+              "y": 3,
+              "w": 12.2,
+              "h": 5.2
+            },
+            "label": "Gán design (2)",
+            "detail": "Gán 2 đơn đã chọn cho designer."
+          },
+          {
+            "n": 3,
+            "xPct": 68.3,
+            "yPct": 5.6,
+            "boxPct": {
+              "x": 61.7,
+              "y": 3,
+              "w": 13.2,
+              "h": 5.2
+            },
+            "label": "Nhận về mình (2)",
+            "detail": "Leader tự nhận làm."
+          }
+        ]
+      },
+      {
+        "role": "designer-leader",
+        "step": 3,
+        "file": "designer-leader/03-assign-dialog.webp",
+        "width": 560,
+        "height": 368,
+        "screen": "/ffm/dashboard?tab=designer",
+        "shows": "Hộp gán designer: xem trạng thái các đơn đã chọn, chọn designer (kèm số đơn đang ôm) rồi bấm Gán.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Designer theo ngày — chỉ giữ designer demo, cộng lại tổng",
+          "Xếp hạng hiệu suất — chỉ giữ designer demo",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Cần gán designer — chỉ giữ đơn DEMO-DTF-*",
+          "Bộ lọc sản phẩm / khách — chỉ giữ DEMO",
+          "Team Designer — chỉ giữ tài khoản demo"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 24.7,
+            "boxPct": {
+              "x": 7.9,
+              "y": 21.2,
+              "w": 84.3,
+              "h": 7.1
+            },
+            "label": "Trạng thái hiện tại:",
+            "detail": "Đơn đang làm / đã xong / đã Ok sẽ tự bị bỏ qua."
+          },
+          {
+            "n": 2,
+            "xPct": 50,
+            "yPct": 67.7,
+            "boxPct": {
+              "x": 7.9,
+              "y": 61.4,
+              "w": 84.3,
+              "h": 12.5
+            },
+            "label": "Gán cho designer",
+            "detail": "Chọn người đang ôm ít đơn."
+          },
+          {
+            "n": 3,
+            "xPct": 83.5,
+            "yPct": 81.8,
+            "boxPct": {
+              "x": 74.8,
+              "y": 75.5,
+              "w": 17.3,
+              "h": 12.5
+            },
+            "label": "Gán",
+            "detail": "Xác nhận gán."
+          }
+        ]
+      },
+      {
+        "role": "designer-leader",
+        "step": 4,
+        "file": "designer-leader/04-designer-team.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/designer/team",
+        "shows": "Trang Team Designer: thêm designer, bật/tắt, đặt lại mật khẩu; lọc người đang bật/đã tắt.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Team Designer — chỉ giữ tài khoản demo"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 91.6,
+            "yPct": 32.8,
+            "boxPct": {
+              "x": 85.6,
+              "y": 30.4,
+              "w": 11.9,
+              "h": 4.7
+            },
+            "label": "Thêm sub-designer",
+            "detail": "Tạo tài khoản designer mới."
+          },
+          {
+            "n": 2,
+            "xPct": 81.5,
+            "yPct": 44.1,
+            "boxPct": {
+              "x": 79.9,
+              "y": 42.4,
+              "w": 3.2,
+              "h": 3.3
+            },
+            "label": "Bật/Tắt",
+            "detail": "Tắt người nghỉ — không gán được đơn mới (còn task đang làm thì không tắt được)."
+          },
+          {
+            "n": 3,
+            "xPct": 90.5,
+            "yPct": 44.1,
+            "boxPct": {
+              "x": 88.8,
+              "y": 41.7,
+              "w": 3.5,
+              "h": 4.7
+            },
+            "label": "Reset mật khẩu",
+            "detail": "Đặt lại mật khẩu cho designer."
+          },
+          {
+            "n": 4,
+            "xPct": 27.9,
+            "yPct": 32.8,
+            "boxPct": {
+              "x": 25.1,
+              "y": 30.9,
+              "w": 5.7,
+              "h": 3.8
+            },
+            "label": "Đang bật",
+            "detail": "Lọc danh sách theo trạng thái."
+          }
+        ]
+      },
+      {
+        "role": "designer-leader",
+        "step": 5,
+        "file": "designer-leader/05-team-matrix.webp",
+        "width": 1184,
+        "height": 373,
+        "screen": "/ffm/dashboard?tab=designer",
+        "shows": "Bảng \"Tất cả designer theo ngày\": số đơn mỗi designer theo ngày vào sản xuất — thấy ai đang tồn nhiều.",
+        "masked": [
+          "Vòng đời đơn",
+          "Tổng quan 7 ngày",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Designer theo ngày — chỉ giữ designer demo, cộng lại tổng",
+          "Xếp hạng hiệu suất — chỉ giữ designer demo",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Cần gán designer — chỉ giữ đơn DEMO-DTF-*",
+          "Bộ lọc sản phẩm / khách — chỉ giữ DEMO"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 11.9,
+            "yPct": 10.6,
+            "boxPct": {
+              "x": 4.1,
+              "y": 6.6,
+              "w": 15.7,
+              "h": 8
+            },
+            "label": "Tất cả designer theo ngày",
+            "detail": "Ma trận designer × ngày."
+          },
+          {
+            "n": 2,
+            "xPct": 8.8,
+            "yPct": 51.8,
+            "boxPct": {
+              "x": 2,
+              "y": 47.9,
+              "w": 13.5,
+              "h": 7.9
+            },
+            "label": "Demo Designer A",
+            "detail": "Một dòng = một designer."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "role": "designer",
+    "title": "Designer",
+    "steps": [
+      {
+        "role": "designer",
+        "step": 1,
+        "file": "designer/01-my-tasks.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/my-tasks?from=2026-09-05&to=2026-09-11",
+        "shows": "Trang Task của tôi: kỳ theo ngày vào sản xuất, chi tiết theo ngày và bảng kanban việc của riêng bạn.",
+        "masked": [
+          "Tổng quan theo ngày",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 35.8,
+            "yPct": 10.4,
+            "boxPct": {
+              "x": 21.6,
+              "y": 8.3,
+              "w": 28.5,
+              "h": 4.2
+            },
+            "label": "Xin chào, Demo Designer A",
+            "detail": "Trang việc của chính designer đang đăng nhập."
+          },
+          {
+            "n": 2,
+            "xPct": 31.4,
+            "yPct": 17.3,
+            "boxPct": {
+              "x": 28.9,
+              "y": 15,
+              "w": 4.9,
+              "h": 4.7
+            },
+            "label": "7 ngày",
+            "detail": "Kỳ mặc định 7 ngày."
+          },
+          {
+            "n": 3,
+            "xPct": 25.7,
+            "yPct": 34.7,
+            "boxPct": {
+              "x": 21.8,
+              "y": 33.3,
+              "w": 7.8,
+              "h": 2.9
+            },
+            "label": "Chi tiết theo ngày",
+            "detail": "Số đơn chưa xong theo từng ngày — ngày cũ còn tồn làm trước."
+          },
+          {
+            "n": 4,
+            "xPct": 23.8,
+            "yPct": 64.9,
+            "boxPct": {
+              "x": 18.8,
+              "y": 62.8,
+              "w": 10,
+              "h": 4.2
+            },
+            "label": "Tìm",
+            "detail": "Tìm nhanh theo mã."
+          }
+        ]
+      },
+      {
+        "role": "designer",
+        "step": 2,
+        "file": "designer/02-task-card.webp",
+        "width": 249,
+        "height": 231,
+        "screen": "/ffm/my-tasks?from=2026-09-05&to=2026-09-11",
+        "shows": "Thẻ đơn ở cột Cần làm: ảnh mockup, mã sản xuất, kết quả soát tool. Đổi trạng thái bằng kéo thả hoặc tick + thanh công cụ.",
+        "masked": [
+          "Tổng quan theo ngày",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 67.2,
+            "yPct": 25.9,
+            "boxPct": {
+              "x": 54.6,
+              "y": 20.3,
+              "w": 25.2,
+              "h": 11.3
+            },
+            "label": "DEMO-DTF-07",
+            "detail": "Bấm mã để xem chi tiết đơn và file. Nhãn đỏ phía trên (vd \"Lỗi\") là kết quả Support đã soát."
+          },
+          {
+            "n": 2,
+            "xPct": 30.1,
+            "yPct": 22.3,
+            "boxPct": {
+              "x": 17.3,
+              "y": 8.4,
+              "w": 25.7,
+              "h": 27.7
+            },
+            "label": "Mockup",
+            "detail": "Bấm để xem ảnh lớn."
+          },
+          {
+            "n": 3,
+            "xPct": 73.8,
+            "yPct": 11.7,
+            "boxPct": {
+              "x": 64.9,
+              "y": 5,
+              "w": 17.8,
+              "h": 13.4
+            },
+            "label": "KLĐ",
+            "detail": "Không làm được — bàn giao cho designer khác."
+          }
+        ]
+      },
+      {
+        "role": "designer",
+        "step": 3,
+        "file": "designer/03-task-detail.webp",
+        "width": 800,
+        "height": 842,
+        "screen": "/ffm/my-tasks?from=2026-09-05&to=2026-09-11",
+        "shows": "Chi tiết đơn: thông tin sản phẩm, mockup, file design, file cần sửa và dòng thời gian.",
+        "masked": [
+          "Đổi chữ 2 link file design (asset demo nội bộ 127.0.0.1) thành link Drive mẫu",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 46.9,
+            "boxPct": {
+              "x": 4.5,
+              "y": 45.4,
+              "w": 91,
+              "h": 3.1
+            },
+            "label": "File design (2)",
+            "detail": "Các file design của đơn."
+          },
+          {
+            "n": 2,
+            "xPct": 50,
+            "yPct": 85.3,
+            "boxPct": {
+              "x": 5.9,
+              "y": 83.7,
+              "w": 88.3,
+              "h": 3.1
+            },
+            "label": "File sửa lỗi",
+            "detail": "Vị trí file Support yêu cầu sửa + ghi chú."
+          },
+          {
+            "n": 3,
+            "xPct": 50,
+            "yPct": 62.2,
+            "boxPct": {
+              "x": 4.5,
+              "y": 60.7,
+              "w": 91,
+              "h": 3.1
+            },
+            "label": "Timeline designer",
+            "detail": "Gán lúc nào, bắt đầu, hoàn thành."
+          }
+        ]
+      },
+      {
+        "role": "designer",
+        "step": 4,
+        "file": "designer/04-start-bulk.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/my-tasks?from=2026-09-05&to=2026-09-11",
+        "shows": "Tick thẻ ở cột Cần làm → thanh công cụ hiện nút Nhận làm (tương đương kéo thẻ sang Đang làm).",
+        "masked": [
+          "Tổng quan theo ngày",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 21.5,
+            "yPct": 47.4,
+            "boxPct": {
+              "x": 20.6,
+              "y": 46.1,
+              "w": 1.7,
+              "h": 2.7
+            },
+            "label": "Ô chọn thẻ",
+            "detail": "Shift + bấm để chọn liền nhiều thẻ."
+          },
+          {
+            "n": 2,
+            "xPct": 54.8,
+            "yPct": 93.2,
+            "boxPct": {
+              "x": 50.9,
+              "y": 90.9,
+              "w": 7.8,
+              "h": 4.7
+            },
+            "label": "Nhận làm",
+            "detail": "Bắt đầu làm các đơn đã chọn."
+          },
+          {
+            "n": 3,
+            "xPct": 48.4,
+            "yPct": 93.2,
+            "boxPct": {
+              "x": 45.8,
+              "y": 91.6,
+              "w": 5.2,
+              "h": 3.3
+            },
+            "label": "Đã chọn 1",
+            "detail": "Số thẻ đang chọn."
+          }
+        ]
+      },
+      {
+        "role": "designer",
+        "step": 5,
+        "file": "designer/05-complete-bulk.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/my-tasks?from=2026-09-05&to=2026-09-11",
+        "shows": "Tick thẻ ở cột Đang làm → Hoàn thành. Đơn tự thành Note Ok và sang công đoạn In.",
+        "masked": [
+          "Tổng quan theo ngày",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 74.9,
+            "yPct": 57,
+            "boxPct": {
+              "x": 68.7,
+              "y": 44.9,
+              "w": 12.4,
+              "h": 24
+            },
+            "label": "Thẻ đang làm",
+            "detail": "Đơn đã làm xong file."
+          },
+          {
+            "n": 2,
+            "xPct": 54.8,
+            "yPct": 93.2,
+            "boxPct": {
+              "x": 50.5,
+              "y": 90.9,
+              "w": 8.6,
+              "h": 4.7
+            },
+            "label": "Hoàn thành",
+            "detail": "Hoàn thành — đơn chuyển cho công nhân In."
+          }
+        ]
+      },
+      {
+        "role": "designer",
+        "step": 6,
+        "file": "designer/06-rework-card.webp",
+        "width": 266,
+        "height": 345,
+        "screen": "/ffm/my-tasks?from=2026-09-05&to=2026-09-11",
+        "shows": "Cột Cần làm lại: đơn xưởng báo lỗi thiết kế, khối vàng ghi mô tả lỗi. Kéo sang Đang làm để làm lại.",
+        "masked": [
+          "Tổng quan theo ngày",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 52.9,
+            "yPct": 60.6,
+            "boxPct": {
+              "x": 28.5,
+              "y": 54.8,
+              "w": 48.8,
+              "h": 11.6
+            },
+            "label": "Mô tả lỗi xưởng",
+            "detail": "Lỗi xưởng báo — sửa đúng chỗ này."
+          },
+          {
+            "n": 2,
+            "xPct": 67.7,
+            "yPct": 27.8,
+            "boxPct": {
+              "x": 55.9,
+              "y": 24,
+              "w": 23.6,
+              "h": 7.5
+            },
+            "label": "DEMO-DTF-11",
+            "detail": "Làm xong, đơn vào cột \"Đã sửa\"."
+          }
+        ]
+      },
+      {
+        "role": "designer",
+        "step": 7,
+        "file": "designer/07-watching.webp",
+        "width": 266,
+        "height": 303,
+        "screen": "/ffm/my-tasks?from=2026-09-05&to=2026-09-11",
+        "shows": "Cột Đang chờ quay lại: đơn bạn đã làm xong nhưng công nhân In trả về Support vì thiếu file — chờ Support soát xong.",
+        "masked": [
+          "Tổng quan theo ngày",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 67.7,
+            "yPct": 31.6,
+            "boxPct": {
+              "x": 55.9,
+              "y": 27.3,
+              "w": 23.6,
+              "h": 8.6
+            },
+            "label": "DEMO-DTF-28",
+            "detail": "Chưa tới lượt bạn; Support soát xong đơn tự về Cần làm lại."
+          }
+        ]
+      },
+      {
+        "role": "designer",
+        "step": 8,
+        "file": "designer/08-reject-modal.webp",
+        "width": 496,
+        "height": 470,
+        "screen": "/ffm/my-tasks?from=2026-09-05&to=2026-09-11",
+        "shows": "Không làm được đơn: bắt buộc chọn designer nhận thay, lý do tùy chọn. Đơn chuyển sang Cần làm của người đó.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Team Designer — chỉ giữ tài khoản demo"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 38.6,
+            "boxPct": {
+              "x": 8.9,
+              "y": 33.6,
+              "w": 82.3,
+              "h": 10
+            },
+            "label": "Chuyển cho designer",
+            "detail": "Người nhận thay (kèm số đơn đang làm)."
+          },
+          {
+            "n": 2,
+            "xPct": 50,
+            "yPct": 63.2,
+            "boxPct": {
+              "x": 8.9,
+              "y": 51.7,
+              "w": 82.3,
+              "h": 23
+            },
+            "label": "Lý do",
+            "detail": "Không bắt buộc, tối đa 500 ký tự."
+          },
+          {
+            "n": 3,
+            "xPct": 75.9,
+            "yPct": 85.7,
+            "boxPct": {
+              "x": 60.7,
+              "y": 80.9,
+              "w": 30.4,
+              "h": 9.8
+            },
+            "label": "Không làm được",
+            "detail": "Xác nhận bàn giao."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "role": "fulfillment-print",
+    "title": "Công nhân In",
+    "steps": [
+      {
+        "role": "fulfillment-print",
+        "step": 1,
+        "file": "fulfillment-print/01-print-table.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/fulfillment/my-tasks?pfrom=2026-09-11&pto=2026-09-11",
+        "shows": "Task Fulfillment của công nhân In là BẢNG đơn (không phải kanban). Mặc định chỉ đơn vào sản xuất HÔM NAY; chỉ đơn soát tool Ok của xưởng mình mới có nút thao tác.",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 9,
+            "yPct": 22.4,
+            "boxPct": {
+              "x": 1.9,
+              "y": 20.1,
+              "w": 14.2,
+              "h": 4.6
+            },
+            "label": "Task Fulfillment",
+            "detail": "Menu Công việc › Task Fulfillment. Đăng nhập xong hệ thống về Dashboard — bấm menu này để vào bảng In."
+          },
+          {
+            "n": 2,
+            "xPct": 29.1,
+            "yPct": 9.4,
+            "boxPct": {
+              "x": 25.1,
+              "y": 7,
+              "w": 8.1,
+              "h": 4.9
+            },
+            "label": "Đang chờ",
+            "detail": "Dãy chip trạng thái In kèm số đơn — bấm để lọc bảng."
+          },
+          {
+            "n": 3,
+            "xPct": 21.8,
+            "yPct": 21.7,
+            "boxPct": {
+              "x": 18.9,
+              "y": 19.3,
+              "w": 5.7,
+              "h": 4.7
+            },
+            "label": "Hôm nay",
+            "detail": "Kỳ mặc định: đơn vào sản xuất hôm nay. Đơn hôm trước còn tồn → chọn \"Hôm qua\" / \"7 ngày\"."
+          },
+          {
+            "n": 4,
+            "xPct": 90.9,
+            "yPct": 65.7,
+            "boxPct": {
+              "x": 83.2,
+              "y": 62.9,
+              "w": 15.5,
+              "h": 5.6
+            },
+            "label": "Thao tác In",
+            "detail": "Cột nút Bắt đầu / Hoàn thành / Báo lỗi của từng đơn (luôn ghim bên phải)."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-print",
+        "step": 2,
+        "file": "fulfillment-print/02-start.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/fulfillment/my-tasks?pfrom=2026-09-11&pto=2026-09-11",
+        "shows": "Đơn Đang chờ có nút \"Bắt đầu\". Làm nhiều đơn một lúc: tick các dòng rồi bấm \"Bắt đầu (n)\" trên thanh công cụ.",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 86.7,
+            "yPct": 40.8,
+            "boxPct": {
+              "x": 84,
+              "y": 38.4,
+              "w": 5.4,
+              "h": 4.7
+            },
+            "label": "Bắt đầu",
+            "detail": "Bắt đầu in đơn này — đơn sang Đang làm."
+          },
+          {
+            "n": 2,
+            "xPct": 19.8,
+            "yPct": 40.8,
+            "boxPct": {
+              "x": 19,
+              "y": 39.5,
+              "w": 1.6,
+              "h": 2.6
+            },
+            "label": "Ô chọn dòng",
+            "detail": "Tick nhiều dòng; giữ Shift để chọn liền một dải."
+          },
+          {
+            "n": 3,
+            "xPct": 60,
+            "yPct": 93.2,
+            "boxPct": {
+              "x": 55.8,
+              "y": 90.9,
+              "w": 8.2,
+              "h": 4.7
+            },
+            "label": "Bắt đầu (1)",
+            "detail": "Bắt đầu tất cả đơn đã tick."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-print",
+        "step": 3,
+        "file": "fulfillment-print/03-complete.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/fulfillment/my-tasks?pfrom=2026-09-11&pto=2026-09-11",
+        "shows": "Đơn Đang làm có nút \"Hoàn thành\" và \"Báo lỗi\". Hoàn thành → đơn chuyển sang Ép – Đang chờ.",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 39,
+            "yPct": 43.6,
+            "boxPct": {
+              "x": 36,
+              "y": 42.2,
+              "w": 6.2,
+              "h": 2.9
+            },
+            "label": "DEMO-DTF-15",
+            "detail": "Mã sản xuất của đơn đang in."
+          },
+          {
+            "n": 2,
+            "xPct": 87.5,
+            "yPct": 46.2,
+            "boxPct": {
+              "x": 84,
+              "y": 43.9,
+              "w": 7,
+              "h": 4.7
+            },
+            "label": "Hoàn thành",
+            "detail": "In xong — đơn tự sang công đoạn Ép."
+          },
+          {
+            "n": 3,
+            "xPct": 93,
+            "yPct": 46.2,
+            "boxPct": {
+              "x": 90.5,
+              "y": 43.9,
+              "w": 5,
+              "h": 4.7
+            },
+            "label": "Báo lỗi",
+            "detail": "File in có vấn đề — đẩy đơn về Designer."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-print",
+        "step": 4,
+        "file": "fulfillment-print/04-report-error.webp",
+        "width": 560,
+        "height": 402,
+        "screen": "/ffm/fulfillment/my-tasks?pfrom=2026-09-11&pto=2026-09-11",
+        "shows": "Báo lỗi từ bảng In: chọn nơi nhận xử lý và ghi lý do. Ở công đoạn In chỉ có một nơi nhận là Designer.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 15.7,
+            "yPct": 37.8,
+            "boxPct": {
+              "x": 7.9,
+              "y": 32.8,
+              "w": 15.6,
+              "h": 10
+            },
+            "label": "Designer",
+            "detail": "Designer nhận lại đơn ở cột \"Cần làm lại\"."
+          },
+          {
+            "n": 2,
+            "xPct": 50,
+            "yPct": 62.7,
+            "boxPct": {
+              "x": 7.9,
+              "y": 49.3,
+              "w": 84.3,
+              "h": 26.9
+            },
+            "label": "Lý do lỗi *",
+            "detail": "Bắt buộc — ghi rõ lỗi để người sửa biết sửa gì."
+          },
+          {
+            "n": 3,
+            "xPct": 81.1,
+            "yPct": 83.3,
+            "boxPct": {
+              "x": 70,
+              "y": 77.6,
+              "w": 22.2,
+              "h": 11.4
+            },
+            "label": "Đẩy về xử lý",
+            "detail": "Gửi đơn về Designer. Bảng In vẫn giữ dòng, nền đỏ tới khi đơn quay lại."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-print",
+        "step": 5,
+        "file": "fulfillment-print/05-error-cell.webp",
+        "width": 382,
+        "height": 407,
+        "screen": "/ffm/fulfillment/my-tasks?pfrom=2026-09-11&pto=2026-09-11",
+        "shows": "Ô \"Lỗi xưởng\" trên dòng đơn: bấm ô rồi chọn lỗi có sẵn. Thiếu file để in → chọn \"Thiếu file để in\", đơn quay về Support soát lại (không qua Designer).",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 31.9,
+            "yPct": 10.1,
+            "boxPct": {
+              "x": 26.5,
+              "y": 5.9,
+              "w": 11,
+              "h": 8.4
+            },
+            "label": "Lỗi xưởng",
+            "detail": "Bấm ô để mở danh sách lỗi."
+          },
+          {
+            "n": 2,
+            "xPct": 57.2,
+            "yPct": 58.5,
+            "boxPct": {
+              "x": 40.3,
+              "y": 54.8,
+              "w": 33.8,
+              "h": 7.4
+            },
+            "label": "Thiếu file để in",
+            "detail": "Nguồn Soát tool — đơn về danh sách \"Cần làm lại\" của Support."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-print",
+        "step": 6,
+        "file": "fulfillment-print/06-rework-watching.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/fulfillment/my-tasks?pfrom=2026-09-11&pto=2026-09-11&pstatus=rework",
+        "shows": "Chip \"Làm lại\": đơn công đoạn sau (Ép, QC) đẩy về In. Dòng nền đỏ = đơn đang có lỗi chưa xử lý; ô trạng thái ghi rõ bị đẩy về từ đâu và lý do. Chip \"Đang chờ quay lại\" là đơn In đã xong nhưng đang bị xử lý lại ở chỗ khác. LƯU Ý: đơn QC báo lỗi qua quét/gán lỗi (dòng đỏ) KHÔNG có nút trên bảng — in lại bằng trang Quét mã.",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 44.5,
+            "yPct": 9.4,
+            "boxPct": {
+              "x": 41,
+              "y": 7,
+              "w": 7.1,
+              "h": 4.9
+            },
+            "label": "Làm lại",
+            "detail": "Đơn cần in lại — làm như đơn mới: Bắt đầu → Hoàn thành."
+          },
+          {
+            "n": 2,
+            "xPct": 33.5,
+            "yPct": 77.7,
+            "boxPct": {
+              "x": 29.7,
+              "y": 74.9,
+              "w": 7.6,
+              "h": 5.6
+            },
+            "label": "Bị đẩy về từ QC sau ép",
+            "detail": "Công đoạn đã đẩy về và lý do (dòng đỏ: QC báo \"In lệch\"). Dòng này không có nút — quét mã đơn ở trang Quét mã để làm lại."
+          },
+          {
+            "n": 3,
+            "xPct": 88.3,
+            "yPct": 98.3,
+            "boxPct": {
+              "x": 85.6,
+              "y": 95.9,
+              "w": 5.4,
+              "h": 4.1
+            },
+            "label": "Bắt đầu",
+            "detail": "Đơn Ép đẩy về bằng \"Báo lỗi\" vẫn có nút — nhận in lại."
+          },
+          {
+            "n": 4,
+            "xPct": 68.5,
+            "yPct": 9.4,
+            "boxPct": {
+              "x": 62.7,
+              "y": 7,
+              "w": 11.4,
+              "h": 4.9
+            },
+            "label": "Đang chờ quay lại",
+            "detail": "Chỉ để theo dõi — chưa tới lượt In."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-print",
+        "step": 7,
+        "file": "fulfillment-print/07-scan.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/scan-error",
+        "shows": "Trang Quét mã: quét barcode đơn `N-…` → hiện màn công đoạn của bạn (ảnh lớn, chữ to). In xong quét LẠI chính mã đơn (hoặc mã OK, hoặc Enter) là hoàn thành — tự Bắt đầu + Hoàn thành.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 73.4,
+            "yPct": 17.7,
+            "boxPct": {
+              "x": 50.5,
+              "y": 15.4,
+              "w": 45.8,
+              "h": 4.7
+            },
+            "label": "DEMO-DTF-14",
+            "detail": "Đơn vừa quét."
+          },
+          {
+            "n": 2,
+            "xPct": 9.3,
+            "yPct": 63,
+            "boxPct": {
+              "x": 4.4,
+              "y": 61.1,
+              "w": 9.8,
+              "h": 3.8
+            },
+            "label": "✔ Hoàn thành",
+            "detail": "Quét lại mã đơn / mã OK / Enter = xong công đoạn In."
+          },
+          {
+            "n": 3,
+            "xPct": 43.4,
+            "yPct": 63,
+            "boxPct": {
+              "x": 35.8,
+              "y": 61.1,
+              "w": 15.2,
+              "h": 3.8
+            },
+            "label": "⚠ Báo lỗi — quét 2 lần",
+            "detail": "Quét mã lỗi `E-…` trên bảng dán trạm, quét lại cùng mã để ghi nhận."
+          },
+          {
+            "n": 4,
+            "xPct": 87.3,
+            "yPct": 91.1,
+            "boxPct": {
+              "x": 78,
+              "y": 87.4,
+              "w": 18.6,
+              "h": 7.3
+            },
+            "label": "Hoàn thành (Enter)",
+            "detail": "Bấm tay nếu không dùng máy quét."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "role": "fulfillment-press",
+    "title": "Công nhân Ép",
+    "steps": [
+      {
+        "role": "fulfillment-press",
+        "step": 1,
+        "file": "fulfillment-press/01-kanban.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Task của tôi — Ép: thẻ số theo cột, ô Tìm / Quét mã, kỳ ngày và bảng kanban. Cột \"Làm lại\" / \"Đang chờ quay lại\" tự ẩn khi không có đơn.",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 24.8,
+            "yPct": 17.8,
+            "boxPct": {
+              "x": 18.9,
+              "y": 16.4,
+              "w": 11.8,
+              "h": 2.8
+            },
+            "label": "Đang chờ",
+            "detail": "Số đơn đang chờ bạn làm."
+          },
+          {
+            "n": 2,
+            "xPct": 56.6,
+            "yPct": 45.8,
+            "boxPct": {
+              "x": 18.8,
+              "y": 42.8,
+              "w": 75.7,
+              "h": 6
+            },
+            "label": "Tìm / Quét mã",
+            "detail": "Quét `N-…` rồi Enter → mở đơn để Hoàn thành / Báo lỗi; gõ chữ để lọc kanban."
+          },
+          {
+            "n": 3,
+            "xPct": 32.1,
+            "yPct": 53,
+            "boxPct": {
+              "x": 29.7,
+              "y": 50.7,
+              "w": 4.9,
+              "h": 4.7
+            },
+            "label": "7 ngày",
+            "detail": "Kỳ mặc định 7 ngày theo ngày vào sản xuất."
+          },
+          {
+            "n": 4,
+            "xPct": 22.4,
+            "yPct": 67.4,
+            "boxPct": {
+              "x": 18.8,
+              "y": 66,
+              "w": 7.2,
+              "h": 2.9
+            },
+            "label": "Cột Đang chờ",
+            "detail": "Kéo thẻ Đang chờ sang Đang làm = Bắt đầu."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-press",
+        "step": 2,
+        "file": "fulfillment-press/02-scan-dialog.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Quét mã ngay trong ô Tìm của kanban: mở màn công đoạn của đơn. Dải xanh = đúng công đoạn của bạn → Enter / \"Hoàn thành (Enter)\" là xong. Ở màn này quét mã lỗi `E-…` KHÔNG ghi lỗi — báo lỗi bằng quét dùng trang Quét mã.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 32.6,
+            "yPct": 55.8,
+            "boxPct": {
+              "x": 6.5,
+              "y": 53.7,
+              "w": 52.2,
+              "h": 4.2
+            },
+            "label": "Đúng công đoạn của bạn",
+            "detail": "Dải xanh: đơn đang ở Ép, thao tác được."
+          },
+          {
+            "n": 2,
+            "xPct": 9.3,
+            "yPct": 63,
+            "boxPct": {
+              "x": 4.4,
+              "y": 61.1,
+              "w": 9.8,
+              "h": 3.8
+            },
+            "label": "✔ Hoàn thành",
+            "detail": "Quét lại mã đơn / mã OK / Enter."
+          },
+          {
+            "n": 3,
+            "xPct": 72.1,
+            "yPct": 91.1,
+            "boxPct": {
+              "x": 66.9,
+              "y": 87.4,
+              "w": 10.4,
+              "h": 7.3
+            },
+            "label": "Báo lỗi",
+            "detail": "Mở màn gán lỗi cho đơn này."
+          },
+          {
+            "n": 4,
+            "xPct": 87.3,
+            "yPct": 91.1,
+            "boxPct": {
+              "x": 78,
+              "y": 87.4,
+              "w": 18.6,
+              "h": 7.3
+            },
+            "label": "Hoàn thành (Enter)",
+            "detail": "Tự Bắt đầu + Hoàn thành trong một lần."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-press",
+        "step": 3,
+        "file": "fulfillment-press/03-card-actions.webp",
+        "width": 454,
+        "height": 441,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Nút trên thẻ: Đang chờ có \"Bắt đầu\"; Đang làm có \"Hoàn thành\" và \"Báo lỗi\". Thẻ ở Đã xong / Đang chờ quay lại không có nút.",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 18.3,
+            "yPct": 91,
+            "boxPct": {
+              "x": 9.3,
+              "y": 87.1,
+              "w": 18,
+              "h": 7.8
+            },
+            "label": "Bắt đầu",
+            "detail": "Nhận làm đơn."
+          },
+          {
+            "n": 2,
+            "xPct": 70.6,
+            "yPct": 51.8,
+            "boxPct": {
+              "x": 60.5,
+              "y": 46,
+              "w": 20.1,
+              "h": 11.6
+            },
+            "label": "Hoàn thành",
+            "detail": "Ép xong — đơn sang QC sau ép."
+          },
+          {
+            "n": 3,
+            "xPct": 87.4,
+            "yPct": 51.8,
+            "boxPct": {
+              "x": 79.7,
+              "y": 46,
+              "w": 15.3,
+              "h": 11.6
+            },
+            "label": "Báo lỗi",
+            "detail": "Đẩy đơn về In hoặc Designer."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-press",
+        "step": 4,
+        "file": "fulfillment-press/04-rework-dialog.webp",
+        "width": 560,
+        "height": 402,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Báo lỗi ở Ép: chọn nơi nhận (mặc định công đoạn ngay trước — In) và ghi lý do. In nhận đơn ở \"Làm lại\"; Ép thấy đơn ở \"Đang chờ quay lại\".",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 27.3,
+            "yPct": 37.8,
+            "boxPct": {
+              "x": 23.1,
+              "y": 32.8,
+              "w": 8.3,
+              "h": 10
+            },
+            "label": "In",
+            "detail": "Lỗi do in — In làm lại."
+          },
+          {
+            "n": 2,
+            "xPct": 15.7,
+            "yPct": 37.8,
+            "boxPct": {
+              "x": 7.9,
+              "y": 32.8,
+              "w": 15.6,
+              "h": 10
+            },
+            "label": "Designer",
+            "detail": "Lỗi do file thiết kế."
+          },
+          {
+            "n": 3,
+            "xPct": 50,
+            "yPct": 62.7,
+            "boxPct": {
+              "x": 7.9,
+              "y": 49.3,
+              "w": 84.3,
+              "h": 26.9
+            },
+            "label": "Lý do lỗi *",
+            "detail": "Bắt buộc."
+          },
+          {
+            "n": 4,
+            "xPct": 81.1,
+            "yPct": 83.3,
+            "boxPct": {
+              "x": 70,
+              "y": 77.6,
+              "w": 22.2,
+              "h": 11.4
+            },
+            "label": "Đẩy về xử lý",
+            "detail": "Gửi đơn về nơi đã chọn."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-press",
+        "step": 5,
+        "file": "fulfillment-press/05-watching.webp",
+        "width": 221,
+        "height": 511,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Cột \"Đang chờ quay lại\": đơn Ép đã làm (hoặc đã đẩy về) đang ở công đoạn trước. Khi đơn quay lại Ép sẽ vào \"Làm lại\"; làm xong vào \"Đã sửa\".",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 39.3,
+            "yPct": 4.7,
+            "boxPct": {
+              "x": 5.1,
+              "y": 2.2,
+              "w": 68.4,
+              "h": 5.1
+            },
+            "label": "Đang chờ quay lại",
+            "detail": "Chỉ theo dõi — chưa tới lượt bạn."
+          },
+          {
+            "n": 2,
+            "xPct": 65.9,
+            "yPct": 92.4,
+            "boxPct": {
+              "x": 49,
+              "y": 89.9,
+              "w": 33.8,
+              "h": 4.9
+            },
+            "label": "Đang ở: In",
+            "detail": "Công đoạn đang giữ đơn."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-press",
+        "step": 6,
+        "file": "fulfillment-press/06-stage-errors.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/stage-errors",
+        "shows": "Danh mục lỗi công đoạn: công nhân tự thêm lỗi cho trạm mình (khoá sẵn công đoạn Ép) kèm nơi đẩy về, rồi tick lỗi để in bảng barcode dán tại trạm. Lỗi đã thêm không sửa được, chỉ ẩn/hiện.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 36,
+            "yPct": 28.9,
+            "boxPct": {
+              "x": 34.2,
+              "y": 26.6,
+              "w": 3.6,
+              "h": 4.7
+            },
+            "label": "Công đoạn: Ép",
+            "detail": "Tài khoản công nhân bị khoá vào công đoạn của mình."
+          },
+          {
+            "n": 2,
+            "xPct": 58.3,
+            "yPct": 40.8,
+            "boxPct": {
+              "x": 30.3,
+              "y": 38.2,
+              "w": 56.1,
+              "h": 5.1
+            },
+            "label": "Tên lỗi",
+            "detail": "Gõ tên lỗi, chọn \"Đẩy về công đoạn\" bên dưới."
+          },
+          {
+            "n": 3,
+            "xPct": 80.2,
+            "yPct": 53.2,
+            "boxPct": {
+              "x": 74.1,
+              "y": 50.7,
+              "w": 12.3,
+              "h": 5.1
+            },
+            "label": "Thêm & tạo Barcode",
+            "detail": "Lưu lỗi — barcode `E-…` sinh tự động."
+          },
+          {
+            "n": 4,
+            "xPct": 32.8,
+            "yPct": 22.4,
+            "boxPct": {
+              "x": 29.1,
+              "y": 19.9,
+              "w": 7.4,
+              "h": 5.1
+            },
+            "label": "In (1)",
+            "detail": "In bảng barcode các lỗi đã tick (kèm nhãn HOÀN THÀNH)."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "role": "fulfillment-qc-post-press",
+    "title": "Công nhân QC sau ép",
+    "steps": [
+      {
+        "role": "fulfillment-qc-post-press",
+        "step": 1,
+        "file": "fulfillment-qc-post-press/01-kanban.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Task của tôi — QC sau ép. Xưởng DTF bỏ may: QC xong thì May vào + May ra TỰ hoàn thành, đơn sang thẳng Đóng hàng.",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 24.8,
+            "yPct": 17.8,
+            "boxPct": {
+              "x": 18.9,
+              "y": 16.4,
+              "w": 11.8,
+              "h": 2.8
+            },
+            "label": "Đang chờ",
+            "detail": "Số đơn Ép đã xong đang chờ QC."
+          },
+          {
+            "n": 2,
+            "xPct": 22.4,
+            "yPct": 67.4,
+            "boxPct": {
+              "x": 18.8,
+              "y": 66,
+              "w": 7.2,
+              "h": 2.9
+            },
+            "label": "Cột Đang chờ",
+            "detail": "Đơn chờ kiểm."
+          },
+          {
+            "n": 3,
+            "xPct": 38.5,
+            "yPct": 67.4,
+            "boxPct": {
+              "x": 35,
+              "y": 66,
+              "w": 7.1,
+              "h": 2.9
+            },
+            "label": "Cột Đang làm",
+            "detail": "Đơn đang kiểm."
+          },
+          {
+            "n": 4,
+            "xPct": 88.7,
+            "yPct": 67.4,
+            "boxPct": {
+              "x": 83.5,
+              "y": 66,
+              "w": 10.5,
+              "h": 2.9
+            },
+            "label": "Cột Đang chờ quay lại",
+            "detail": "Đơn bạn đã báo lỗi, đang được In/Ép làm lại."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-qc-post-press",
+        "step": 2,
+        "file": "fulfillment-qc-post-press/02-scan-ok.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/scan-error",
+        "shows": "Quét `N-…` đơn đang chờ QC → màn công đoạn. Kiểm đạt: quét lại mã đơn hoặc mã OK (hoặc Enter) → QC xong, đơn sang Đóng hàng – Đang chờ.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 7.6,
+            "boxPct": {
+              "x": 3.4,
+              "y": 5.2,
+              "w": 93.2,
+              "h": 4.7
+            },
+            "label": "Công đoạn của tôi · QC sau ép",
+            "detail": "Màn của đúng công đoạn tài khoản đang đăng nhập."
+          },
+          {
+            "n": 2,
+            "xPct": 59.8,
+            "yPct": 46.1,
+            "boxPct": {
+              "x": 53.7,
+              "y": 43.9,
+              "w": 12.2,
+              "h": 4.2
+            },
+            "label": "Công đoạn hiện tại",
+            "detail": "Đơn đang ở QC sau ép."
+          },
+          {
+            "n": 3,
+            "xPct": 9.3,
+            "yPct": 63,
+            "boxPct": {
+              "x": 4.4,
+              "y": 61.1,
+              "w": 9.8,
+              "h": 3.8
+            },
+            "label": "✔ Hoàn thành",
+            "detail": "Quét lại mã đơn / OK / Enter."
+          },
+          {
+            "n": 4,
+            "xPct": 87.3,
+            "yPct": 91.1,
+            "boxPct": {
+              "x": 78,
+              "y": 87.4,
+              "w": 18.6,
+              "h": 7.3
+            },
+            "label": "Hoàn thành (Enter)",
+            "detail": "Bấm tay nếu không dùng máy quét."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-qc-post-press",
+        "step": 3,
+        "file": "fulfillment-qc-post-press/03-scan-error-2x.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/scan-error",
+        "shows": "Báo lỗi bằng máy quét: đang mở đơn, quét mã lỗi `E-…` trên bảng dán trạm → lỗi được CHỌN (chưa ghi nhận), nơi đẩy về tự theo danh mục. Quét lại CÙNG mã (hoặc Enter) mới ghi nhận và đẩy đơn về. Quét nhầm → quét mã khác để đổi.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 59.3,
+            "yPct": 48.7,
+            "boxPct": {
+              "x": 50.5,
+              "y": 45.3,
+              "w": 17.5,
+              "h": 6.7
+            },
+            "label": "Hình in nứt khi kéo giãn",
+            "detail": "Lỗi vừa quét lần 1 (tô đỏ)."
+          },
+          {
+            "n": 2,
+            "xPct": 64.2,
+            "yPct": 63.1,
+            "boxPct": {
+              "x": 60.8,
+              "y": 61.3,
+              "w": 6.8,
+              "h": 3.4
+            },
+            "label": "Do xưởng · Đẩy về Ép",
+            "detail": "Nguồn lỗi + nơi nhận lấy từ danh mục, không chỉnh tay."
+          },
+          {
+            "n": 3,
+            "xPct": 89.7,
+            "yPct": 21.9,
+            "boxPct": {
+              "x": 85.1,
+              "y": 17.6,
+              "w": 9.2,
+              "h": 8.6
+            },
+            "label": "Quét lại CÙNG MÃ / Enter",
+            "detail": "Bước xác nhận — lúc này lỗi mới được ghi."
+          },
+          {
+            "n": 4,
+            "xPct": 88.5,
+            "yPct": 91.1,
+            "boxPct": {
+              "x": 80.4,
+              "y": 87.4,
+              "w": 16.2,
+              "h": 7.3
+            },
+            "label": "Gán lỗi & Quét tiếp",
+            "detail": "Bấm tay thay cho quét lần 2."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-qc-post-press",
+        "step": 4,
+        "file": "fulfillment-qc-post-press/04-rework-dialog.webp",
+        "width": 560,
+        "height": 402,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Báo lỗi từ thẻ kanban (không cần máy quét): chọn Designer / In / Ép, ghi lý do.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 35.6,
+            "yPct": 37.8,
+            "boxPct": {
+              "x": 31.1,
+              "y": 32.8,
+              "w": 9,
+              "h": 10
+            },
+            "label": "Ép",
+            "detail": "Mặc định: công đoạn ngay trước."
+          },
+          {
+            "n": 2,
+            "xPct": 27.3,
+            "yPct": 37.8,
+            "boxPct": {
+              "x": 23.1,
+              "y": 32.8,
+              "w": 8.3,
+              "h": 10
+            },
+            "label": "In",
+            "detail": "Lỗi in — In làm lại, Ép cũng làm lại theo."
+          },
+          {
+            "n": 3,
+            "xPct": 15.7,
+            "yPct": 37.8,
+            "boxPct": {
+              "x": 7.9,
+              "y": 32.8,
+              "w": 15.6,
+              "h": 10
+            },
+            "label": "Designer",
+            "detail": "Lỗi file thiết kế."
+          },
+          {
+            "n": 4,
+            "xPct": 50,
+            "yPct": 62.7,
+            "boxPct": {
+              "x": 7.9,
+              "y": 49.3,
+              "w": 84.3,
+              "h": 26.9
+            },
+            "label": "Lý do lỗi *",
+            "detail": "Bắt buộc."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-qc-post-press",
+        "step": 5,
+        "file": "fulfillment-qc-post-press/05-barcode-sheet.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/stage-errors",
+        "shows": "In bảng barcode dán trạm QC: tick cả danh sách rồi \"In\" hoặc \"Xuất PDF\" (mỗi nhãn một trang A8, trang đầu là nhãn HOÀN THÀNH = mã OK).",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 30.9,
+            "yPct": 62.3,
+            "boxPct": {
+              "x": 30,
+              "y": 60.9,
+              "w": 1.8,
+              "h": 2.9
+            },
+            "label": "Chọn tất cả",
+            "detail": "Tick để chọn mọi lỗi của công đoạn."
+          },
+          {
+            "n": 2,
+            "xPct": 58.2,
+            "yPct": 69.8,
+            "boxPct": {
+              "x": 52.8,
+              "y": 68.1,
+              "w": 10.9,
+              "h": 3.3
+            },
+            "label": "Mã quét E-…",
+            "detail": "Nội dung barcode — máy quét gõ đúng chuỗi này."
+          },
+          {
+            "n": 3,
+            "xPct": 32.9,
+            "yPct": 22.4,
+            "boxPct": {
+              "x": 29.1,
+              "y": 19.9,
+              "w": 7.6,
+              "h": 5.1
+            },
+            "label": "In (n)",
+            "detail": "In thẳng ra máy in."
+          },
+          {
+            "n": 4,
+            "xPct": 42.1,
+            "yPct": 22.4,
+            "boxPct": {
+              "x": 36.6,
+              "y": 19.9,
+              "w": 11.1,
+              "h": 5.1
+            },
+            "label": "Xuất PDF (n)",
+            "detail": "Tải PDF nhãn A8 để in sau."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "role": "fulfillment-pack",
+    "title": "Công nhân Đóng hàng",
+    "steps": [
+      {
+        "role": "fulfillment-pack",
+        "step": 1,
+        "file": "fulfillment-pack/01-kanban.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Task của tôi — Đóng hàng: công đoạn cuối. Xưởng DTF chưa bật \"Tự hoàn thành Đóng hàng\" nên phải xác nhận tay từng đơn.",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 24.8,
+            "yPct": 17.8,
+            "boxPct": {
+              "x": 18.9,
+              "y": 16.4,
+              "w": 11.8,
+              "h": 2.8
+            },
+            "label": "Đang chờ",
+            "detail": "Đơn QC xong đang chờ đóng."
+          },
+          {
+            "n": 2,
+            "xPct": 22.4,
+            "yPct": 67.4,
+            "boxPct": {
+              "x": 18.8,
+              "y": 66,
+              "w": 7.2,
+              "h": 2.9
+            },
+            "label": "Cột Đang chờ",
+            "detail": "Đơn cần đóng gói."
+          },
+          {
+            "n": 3,
+            "xPct": 42.6,
+            "yPct": 67.4,
+            "boxPct": {
+              "x": 39,
+              "y": 66,
+              "w": 7.1,
+              "h": 2.9
+            },
+            "label": "Cột Đang làm",
+            "detail": "Đơn đang đóng."
+          },
+          {
+            "n": 4,
+            "xPct": 61.9,
+            "yPct": 67.4,
+            "boxPct": {
+              "x": 59.2,
+              "y": 66,
+              "w": 5.3,
+              "h": 2.9
+            },
+            "label": "Cột Đã xong",
+            "detail": "Đơn đã hoàn thành sản xuất."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-pack",
+        "step": 2,
+        "file": "fulfillment-pack/02-bulk-complete.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Riêng Đóng hàng: tick cả cột Đang chờ rồi bấm \"Hoàn thành\" — hệ thống tự Bắt đầu + Hoàn thành từng đơn, không cần qua Đang làm.",
+        "masked": [
+          "Ẩn khối \"Tổng quan theo ngày\" (bảng số theo ngày — gọn ảnh)",
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 19.6,
+            "yPct": 31.8,
+            "boxPct": {
+              "x": 18.8,
+              "y": 30.5,
+              "w": 1.6,
+              "h": 2.6
+            },
+            "label": "Chọn cả cột",
+            "detail": "Tick mọi đơn trong cột Đang chờ."
+          },
+          {
+            "n": 2,
+            "xPct": 49.7,
+            "yPct": 93.2,
+            "boxPct": {
+              "x": 47,
+              "y": 91.6,
+              "w": 5.4,
+              "h": 3.3
+            },
+            "label": "Đã chọn n",
+            "detail": "Số đơn đang chọn."
+          },
+          {
+            "n": 3,
+            "xPct": 63.5,
+            "yPct": 93.2,
+            "boxPct": {
+              "x": 59.2,
+              "y": 90.9,
+              "w": 8.6,
+              "h": 4.7
+            },
+            "label": "Hoàn thành",
+            "detail": "Đóng xong tất cả đơn đã chọn."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-pack",
+        "step": 3,
+        "file": "fulfillment-pack/03-report-error.webp",
+        "width": 560,
+        "height": 440,
+        "screen": "/ffm/fulfillment/my-tasks",
+        "shows": "Báo lỗi ở Đóng hàng (đơn Đang làm): chọn công đoạn nhận lại + lý do. Dialog vẫn hiện \"May nhận vào\" / \"May xuất ra\" dù xưởng DTF bỏ may — chọn các chip này hệ thống tự lùi về QC sau ép.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 48.3,
+            "yPct": 34.5,
+            "boxPct": {
+              "x": 39.8,
+              "y": 30,
+              "w": 17,
+              "h": 9.1
+            },
+            "label": "QC sau ép",
+            "detail": "Nơi nhận hợp lý nhất với xưởng DTF."
+          },
+          {
+            "n": 2,
+            "xPct": 17.1,
+            "yPct": 43.2,
+            "boxPct": {
+              "x": 7.9,
+              "y": 38.6,
+              "w": 18.4,
+              "h": 9.1
+            },
+            "label": "May xuất ra",
+            "detail": "Mặc định của dialog — xưởng bỏ may sẽ tự lùi về QC sau ép."
+          },
+          {
+            "n": 3,
+            "xPct": 50,
+            "yPct": 65.9,
+            "boxPct": {
+              "x": 7.9,
+              "y": 53.6,
+              "w": 84.3,
+              "h": 24.5
+            },
+            "label": "Lý do lỗi *",
+            "detail": "Bắt buộc."
+          },
+          {
+            "n": 4,
+            "xPct": 81.1,
+            "yPct": 84.8,
+            "boxPct": {
+              "x": 70,
+              "y": 79.5,
+              "w": 22.2,
+              "h": 10.5
+            },
+            "label": "Đẩy về xử lý",
+            "detail": "Gửi đơn về công đoạn đã chọn."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-pack",
+        "step": 4,
+        "file": "fulfillment-pack/04-scan-complete.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/scan-error",
+        "shows": "Quét `N-…` đơn đang chờ Đóng hàng → màn công đoạn. Đóng gói xong quét lại mã đơn / OK / Enter → đơn hoàn thành sản xuất, khách nhận thông báo.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 91.5,
+            "yPct": 13.1,
+            "boxPct": {
+              "x": 86.6,
+              "y": 10.6,
+              "w": 9.7,
+              "h": 5.1
+            },
+            "label": "Đang chờ",
+            "detail": "Trạng thái Đóng hàng của đơn."
+          },
+          {
+            "n": 2,
+            "xPct": 9.3,
+            "yPct": 63,
+            "boxPct": {
+              "x": 4.4,
+              "y": 61.1,
+              "w": 9.8,
+              "h": 3.8
+            },
+            "label": "✔ Hoàn thành",
+            "detail": "Quét lại mã đơn / OK / Enter."
+          },
+          {
+            "n": 3,
+            "xPct": 20.7,
+            "yPct": 69.6,
+            "boxPct": {
+              "x": 8.7,
+              "y": 66.6,
+              "w": 23.9,
+              "h": 6.1
+            },
+            "label": "Làm XONG → quét LẠI mã đơn (hoặc mã \"OK\")",
+            "detail": "Không cần chạm máy tính."
+          },
+          {
+            "n": 4,
+            "xPct": 87.3,
+            "yPct": 91.1,
+            "boxPct": {
+              "x": 78,
+              "y": 87.4,
+              "w": 18.6,
+              "h": 7.3
+            },
+            "label": "Hoàn thành (Enter)",
+            "detail": "Tự Bắt đầu + Hoàn thành."
+          }
+        ]
+      },
+      {
+        "role": "fulfillment-pack",
+        "step": 5,
+        "file": "fulfillment-pack/05-scan-done.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/scan-error",
+        "shows": "Sau khi quét `N-…` rồi quét mã OK: màn công đoạn tự đóng, ô quét sẵn sàng cho đơn kế tiếp, lịch sử ghi \"Đã hoàn thành · Hoàn thành Đóng hàng\".",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 55.2,
+            "yPct": 31,
+            "boxPct": {
+              "x": 34.7,
+              "y": 28,
+              "w": 40.9,
+              "h": 6
+            },
+            "label": "Ô quét",
+            "detail": "Tự focus lại — quét đơn tiếp theo ngay."
+          },
+          {
+            "n": 2,
+            "xPct": 58.3,
+            "yPct": 51.1,
+            "boxPct": {
+              "x": 33.6,
+              "y": 47.6,
+              "w": 49.4,
+              "h": 7.1
+            },
+            "label": "DEMO-DTF-29 · Đã hoàn thành",
+            "detail": "Đơn vừa hoàn thành sản xuất."
+          },
+          {
+            "n": 3,
+            "xPct": 65.6,
+            "yPct": 45.6,
+            "boxPct": {
+              "x": 62.9,
+              "y": 44.1,
+              "w": 5.4,
+              "h": 2.9
+            },
+            "label": "Thành công",
+            "detail": "Đếm số lượt quét thành công trong phiên."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "role": "admin",
+    "title": "Quản lý xưởng (Admin)",
+    "steps": [
+      {
+        "role": "admin",
+        "step": 1,
+        "file": "admin/01-factory-scope.webp",
+        "width": 344,
+        "height": 184,
+        "screen": "/ffm/dashboard?tab=lifecycle&factoryId=2P3OLNPYCQS5T685&lfrom=2026-09-05&lto=2026-09-11&lfactory=2P3OLNPYCQS5T685",
+        "shows": "Bộ chọn \"Xưởng\" trên header (mọi trang /ffm): chọn xưởng DTF để Dashboard, Danh sách đơn… chỉ tính đơn của xưởng đó. Phạm vi nằm trên URL (?factoryId=) nên đổi trang không mất.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh sách xưởng (tab Xưởng / ô chọn xưởng) — chỉ giữ xưởng DEMO-DTF",
+          "Vòng đời đơn — số liệu theo xưởng demo (?factoryId=), danh sách xưởng chỉ giữ DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 14.9,
+            "boxPct": {
+              "x": 5.5,
+              "y": 3.5,
+              "w": 88.9,
+              "h": 22.8
+            },
+            "label": "Xưởng: …",
+            "detail": "Bấm để đổi xưởng đang xem."
+          },
+          {
+            "n": 2,
+            "xPct": 48.8,
+            "yPct": 75.3,
+            "boxPct": {
+              "x": 7,
+              "y": 63.9,
+              "w": 83.7,
+              "h": 22.8
+            },
+            "label": "DEMO-DTF · DEMO Xưởng DTF",
+            "detail": "Xưởng đang chọn có dấu tích."
+          },
+          {
+            "n": 3,
+            "xPct": 48.8,
+            "yPct": 53,
+            "boxPct": {
+              "x": 7,
+              "y": 41.6,
+              "w": 83.7,
+              "h": 22.8
+            },
+            "label": "Tất cả xưởng",
+            "detail": "Bỏ lọc — xem toàn nhà máy."
+          }
+        ]
+      },
+      {
+        "role": "admin",
+        "step": 2,
+        "file": "admin/02-lifecycle.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/dashboard?tab=lifecycle&factoryId=2P3OLNPYCQS5T685&lfrom=2026-09-05&lto=2026-09-11&lfactory=2P3OLNPYCQS5T685",
+        "shows": "Dashboard › Vòng đời đơn của xưởng DTF: dải phễu trên cùng (tra nhanh 1 mã đơn), thẻ \"Công đoạn tắc nghẽn\" và phễu từng công đoạn — thấy đơn đang dồn ở đâu.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh sách xưởng (tab Xưởng / ô chọn xưởng) — chỉ giữ xưởng DEMO-DTF",
+          "Vòng đời đơn — số liệu theo xưởng demo (?factoryId=), danh sách xưởng chỉ giữ DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 34.4,
+            "yPct": 20.6,
+            "boxPct": {
+              "x": 27.1,
+              "y": 18.4,
+              "w": 14.6,
+              "h": 4.2
+            },
+            "label": "Tra cứu productionId",
+            "detail": "Dán mã sản xuất để xem hành trình 1 đơn."
+          },
+          {
+            "n": 2,
+            "xPct": 9,
+            "yPct": 21.4,
+            "boxPct": {
+              "x": 1.9,
+              "y": 19.1,
+              "w": 14.2,
+              "h": 4.6
+            },
+            "label": "Vòng đời đơn",
+            "detail": "Menu Dashboard › Vòng đời đơn."
+          },
+          {
+            "n": 3,
+            "xPct": 85.4,
+            "yPct": 65.7,
+            "boxPct": {
+              "x": 81.1,
+              "y": 64.2,
+              "w": 8.5,
+              "h": 2.9
+            },
+            "label": "Công đoạn tắc nghẽn",
+            "detail": "Công đoạn đang có nhiều đơn chờ nhất."
+          },
+          {
+            "n": 4,
+            "xPct": 58.3,
+            "yPct": 79.3,
+            "boxPct": {
+              "x": 19.4,
+              "y": 77.4,
+              "w": 77.8,
+              "h": 3.8
+            },
+            "label": "Phễu công đoạn",
+            "detail": "Mỗi ô: đang chờ / đang làm / rework / lỗi của 1 công đoạn."
+          }
+        ]
+      },
+      {
+        "role": "admin",
+        "step": 3,
+        "file": "admin/03-workshop-list.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/workshop?factoryId=2P3OLNPYCQS5T685&wfrom=2026-09-11&wto=2026-09-11",
+        "shows": "Danh sách đơn của xưởng DTF: dải chặng Soát tool → … → Đóng hàng (số đơn đang ở mỗi chặng), các pill lọc nhanh và cột loại sản phẩm bên trái. Ngày mặc định: hôm nay.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 22.7,
+            "yPct": 12.3,
+            "boxPct": {
+              "x": 20.8,
+              "y": 10.8,
+              "w": 3.9,
+              "h": 2.9
+            },
+            "label": "Dải chặng",
+            "detail": "Bấm 1 chặng để lọc đơn đang ở chặng đó."
+          },
+          {
+            "n": 2,
+            "xPct": 52,
+            "yPct": 28.8,
+            "boxPct": {
+              "x": 48.1,
+              "y": 26.9,
+              "w": 7.7,
+              "h": 3.8
+            },
+            "label": "Đang giữ",
+            "detail": "Lọc đơn đang bị giữ."
+          },
+          {
+            "n": 3,
+            "xPct": 28.1,
+            "yPct": 47.1,
+            "boxPct": {
+              "x": 18.9,
+              "y": 45.6,
+              "w": 18.3,
+              "h": 2.9
+            },
+            "label": "Loại sản phẩm",
+            "detail": "Cột trái: lọc theo sản phẩm."
+          },
+          {
+            "n": 4,
+            "xPct": 35.8,
+            "yPct": 24.4,
+            "boxPct": {
+              "x": 29.1,
+              "y": 22.3,
+              "w": 13.4,
+              "h": 4.2
+            },
+            "label": "Hôm nay",
+            "detail": "Đổi ngày vào sản xuất cần xem."
+          }
+        ]
+      },
+      {
+        "role": "admin",
+        "step": 4,
+        "file": "admin/04-hold-unhold.webp",
+        "width": 895,
+        "height": 361,
+        "screen": "/ffm/orders/workshop?factoryId=2P3OLNPYCQS5T685&wfrom=2026-09-11&wto=2026-09-11&wheld=true",
+        "shows": "Đơn đang giữ khoá mọi thao tác công đoạn (công nhân không thấy nút). Xử lý xong lý do giữ → menu \"…\" của dòng › \"Mở giữ\".",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Team Designer — chỉ giữ tài khoản demo"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 14.1,
+            "yPct": 16.8,
+            "boxPct": {
+              "x": 9.2,
+              "y": 13.1,
+              "w": 9.9,
+              "h": 7.3
+            },
+            "label": "DEMO-DTF-27",
+            "detail": "Đơn đang giữ (lọc bằng pill \"Đang giữ\")."
+          },
+          {
+            "n": 2,
+            "xPct": 85.3,
+            "yPct": 72,
+            "boxPct": {
+              "x": 74.7,
+              "y": 66.2,
+              "w": 21.2,
+              "h": 11.6
+            },
+            "label": "Mở giữ",
+            "detail": "Mở khoá — đơn quay lại luồng sản xuất."
+          }
+        ]
+      },
+      {
+        "role": "admin",
+        "step": 5,
+        "file": "admin/05-error-log.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/error-log",
+        "shows": "Nhật ký bù lỗi: mọi đơn đang có lỗi sau khi vào in. Mức độ tính theo số giờ từ lúc vào sản xuất (Mới < 2h · Cần làm 2–4h · Gấp 4–6h · Khẩn cấp > 6h). Bảng rộng — cuộn ngang để thấy \"Chặng hiện tại\", \"Nêu lỗi\", \"Người sửa\". Trang này KHÔNG lọc theo bộ chọn xưởng.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Team Designer — chỉ giữ tài khoản demo",
+          "Nhật ký bù lỗi — chỉ giữ đơn DEMO-DTF-* (trang không lọc theo xưởng), đếm lại tổng + mức độ"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 22.4,
+            "yPct": 26.9,
+            "boxPct": {
+              "x": 19.4,
+              "y": 24.8,
+              "w": 6.1,
+              "h": 4.2
+            },
+            "label": "Cần xử lý",
+            "detail": "Đơn lỗi chưa xử lý xong."
+          },
+          {
+            "n": 2,
+            "xPct": 23.7,
+            "yPct": 68.7,
+            "boxPct": {
+              "x": 20.6,
+              "y": 65.9,
+              "w": 6.1,
+              "h": 5.6
+            },
+            "label": "Mức độ",
+            "detail": "Đỏ đậm = để lâu nhất, xử lý trước."
+          },
+          {
+            "n": 3,
+            "xPct": 72.9,
+            "yPct": 68.7,
+            "boxPct": {
+              "x": 67.7,
+              "y": 65.9,
+              "w": 10.4,
+              "h": 5.6
+            },
+            "label": "Lỗi xưởng",
+            "detail": "Lỗi đã báo; cuộn ngang tiếp để xem \"Chặng hiện tại\" (đơn đang ở công đoạn nào)."
+          },
+          {
+            "n": 4,
+            "xPct": 42.9,
+            "yPct": 73.1,
+            "boxPct": {
+              "x": 39.9,
+              "y": 71.7,
+              "w": 6.2,
+              "h": 2.9
+            },
+            "label": "DEMO-DTF-26",
+            "detail": "Đơn QC báo \"In lệch\", đang ở In làm lại."
+          }
+        ]
+      },
+      {
+        "role": "admin",
+        "step": 6,
+        "file": "admin/06-scan-assign-error.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/scan-error",
+        "shows": "Admin / quản lý (không có công đoạn) quét `N-…` → mở thẳng màn GÁN LỖI theo công đoạn hiện tại của đơn; không có nút Hoàn thành. Quét `E-…` lần 1 để chọn, lần 2 để ghi nhận.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 7.6,
+            "boxPct": {
+              "x": 3.4,
+              "y": 5.2,
+              "w": 93.2,
+              "h": 4.7
+            },
+            "label": "Gán lỗi · DEMO-DTF-20",
+            "detail": "Chỉ gán lỗi — hoàn thành công đoạn là việc của công nhân."
+          },
+          {
+            "n": 2,
+            "xPct": 76.2,
+            "yPct": 48.7,
+            "boxPct": {
+              "x": 67.9,
+              "y": 45.3,
+              "w": 16.6,
+              "h": 6.7
+            },
+            "label": "Áo ố vàng do nhiệt ép",
+            "detail": "Danh sách lỗi của công đoạn đơn đang đứng (QC sau ép)."
+          },
+          {
+            "n": 3,
+            "xPct": 64.2,
+            "yPct": 63.1,
+            "boxPct": {
+              "x": 60.8,
+              "y": 61.3,
+              "w": 6.8,
+              "h": 3.4
+            },
+            "label": "Do xưởng · Đẩy về Ép",
+            "detail": "Tự theo danh mục."
+          },
+          {
+            "n": 4,
+            "xPct": 88.5,
+            "yPct": 91.1,
+            "boxPct": {
+              "x": 80.4,
+              "y": 87.4,
+              "w": 16.2,
+              "h": 7.3
+            },
+            "label": "Gán lỗi & Quét tiếp",
+            "detail": "Ghi nhận (hoặc quét lại cùng mã)."
+          }
+        ]
+      },
+      {
+        "role": "admin",
+        "step": 7,
+        "file": "admin/07-stage-error-catalog.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/ffm/orders/stage-errors",
+        "shows": "Danh mục lỗi công đoạn (Admin): chọn công đoạn bất kỳ để thêm lỗi, xem mã barcode và in bảng dán trạm. Danh mục DÙNG CHUNG mọi xưởng — lỗi thêm cho DTF cũng hiện ở xưởng khác.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Bộ chọn xưởng ở header — chỉ giữ xưởng DEMO-DTF",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 44,
+            "yPct": 28.8,
+            "boxPct": {
+              "x": 40.7,
+              "y": 26.6,
+              "w": 6.6,
+              "h": 4.4
+            },
+            "label": "Công đoạn",
+            "detail": "Admin chọn được cả 6 công đoạn (công nhân bị khoá vào công đoạn của mình)."
+          },
+          {
+            "n": 2,
+            "xPct": 58.3,
+            "yPct": 40.6,
+            "boxPct": {
+              "x": 30.3,
+              "y": 38,
+              "w": 56.1,
+              "h": 5.1
+            },
+            "label": "Tên lỗi",
+            "detail": "Thêm lỗi mới + chọn nơi đẩy về."
+          },
+          {
+            "n": 3,
+            "xPct": 58.2,
+            "yPct": 69.6,
+            "boxPct": {
+              "x": 52.8,
+              "y": 67.9,
+              "w": 10.9,
+              "h": 3.3
+            },
+            "label": "Mã E-…",
+            "detail": "Nội dung barcode lỗi."
+          },
+          {
+            "n": 4,
+            "xPct": 42.1,
+            "yPct": 22.4,
+            "boxPct": {
+              "x": 36.6,
+              "y": 19.9,
+              "w": 11,
+              "h": 5.1
+            },
+            "label": "Xuất PDF",
+            "detail": "Tick lỗi rồi in / xuất PDF bảng barcode."
+          }
+        ]
+      },
+      {
+        "role": "admin",
+        "step": 8,
+        "file": "admin/08-factory-flow.webp",
+        "width": 560,
+        "height": 690,
+        "screen": "/adm/products",
+        "shows": "Sản phẩm › tab Xưởng › Sửa xưởng: \"Luồng sản xuất = Bỏ may\" (QC xong May tự xong) và công tắc \"Tự hoàn thành Đóng hàng\". Công tắc chỉ áp đơn MỚI; đơn đang tồn dùng nút \"Hoàn thành đơn tồn ở Đóng hàng\" (chỉ Admin/SuperAdmin).",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Danh mục lỗi công đoạn — chỉ giữ lỗi DEMO (lỗi thật dùng chung mọi xưởng bị lọc)",
+          "Danh sách xưởng (tab Xưởng / ô chọn xưởng) — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 52.8,
+            "boxPct": {
+              "x": 10.2,
+              "y": 49.4,
+              "w": 79.6,
+              "h": 6.7
+            },
+            "label": "Luồng sản xuất",
+            "detail": "Xưởng DTF: \"Bỏ may — QC xong nhảy thẳng Đóng hàng\"."
+          },
+          {
+            "n": 2,
+            "xPct": 85.7,
+            "yPct": 68.1,
+            "boxPct": {
+              "x": 81.6,
+              "y": 65.9,
+              "w": 8.2,
+              "h": 4.3
+            },
+            "label": "Tự hoàn thành Đóng hàng",
+            "detail": "Tắt (như xưởng DTF thật) → cần công nhân Đóng hàng xác nhận. Bật → đơn tới Đóng hàng tự xong."
+          },
+          {
+            "n": 3,
+            "xPct": 30.3,
+            "yPct": 81.2,
+            "boxPct": {
+              "x": 10.2,
+              "y": 78.1,
+              "w": 40.2,
+              "h": 6.1
+            },
+            "label": "Hoàn thành đơn tồn ở Đóng hàng",
+            "detail": "Dọn một lần mọi đơn đang chờ Đóng hàng của xưởng."
+          }
+        ]
+      },
+      {
+        "role": "admin",
+        "step": 9,
+        "file": "admin/09-users-list.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/adm/users",
+        "shows": "Quản trị › Nhân sự & phân quyền › Người dùng: mỗi công nhân là role Fulfillment + nhãn xưởng. Mỗi (xưởng, công đoạn) chỉ 1 người.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Trang Người dùng — chỉ giữ tài khoản demo.*@example.com (nhân viên thật bị lọc, số user đếm lại)",
+          "Danh sách xưởng (tab Xưởng / ô chọn xưởng) — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 66.1,
+            "yPct": 38.6,
+            "boxPct": {
+              "x": 63,
+              "y": 36.8,
+              "w": 6.2,
+              "h": 3.6
+            },
+            "label": "Fulfillment",
+            "detail": "Role của công nhân công đoạn."
+          },
+          {
+            "n": 2,
+            "xPct": 71.6,
+            "yPct": 38.6,
+            "boxPct": {
+              "x": 68.8,
+              "y": 36.6,
+              "w": 5.7,
+              "h": 4
+            },
+            "label": "Nhãn xưởng",
+            "detail": "Xưởng công nhân được xem đơn."
+          },
+          {
+            "n": 3,
+            "xPct": 93.4,
+            "yPct": 21,
+            "boxPct": {
+              "x": 89.2,
+              "y": 18.7,
+              "w": 8.3,
+              "h": 4.7
+            },
+            "label": "Thêm user",
+            "detail": "Tạo tài khoản cho người giữ công đoạn còn trống."
+          }
+        ]
+      },
+      {
+        "role": "admin",
+        "step": 10,
+        "file": "admin/10-users-worker.webp",
+        "width": 560,
+        "height": 718,
+        "screen": "/adm/users",
+        "shows": "Thêm công nhân: chọn Role = Fulfillment → hiện thêm ô Xưởng và Stage Fulfillment (bắt buộc). Đơn tới công đoạn đó tự vào \"Task của tôi\" của người này. Ảnh không bấm Lưu.",
+        "masked": [
+          "Badge số ở sidebar (số toàn hệ thống) — bỏ",
+          "Banner quá hạn (tên designer thật) — trả số 0, banner không hiện",
+          "Trang Người dùng — chỉ giữ tài khoản demo.*@example.com (nhân viên thật bị lọc, số user đếm lại)",
+          "Danh sách xưởng (tab Xưởng / ô chọn xưởng) — chỉ giữ xưởng DEMO-DTF"
+        ],
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 52,
+            "boxPct": {
+              "x": 7.9,
+              "y": 48.8,
+              "w": 84.3,
+              "h": 6.4
+            },
+            "label": "Role",
+            "detail": "Chọn Fulfillment."
+          },
+          {
+            "n": 2,
+            "xPct": 50,
+            "yPct": 63.1,
+            "boxPct": {
+              "x": 7.9,
+              "y": 59.9,
+              "w": 84.3,
+              "h": 6.4
+            },
+            "label": "Xưởng *",
+            "detail": "Xưởng người này làm."
+          },
+          {
+            "n": 3,
+            "xPct": 50,
+            "yPct": 77.7,
+            "boxPct": {
+              "x": 7.9,
+              "y": 74.5,
+              "w": 84.3,
+              "h": 6.4
+            },
+            "label": "Stage Fulfillment *",
+            "detail": "Công đoạn người này giữ — trùng người đã có sẽ bị từ chối."
+          }
+        ]
+      }
+    ]
+  }
+]

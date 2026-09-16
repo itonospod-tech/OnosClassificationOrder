@@ -1,0 +1,778 @@
+{
+  "title": "Hướng dẫn quy trình DTF theo vai",
+  "subtitle": "Mỗi vai trong xưởng DTF làm gì, nhận việc từ ai, giao cho ai — từng bước kèm ảnh chụp giao diện thật của hệ thống.",
+  "demoNote": "Ảnh chụp trên DỮ LIỆU DEMO (mã đơn DEMO-DTF-…, xưởng DEMO-DTF, tài khoản demo). Danh mục lỗi trong ảnh là lỗi demo — tên lỗi và số liệu ở xưởng thật sẽ khác.",
+  "uiNote": "Tên nút, menu trong hướng dẫn trích đúng chữ trên giao diện tiếng Việt.",
+  "shotFrameLabel": "Hệ thống xưởng",
+  "flow": {
+    "title": "Luồng đơn DTF qua các vai",
+    "hint": "Bấm vào một ô để mở hướng dẫn của vai đó.",
+    "ariaLabel": "Sơ đồ luồng đơn DTF qua các vai",
+    "scrollHint": "Vuốt ngang để xem hết sơ đồ.",
+    "nodes": {
+      "import": { "who": "Đầu vào", "title": "Đơn vào sản xuất", "desc": "Import đơn hoặc khách đẩy sang sản xuất" },
+      "support": { "who": "Support", "title": "Soát tool", "desc": "Chọn Note kq Tool 1" },
+      "designer-leader": { "who": "Designer Leader", "title": "Gán designer", "desc": "Hoặc Designer tự nhận" },
+      "designer": { "who": "Designer", "title": "Làm file thiết kế", "desc": "Hoàn thành → Note tự thành ok" },
+      "fulfillment-print": { "who": "Công nhân", "title": "In", "desc": "Bảng đơn In" },
+      "fulfillment-press": { "who": "Công nhân", "title": "Ép", "desc": "Kanban công đoạn" },
+      "fulfillment-qc-post-press": { "who": "Công nhân", "title": "QC sau ép", "desc": "Kanban + quét mã" },
+      "sew": { "who": "Tự động", "title": "May nhận vào + May xuất ra", "desc": "Tự hoàn thành — xưởng DTF bỏ may" },
+      "fulfillment-pack": { "who": "Công nhân", "title": "Đóng hàng", "desc": "Xác nhận tay từng đơn" },
+      "done": { "who": "Kết thúc", "title": "Hoàn thành sản xuất", "desc": "Khách nhận thông báo" },
+      "admin": { "who": "Quản lý xưởng (Admin)", "title": "Theo dõi & gỡ tắc toàn luồng", "desc": "Phễu công đoạn, giữ / mở giữ đơn, gán người giữ từng công đoạn" }
+    },
+    "edges": {
+      "ok": "Ok",
+      "error": "Lỗi / Không có file PDF",
+      "assign": "Gán",
+      "designDone": "Hoàn thành (Note → ok)",
+      "auto": "tự xong"
+    },
+    "back": {
+      "title": "Khi báo lỗi — đơn bị đẩy về",
+      "desc": "Nơi nhận lại đơn thấy nó ở “Làm lại” / “Cần làm lại”; các công đoạn đã làm xong thấy đơn ở “Đang chờ quay lại”. Bấm một dòng để mở vai báo lỗi.",
+      "items": {
+        "printTool": { "from": "In", "to": "Support (Soát tool)", "how": "Ô “Lỗi xưởng” = “Thiếu file để in”" },
+        "printDesigner": { "from": "In", "to": "Designer", "how": "Nút “Báo lỗi”" },
+        "press": { "from": "Ép", "to": "In hoặc Designer", "how": "Nút “Báo lỗi”" },
+        "qc": { "from": "QC sau ép", "to": "Ép / In / Designer", "how": "Nút “Báo lỗi”, hoặc quét mã lỗi “E-…” (nơi đẩy về theo danh mục lỗi, có thể là Soát tool)" },
+        "pack": { "from": "Đóng hàng", "to": "Công đoạn trước", "how": "Nút “Báo lỗi” — chọn chip công đoạn gây lỗi (chip “May…” tự về QC sau ép)" }
+      }
+    },
+    "crosscut": {
+      "hold": "Giữ đơn: đơn đang giữ bị khoá mọi thao tác tới khi có người “Mở giữ” (menu “…” của dòng đơn). Support, Designer Leader, công nhân công đoạn và Quản lý đều giữ / mở giữ được; Designer thì không.",
+      "scan": "Quét mã: quét “N-<mã sản xuất>” rồi quét lại mã đơn / mã OK / Enter = xong công đoạn; quét mã lỗi “E-…” 2 lần = báo lỗi (ghi nhận ở trang Quét mã)."
+    }
+  },
+  "picker": {
+    "label": "Chọn vai",
+    "yours": "Vai của bạn"
+  },
+  "section": {
+    "goal": "Mục tiêu",
+    "stepCount": "{{n}} bước",
+    "entry": "Màn hình làm việc",
+    "from": "Nhận việc từ",
+    "to": "Giao cho",
+    "openRole": "Xem vai {{role}}",
+    "toc": "Mục lục bước",
+    "steps": "Các bước",
+    "stepLabel": "Bước {{n}}/{{total}}",
+    "stepNote": "Lưu ý:",
+    "errors": "Khi có lỗi / làm lại",
+    "notes": "Lưu ý"
+  },
+  "roles": {
+    "support": {
+      "name": "Support — Soát tool",
+      "short": "Support",
+      "goal": "Soát file từng đơn mới vào sản xuất: đủ file in thì chọn Ok cho đơn đi thẳng công đoạn In; thiếu hoặc lỗi file thì đánh lỗi để Designer sửa. Nhận lại các đơn công nhân In báo “Thiếu file để in”.",
+      "entry": "Dashboard › Soát tool. Đăng nhập xong hệ thống vào thẳng Dashboard.",
+      "from": "Đơn mới vào sản xuất (import đơn hoặc khách đẩy sang sản xuất) và đơn công nhân In trả về vì thiếu file.",
+      "to": "Ok → công nhân In. Lỗi / Không có file PDF → khối “Cần gán designer” của Designer Leader.",
+      "steps": {
+        "01-login": {
+          "title": "Đăng nhập",
+          "body": "Mở trang đăng nhập hệ thống xưởng, nhập email và mật khẩu tài khoản nhân viên rồi bấm “Tiếp tục”. Tài khoản Support vào thẳng Dashboard.",
+          "alt": "Form đăng nhập với ô Email, ô Mật khẩu và nút Tiếp tục",
+          "callouts": {
+            "1": { "label": "Email", "detail": "Email tài khoản nhân viên." },
+            "2": { "label": "Mật khẩu", "detail": "Mật khẩu đăng nhập." },
+            "3": { "label": "Tiếp tục", "detail": "Vào hệ thống — Support về trang Dashboard." }
+          }
+        },
+        "02-tool-check-overview": {
+          "title": "Mở tab Soát tool",
+          "body": "Bấm menu Dashboard › Soát tool. Đầu trang là bảng “Tổng quan theo ngày” (theo ngày vào sản xuất), bên dưới là 4 thẻ số liệu và 2 danh sách việc: “Cần làm lại” và “Chưa soát”. Kỳ xem mặc định 7 ngày.",
+          "alt": "Tab Soát tool với bảng tổng quan theo ngày, thẻ số liệu và 2 nút danh sách",
+          "callouts": {
+            "1": { "label": "Soát tool", "detail": "Menu Dashboard › Soát tool." },
+            "2": { "label": "IN TRẢ VỀ (CẦN LÀM LẠI)", "detail": "Số đơn công nhân In trả về vì thiếu file — xử lý trước." },
+            "3": { "label": "Chưa soát (n)", "detail": "Mở danh sách đơn chưa có Note kq Tool." },
+            "4": { "label": "7 ngày", "detail": "Kỳ xem theo ngày vào sản xuất, mặc định 7 ngày." }
+          }
+        },
+        "03-unreviewed-list": {
+          "title": "Danh sách “Chưa soát”",
+          "body": "Bấm “Chưa soát (n)”. Mỗi dòng là một đơn; sửa ngay trên dòng các ô Note kq Tool 1, File sửa lỗi và Ghi chú file lỗi.",
+          "alt": "Danh sách Chưa soát với các cột Mã đơn, Note kq Tool 1, File sửa lỗi, Ghi chú file lỗi",
+          "callouts": {
+            "1": { "label": "Mã đơn", "detail": "Mã sản xuất của đơn (bấm biểu tượng bên cạnh để chép)." },
+            "2": { "label": "NOTE KQ TOOL 1", "detail": "Kết quả soát: Ok / Lỗi / Không có file PDF / Không có tool." },
+            "3": { "label": "FILE SỬA LỖI", "detail": "Chọn vị trí file cần designer sửa." },
+            "4": { "label": "GHI CHÚ FILE LỖI", "detail": "Mô tả ngắn lỗi file cho designer." }
+          }
+        },
+        "04-note-options": {
+          "title": "Chọn kết quả soát",
+          "body": "Bấm ô Note kq Tool 1 của đơn. “Ok” = đủ file, đơn sang công đoạn In ngay. “Lỗi” hoặc “Không có file PDF” = đơn vào khối “Cần gán designer” chờ Designer Leader gán.",
+          "note": "Khi đánh lỗi, nên chọn File sửa lỗi và gõ Ghi chú file lỗi TRƯỚC rồi mới đổi Note sang “Lỗi” — designer nhận đơn là thấy ngay chỗ cần sửa.",
+          "alt": "Danh sách lựa chọn của ô Note kq Tool 1: Bỏ chọn, Không có tool, Lỗi, Ok, Không có file PDF",
+          "callouts": {
+            "1": { "label": "Ok", "detail": "Đủ file in — đơn sang công đoạn In ngay." },
+            "2": { "label": "Lỗi", "detail": "File cần thiết kế lại — đơn vào “Cần gán designer”." },
+            "3": { "label": "Không có file PDF", "detail": "Thiếu file PDF — cũng chờ gán designer." }
+          }
+        },
+        "05-rework-list": {
+          "title": "Danh sách “Cần làm lại”",
+          "body": "Bấm “Cần làm lại (n)”: các đơn công nhân In báo “Thiếu file để in”. Soát lại: file thật ra đủ → đổi Note kq Tool 1 về “Ok”, đơn quay lại In. Cần thiết kế lại → bấm “Đã soát xong”, đơn chuyển về designer (người đã làm, tự gán, hoặc khối “Cần gán designer”).",
+          "alt": "Danh sách Cần làm lại với cột Lỗi xưởng Thiếu file để in và nút Đã soát xong",
+          "callouts": {
+            "1": { "label": "Mã đơn", "detail": "Đơn bị In trả về." },
+            "2": { "label": "Lỗi xưởng", "detail": "Lỗi công nhân In đã báo." },
+            "3": { "label": "Note kq Tool 1", "detail": "File thật ra đủ → đổi về Ok, đơn quay lại In." },
+            "4": { "label": "Đã soát xong", "detail": "Cần thiết kế lại → chuyển designer." }
+          }
+        },
+        "06-hold-dialog": {
+          "title": "Giữ đơn chờ khách",
+          "body": "Ở Quản lý đơn › Danh sách đơn, bấm menu “…” của dòng đơn › “Giữ đơn”. Chọn lý do có sẵn hoặc tự gõ rồi bấm “Giữ đơn”. Đơn đang giữ bị khoá mọi thao tác cho tới khi được “Mở giữ”.",
+          "note": "Cẩn thận với lý do “Đợi khách sửa design”: lý do này tự xoá kết quả soát và bỏ gán designer của đơn.",
+          "alt": "Hộp thoại Giữ đơn với các lý do có sẵn, ô lý do và nút Giữ đơn",
+          "callouts": {
+            "1": { "label": "Chờ khách xác nhận", "detail": "Lý do có sẵn — bấm để điền nhanh." },
+            "2": { "label": "Lý do giữ", "detail": "Có thể sửa hoặc tự gõ lý do (không bắt buộc)." },
+            "3": { "label": "Giữ đơn", "detail": "Xác nhận giữ đơn." }
+          }
+        }
+      },
+      "errors": {
+        "printMissingFile": "Công nhân In báo “Thiếu file để in” → đơn quay về danh sách “Cần làm lại” (bước 5); các công đoạn đã làm thấy đơn ở “Đang chờ quay lại”.",
+        "wrongOk": "Lỡ soát “Ok” cho đơn thiếu file: đơn đã sang In — nhờ công nhân In báo “Thiếu file để in” để đơn quay lại, hoặc báo Quản lý.",
+        "waitCustomer": "Đơn cần chờ khách trả lời → Giữ đơn (bước 6). Khách trả lời xong, Support tự “Mở giữ” từ cùng menu “…” — không cần nhờ Quản lý."
+      },
+      "notes": {
+        "menus": "Tài khoản Support không có menu “Nhật ký bù lỗi” và “Task của tôi” — việc của Support nằm ở tab Soát tool.",
+        "priorityFirst": "Đơn ưu tiên luôn nằm đầu danh sách.",
+        "allFactories": "Tab Soát tool tính đơn của mọi xưởng — bộ chọn xưởng trên header không lọc tab này."
+      }
+    },
+    "designer-leader": {
+      "name": "Designer Leader",
+      "short": "Designer Leader",
+      "goal": "Không để đơn soát lỗi nằm chờ: gán đơn cho designer, cân tải giữa các designer và quản lý thành viên team.",
+      "entry": "Dashboard › Designer (khối “Cần gán designer”) và Quản trị › Nhân sự & phân quyền › Team Designer.",
+      "from": "Support: đơn soát “Lỗi” / “Không có file PDF” mà chưa ai nhận.",
+      "to": "Designer — đơn vào cột “Cần làm” trong Task của tôi của người được gán.",
+      "steps": {
+        "01-assign-backlog": {
+          "title": "Khối “Cần gán designer”",
+          "body": "Ở tab Designer, khối “Cần gán designer” gom theo sản phẩm các đơn đã soát lỗi mà chưa có ai nhận. Kỳ theo bộ lọc ngày chung của tab (mặc định 7 ngày).",
+          "alt": "Khối Cần gán designer với nhóm sản phẩm và các nút Nhận về mình, Gán design, Tự động gán",
+          "callouts": {
+            "1": { "label": "Cần gán designer", "detail": "Tổng số đơn đang chờ gán." },
+            "2": { "label": "Chọn cả nhóm", "detail": "Tick để chọn mọi đơn của sản phẩm." },
+            "3": { "label": "Gán design (0)", "detail": "Gán các đơn đã chọn cho 1 designer." },
+            "4": { "label": "Tự động gán", "detail": "Chia theo cấu hình tự động gán — xưởng chưa cấu hình thì không gán được." }
+          }
+        },
+        "02-select-orders": {
+          "title": "Chọn đơn cần gán",
+          "body": "Bấm vào tên sản phẩm để mở nhóm, tick từng đơn. Nút gán hiện số đơn đang chọn — trong ảnh đã tick 2 đơn: thấy 1 đơn được tick ở cuối ảnh, đơn còn lại nằm phía dưới, ngoài khung ảnh. Leader vừa gán được cho người khác, vừa tự nhận về mình được.",
+          "alt": "Nhóm sản phẩm đã mở, 2 đơn đã được tick (trong ảnh thấy 1, đơn còn lại nằm dưới), nút Gán design (2) và Nhận về mình (2)",
+          "callouts": {
+            "1": { "label": "Ô chọn đơn", "detail": "Tick từng đơn. Ảnh chỉ thấy 1 ô đã tick — ô thứ 2 nằm dưới, ngoài khung ảnh." },
+            "2": { "label": "Gán design (n)", "detail": "Gán các đơn đã chọn cho designer." },
+            "3": { "label": "Nhận về mình (n)", "detail": "Leader tự nhận làm." }
+          }
+        },
+        "03-assign-dialog": {
+          "title": "Gán cho designer",
+          "body": "Bấm “Gán design”. Hộp thoại tóm tắt trạng thái các đơn đã chọn; chọn designer (kèm số đơn người đó đang ôm) rồi bấm “Gán”. Đơn đã Ok, đang làm hoặc đã xong tự bị bỏ qua.",
+          "alt": "Hộp thoại Gán designer cho 2 đơn với ô Trạng thái hiện tại, ô chọn designer và nút Gán",
+          "callouts": {
+            "1": { "label": "Trạng thái hiện tại:", "detail": "Đơn đang làm / đã xong / đã Ok sẽ tự bị bỏ qua." },
+            "2": { "label": "Gán cho designer", "detail": "Nên chọn người đang ôm ít đơn." },
+            "3": { "label": "Gán", "detail": "Xác nhận gán." }
+          }
+        },
+        "04-designer-team": {
+          "title": "Quản lý Team Designer",
+          "body": "Quản trị › Nhân sự & phân quyền › Team Designer: thêm designer, bật/tắt, đặt lại mật khẩu, lọc người đang bật / đã tắt. Người đã tắt không hiện trong ô chọn khi gán.",
+          "alt": "Trang Team Designer với danh sách thành viên, công tắc trạng thái và nút Thêm sub-designer",
+          "callouts": {
+            "1": { "label": "Thêm sub-designer", "detail": "Tạo tài khoản designer mới." },
+            "2": { "label": "Bật/Tắt", "detail": "Tắt người nghỉ — không gán được đơn mới (còn task đang làm thì không tắt được)." },
+            "3": { "label": "Reset mật khẩu", "detail": "Đặt lại mật khẩu cho designer." },
+            "4": { "label": "Đang bật", "detail": "Lọc danh sách theo trạng thái." }
+          }
+        },
+        "05-team-matrix": {
+          "title": "Xem tải từng designer",
+          "body": "Bảng “Tất cả designer theo ngày” ở tab Designer: số đơn của mỗi designer theo ngày vào sản xuất. Ai đang tồn nhiều thì gán bớt đơn mới cho người khác.",
+          "alt": "Bảng Tất cả designer theo ngày, mỗi dòng một designer, mỗi cột một ngày",
+          "callouts": {
+            "1": { "label": "Tất cả designer theo ngày", "detail": "Ma trận designer × ngày." },
+            "2": { "label": "Dòng designer", "detail": "Một dòng = một designer." }
+          }
+        }
+      },
+      "errors": {
+        "reworkUnassigned": "Xưởng báo lỗi thiết kế cho đơn chưa ai nhận → đơn quay lại “Cần gán designer”. Đơn đã có người nhận thì về thẳng cột “Cần làm lại” của người đó (không gán lại được).",
+        "cannotDo": "Designer bấm “Không làm được” phải chọn ngay người nhận thay trong hộp thoại — đơn sang “Cần làm” của người đó, không quay lại khối gán."
+      },
+      "notes": {
+        "mixedBacklog": "Khối “Cần gán designer” có thể có cả đơn KHÔNG cần designer: đơn In báo “Thiếu file để in” (đang chờ Support) và đơn lỗi do xưởng đang được In làm lại (trạng thái “Làm lại In”). Xem cột Trạng thái trước khi gán.",
+        "noAutoAssign": "Nếu đơn không khớp cấu hình tự động gán designer (chưa gán khách hàng, sản phẩm hay xưởng của đơn cho designer nào — Admin cấu hình ở Quản trị › Cài đặt › Tự động gán designer), đơn soát lỗi nằm ở khối này tới khi Leader gán hoặc Designer tự nhận.",
+        "rememberAdminOnly": "Nút “Ghi nhớ cấu hình” trong khối gán chỉ tài khoản Admin / SuperAdmin mới thấy."
+      }
+    },
+    "designer": {
+      "name": "Designer",
+      "short": "Designer",
+      "goal": "Làm lại file thiết kế cho các đơn được gán, rồi bấm Hoàn thành để đơn chảy sang công đoạn In.",
+      "entry": "Công việc › Task của tôi — đăng nhập xong hệ thống tự mở trang này.",
+      "from": "Designer Leader gán, tự nhận ở khối “Cần gán designer”, hoặc designer khác bàn giao (“Không làm được”).",
+      "to": "Công nhân In — Hoàn thành thì Note kq Tool tự thành ok và đơn vào In – Đang chờ.",
+      "steps": {
+        "01-my-tasks": {
+          "title": "Trang Task của tôi",
+          "body": "Trang chỉ có việc của chính bạn. Kỳ mặc định 7 ngày theo ngày vào sản xuất; khối “Chi tiết theo ngày” cho biết ngày nào còn tồn. Kanban xếp cột Cần làm → Cần làm lại → Đang chờ quay lại → Đang làm → Đã xong → Đã sửa. Cột Cần làm lại, Đang chờ quay lại và Đã sửa tự ẩn khi không có đơn — trong ảnh chưa có đơn nào đã sửa nên không thấy cột Đã sửa, chỉ thấy thẻ số “Đã sửa” = 0.",
+          "alt": "Trang Task của tôi với lời chào, nút kỳ ngày, khối Chi tiết theo ngày, bộ lọc và bảng kanban",
+          "callouts": {
+            "1": { "label": "Xin chào, <tên của bạn>", "detail": "Trang việc của chính designer đang đăng nhập." },
+            "2": { "label": "7 ngày", "detail": "Kỳ mặc định 7 ngày." },
+            "3": { "label": "Chi tiết theo ngày", "detail": "Số đơn chưa xong theo từng ngày — ngày cũ còn tồn làm trước." },
+            "4": { "label": "Tìm", "detail": "Tìm nhanh theo mã." }
+          }
+        },
+        "02-task-card": {
+          "title": "Thẻ đơn",
+          "body": "Mỗi thẻ có ảnh mockup, mã sản xuất và kết quả soát tool. Thẻ KHÔNG có nút Nhận / Hoàn thành — đổi trạng thái bằng kéo thả thẻ sang cột khác, hoặc tick thẻ rồi dùng thanh công cụ.",
+          "alt": "Thẻ đơn ở cột Cần làm với mockup, nhãn Lỗi, mã sản xuất và nút KLĐ",
+          "callouts": {
+            "1": { "label": "Mã sản xuất", "detail": "Bấm mã để xem chi tiết đơn và file. Nhãn đỏ phía trên (vd “Lỗi”) là Note kq Tool — kết quả Support đã soát." },
+            "2": { "label": "Mockup", "detail": "Bấm để xem ảnh lớn." },
+            "3": { "label": "KLĐ", "detail": "Không làm được — bàn giao cho designer khác." }
+          }
+        },
+        "03-task-detail": {
+          "title": "Xem chi tiết và file",
+          "body": "Bấm mã sản xuất để mở chi tiết đơn: thông tin sản phẩm, mockup, các file design, khối “File sửa lỗi” (vị trí + ghi chú Support đã đánh) và “Timeline designer”.",
+          "note": "Ô “NOTE TOOL” trong hộp này đang hiện mã thô (vd “error”) thay cho nhãn “Lỗi” — cùng một nghĩa.",
+          "alt": "Hộp chi tiết đơn với mockup, danh sách File design, Timeline designer và khối File sửa lỗi",
+          "callouts": {
+            "1": { "label": "File design (n)", "detail": "Các file design của đơn." },
+            "2": { "label": "File sửa lỗi", "detail": "Vị trí file Support yêu cầu sửa + ghi chú." },
+            "3": { "label": "Timeline designer", "detail": "Gán lúc nào, bắt đầu, hoàn thành." }
+          }
+        },
+        "04-start-bulk": {
+          "title": "Nhận làm",
+          "body": "Tick ô trên thẻ ở cột Cần làm → thanh công cụ dưới đáy hiện “Nhận làm” (tương đương kéo thẻ sang Đang làm). Giữ Shift khi tick để chọn liền nhiều thẻ.",
+          "alt": "Một thẻ ở cột Cần làm được tick, thanh công cụ dưới đáy có nút Nhận làm và Không làm được",
+          "callouts": {
+            "1": { "label": "Ô chọn thẻ", "detail": "Shift + bấm để chọn liền nhiều thẻ." },
+            "2": { "label": "Nhận làm", "detail": "Bắt đầu làm các đơn đã chọn." },
+            "3": { "label": "Đã chọn n", "detail": "Số thẻ đang chọn." }
+          }
+        },
+        "05-complete-bulk": {
+          "title": "Hoàn thành",
+          "body": "Làm xong file: tick thẻ ở cột Đang làm rồi bấm “Hoàn thành”. Note kq Tool của đơn tự thành ok và đơn sang công đoạn In – Đang chờ.",
+          "alt": "Một thẻ ở cột Đang làm được tick, thanh công cụ có nút Hoàn thành",
+          "callouts": {
+            "1": { "label": "Thẻ đang làm", "detail": "Đơn đã làm xong file." },
+            "2": { "label": "Hoàn thành", "detail": "Đơn chuyển cho công nhân In." }
+          }
+        },
+        "06-rework-card": {
+          "title": "Đơn cần làm lại",
+          "body": "Cột “Cần làm lại”: xưởng báo lỗi thiết kế, khối vàng trên thẻ ghi mô tả lỗi. Kéo thẻ sang Đang làm để nhận làm lại, sửa xong bấm “Hoàn thành” như bước 5. Đơn từng phải làm lại khi hoàn thành sẽ vào cột “Đã sửa” thay cho “Đã xong” (cột này chỉ hiện khi có đơn) và được đếm ở thẻ số “Đã sửa” — số đơn làm lại bạn đã hoàn thành trong kỳ đang chọn.",
+          "alt": "Thẻ ở cột Cần làm lại có khối vàng mô tả lỗi xưởng",
+          "callouts": {
+            "1": { "label": "Mô tả lỗi xưởng", "detail": "Lỗi xưởng báo — sửa đúng chỗ này." },
+            "2": { "label": "Mã sản xuất", "detail": "Sửa xong bấm Hoàn thành — đơn vào cột “Đã sửa” (cột chỉ hiện khi có đơn) và cộng vào thẻ số “Đã sửa”." }
+          }
+        },
+        "07-watching": {
+          "title": "Đang chờ quay lại",
+          "body": "Cột “Đang chờ quay lại”: đơn bạn đã làm xong nhưng công nhân In trả về Support vì thiếu file. Chưa tới lượt bạn — khi Support bấm “Đã soát xong”, đơn quay về “Cần làm lại” của bạn.",
+          "alt": "Thẻ ở cột Đang chờ quay lại",
+          "callouts": {
+            "1": { "label": "Thẻ đang chờ", "detail": "Chưa tới lượt bạn — chỉ để theo dõi." }
+          }
+        },
+        "08-reject-modal": {
+          "title": "Không làm được",
+          "body": "Bấm “KLĐ” trên thẻ. Bắt buộc chọn designer nhận thay (kèm số đơn người đó đang làm), lý do không bắt buộc, rồi bấm “Không làm được” — đơn sang cột Cần làm của người đó.",
+          "alt": "Hộp thoại Báo file không làm được với ô Chuyển cho designer, ô Lý do và nút Không làm được",
+          "callouts": {
+            "1": { "label": "Chuyển cho designer *", "detail": "Người nhận thay (kèm số đơn đang làm)." },
+            "2": { "label": "Lý do", "detail": "Không bắt buộc, tối đa 500 ký tự." },
+            "3": { "label": "Không làm được", "detail": "Xác nhận bàn giao." }
+          }
+        }
+      },
+      "errors": {
+        "rework": "Xưởng báo lỗi thiết kế → đơn vào “Cần làm lại” (bước 6).",
+        "watching": "Công nhân In trả đơn về Support vì thiếu file → đơn nằm ở “Đang chờ quay lại” (bước 7) tới khi Support soát xong.",
+        "cannotDo": "Không làm được → bàn giao cho designer khác (bước 8)."
+      },
+      "notes": {
+        "noEdit": "Designer không sửa được ô Note kq Tool và Người thực hiện — Note tự thành ok khi bạn bấm Hoàn thành.",
+        "allFactories": "Task của tôi tính đơn của mọi xưởng — bộ chọn xưởng trên header không lọc trang này."
+      }
+    },
+    "fulfillment-print": {
+      "name": "Công nhân In",
+      "short": "In",
+      "goal": "In các đơn đã soát Ok hoặc designer đã làm xong trong xưởng của mình, rồi chuyển sang Ép.",
+      "entry": "Công việc › Task Fulfillment — riêng công đoạn In là BẢNG đơn, không phải kanban. Trạm quét: Quản lý đơn › Quét mã.",
+      "from": "Support (soát Ok) và Designer (hoàn thành file).",
+      "to": "Công nhân Ép — In xong đơn vào Ép – Đang chờ.",
+      "steps": {
+        "01-print-table": {
+          "title": "Mở bảng In",
+          "body": "Đăng nhập xong hệ thống vào Dashboard — bấm menu Công việc › Task Fulfillment. Bảng liệt kê MỌI đơn của xưởng vào sản xuất hôm nay; chỉ đơn đã soát tool Ok mới có nút thao tác.",
+          "alt": "Bảng Task Fulfillment của công đoạn In với chip trạng thái, nút kỳ ngày, bộ lọc và bảng đơn",
+          "callouts": {
+            "1": { "label": "Task Fulfillment", "detail": "Menu Công việc › Task Fulfillment." },
+            "2": { "label": "Đang chờ", "detail": "Dãy chip trạng thái In kèm số đơn — bấm để lọc bảng." },
+            "3": { "label": "Hôm nay", "detail": "Kỳ mặc định: đơn vào sản xuất hôm nay. Đơn hôm trước còn tồn → chọn “Hôm qua” / “7 ngày”." },
+            "4": { "label": "Thao tác In", "detail": "Cột nút Bắt đầu / Hoàn thành / Báo lỗi của từng đơn." }
+          }
+        },
+        "02-start": {
+          "title": "Bắt đầu in",
+          "body": "Đơn Đang chờ có nút “Bắt đầu” (và “Báo lỗi”). In nhiều đơn một lúc: tick các dòng rồi bấm “Bắt đầu (n)” trên thanh công cụ dưới đáy.",
+          "alt": "Dòng đơn được tick với nút Bắt đầu, thanh công cụ Bắt đầu (1) dưới đáy",
+          "callouts": {
+            "1": { "label": "Bắt đầu", "detail": "Bắt đầu in đơn này — đơn sang Đang làm." },
+            "2": { "label": "Ô chọn dòng", "detail": "Tick nhiều dòng; giữ Shift để chọn liền một dải." },
+            "3": { "label": "Bắt đầu (n)", "detail": "Bắt đầu tất cả đơn đã tick." }
+          }
+        },
+        "03-complete": {
+          "title": "Hoàn thành",
+          "body": "Đơn Đang làm có nút “Hoàn thành” và “Báo lỗi”. In xong bấm “Hoàn thành” — đơn tự sang Ép – Đang chờ.",
+          "alt": "Dòng đơn đang in với nút Hoàn thành và Báo lỗi",
+          "callouts": {
+            "1": { "label": "Mã sản xuất", "detail": "Đơn đang in." },
+            "2": { "label": "Hoàn thành", "detail": "In xong — đơn tự sang công đoạn Ép." },
+            "3": { "label": "Báo lỗi", "detail": "File in có vấn đề — đẩy đơn về Designer." }
+          }
+        },
+        "04-report-error": {
+          "title": "Báo lỗi về Designer",
+          "body": "Bấm “Báo lỗi”, ghi lý do rồi bấm “Đẩy về xử lý”. Ở công đoạn In chỉ có một nơi nhận là Designer; bảng In vẫn giữ dòng, nền đỏ tới khi đơn quay lại.",
+          "alt": "Hộp thoại Báo lỗi đơn với chip Designer, ô Lý do lỗi và nút Đẩy về xử lý",
+          "callouts": {
+            "1": { "label": "Designer", "detail": "Designer nhận lại đơn ở cột “Cần làm lại”." },
+            "2": { "label": "Lý do lỗi *", "detail": "Bắt buộc — ghi rõ lỗi để người sửa biết sửa gì." },
+            "3": { "label": "Đẩy về xử lý", "detail": "Gửi đơn về Designer." }
+          }
+        },
+        "05-error-cell": {
+          "title": "Thiếu file để in → về Support",
+          "body": "Thiếu file để in thì KHÔNG dùng nút “Báo lỗi” (nút đó chỉ về Designer): bấm ô “Lỗi xưởng” trên dòng đơn và chọn “Thiếu file để in” — đơn quay về Support soát lại.",
+          "note": "Danh sách trong ô này có cả lỗi của các công đoạn khác (vd lỗi của QC sau ép). Chỉ chọn lỗi đúng với việc của công đoạn In.",
+          "alt": "Danh sách lỗi của ô Lỗi xưởng, có mục Thiếu file để in gắn nhãn Soát tool",
+          "callouts": {
+            "1": { "label": "Lỗi xưởng", "detail": "Bấm ô để mở danh sách lỗi." },
+            "2": { "label": "Thiếu file để in", "detail": "Nguồn Soát tool — đơn về danh sách “Cần làm lại” của Support." }
+          }
+        },
+        "06-rework-watching": {
+          "title": "Đơn làm lại",
+          "body": "Chip “Làm lại”: đơn công đoạn sau (Ép, QC sau ép) đẩy về In; ô trạng thái ghi rõ bị đẩy về từ đâu và lý do. Dòng nền đỏ = đơn đang có lỗi chưa xử lý. Chip “Đang chờ quay lại”: đơn In đã xong nhưng đang được xử lý lại ở chỗ khác — chỉ để theo dõi.",
+          "note": "Đơn bị QC sau ép báo lỗi bằng quét mã lỗi (dòng đỏ, vd “In lệch”) KHÔNG có nút trên bảng. In lại bằng trang Quét mã: quét mã đơn → màn công đoạn → in xong quét lại mã đơn / OK / Enter (bước 7).",
+          "alt": "Bảng In lọc chip Làm lại: một dòng đỏ không có nút và một dòng có nút Bắt đầu",
+          "callouts": {
+            "1": { "label": "Làm lại", "detail": "Đơn cần in lại — làm như đơn mới: Bắt đầu → Hoàn thành." },
+            "2": { "label": "Bị đẩy về từ QC sau ép", "detail": "Công đoạn đã đẩy về và lý do. Dòng này không có nút — dùng trang Quét mã." },
+            "3": { "label": "Bắt đầu", "detail": "Đơn Ép đẩy về bằng nút “Báo lỗi” vẫn có nút — nhận in lại." },
+            "4": { "label": "Đang chờ quay lại", "detail": "Chỉ để theo dõi — chưa tới lượt In." }
+          }
+        },
+        "07-scan": {
+          "title": "Quét mã tại trạm",
+          "body": "Quản lý đơn › Quét mã. Quét barcode đơn “N-…” → hiện màn công đoạn của bạn (ảnh lớn, chữ to). In xong quét LẠI chính mã đơn (hoặc mã OK, hoặc nhấn Enter) là hoàn thành — hệ thống tự Bắt đầu + Hoàn thành.",
+          "alt": "Màn Công đoạn của tôi · In sau khi quét mã đơn, có khối Hoàn thành, Báo lỗi và nút Hoàn thành (Enter)",
+          "callouts": {
+            "1": { "label": "Mã sản xuất", "detail": "Đơn vừa quét." },
+            "2": { "label": "✔ Hoàn thành", "detail": "Quét lại mã đơn / mã OK / Enter = xong công đoạn In." },
+            "3": { "label": "⚠ Báo lỗi — quét 2 lần", "detail": "Quét mã lỗi “E-…” trên bảng dán trạm, quét lại cùng mã để ghi nhận." },
+            "4": { "label": "Hoàn thành (Enter)", "detail": "Bấm tay nếu không dùng máy quét." }
+          }
+        }
+      },
+      "errors": {
+        "designer": "File in hỏng / sai thiết kế → nút “Báo lỗi” về Designer (bước 4).",
+        "missingFile": "Thiếu file để in → ô “Lỗi xưởng” = “Thiếu file để in”, đơn về Support (bước 5).",
+        "reworkNoButton": "Đơn QC sau ép báo lỗi bằng quét mã không có nút trên bảng → in lại qua trang Quét mã (bước 6–7).",
+        "held": "Đơn đang giữ (nhãn “Đang giữ”) vẫn hiện nút “Bắt đầu” trên bảng In nhưng bấm sẽ bị từ chối vì đơn đang bị giữ. Menu “…” cuối dòng có mục “Mở giữ”, nhưng chỉ bấm khi người giữ đơn (thường là Support hoặc Quản lý) báo lý do giữ đã xử lý xong — chưa rõ thì chờ."
+      },
+      "notes": {
+        "openMenu": "Đăng nhập xong hệ thống vào Dashboard — bấm menu Công việc › Task Fulfillment để vào bảng In.",
+        "today": "Bảng mặc định chỉ hiện đơn vào sản xuất HÔM NAY. Đơn hôm trước còn tồn: chọn “Hôm qua” hoặc “7 ngày”.",
+        "qrWording": "Màn quét còn ghi “Quét QR lỗi”, nhưng bảng dán trạm là barcode 1D — quét đúng mã “E-…” trên bảng."
+      }
+    },
+    "fulfillment-press": {
+      "name": "Công nhân Ép",
+      "short": "Ép",
+      "goal": "Ép các đơn In đã xong rồi chuyển sang QC sau ép; phát hiện lỗi thì đẩy về In hoặc Designer.",
+      "entry": "Công việc › Task Fulfillment — kanban “Task của tôi — Ép”.",
+      "from": "Công nhân In.",
+      "to": "Công nhân QC sau ép.",
+      "steps": {
+        "01-kanban": {
+          "title": "Kanban Ép",
+          "body": "Đầu trang là các thẻ số theo cột, ô “Tìm / Quét mã”, kỳ ngày (mặc định 7 ngày) và bảng kanban. Cột “Làm lại” / “Đang chờ quay lại” tự ẩn khi không có đơn.",
+          "alt": "Trang Task của tôi — Ép với thẻ số, ô Tìm / Quét mã, nút kỳ ngày và kanban",
+          "callouts": {
+            "1": { "label": "Đang chờ", "detail": "Số đơn đang chờ bạn làm." },
+            "2": { "label": "Tìm / Quét mã", "detail": "Quét “N-…” rồi Enter → mở đơn để Hoàn thành / Báo lỗi; gõ chữ để lọc kanban." },
+            "3": { "label": "7 ngày", "detail": "Kỳ mặc định 7 ngày theo ngày vào sản xuất." },
+            "4": { "label": "Cột Đang chờ", "detail": "Kéo thẻ Đang chờ sang Đang làm = Bắt đầu." }
+          }
+        },
+        "02-scan-dialog": {
+          "title": "Quét mã ngay trên kanban",
+          "body": "Quét mã đơn trong ô “Tìm / Quét mã” → mở màn công đoạn của đơn. Dải xanh “đúng công đoạn của bạn” → quét lại mã đơn / OK hoặc bấm “Hoàn thành (Enter)” là xong.",
+          "note": "Ở màn này quét mã lỗi “E-…” KHÔNG ghi lỗi. Báo lỗi bằng nút “Báo lỗi”, hoặc quét mã lỗi ở trang Quản lý đơn › Quét mã.",
+          "alt": "Màn Công đoạn của tôi · Ép với dải xanh đúng công đoạn, khối Hoàn thành và nút Hoàn thành (Enter)",
+          "callouts": {
+            "1": { "label": "Đúng công đoạn của bạn", "detail": "Dải xanh: đơn đang ở Ép, thao tác được." },
+            "2": { "label": "✔ Hoàn thành", "detail": "Quét lại mã đơn / mã OK / Enter." },
+            "3": { "label": "Báo lỗi", "detail": "Mở màn gán lỗi cho đơn này." },
+            "4": { "label": "Hoàn thành (Enter)", "detail": "Tự Bắt đầu + Hoàn thành trong một lần." }
+          }
+        },
+        "03-card-actions": {
+          "title": "Nút trên thẻ",
+          "body": "Thẻ Đang chờ có “Bắt đầu”; thẻ Đang làm có “Hoàn thành” và “Báo lỗi”. Thẻ ở Đã xong / Đang chờ quay lại không có nút.",
+          "alt": "Thẻ ở cột Đang chờ có nút Bắt đầu, thẻ ở cột Đang làm có nút Hoàn thành và Báo lỗi",
+          "callouts": {
+            "1": { "label": "Bắt đầu", "detail": "Nhận làm đơn." },
+            "2": { "label": "Hoàn thành", "detail": "Ép xong — đơn sang QC sau ép." },
+            "3": { "label": "Báo lỗi", "detail": "Đẩy đơn về In hoặc Designer." }
+          }
+        },
+        "04-rework-dialog": {
+          "title": "Báo lỗi ở Ép",
+          "body": "Bấm “Báo lỗi” trên thẻ Đang làm, chọn nơi nhận (mặc định là công đoạn ngay trước — In), ghi lý do rồi “Đẩy về xử lý”. In nhận đơn ở “Làm lại”; Ép thấy đơn ở “Đang chờ quay lại”.",
+          "alt": "Hộp thoại Báo lỗi đơn với chip Designer, chip In đang chọn, ô Lý do lỗi",
+          "callouts": {
+            "1": { "label": "In", "detail": "Lỗi do in — In làm lại." },
+            "2": { "label": "Designer", "detail": "Lỗi do file thiết kế." },
+            "3": { "label": "Lý do lỗi *", "detail": "Bắt buộc." },
+            "4": { "label": "Đẩy về xử lý", "detail": "Gửi đơn về nơi đã chọn." }
+          }
+        },
+        "05-watching": {
+          "title": "Đang chờ quay lại",
+          "body": "Cột “Đang chờ quay lại”: đơn Ép đã làm (hoặc đã đẩy về) đang ở công đoạn trước. Đơn quay lại Ép sẽ vào “Làm lại”; làm xong vào “Đã sửa”.",
+          "alt": "Cột Đang chờ quay lại với 2 thẻ ghi Đang ở: In",
+          "callouts": {
+            "1": { "label": "Đang chờ quay lại", "detail": "Chỉ theo dõi — chưa tới lượt bạn." },
+            "2": { "label": "Đang ở: In", "detail": "Công đoạn đang giữ đơn." }
+          }
+        },
+        "06-stage-errors": {
+          "title": "Danh mục lỗi của trạm Ép",
+          "body": "Quản lý đơn › Danh mục lỗi công đoạn: công nhân tự thêm lỗi cho trạm mình (công đoạn khoá sẵn là Ép) kèm nơi đẩy về, rồi tick lỗi để in bảng barcode dán tại trạm.",
+          "note": "Lỗi đã thêm không sửa được, chỉ ẩn / hiện. Danh mục dùng chung mọi xưởng.",
+          "alt": "Trang Danh mục lỗi công đoạn Ép với ô thêm lỗi, danh sách lỗi có barcode và nút In (1)",
+          "callouts": {
+            "1": { "label": "Công đoạn: Ép", "detail": "Tài khoản công nhân bị khoá vào công đoạn của mình." },
+            "2": { "label": "Tên lỗi", "detail": "Gõ tên lỗi, chọn “Đẩy về công đoạn” bên dưới." },
+            "3": { "label": "Thêm & tạo Barcode", "detail": "Lưu lỗi — barcode “E-…” sinh tự động." },
+            "4": { "label": "In (n)", "detail": "In bảng barcode các lỗi đã tick (kèm nhãn HOÀN THÀNH)." }
+          }
+        }
+      },
+      "errors": {
+        "back": "Lỗi do In hoặc do file thiết kế → nút “Báo lỗi” (bước 4); đơn về In hoặc Designer, Ép theo dõi ở “Đang chờ quay lại”.",
+        "returned": "Đơn quay lại Ép → cột “Làm lại”; làm xong vào “Đã sửa”."
+      },
+      "notes": {
+        "openMenu": "Đăng nhập xong hệ thống vào Dashboard — bấm menu Công việc › Task Fulfillment.",
+        "rawFactory": "Dòng “Xưởng:” dưới tiêu đề kanban đang hiện mã xưởng dạng chuỗi ký tự thay cho tên xưởng — không phải lỗi của bạn.",
+        "qrWording": "Màn quét còn ghi “Quét QR lỗi”, nhưng bảng dán trạm là barcode 1D — quét đúng mã “E-…” trên bảng."
+      }
+    },
+    "fulfillment-qc-post-press": {
+      "name": "Công nhân QC sau ép",
+      "short": "QC sau ép",
+      "goal": "Kiểm hàng sau ép: đạt thì hoàn thành để đơn sang Đóng hàng; lỗi thì đẩy về Ép, In hoặc Designer.",
+      "alert": "Mỗi công đoạn ở một xưởng chỉ một người giữ. Nếu Task Fulfillment báo “Tài khoản chưa được gán Stage Fulfillment” hoặc không thấy đơn QC sau ép của xưởng mình, nhờ Admin kiểm tài khoản đã được gán đúng xưởng + công đoạn “QC sau ép” (vai Quản lý, bước 9–10).",
+      "entry": "Công việc › Task Fulfillment — kanban “Task của tôi — QC sau ép”; trạm quét: Quản lý đơn › Quét mã.",
+      "from": "Công nhân Ép.",
+      "to": "Công nhân Đóng hàng — xưởng DTF bỏ may: QC xong thì May nhận vào + May xuất ra tự hoàn thành.",
+      "steps": {
+        "01-kanban": {
+          "title": "Kanban QC sau ép",
+          "body": "Xưởng DTF bỏ may: QC xong thì May nhận vào + May xuất ra TỰ hoàn thành, đơn sang thẳng Đóng hàng – Đang chờ.",
+          "alt": "Trang Task của tôi — QC sau ép với thẻ số và các cột Đang chờ, Đang làm, Đã xong, Đã sửa, Đang chờ quay lại",
+          "callouts": {
+            "1": { "label": "Đang chờ", "detail": "Số đơn Ép đã xong đang chờ QC." },
+            "2": { "label": "Cột Đang chờ", "detail": "Đơn chờ kiểm." },
+            "3": { "label": "Cột Đang làm", "detail": "Đơn đang kiểm." },
+            "4": { "label": "Cột Đang chờ quay lại", "detail": "Đơn bạn đã báo lỗi, đang được In / Ép làm lại." }
+          }
+        },
+        "02-scan-ok": {
+          "title": "Kiểm đạt — quét hoàn thành",
+          "body": "Quản lý đơn › Quét mã: quét “N-…” của đơn đang chờ QC → màn công đoạn. Kiểm đạt: quét lại mã đơn hoặc mã OK (hoặc Enter) → QC xong, đơn sang Đóng hàng – Đang chờ.",
+          "alt": "Màn Công đoạn của tôi · QC sau ép với Công đoạn hiện tại QC sau ép và nút Hoàn thành (Enter)",
+          "callouts": {
+            "1": { "label": "Công đoạn của tôi · QC sau ép", "detail": "Màn của đúng công đoạn tài khoản đang đăng nhập." },
+            "2": { "label": "Công đoạn hiện tại", "detail": "Đơn đang ở QC sau ép." },
+            "3": { "label": "✔ Hoàn thành", "detail": "Quét lại mã đơn / OK / Enter." },
+            "4": { "label": "Hoàn thành (Enter)", "detail": "Bấm tay nếu không dùng máy quét." }
+          }
+        },
+        "03-scan-error-2x": {
+          "title": "Kiểm lỗi — quét mã lỗi 2 lần",
+          "body": "Đang mở đơn, quét mã lỗi “E-…” trên bảng dán trạm → lỗi được CHỌN (chưa ghi nhận), nơi đẩy về tự lấy theo danh mục. Quét lại CÙNG mã (hoặc Enter) mới ghi nhận và đẩy đơn về. Quét nhầm → quét mã khác để đổi.",
+          "alt": "Hộp Gán lỗi với mã lỗi đang chọn tô đỏ, khối Do xưởng · Đẩy về Ép và nút Gán lỗi & Quét tiếp",
+          "callouts": {
+            "1": { "label": "Lỗi đang chọn", "detail": "Lỗi vừa quét lần 1 (tô đỏ)." },
+            "2": { "label": "Do xưởng · Đẩy về Ép", "detail": "Nguồn lỗi + nơi nhận lấy từ danh mục, không chỉnh tay." },
+            "3": { "label": "Quét lại CÙNG MÃ / Enter", "detail": "Bước xác nhận — lúc này lỗi mới được ghi." },
+            "4": { "label": "Gán lỗi & Quét tiếp", "detail": "Bấm tay thay cho quét lần 2." }
+          }
+        },
+        "04-rework-dialog": {
+          "title": "Báo lỗi từ thẻ kanban",
+          "body": "Không dùng máy quét: bấm “Báo lỗi” trên thẻ Đang làm, chọn Designer / In / Ép (mặc định Ép — công đoạn ngay trước), ghi lý do rồi bấm “Đẩy về xử lý”.",
+          "alt": "Hộp thoại Báo lỗi đơn với chip Designer, In, Ép đang chọn và ô Lý do lỗi",
+          "callouts": {
+            "1": { "label": "Ép", "detail": "Mặc định: công đoạn ngay trước." },
+            "2": { "label": "In", "detail": "Lỗi in — In làm lại, Ép cũng làm lại theo." },
+            "3": { "label": "Designer", "detail": "Lỗi file thiết kế." },
+            "4": { "label": "Lý do lỗi *", "detail": "Bắt buộc." }
+          }
+        },
+        "05-barcode-sheet": {
+          "title": "In bảng barcode dán trạm",
+          "body": "Quản lý đơn › Danh mục lỗi công đoạn: tick ô “Lỗi của “QC sau ép”” để chọn cả danh sách rồi bấm “In” hoặc “Xuất PDF” (mỗi nhãn một trang A8, trang đầu là nhãn HOÀN THÀNH = mã OK).",
+          "alt": "Danh mục lỗi QC sau ép với mọi lỗi được tick, nút In (4) và Xuất PDF (4)",
+          "callouts": {
+            "1": { "label": "Chọn tất cả", "detail": "Tick để chọn mọi lỗi của công đoạn." },
+            "2": { "label": "Mã quét E-…", "detail": "Nội dung barcode — máy quét gõ đúng chuỗi này." },
+            "3": { "label": "In (n)", "detail": "In thẳng ra máy in." },
+            "4": { "label": "Xuất PDF (n)", "detail": "Tải PDF nhãn A8 để in sau." }
+          }
+        }
+      },
+      "errors": {
+        "scan": "Thấy lỗi khi kiểm → quét mã lỗi 2 lần (bước 3); đơn về nơi ghi trong danh mục lỗi.",
+        "dialog": "Không có máy quét → nút “Báo lỗi” trên thẻ Đang làm (bước 4).",
+        "watching": "Đơn đã đẩy về nằm ở “Đang chờ quay lại”; khi quay lại QC, đơn vào “Làm lại”."
+      },
+      "notes": {
+        "openMenu": "Đăng nhập xong hệ thống vào Dashboard — bấm menu Công việc › Task Fulfillment.",
+        "noSew": "Xưởng DTF không có công đoạn may: QC xong là đơn đã ở Đóng hàng, không cần chờ May.",
+        "scanPageOnly": "Quét mã lỗi 2 lần chỉ ghi nhận ở trang Quản lý đơn › Quét mã; quét trong ô Tìm của kanban không ghi lỗi."
+      }
+    },
+    "fulfillment-pack": {
+      "name": "Công nhân Đóng hàng",
+      "short": "Đóng hàng",
+      "goal": "Đóng gói các đơn QC đã xong và xác nhận hoàn thành — công đoạn cuối, xong là đơn hoàn thành sản xuất.",
+      "alert": "Mỗi công đoạn ở một xưởng chỉ một người giữ. Nếu Task Fulfillment báo “Tài khoản chưa được gán Stage Fulfillment” hoặc không thấy đơn Đóng hàng của xưởng mình, nhờ Admin kiểm tài khoản đã được gán đúng xưởng + công đoạn “Đóng hàng” (vai Quản lý, bước 9–10).",
+      "entry": "Công việc › Task Fulfillment — kanban “Task của tôi — Đóng hàng”; trạm quét: Quản lý đơn › Quét mã.",
+      "from": "Công nhân QC sau ép (May nhận vào + May xuất ra tự hoàn thành).",
+      "to": "Hoàn thành sản xuất — khách nhận thông báo.",
+      "steps": {
+        "01-kanban": {
+          "title": "Kanban Đóng hàng",
+          "body": "Công đoạn cuối. Nếu xưởng bật “Tự hoàn thành Đóng hàng” (Quản lý bật ở tab Xưởng), đơn mới tới công đoạn này tự hoàn thành, không chờ bạn xác nhận; nếu không bật, bạn xác nhận tay từng đơn như các bước dưới.",
+          "alt": "Trang Task của tôi — Đóng hàng với các cột Đang chờ, Đang làm, Đã xong, Đã sửa",
+          "callouts": {
+            "1": { "label": "Đang chờ", "detail": "Đơn QC xong đang chờ đóng." },
+            "2": { "label": "Cột Đang chờ", "detail": "Đơn cần đóng gói." },
+            "3": { "label": "Cột Đang làm", "detail": "Đơn đang đóng." },
+            "4": { "label": "Cột Đã xong", "detail": "Đơn đã hoàn thành sản xuất." }
+          }
+        },
+        "02-bulk-complete": {
+          "title": "Hoàn thành nhiều đơn",
+          "body": "Riêng Đóng hàng: tick ô chọn cả cột ở Đang chờ rồi bấm “Hoàn thành” — hệ thống tự Bắt đầu + Hoàn thành từng đơn, không cần chuyển qua Đang làm.",
+          "alt": "Cột Đang chờ được chọn cả cột, thanh công cụ Đã chọn 3 với nút Bắt đầu và Hoàn thành",
+          "callouts": {
+            "1": { "label": "Chọn cả cột", "detail": "Tick mọi đơn trong cột Đang chờ." },
+            "2": { "label": "Đã chọn n", "detail": "Số đơn đang chọn." },
+            "3": { "label": "Hoàn thành", "detail": "Đóng xong tất cả đơn đã chọn." }
+          }
+        },
+        "03-report-error": {
+          "title": "Báo lỗi ở Đóng hàng",
+          "body": "Nút “Báo lỗi” có trên thẻ Đang làm. Chọn công đoạn nhận lại, ghi lý do rồi bấm “Đẩy về xử lý”. Hộp thoại vẫn hiện chip “May nhận vào” / “May xuất ra” dù xưởng DTF bỏ may.",
+          "note": "Chip chọn sẵn là “May xuất ra”. Xưởng DTF bỏ may nên chọn “May xuất ra” hay “May nhận vào” thì hệ thống cũng tự đưa đơn về QC sau ép — giống hệt chọn “QC sau ép”. Lỗi do Ép, In hoặc file thiết kế thì đổi chip sang đúng nơi đó.",
+          "alt": "Hộp thoại Báo lỗi đơn ở Đóng hàng với 6 chip công đoạn, chip QC sau ép đang chọn",
+          "callouts": {
+            "1": { "label": "QC sau ép", "detail": "QC sau ép nhận lại đơn ở cột “Làm lại”." },
+            "2": { "label": "May xuất ra", "detail": "Chip chọn sẵn — xưởng DTF bỏ may nên đơn tự về QC sau ép, không dừng ở công đoạn may." },
+            "3": { "label": "Lý do lỗi *", "detail": "Bắt buộc." },
+            "4": { "label": "Đẩy về xử lý", "detail": "Gửi đơn về công đoạn đã chọn." }
+          }
+        },
+        "04-scan-complete": {
+          "title": "Quét hoàn thành",
+          "body": "Quản lý đơn › Quét mã: quét “N-…” của đơn đang chờ Đóng hàng → màn công đoạn. Đóng gói xong quét lại mã đơn / OK / Enter → đơn hoàn thành sản xuất.",
+          "alt": "Màn Công đoạn của tôi · Đóng hàng với trạng thái Đang chờ và khối Hoàn thành",
+          "callouts": {
+            "1": { "label": "Đang chờ", "detail": "Trạng thái Đóng hàng của đơn." },
+            "2": { "label": "✔ Hoàn thành", "detail": "Quét lại mã đơn / OK / Enter." },
+            "3": { "label": "Làm XONG → quét LẠI mã đơn (hoặc mã “OK”)", "detail": "Không cần chạm máy tính." },
+            "4": { "label": "Hoàn thành (Enter)", "detail": "Tự Bắt đầu + Hoàn thành." }
+          }
+        },
+        "05-scan-done": {
+          "title": "Kết quả sau khi quét",
+          "body": "Quét mã đơn rồi quét mã OK: màn công đoạn tự đóng, ô quét sẵn sàng cho đơn kế tiếp, lịch sử ghi “Đã hoàn thành · Hoàn thành Đóng hàng”.",
+          "alt": "Trang Quét hoàn thành / báo lỗi với ô quét trống và lịch sử quét ghi Đã hoàn thành",
+          "callouts": {
+            "1": { "label": "Ô quét", "detail": "Tự focus lại — quét đơn tiếp theo ngay." },
+            "2": { "label": "Đã hoàn thành", "detail": "Đơn vừa hoàn thành sản xuất." },
+            "3": { "label": "Thành công", "detail": "Số lượt quét thành công trong phiên." }
+          }
+        }
+      },
+      "errors": {
+        "changeChip": "Báo lỗi: để nguyên chip “May xuất ra” thì đơn về QC sau ép; lỗi do Ép / In / file thiết kế thì đổi chip sang đúng nơi đó (bước 3).",
+        "onlyInProgress": "Nút “Báo lỗi” chỉ có trên thẻ Đang làm — đơn Đang chờ cần báo lỗi thì bấm “Bắt đầu” trước."
+      },
+      "notes": {
+        "openMenu": "Đăng nhập xong hệ thống vào Dashboard — bấm menu Công việc › Task Fulfillment.",
+        "autoPack": "Nếu Quản lý bật “Tự hoàn thành Đóng hàng” cho xưởng, đơn MỚI tới Đóng hàng sẽ tự xong và không còn chờ ở công đoạn này.",
+        "qrWording": "Màn quét còn ghi “quét QR lỗi”, nhưng bảng dán trạm là barcode 1D — quét đúng mã “E-…” trên bảng."
+      }
+    },
+    "admin": {
+      "name": "Quản lý xưởng (quyền Admin)",
+      "short": "Quản lý",
+      "goal": "Theo dõi đơn chảy qua các công đoạn của xưởng DTF, gỡ đơn tắc (giữ / mở giữ, gán lỗi) và bảo đảm công đoạn nào cũng có người giữ.",
+      "alert": "Khi đưa xưởng DTF vào chạy: kiểm ở trang Người dùng (bước 9–10) mọi công đoạn thường của xưởng — In, Ép, QC sau ép, Đóng hàng — đều đã có người giữ (Đóng hàng không cần người nếu xưởng bật “Tự hoàn thành Đóng hàng”, bước 8). Công đoạn không có người thì đơn tới đó sẽ dừng, và Admin / Manager không thao tác thay được trên kanban của công nhân.",
+      "entry": "Dashboard với bộ chọn xưởng trên header; Quản lý đơn; Danh mục › Sản phẩm (tab Xưởng); Quản trị › Nhân sự & phân quyền › Người dùng.",
+      "from": "Toàn bộ luồng — không nhận việc theo lượt như các vai khác.",
+      "to": "Gán người giữ công đoạn, cấu hình xưởng, gỡ đơn tắc cho các vai.",
+      "steps": {
+        "01-factory-scope": {
+          "title": "Chọn xưởng DTF",
+          "body": "Bấm bộ chọn “Xưởng” trên header (mọi trang /ffm) và chọn xưởng DTF — Dashboard, Danh sách đơn… chỉ tính đơn của xưởng đó. Phạm vi nằm trên URL (?factoryId=) nên đổi trang không mất.",
+          "alt": "Menu bộ chọn Xưởng mở ra với mục Tất cả xưởng và xưởng DTF có dấu tích",
+          "callouts": {
+            "1": { "label": "Xưởng: …", "detail": "Bấm để đổi xưởng đang xem." },
+            "2": { "label": "Xưởng đang chọn", "detail": "Xưởng đang chọn có dấu tích." },
+            "3": { "label": "Tất cả xưởng", "detail": "Bỏ lọc — xem toàn nhà máy." }
+          }
+        },
+        "02-lifecycle": {
+          "title": "Vòng đời đơn — tìm chỗ tắc",
+          "body": "Dashboard › Vòng đời đơn của xưởng DTF: dải phễu trên cùng (tra nhanh 1 mã đơn), thẻ “Công đoạn tắc nghẽn” và phễu từng công đoạn — thấy đơn đang dồn ở đâu.",
+          "alt": "Tab Vòng đời đơn với dải phễu, thẻ Công đoạn tắc nghẽn và Phễu công đoạn",
+          "callouts": {
+            "1": { "label": "Tra cứu productionId", "detail": "Dán mã sản xuất để xem hành trình 1 đơn." },
+            "2": { "label": "Vòng đời đơn", "detail": "Menu Dashboard › Vòng đời đơn." },
+            "3": { "label": "Công đoạn tắc nghẽn", "detail": "Công đoạn đang có nhiều đơn chờ nhất." },
+            "4": { "label": "Phễu công đoạn", "detail": "Mỗi ô: đang chờ / đang làm / rework / lỗi của 1 công đoạn." }
+          }
+        },
+        "03-workshop-list": {
+          "title": "Danh sách đơn của xưởng",
+          "body": "Quản lý đơn › Danh sách đơn: dải chặng Soát tool → … → Đóng hàng (số đơn đang ở mỗi chặng), các pill lọc nhanh và cột loại sản phẩm bên trái. Ngày mặc định: hôm nay.",
+          "alt": "Trang Danh sách đơn với dải chặng, pill lọc nhanh và cột loại sản phẩm",
+          "callouts": {
+            "1": { "label": "Dải chặng", "detail": "Bấm 1 chặng để lọc đơn đang ở chặng đó." },
+            "2": { "label": "Đang giữ", "detail": "Lọc đơn đang bị giữ." },
+            "3": { "label": "Loại sản phẩm", "detail": "Cột trái: lọc theo sản phẩm." },
+            "4": { "label": "Hôm nay", "detail": "Đổi ngày vào sản xuất cần xem." }
+          }
+        },
+        "04-hold-unhold": {
+          "title": "Mở giữ đơn",
+          "body": "Đơn đang giữ bị khoá mọi thao tác công đoạn. Xử lý xong lý do giữ: bấm pill “Đang giữ”, mở nhóm sản phẩm, bấm menu “…” của dòng › “Mở giữ”. Không chỉ Quản lý: Support, Designer Leader và công nhân công đoạn cũng mở giữ được từ menu này; Designer thì không.",
+          "alt": "Dòng đơn có nhãn Đang giữ, menu thao tác mở ra với mục Mở giữ",
+          "callouts": {
+            "1": { "label": "Đơn đang giữ", "detail": "Nhãn “Đang giữ” kèm lý do giữ." },
+            "2": { "label": "Mở giữ", "detail": "Mở khoá — đơn quay lại luồng sản xuất." }
+          }
+        },
+        "05-error-log": {
+          "title": "Nhật ký bù lỗi",
+          "body": "Quản lý đơn › Nhật ký bù lỗi: mọi đơn đang có lỗi sau khi vào in. Mức độ tính theo số giờ từ lúc vào sản xuất (Mới < 2h · Cần làm 2–4h · Gấp 4–6h · Khẩn cấp > 6h). Bảng rộng — cuộn ngang để thấy “Chặng hiện tại”, “Nêu lỗi”, “Người sửa”.",
+          "note": "Trang này KHÔNG lọc theo bộ chọn xưởng — hiện đơn lỗi của mọi xưởng; xem cột Xưởng hoặc lọc bằng ô tìm.",
+          "alt": "Trang Nhật ký bù lỗi với tab Cần xử lý, chip mức độ và bảng đơn lỗi",
+          "callouts": {
+            "1": { "label": "Cần xử lý", "detail": "Đơn lỗi chưa xử lý xong." },
+            "2": { "label": "Mức độ", "detail": "Đỏ đậm = để lâu nhất, xử lý trước." },
+            "3": { "label": "Lỗi xưởng", "detail": "Lỗi đã báo; cuộn ngang tiếp để xem “Chặng hiện tại” (đơn đang ở công đoạn nào)." },
+            "4": { "label": "Mã sản xuất", "detail": "Ví dụ: đơn QC báo “In lệch”, đang ở In làm lại." }
+          }
+        },
+        "06-scan-assign-error": {
+          "title": "Gán lỗi bằng máy quét",
+          "body": "Quản lý đơn › Quét mã: tài khoản quản lý (không giữ công đoạn) quét “N-…” → mở thẳng màn GÁN LỖI theo công đoạn hiện tại của đơn, không có nút Hoàn thành. Quét “E-…” lần 1 để chọn, lần 2 (hoặc Enter) để ghi nhận.",
+          "alt": "Hộp Gán lỗi với danh sách mã lỗi của công đoạn QC sau ép và nút Gán lỗi & Quét tiếp",
+          "callouts": {
+            "1": { "label": "Gán lỗi · <mã đơn>", "detail": "Chỉ gán lỗi — hoàn thành công đoạn là việc của công nhân." },
+            "2": { "label": "Lỗi đang chọn", "detail": "Danh sách lỗi của công đoạn đơn đang đứng (ở ảnh: QC sau ép)." },
+            "3": { "label": "Do xưởng · Đẩy về Ép", "detail": "Tự theo danh mục." },
+            "4": { "label": "Gán lỗi & Quét tiếp", "detail": "Ghi nhận (hoặc quét lại cùng mã)." }
+          }
+        },
+        "07-stage-error-catalog": {
+          "title": "Danh mục lỗi công đoạn",
+          "body": "Quản lý đơn › Danh mục lỗi công đoạn: Admin chọn được cả 6 công đoạn để thêm lỗi, xem mã barcode và in bảng dán trạm (công nhân bị khoá vào công đoạn của mình).",
+          "note": "Danh mục DÙNG CHUNG mọi xưởng — lỗi thêm cho DTF cũng hiện ở xưởng khác.",
+          "alt": "Trang Danh mục lỗi công đoạn với 6 chip công đoạn, ô thêm lỗi và danh sách lỗi QC sau ép",
+          "callouts": {
+            "1": { "label": "Công đoạn", "detail": "Admin chọn được cả 6 công đoạn." },
+            "2": { "label": "Tên lỗi", "detail": "Thêm lỗi mới + chọn nơi đẩy về." },
+            "3": { "label": "Mã E-…", "detail": "Nội dung barcode lỗi." },
+            "4": { "label": "Xuất PDF", "detail": "Tick lỗi rồi in / xuất PDF bảng barcode." }
+          }
+        },
+        "08-factory-flow": {
+          "title": "Cấu hình luồng xưởng",
+          "body": "Danh mục › Sản phẩm › tab Xưởng › Sửa: “Luồng sản xuất” = “Bỏ may — QC xong nhảy thẳng Đóng hàng” và công tắc “Tự hoàn thành Đóng hàng”. Công tắc chỉ áp cho đơn MỚI; đơn đang tồn dùng nút “Hoàn thành đơn tồn ở Đóng hàng” (chỉ Admin / SuperAdmin).",
+          "alt": "Hộp thoại Sửa xưởng với ô Luồng sản xuất, công tắc Tự hoàn thành Đóng hàng và nút Hoàn thành đơn tồn ở Đóng hàng",
+          "callouts": {
+            "1": { "label": "Luồng sản xuất", "detail": "Xưởng DTF: “Bỏ may — QC xong nhảy thẳng Đóng hàng”." },
+            "2": { "label": "Tự hoàn thành Đóng hàng", "detail": "Tắt → cần công nhân Đóng hàng xác nhận. Bật → đơn tới Đóng hàng tự xong." },
+            "3": { "label": "Hoàn thành đơn tồn ở Đóng hàng", "detail": "Dọn một lần mọi đơn đang chờ Đóng hàng của xưởng." }
+          }
+        },
+        "09-users-list": {
+          "title": "Ai đang giữ từng công đoạn",
+          "body": "Quản trị › Nhân sự & phân quyền › Người dùng: mỗi công nhân là role Fulfillment kèm nhãn xưởng. Mỗi cặp (xưởng, công đoạn) chỉ có 1 người.",
+          "alt": "Trang Người dùng với cột Role gồm badge Fulfillment và nhãn xưởng, nút Thêm user",
+          "callouts": {
+            "1": { "label": "Fulfillment", "detail": "Role của công nhân công đoạn." },
+            "2": { "label": "Nhãn xưởng", "detail": "Xưởng công nhân được xem đơn." },
+            "3": { "label": "Thêm user", "detail": "Tạo tài khoản cho người giữ công đoạn còn trống." }
+          }
+        },
+        "10-users-worker": {
+          "title": "Thêm công nhân cho công đoạn trống",
+          "body": "Bấm “Thêm user”, điền Họ tên / Email / Mật khẩu, chọn Role = Fulfillment → hiện thêm ô “Xưởng *” và “Stage Fulfillment *”. Bấm “Lưu”: đơn tới công đoạn đó tự vào Task của người này.",
+          "alt": "Hộp thoại Thêm user với Role Fulfillment, ô Xưởng và ô Stage Fulfillment QC sau ép",
+          "callouts": {
+            "1": { "label": "Role", "detail": "Chọn Fulfillment." },
+            "2": { "label": "Xưởng *", "detail": "Xưởng người này làm." },
+            "3": { "label": "Stage Fulfillment *", "detail": "Công đoạn người này giữ — trùng người đã có sẽ bị từ chối." }
+          }
+        }
+      },
+      "errors": {
+        "stuck": "Đơn dồn ở một công đoạn → xem Vòng đời đơn (bước 2), rồi kiểm công đoạn đó đã có người giữ chưa (bước 9).",
+        "hold": "Đơn giữ lâu → lọc pill “Đang giữ”, xử lý xong thì “Mở giữ” (bước 4).",
+        "errorLog": "Đơn lỗi để lâu → Nhật ký bù lỗi, xử lý theo Mức độ (bước 5).",
+        "noWorker": "Công đoạn không có người → gán người (bước 10). Riêng SuperAdmin có thao tác “Chuyển hoàn thành”, nhưng thao tác đó không đi qua QC / Đóng hàng thật."
+      },
+      "notes": {
+        "errorLogNoFactory": "Nhật ký bù lỗi không lọc theo bộ chọn xưởng.",
+        "catalogShared": "Danh mục lỗi công đoạn dùng chung mọi xưởng.",
+        "noOverride": "Trang Task Fulfillment của tài khoản Admin / Manager chỉ báo “Tài khoản chưa được gán Stage Fulfillment” — không làm thay công nhân được.",
+        "allFactories": "Tab Soát tool, tab Designer và Task của tôi tính đơn của mọi xưởng dù đang chọn xưởng trên header."
+      }
+    }
+  }
+}

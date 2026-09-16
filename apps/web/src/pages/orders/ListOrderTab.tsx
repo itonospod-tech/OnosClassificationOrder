@@ -16,7 +16,7 @@ import { Spinner } from '@/components/common/Spinner';
 import { BulkProductionIdDialog, parseProductionIds } from '@/components/orders/BulkProductionIdDialog';
 import { CancelledBadge } from '@/components/orders/CancelledBadge';
 import { PrioritySelectCell } from '@/components/orders/cells/PrioritySelectCell';
-import { HeldBadge } from '@/components/orders/HeldBadge';
+import { HeldBadge, OnospodHoldBadge } from '@/components/orders/HeldBadge';
 import { HOLD_REASON_PRESETS } from '@/components/orders/HoldOrderDialog';
 import { OrderLogTimelineDialog } from '@/components/orders/OrderLogTimelineDialog';
 import { OrderRowActionsMenu } from '@/components/orders/OrderRowActionsMenu';
@@ -31,7 +31,7 @@ import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
 import { formatDate } from '@/utils/date';
 import { smallThumb } from '@/utils/driveThumb';
-import { isCancelled, isHeld } from '@/utils/orderActions';
+import { isCancelled, isHeld, showOnospodHoldFlag } from '@/utils/orderActions';
 import { getOrderStatusInfo, makeOrderStatusTranslate, ORDER_STATUS_TONE_CLASS } from '@/utils/orderStatusLabel';
 
 import { usePermission } from '@/hooks/usePermission';
@@ -91,6 +91,8 @@ interface OrderRow {
   cancelReason?: string;
   heldAt?: string | null;
   holdReason?: string;
+  holdSource?: string | null;
+  onospodHold?: { onHoldAt?: string; seenAt?: string } | null;
   // Field suy ra "Trạng thái hiện tại" (cột Status) — `getOrders` trả full doc
   // nên không cần nới projection BE.
   toolResultNote?: string;
@@ -144,7 +146,8 @@ const OrderRowItem = memo(
                 <span className="font-mono text-xs font-semibold text-foreground cursor-help">{it.productionId}</span>
               </Hint>
               {cancelled && <CancelledBadge reason={it.cancelReason} />}
-              {held && !cancelled && <HeldBadge reason={it.holdReason} />}
+              {held && !cancelled && <HeldBadge reason={it.holdReason} source={it.holdSource} />}
+              {showOnospodHoldFlag(it) && <OnospodHoldBadge />}
             </div>
             {it.orderId && (
               <div className="flex items-center gap-1">

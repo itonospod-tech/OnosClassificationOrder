@@ -1,7 +1,7 @@
 /**
  * Nạp nhóm Zalo từ máy `onosceo` vào OnosFactory.
  *
- * Zalo sống ở `onosceo` (engine + Postgres riêng, cổng engine chỉ nghe
+ * Zalo sống ở `onosnew` (engine + Postgres riêng, cổng engine chỉ nghe
  * 127.0.0.1). Chừng nào hai máy chưa chung tailnet thì API OnosFactory không
  * gọi thẳng engine được, nên script này chạy TỪ MỘT MÁY CÓ SSH tới cả hai:
  * đọc Postgres qua `ssh`, gộp dòng, rồi POST vào `/zalo-groups/sync`.
@@ -17,6 +17,11 @@
  * Cách chạy (từ thư mục apps/api):
  *   node scripts/sync-zalo-groups.mjs --dry-run
  *   node scripts/sync-zalo-groups.mjs --yes --api https://api-dev-onos.autonow.vn/api/v1 --token <JWT>
+ *
+ * NGUỒN ĐỔI 11/09/2026: trước đây đọc engine ở `onosceo`. Các nick đã dời sang
+ * engine prod trên `onosnew`, toàn bộ lịch sử cũ (179 nhóm · 29.784 tin từ
+ * 18/08) đã chuyển sang đó, và engine cũ đã dừng hẳn. Đổi nguồn bằng cờ
+ * `--ssh/--container/--db` nếu cần đọc lại máy cũ (phải bật container lên trước).
  */
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -31,8 +36,9 @@ const argOf = (name) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 
-const SSH_HOST = argOf('--ssh') || 'onosceo';
-const PG_CONTAINER = argOf('--container') || 'zalo-onos-zalo-db-1';
+const SSH_HOST = argOf('--ssh') || 'onosnew';
+const PG_CONTAINER = argOf('--container') || 'onos-zalo-engine-db';
+const PG_DB = argOf('--db') || 'zalo_engine';
 const API = (argOf('--api') || 'http://127.0.0.1:3007/api/v1').replace(/\/+$/, '');
 const TOKEN = argOf('--token') || process.env.ONOS_TOKEN;
 
@@ -76,7 +82,7 @@ async function docGroups() {
     '-o',
     'BatchMode=yes',
     SSH_HOST,
-    `docker exec ${PG_CONTAINER} psql -U zalo -d zalo -At -F'${SEP}' -c ${JSON.stringify(sql)}`,
+    `docker exec ${PG_CONTAINER} psql -U zalo -d ${PG_DB} -At -F'${SEP}' -c ${JSON.stringify(sql)}`,
   ]);
 
   return stdout

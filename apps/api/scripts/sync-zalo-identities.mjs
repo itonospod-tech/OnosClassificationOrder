@@ -1,5 +1,5 @@
 /**
- * Nạp DANH SÁCH NGƯỜI GỬI trong các nhóm Zalo từ `onosceo` vào OnosFactory.
+ * Nạp DANH SÁCH NGƯỜI GỬI trong các nhóm Zalo từ `onosnew` vào OnosFactory.
  *
  * Vì sao cần bảng này: engine chỉ đánh dấu `sender_type='self'` cho các tài
  * khoản công ty nối trực tiếp vào nó (đo 30/08: đúng 2 tài khoản). Nhân viên
@@ -13,6 +13,11 @@
  * Cách chạy (từ thư mục apps/api):
  *   node scripts/sync-zalo-identities.mjs --dry-run
  *   node scripts/sync-zalo-identities.mjs --yes --token <JWT>
+ *
+ * NGUỒN ĐỔI 11/09/2026: trước đây đọc engine ở `onosceo`. Các nick đã dời sang
+ * engine prod trên `onosnew`, toàn bộ lịch sử cũ (179 nhóm · 29.784 tin từ
+ * 18/08) đã chuyển sang đó, và engine cũ đã dừng hẳn. Đổi nguồn bằng cờ
+ * `--ssh/--container/--db` nếu cần đọc lại máy cũ (phải bật container lên trước).
  */
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -27,8 +32,9 @@ const argOf = (n) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 
-const SSH_HOST = argOf('--ssh') || 'onosceo';
-const PG = argOf('--container') || 'zalo-onos-zalo-db-1';
+const SSH_HOST = argOf('--ssh') || 'onosnew';
+const PG = argOf('--container') || 'onos-zalo-engine-db';
+const PG_DB = argOf('--db') || 'zalo_engine';
 const API = (argOf('--api') || 'http://127.0.0.1:3007/api/v1').replace(/\/+$/, '');
 const TOKEN = argOf('--token') || process.env.ONOS_TOKEN;
 const SEP = '';
@@ -38,7 +44,7 @@ async function psql(sql) {
     '-o',
     'BatchMode=yes',
     SSH_HOST,
-    `docker exec ${PG} psql -U zalo -d zalo -At -F'${SEP}' -c ${JSON.stringify(sql.replace(/\s+/g, ' '))}`,
+    `docker exec ${PG} psql -U zalo -d ${PG_DB} -At -F'${SEP}' -c ${JSON.stringify(sql.replace(/\s+/g, ' '))}`,
   ]);
 
   return stdout

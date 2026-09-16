@@ -28,6 +28,7 @@ import { ActionModule } from './modules/actions/action.module';
 import { AgentApiModule } from './modules/agent-api/agent-api.module';
 import { AmqpModule } from './modules/amqp/amqp.module';
 import { CeoDashboardModule } from './modules/ceo-dashboard/ceo-dashboard.module';
+import { CustomerReportModule } from './modules/customer-report/customer-report.module';
 import { CollectionModule } from './modules/collection/collection.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { CustomerAssignmentModule } from './modules/customer-assignment/customer-assignment.module';
@@ -92,6 +93,7 @@ import { SharedModule } from './shared/shared.module';
     CustomerAssignmentModule,
     AgentApiModule,
     CeoDashboardModule,
+    CustomerReportModule,
     CustomerNotificationModule,
     CustomerPortalModule,
     // ORD-4 — webhook báo đổi trạng thái đơn cho khách API.

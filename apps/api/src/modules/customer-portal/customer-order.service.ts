@@ -1,5 +1,6 @@
 import type { OnModuleInit } from '@nestjs/common';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Model, Types } from 'mongoose';
@@ -81,6 +82,7 @@ import type { CustomerOrderItem } from './customer-order.entity';
 import { CustomerOrderEntity } from './customer-order.entity';
 import { CustomerPaymentEntity } from './customer-payment.entity';
 import { EXCLUDED_PRODUCTION_FACTORY_SHORT_NAME } from '@/utils/excluded-factory';
+import { laTienTrinhChayCron } from '@/utils/cron-guard';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -304,6 +306,7 @@ export class CustomerOrderService implements OnModuleInit {
     private readonly systemConfigService: SystemConfigService,
     private readonly designStorageService: DesignStorageService,
     private readonly customerOrderEventService: CustomerOrderEventService,
+    private readonly adapterHost: HttpAdapterHost,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -439,11 +442,17 @@ export class CustomerOrderService implements OnModuleInit {
    */
   @Cron('*/5 * * * *', { name: 'customer-orders-legacy-sync' })
   syncLegacyOrdersIncremental(): Promise<number> {
+    // Chỉ chạy ở tiến trình HTTP — xem `utils/cron-guard.ts`.
+    if (!laTienTrinhChayCron(this.adapterHost)) return Promise.resolve(0);
+
     return this.runLegacySync({ full: false, force: false });
   }
 
   @Cron('30 3 * * *', { name: 'customer-orders-legacy-sync-full', timeZone: 'Asia/Ho_Chi_Minh' })
   syncLegacyOrdersFull(): Promise<number> {
+    // Chỉ chạy ở tiến trình HTTP — xem `utils/cron-guard.ts`.
+    if (!laTienTrinhChayCron(this.adapterHost)) return Promise.resolve(0);
+
     return this.runLegacySync({ full: true, force: true });
   }
 

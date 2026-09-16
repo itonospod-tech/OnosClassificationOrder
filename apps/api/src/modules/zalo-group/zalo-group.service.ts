@@ -14,6 +14,7 @@ import { ZaloGroupRepository } from './zalo-group.repository';
 import type { ZaloGroupLinkDocument } from './zalo-group-link.entity';
 import { ZaloGroupLinkEntity } from './zalo-group-link.entity';
 import { ZaloGroupSummaryEntity } from './zalo-group-summary.entity';
+import { khopTenNhom } from './zalo-title.logic';
 
 /** Điểm cắt của gợi ý — dưới ngưỡng này thì đoán bừa hại hơn là không đoán. */
 const SUGGESTION_MIN_SCORE = 0.5;
@@ -142,7 +143,10 @@ export class ZaloGroupService {
     if (!before) throw new NotFoundException('Không tìm thấy nhóm Zalo.');
 
     const nextKind = dto.kind ?? before.kind;
-    const nextCustomerId = dto.customerId === undefined ? before.customerId : dto.customerId;
+    // `newCustomerSku` cũng dẫn tới có khách — nếu không tính vào đây thì thao
+    // tác thường gặp nhất của ops (đặt "nhóm khách" + tạo khách mới trong CÙNG
+    // một lần bấm) bị chính chốt này từ chối.
+    const nextCustomerId = dto.newCustomerSku ? 'se-tao-moi' : dto.customerId === undefined ? before.customerId : dto.customerId;
 
     if (nextKind === ZaloGroupKind.Seller && !nextCustomerId) {
       throw new BadRequestException("Nhóm khách phải gắn với một khách hàng — chọn khách hoặc đổi sang phân loại khác.");
@@ -164,7 +168,38 @@ export class ZaloGroupService {
       else set.ownerUserId = dto.ownerUserId;
     }
 
-    if (dto.customerId !== undefined) {
+    // Tạo khách ngay tại màn nối nhóm.
+    //
+    // Vì sao cần: `customers` sinh ra TỪ đơn hàng, nên seller có nhóm Zalo mà
+    // chưa từng đặt đơn thì không tồn tại như một khách — 19/52 nhóm chưa xét
+    // trên prod rơi vào diện này (đo 11/09/2026). Không có đường tạo tại đây
+    // thì người vận hành phải sang trang khác tạo tay rồi quay lại, và thực tế
+    // là họ bỏ luôn, nên nhóm nằm đó mãi.
+    //
+    // Mã đã có thì GHÉP vào khách đó chứ không tạo trùng — `userSku` là khoá
+    // người ta nhìn, tạo trùng là hỏng mọi báo cáo nối nhóm ↔ đơn.
+    if (dto.newCustomerSku) {
+      if (dto.customerId) throw new BadRequestException('Chỉ được chọn khách sẵn có HOẶC tạo khách mới, không cả hai.');
+      const sku = dto.newCustomerSku.trim().toUpperCase();
+      const existing = await this.customerModel.findOne({ userSku: sku }).select('_id').lean();
+      const customerId = existing
+        ? String((existing as { _id: unknown })._id)
+        : String(
+            (
+              await this.customerModel.create({
+                userSku: sku,
+                // Khách tạo từ nhóm Zalo chưa có email; để trống thay vì bịa,
+                // và `customerMatchKey` vẫn khớp đơn qua `userSku`.
+                userEmail: '',
+                source: 'zalo-group',
+              })
+            )._id,
+          );
+      set.customerId = customerId;
+      set.userSku = sku;
+      set.linkedAt = new Date();
+      set.linkedByUserId = userId;
+    } else if (dto.customerId !== undefined) {
       if (dto.customerId === null) {
         unset.customerId = '';
         unset.userSku = '';
@@ -221,47 +256,45 @@ export class ZaloGroupService {
       this.customerModel.find({ userSku: { $nin: [null, ''] } }).select('userSku fullName').lean(),
     ]);
 
-    const out: ZaloGroupSuggestion[] = [];
+    const bySku = new Map<string, { id: string; name: string }>();
+    for (const c of customers) {
+      const sku = String((c as { userSku?: string }).userSku ?? '').trim();
+      if (sku) bySku.set(sku.toUpperCase(), { id: String((c as { _id: unknown })._id), name: String((c as { fullName?: string }).fullName ?? '').trim() });
+    }
+    const skus = new Set(bySku.keys());
 
+    const out: ZaloGroupSuggestion[] = [];
     for (const g of groups) {
       const title = String((g as { title?: string }).title ?? '');
       if (!title.trim()) continue;
-      const haystack = normalize(title);
+      const groupGlobalId = String((g as { groupGlobalId: string }).groupGlobalId);
+      const { matched, unknownSku } = khopTenNhom(title, skus);
 
-      let best: ZaloGroupSuggestion | undefined;
-
-      for (const c of customers) {
-        const sku = String((c as { userSku?: string }).userSku ?? '').trim();
-        if (!sku) continue;
-
-        const name = String((c as { fullName?: string }).fullName ?? '').trim();
-        let score = 0;
-        let reason = '';
-
-        if (haystack.includes(normalize(sku))) {
-          // Mã dài khớp nguyên thì gần như chắc chắn; mã 3-4 ký tự dễ trùng
-          // ngẫu nhiên trong một câu tiếng Việt nên hạ điểm.
-          score = sku.length >= 6 ? 0.95 : 0.6;
-          reason = `Tên nhóm chứa mã khách "${sku}"`;
-        } else if (name.length >= 5 && haystack.includes(normalize(name))) {
-          score = 0.7;
-          reason = `Tên nhóm chứa tên khách "${name}"`;
-        }
-
-        if (score >= SUGGESTION_MIN_SCORE && (!best || score > best.score)) {
-          best = {
-            groupGlobalId: String((g as { groupGlobalId: string }).groupGlobalId),
-            title,
-            customerId: String((c as { _id: unknown })._id),
-            userSku: sku,
-            customerName: name || undefined,
-            score,
-            reason,
-          };
-        }
+      if (matched) {
+        const c = bySku.get(matched.sku);
+        if (!c) continue;
+        out.push({
+          groupGlobalId,
+          title,
+          action: 'link',
+          customerId: c.id,
+          userSku: matched.sku,
+          customerName: c.name || undefined,
+          score: matched.score,
+          reason: matched.reason,
+        });
+      } else if (unknownSku) {
+        // Seller có thật nhưng chưa từng đặt đơn nên chưa có bản ghi khách.
+        // Trước đây những nhóm này rơi ra khỏi danh sách gợi ý mà không ai biết.
+        out.push({
+          groupGlobalId,
+          title,
+          action: 'create',
+          userSku: unknownSku,
+          score: 0.8,
+          reason: `Tên nhóm mang mã "${unknownSku}" nhưng chưa có khách nào — duyệt là tạo khách rồi ghép`,
+        });
       }
-
-      if (best) out.push(best);
     }
 
     return out.sort((a, b) => b.score - a.score).slice(0, SUGGESTION_LIMIT);

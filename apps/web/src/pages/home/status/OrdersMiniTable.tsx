@@ -196,7 +196,7 @@ export function OrdersMiniTable({ queryString }: Props) {
                               {isCancelled(row) ? (
                                 <CancelledBadge reason={row.cancelReason} />
                               ) : (
-                                <HeldBadge reason={row.holdReason} />
+                                <HeldBadge reason={row.holdReason} source={row.holdSource} />
                               )}
                             </div>
                           )}

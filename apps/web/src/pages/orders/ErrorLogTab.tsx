@@ -873,7 +873,7 @@ export function ErrorLogTab() {
                               {cancelled ? (
                                 <CancelledBadge reason={row.cancelReason} />
                               ) : (
-                                <HeldBadge reason={row.holdReason} />
+                                <HeldBadge reason={row.holdReason} source={row.holdSource} />
                               )}
                               <div className="min-w-0 flex-1">{c.render(row, rowCtx)}</div>
                             </div>

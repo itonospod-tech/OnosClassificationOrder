@@ -85,6 +85,7 @@
     "titleLead": "Four steps",
     "titleAccent": "from idea to goods",
     "subtitle": "No phone call and no waiting on a quote before you can start.",
+    "guideLink": "See the step-by-step guide",
     "steps": {
       "account": {
         "title": "Create an account",
@@ -297,6 +298,7 @@
       "customerRegister": "Create an account",
       "customerSignIn": "Customer sign in",
       "staffSignIn": "Staff sign in",
+      "orderGuide": "Ordering guide",
       "track": "Track an order"
     },
     "locations": {

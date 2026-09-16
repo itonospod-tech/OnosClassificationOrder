@@ -32,3 +32,38 @@ export function doanPhanLoai(
 
   return ZaloIdentityKind.Unknown;
 }
+
+export interface NhomCuaKhach {
+  /** `groupGlobalId` → `customerId` của nhóm khách đã nối. */
+  khachTheoNhom: Map<string, string>;
+}
+
+/**
+ * Suy ra người này thuộc khách nào, từ các nhóm họ từng nhắn.
+ *
+ * Đây là mắt xích cuối để tên người trong Zalo dùng được cho báo cáo khách:
+ * mình đã biết **nick nào là khách** (`kind`) và **nhóm nào của seller nào**
+ * (`zalo_group_links.customerId`), việc còn lại là ghép hai cái đó qua danh
+ * sách nhóm của từng người.
+ *
+ * CHỈ nhận khi mọi nhóm khách của người đó trỏ về **đúng một** khách. Người
+ * xuất hiện ở nhóm của hai khách khác nhau thì gần như chắc chắn là nhân viên
+ * hoặc trung gian — gán đại một trong hai là bịa quan hệ, và cái sai đó sẽ đi
+ * thẳng vào báo cáo gửi lãnh đạo.
+ */
+export function nhanKhachTuNhom(
+  kind: ZaloIdentityKind,
+  groupGlobalIds: string[] | undefined,
+  { khachTheoNhom }: NhomCuaKhach,
+): string | null {
+  // Nhân viên/AI ở nhiều nhóm khách là chuyện bình thường — không phải khách.
+  if (kind !== ZaloIdentityKind.Customer) return null;
+
+  const khach = new Set<string>();
+  for (const g of groupGlobalIds ?? []) {
+    const id = khachTheoNhom.get(g);
+    if (id) khach.add(id);
+  }
+
+  return khach.size === 1 ? [...khach][0] : null;
+}

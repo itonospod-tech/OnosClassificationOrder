@@ -110,7 +110,10 @@ export async function bootstrap(): Promise<NestFastifyApplication> {
   const fastifyInstance = app.getHttpAdapter().getInstance();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Fastify preParsing hook generics quá phức tạp, chỉ đọc request.url
   fastifyInstance.addHook('preParsing', async (request: any, _reply: any, payload: any) => {
-    if (!request.url?.startsWith('/api/v1/partner')) {
+    // Hai đường cần thân THÔ: chữ ký HMAC ký trên nguyên văn byte gửi đi, nên
+    // dựng lại từ object đã parse là không khớp (thứ tự khoá, khoảng trắng).
+    const canThanTho = request.url?.startsWith('/api/v1/partner') || request.url?.startsWith('/api/v1/agent/zalo/inbound');
+    if (!canThanTho) {
       return payload;
     }
 
@@ -224,6 +227,24 @@ export async function bootstrapMicroservice() {
     },
   });
 
+  // Tiến trình này nạp CÙNG `AppModule` với tiến trình HTTP (`main.ts` gọi cả
+  // hai), nên `ScheduleModule` đăng ký MỌI `@Cron` hai lần và tới giờ chúng nổ
+  // hai lần. Đo trên prod 10/09/2026: mỗi báo cáo CEO sinh 2 bản cách nhau 1
+  // giây, tức mỗi ngày gọi Agent SDK gấp đôi — tốn tiền thật, chưa kể cron nào
+  // ghi dữ liệu thì chạy đúp.
+  //
+  // Hẹn giờ là việc của tiến trình HTTP; việc của tiến trình này là nghe RMQ.
+  // Gỡ lịch Ở ĐÂY, một chỗ, để cron THÊM SAU NÀY cũng không dính lại lỗi này.
+  // KHÔNG dọn lịch cron ở đây.
+  //
+  // Đã thử hai cách và cả hai đều sai (11/09/2026): gỡ SAU `listen()` thì trên
+  // prod không bao giờ chạy vì `listen()` của transport RMQ không trả về; gọi
+  // `init()` trước để gỡ thì `listen()` đăng ký lịch LẦN NỮA trong cùng context
+  // → trùng tên → `SchedulerRegistry` ném và sập cả tiến trình.
+  //
+  // Chốt thật nằm trong THÂN từng cron (`utils/cron-guard.ts`): lịch vẫn được
+  // đăng ký ở context này nhưng tới giờ thì thoát ngay. Cách đó không phụ thuộc
+  // vào việc bootstrap chạy tới đâu.
   await app.listen();
   console.info('Microservice is listening...');
 }

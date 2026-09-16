@@ -1,0 +1,987 @@
+[
+  {
+    "flow": "form",
+    "title": "Tạo đơn trên form",
+    "steps": [
+      {
+        "flow": "form",
+        "step": 1,
+        "file": "form-01-login.webp",
+        "width": 448,
+        "height": 512,
+        "screen": "/login",
+        "shows": "Màn đăng nhập cổng seller: nhập email và mật khẩu tài khoản khách hàng OnosFactory.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 55,
+            "boxPct": {
+              "x": 11.6,
+              "y": 46.2,
+              "w": 76.8,
+              "h": 13.8
+            },
+            "label": "EMAIL",
+            "detail": "Email tài khoản khách hàng OnosFactory của bạn."
+          },
+          {
+            "n": 2,
+            "xPct": 50,
+            "yPct": 69.1,
+            "boxPct": {
+              "x": 11.6,
+              "y": 60.4,
+              "w": 76.8,
+              "h": 13.8
+            },
+            "label": "MẬT KHẨU",
+            "detail": "Mật khẩu đăng nhập; bấm biểu tượng con mắt để hiện mật khẩu."
+          },
+          {
+            "n": 3,
+            "xPct": 50,
+            "yPct": 84.9,
+            "boxPct": {
+              "x": 11.6,
+              "y": 80,
+              "w": 76.8,
+              "h": 9.8
+            },
+            "label": "Đăng nhập",
+            "detail": "Bấm để vào cổng seller."
+          }
+        ]
+      },
+      {
+        "flow": "form",
+        "step": 2,
+        "file": "form-02-choose-line.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/portal/orders/2d",
+        "shows": "Sau đăng nhập: mở menu Quản lý đơn ở thanh bên, chọn dòng sản phẩm (ở đây là 2D (DTG/DTF)) để vào trang đơn của dòng đó.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 7.3,
+            "yPct": 17.4,
+            "boxPct": {
+              "x": 0.1,
+              "y": 15.2,
+              "w": 14.4,
+              "h": 4.4
+            },
+            "label": "📦 Quản lý đơn",
+            "detail": "Menu đơn hàng — xổ ra 6 dòng sản phẩm: 3D, 2D, Gỗ, Thêu, LED, Canvas."
+          },
+          {
+            "n": 2,
+            "xPct": 7.3,
+            "yPct": 24.5,
+            "boxPct": {
+              "x": 0.1,
+              "y": 22.3,
+              "w": 14.4,
+              "h": 4.4
+            },
+            "label": "👕 2D (DTG/DTF)",
+            "detail": "Chọn đúng dòng sản phẩm muốn đặt."
+          },
+          {
+            "n": 3,
+            "xPct": 91.1,
+            "yPct": 6.2,
+            "boxPct": {
+              "x": 84.7,
+              "y": 3.7,
+              "w": 12.9,
+              "h": 4.9
+            },
+            "label": "Đặt đơn 2D (DTG/DTF)",
+            "detail": "Tạo đơn trên form cho dòng sản phẩm này."
+          },
+          {
+            "n": 4,
+            "xPct": 80.5,
+            "yPct": 6.2,
+            "boxPct": {
+              "x": 76.2,
+              "y": 3.6,
+              "w": 8.7,
+              "h": 5.1
+            },
+            "label": "Import CSV",
+            "detail": "Hoặc import nhiều đơn cùng lúc từ file CSV/Excel."
+          }
+        ]
+      },
+      {
+        "flow": "form",
+        "step": 3,
+        "file": "form-03-pick-product.webp",
+        "width": 1440,
+        "height": 1120,
+        "screen": "/portal/orders/2d/create",
+        "shows": "Màn \"Đặt đơn mới\" của dòng 2D (DTG/DTF): bên trái là danh mục sản phẩm để chọn (ô tìm theo tên nằm trên đầu danh sách), bên phải là giỏ đơn và địa chỉ giao hàng.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 32.8,
+            "yPct": 5.5,
+            "boxPct": {
+              "x": 16.9,
+              "y": 3.8,
+              "w": 31.7,
+              "h": 3.4
+            },
+            "label": "Đặt đơn mới · 2D (DTG/DTF)",
+            "detail": "Màn đặt đơn của đúng dòng sản phẩm đã chọn; danh sách bên dưới kèm giá theo hạng của bạn."
+          },
+          {
+            "n": 2,
+            "xPct": 37.2,
+            "yPct": 80.2,
+            "boxPct": {
+              "x": 30.5,
+              "y": 66.9,
+              "w": 13.4,
+              "h": 26.7
+            },
+            "label": "USA Gildan - Heavy Cotton™ T-Shirt - 5000",
+            "detail": "Bấm vào thẻ sản phẩm để cấu hình biến thể và file in."
+          },
+          {
+            "n": 3,
+            "xPct": 84.7,
+            "yPct": 12.2,
+            "boxPct": {
+              "x": 73.1,
+              "y": 10.8,
+              "w": 23.1,
+              "h": 2.7
+            },
+            "label": "Sản phẩm trong đơn (0)",
+            "detail": "Giỏ đơn: mỗi sản phẩm thêm vào sẽ thành một dòng sản xuất, dùng chung địa chỉ giao."
+          }
+        ]
+      },
+      {
+        "flow": "form",
+        "step": 4,
+        "file": "form-04-variant.webp",
+        "width": 800,
+        "height": 448,
+        "screen": "/portal/orders/2d/create",
+        "shows": "Sau khi chọn sản phẩm: chọn màu, kích cỡ và số lượng; SKU và giá hiện ngay dưới tên sản phẩm.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 54.8,
+            "yPct": 9.7,
+            "boxPct": {
+              "x": 13,
+              "y": 6.3,
+              "w": 83.5,
+              "h": 6.7
+            },
+            "label": "USA Gildan - Heavy Cotton™ T-Shirt - 5000",
+            "detail": "Sản phẩm đang cấu hình; mã SKU và giá đổi theo biến thể bạn chọn."
+          },
+          {
+            "n": 2,
+            "xPct": 29.4,
+            "yPct": 37.7,
+            "boxPct": {
+              "x": 25.2,
+              "y": 33,
+              "w": 8.5,
+              "h": 9.4
+            },
+            "label": "BLACK",
+            "detail": "Chọn màu — nút đang chọn được tô màu nhấn."
+          },
+          {
+            "n": 3,
+            "xPct": 16.9,
+            "yPct": 68.7,
+            "boxPct": {
+              "x": 14,
+              "y": 64,
+              "w": 5.8,
+              "h": 9.4
+            },
+            "label": "L",
+            "detail": "Chọn kích cỡ cho sản phẩm."
+          },
+          {
+            "n": 4,
+            "xPct": 50,
+            "yPct": 92.6,
+            "boxPct": {
+              "x": 3.5,
+              "y": 83.4,
+              "w": 93,
+              "h": 14.1
+            },
+            "label": "Số lượng",
+            "detail": "Số lượng in cho sản phẩm này."
+          }
+        ]
+      },
+      {
+        "flow": "form",
+        "step": 5,
+        "file": "form-05-files.webp",
+        "width": 800,
+        "height": 460,
+        "screen": "/portal/orders/2d/create",
+        "shows": "Khối file sản xuất: dán link (hoặc tải lên) ảnh mockup và file thiết kế theo từng vị trí in, rồi thêm sản phẩm vào đơn.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 47.3,
+            "yPct": 44.5,
+            "boxPct": {
+              "x": 3.5,
+              "y": 30.5,
+              "w": 87.5,
+              "h": 19
+            },
+            "label": "Ảnh mockup",
+            "detail": "Ảnh mockup do bạn cung cấp để xưởng đối chiếu — không phải ảnh mẫu của sản phẩm."
+          },
+          {
+            "n": 2,
+            "xPct": 47.3,
+            "yPct": 61,
+            "boxPct": {
+              "x": 3.5,
+              "y": 51.9,
+              "w": 87.5,
+              "h": 14.1
+            },
+            "label": "Link thiết kế — Mặt trước (không bắt buộc)",
+            "detail": "File thiết kế cho vị trí in; vị trí có dấu * là bắt buộc."
+          },
+          {
+            "n": 3,
+            "xPct": 50,
+            "yPct": 88.9,
+            "boxPct": {
+              "x": 3.5,
+              "y": 83.9,
+              "w": 93,
+              "h": 10
+            },
+            "label": "Thêm vào đơn hàng",
+            "detail": "Nút sáng lên khi đã đủ mockup và design — bấm để đưa sản phẩm vào giỏ."
+          }
+        ]
+      },
+      {
+        "flow": "form",
+        "step": 6,
+        "file": "form-06-cart-address.webp",
+        "width": 380,
+        "height": 740,
+        "screen": "/portal/orders/2d/create",
+        "shows": "Cột bên phải: giỏ đơn (cuộn lên để xem), địa chỉ giao hàng của người nhận (dữ liệu mẫu), ghi chú và nút đặt đơn.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 50,
+            "yPct": 21.1,
+            "boxPct": {
+              "x": 6.3,
+              "y": 15.6,
+              "w": 87.4,
+              "h": 8.5
+            },
+            "label": "Địa chỉ",
+            "detail": "Một địa chỉ giao hàng dùng chung cho mọi sản phẩm trong đơn; ô có * là bắt buộc."
+          },
+          {
+            "n": 2,
+            "xPct": 28.3,
+            "yPct": 70.6,
+            "boxPct": {
+              "x": 6.3,
+              "y": 65,
+              "w": 43.9,
+              "h": 8.5
+            },
+            "label": "Số điện thoại",
+            "detail": "Số điện thoại người nhận (bắt buộc, 9–15 chữ số)."
+          },
+          {
+            "n": 3,
+            "xPct": 50.5,
+            "yPct": 86.6,
+            "boxPct": {
+              "x": 6.3,
+              "y": 78.9,
+              "w": 88.4,
+              "h": 12.8
+            },
+            "label": "GHI CHÚ",
+            "detail": "Ghi chú thêm cho xưởng (không bắt buộc)."
+          },
+          {
+            "n": 4,
+            "xPct": 50.5,
+            "yPct": 95.9,
+            "boxPct": {
+              "x": 6.3,
+              "y": 92.8,
+              "w": 88.4,
+              "h": 6.2
+            },
+            "label": "Đặt đơn (1 sản phẩm)",
+            "detail": "Gửi đơn — đơn được tạo ở trạng thái Chờ đẩy SX."
+          }
+        ]
+      },
+      {
+        "flow": "form",
+        "step": 7,
+        "file": "form-07-pending.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/portal/orders/2d?status=pending",
+        "shows": "Sau khi gửi, trang chuyển về danh sách đơn của dòng sản phẩm, lọc sẵn tab Chờ đẩy SX — đơn mới nằm ở đây.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 24.6,
+            "yPct": 21.3,
+            "boxPct": {
+              "x": 21.2,
+              "y": 19.2,
+              "w": 6.9,
+              "h": 4.1
+            },
+            "label": "Chờ đẩy SX (1)",
+            "detail": "Tab các đơn đã tạo nhưng chưa đưa vào sản xuất."
+          },
+          {
+            "n": 2,
+            "xPct": 23.1,
+            "yPct": 31.3,
+            "boxPct": {
+              "x": 19.3,
+              "y": 29.8,
+              "w": 7.6,
+              "h": 2.9
+            },
+            "label": "#CC-25844-50223",
+            "detail": "Mã sản xuất của đơn — đi xuyên suốt tới xưởng và trang tra cứu."
+          },
+          {
+            "n": 3,
+            "xPct": 73.1,
+            "yPct": 30.9,
+            "boxPct": {
+              "x": 70.2,
+              "y": 29.2,
+              "w": 5.8,
+              "h": 3.4
+            },
+            "label": "Chờ đẩy SX",
+            "detail": "Trạng thái hiện tại của đơn."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "flow": "push",
+    "title": "Đẩy sản xuất và theo dõi đơn",
+    "steps": [
+      {
+        "flow": "push",
+        "step": 1,
+        "file": "push-01-select.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/portal/orders/2d?status=pending",
+        "shows": "Tab Chờ đẩy SX: tick chọn các đơn cần sản xuất, rồi bấm nút Push ở góc phải (hoặc Push từng đơn ở cuối dòng).",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 24.7,
+            "yPct": 21.3,
+            "boxPct": {
+              "x": 21.2,
+              "y": 19.2,
+              "w": 7,
+              "h": 4.1
+            },
+            "label": "Chờ đẩy SX (3)",
+            "detail": "Chỉ đơn ở tab này mới đẩy sản xuất được."
+          },
+          {
+            "n": 2,
+            "xPct": 17,
+            "yPct": 52.6,
+            "boxPct": {
+              "x": 16.3,
+              "y": 51.3,
+              "w": 1.6,
+              "h": 2.6
+            },
+            "label": "Ô chọn đơn",
+            "detail": "Tick từng đơn, hoặc ô ở tiêu đề bảng để chọn tất cả đơn chờ."
+          },
+          {
+            "n": 3,
+            "xPct": 18.9,
+            "yPct": 25.8,
+            "boxPct": {
+              "x": 15.6,
+              "y": 23.7,
+              "w": 6.6,
+              "h": 4.2
+            },
+            "label": "Push 3 đơn",
+            "detail": "Đẩy toàn bộ đơn đã tick vào sản xuất."
+          },
+          {
+            "n": 4,
+            "xPct": 93.7,
+            "yPct": 52.9,
+            "boxPct": {
+              "x": 92,
+              "y": 51.1,
+              "w": 3.4,
+              "h": 3.7
+            },
+            "label": "Push",
+            "detail": "Đẩy riêng một đơn."
+          }
+        ]
+      },
+      {
+        "flow": "push",
+        "step": 2,
+        "file": "push-02-dialog.webp",
+        "width": 736,
+        "height": 462,
+        "screen": "/portal/orders/2d?status=pending",
+        "shows": "Hộp xác nhận Push to production: giá chốt từng sản phẩm theo hạng của bạn và tổng tiền trước khi đẩy.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 19.8,
+            "yPct": 12.4,
+            "boxPct": {
+              "x": 6.5,
+              "y": 9.2,
+              "w": 26.7,
+              "h": 6.5
+            },
+            "label": "Push to production — 3 đơn",
+            "detail": "Số đơn sẽ được đẩy vào sản xuất."
+          },
+          {
+            "n": 2,
+            "xPct": 80.5,
+            "yPct": 33.1,
+            "boxPct": {
+              "x": 67.6,
+              "y": 27.5,
+              "w": 25.8,
+              "h": 11.2
+            },
+            "label": "$11.84 = $11.84",
+            "detail": "Đơn giá × số lượng của từng sản phẩm, đã áp ưu đãi nếu có."
+          },
+          {
+            "n": 3,
+            "xPct": 25.6,
+            "yPct": 87.9,
+            "boxPct": {
+              "x": 6.5,
+              "y": 84.6,
+              "w": 38.2,
+              "h": 6.5
+            },
+            "label": "Tổng cộng: $53.80",
+            "detail": "Tổng tiền chốt tại thời điểm push."
+          },
+          {
+            "n": 4,
+            "xPct": 82.9,
+            "yPct": 86.3,
+            "boxPct": {
+              "x": 72.3,
+              "y": 81.3,
+              "w": 21.2,
+              "h": 10
+            },
+            "label": "Xác nhận push (3)",
+            "detail": "Xác nhận để đưa đơn vào sản xuất."
+          }
+        ]
+      },
+      {
+        "flow": "push",
+        "step": 3,
+        "file": "push-03-status.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/portal/orders/2d",
+        "shows": "Danh sách đơn sau khi push: đơn chuyển trạng thái và hiện chặng sản xuất đang ở.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 30.6,
+            "yPct": 21.3,
+            "boxPct": {
+              "x": 27,
+              "y": 19.1,
+              "w": 7.2,
+              "h": 4.3
+            },
+            "label": "Đang xử lý (19)",
+            "detail": "Đơn đã rời tab Chờ đẩy SX và sang tab trạng thái mới."
+          },
+          {
+            "n": 2,
+            "xPct": 78.3,
+            "yPct": 30.6,
+            "boxPct": {
+              "x": 75.5,
+              "y": 28.9,
+              "w": 5.5,
+              "h": 3.4
+            },
+            "label": "Đang xử lý",
+            "detail": "Trạng thái đơn sau khi push."
+          },
+          {
+            "n": 3,
+            "xPct": 78.1,
+            "yPct": 33.1,
+            "boxPct": {
+              "x": 75.5,
+              "y": 31.7,
+              "w": 5.1,
+              "h": 2.8
+            },
+            "label": "Tiếp nhận đơn",
+            "detail": "Chặng sản xuất hiện tại của đơn."
+          },
+          {
+            "n": 4,
+            "xPct": 23.1,
+            "yPct": 31.1,
+            "boxPct": {
+              "x": 19.3,
+              "y": 29.6,
+              "w": 7.6,
+              "h": 2.9
+            },
+            "label": "#CC-25844-50223",
+            "detail": "Bấm mã đơn để xem chi tiết và tiến trình."
+          }
+        ]
+      },
+      {
+        "flow": "push",
+        "step": 4,
+        "file": "push-04-detail.webp",
+        "width": 1440,
+        "height": 1080,
+        "screen": "/portal/orders/CC-25844-50223",
+        "shows": "Trang chi tiết đơn: mã sản xuất, trạng thái, dòng thời gian các chặng sản xuất, thiết kế, link tra cứu công khai, mockup và địa chỉ giao hàng (sửa được sau khi push).",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 25.3,
+            "yPct": 6.4,
+            "boxPct": {
+              "x": 15.6,
+              "y": 4.7,
+              "w": 19.3,
+              "h": 3.5
+            },
+            "label": "#CC-25844-50223",
+            "detail": "Mã sản xuất của đơn."
+          },
+          {
+            "n": 2,
+            "xPct": 43.3,
+            "yPct": 14.5,
+            "boxPct": {
+              "x": 17.4,
+              "y": 12.7,
+              "w": 51.9,
+              "h": 3.5
+            },
+            "label": "Tiến trình sản xuất",
+            "detail": "Các chặng sản xuất, chặng đang làm và mốc thời gian."
+          },
+          {
+            "n": 3,
+            "xPct": 77.5,
+            "yPct": 32.4,
+            "boxPct": {
+              "x": 73.2,
+              "y": 31.1,
+              "w": 8.6,
+              "h": 2.5
+            },
+            "label": "/track/CC-25844-50223",
+            "detail": "Link tra cứu công khai — gửi cho người mua để họ tự theo dõi."
+          },
+          {
+            "n": 4,
+            "xPct": 93.7,
+            "yPct": 67.9,
+            "boxPct": {
+              "x": 90.1,
+              "y": 66,
+              "w": 7.1,
+              "h": 3.7
+            },
+            "label": "Lưu thay đổi",
+            "detail": "Dán link mockup mới rồi lưu — sửa được cả sau khi đã push."
+          },
+          {
+            "n": 5,
+            "xPct": 75.4,
+            "yPct": 92,
+            "boxPct": {
+              "x": 73.2,
+              "y": 90.6,
+              "w": 4.4,
+              "h": 2.8
+            },
+            "label": "Sửa địa chỉ",
+            "detail": "Mở form sửa địa chỉ giao hàng của đơn."
+          }
+        ]
+      },
+      {
+        "flow": "push",
+        "step": 5,
+        "file": "push-05-track.webp",
+        "width": 1440,
+        "height": 900,
+        "screen": "/track/CC-25844-50223",
+        "shows": "Trang tra cứu công khai /track/<mã sản xuất>: người mua xem trạng thái và tiến trình đơn mà không cần tài khoản.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 81.7,
+            "yPct": 11.3,
+            "boxPct": {
+              "x": 78.7,
+              "y": 8.4,
+              "w": 6.1,
+              "h": 5.8
+            },
+            "label": "Tra cứu",
+            "detail": "Người mua dán mã sản xuất vào ô tìm kiếm rồi bấm Tra cứu — không cần đăng nhập."
+          },
+          {
+            "n": 2,
+            "xPct": 23.5,
+            "yPct": 23.1,
+            "boxPct": {
+              "x": 16.9,
+              "y": 20.9,
+              "w": 13.1,
+              "h": 4.2
+            },
+            "label": "CC-25844-50223",
+            "detail": "Mã sản xuất của đơn đang xem."
+          },
+          {
+            "n": 3,
+            "xPct": 38.3,
+            "yPct": 38.6,
+            "boxPct": {
+              "x": 16.9,
+              "y": 36.4,
+              "w": 42.8,
+              "h": 4.2
+            },
+            "label": "Tiến trình sản xuất",
+            "detail": "Tiến trình sản xuất cập nhật theo từng chặng."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "flow": "import",
+    "title": "Import đơn từ file CSV",
+    "steps": [
+      {
+        "flow": "import",
+        "step": 1,
+        "file": "import-01-open.webp",
+        "width": 882,
+        "height": 291,
+        "screen": "/portal/orders/2d/import",
+        "shows": "Trang Import đơn từ file: tải file mẫu, tra SKU sản phẩm, rồi chọn file .csv/.xlsx để xem trước.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 91.8,
+            "yPct": 24.5,
+            "boxPct": {
+              "x": 84.9,
+              "y": 18,
+              "w": 13.9,
+              "h": 13.1
+            },
+            "label": "Tải file mẫu",
+            "detail": "Tải file mẫu đúng định dạng (template OnosPod quen thuộc)."
+          },
+          {
+            "n": 2,
+            "xPct": 79.3,
+            "yPct": 24.5,
+            "boxPct": {
+              "x": 73.4,
+              "y": 17.7,
+              "w": 11.7,
+              "h": 13.7
+            },
+            "label": "Tra SKU",
+            "detail": "Mở danh mục sản phẩm để tra mã SKU điền vào cột sku."
+          },
+          {
+            "n": 3,
+            "xPct": 50,
+            "yPct": 72.6,
+            "boxPct": {
+              "x": 43.9,
+              "y": 66.1,
+              "w": 12.2,
+              "h": 13.1
+            },
+            "label": "Chọn file",
+            "detail": "Chọn file đã điền để hệ thống kiểm tra từng dòng."
+          }
+        ]
+      },
+      {
+        "flow": "import",
+        "step": 2,
+        "file": "import-02-lookup-sku.webp",
+        "width": 780,
+        "height": 788,
+        "screen": "/portal/catalog/Y23G3XHPMVHUBUR7",
+        "shows": "Chi tiết sản phẩm trong Danh mục: bảng Biến thể & giá liệt kê mã SKU của từng màu/cỡ để chép vào file import.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 85.3,
+            "yPct": 3.6,
+            "boxPct": {
+              "x": 72.6,
+              "y": 2,
+              "w": 25.5,
+              "h": 3.2
+            },
+            "label": "Chép SKU để điền cột sku trong file import",
+            "detail": "Gợi ý: chép mã SKU của biến thể cần đặt."
+          },
+          {
+            "n": 2,
+            "xPct": 12.3,
+            "yPct": 11.4,
+            "boxPct": {
+              "x": 2,
+              "y": 8.9,
+              "w": 20.5,
+              "h": 5
+            },
+            "label": "SKU",
+            "detail": "Cột mã SKU — điền đúng mã này vào cột sku của file."
+          },
+          {
+            "n": 3,
+            "xPct": 12.3,
+            "yPct": 16.3,
+            "boxPct": {
+              "x": 2,
+              "y": 12.7,
+              "w": 20.5,
+              "h": 7.3
+            },
+            "label": "UT-5000-NAY-S",
+            "detail": "Mỗi dòng là một biến thể (màu + cỡ) với SKU riêng."
+          }
+        ]
+      },
+      {
+        "flow": "import",
+        "step": 3,
+        "file": "import-03-preview-errors.webp",
+        "width": 886,
+        "height": 274,
+        "screen": "/portal/orders/2d/import",
+        "shows": "Bảng xem trước khi file còn lỗi: ô sai bị bôi đỏ kèm lý do, cột Sản phẩm hệ thống báo SKU không tồn tại, nút Import bị khóa.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 15.3,
+            "yPct": 11.2,
+            "boxPct": {
+              "x": 12.2,
+              "y": 6.2,
+              "w": 6.1,
+              "h": 10
+            },
+            "label": "2 ô lỗi",
+            "detail": "Tổng số ô lỗi cần sửa trong file."
+          },
+          {
+            "n": 2,
+            "xPct": 84.5,
+            "yPct": 66.3,
+            "boxPct": {
+              "x": 81.5,
+              "y": 56.3,
+              "w": 6.1,
+              "h": 20.1
+            },
+            "label": "Số lượng phải là số nguyên dương",
+            "detail": "Ô số lượng sai định dạng — phải là số nguyên dương."
+          },
+          {
+            "n": 3,
+            "xPct": 53.5,
+            "yPct": 85.7,
+            "boxPct": {
+              "x": 41.6,
+              "y": 77.8,
+              "w": 23.7,
+              "h": 15.7
+            },
+            "label": "SKU \"WT-5000L-WHE-MX\" không tồn tại trong catalog",
+            "detail": "SKU không khớp sản phẩm nào trong danh mục — kiểm lại mã."
+          },
+          {
+            "n": 4,
+            "xPct": 90.9,
+            "yPct": 11.2,
+            "boxPct": {
+              "x": 83.5,
+              "y": 4.3,
+              "w": 14.8,
+              "h": 13.9
+            },
+            "label": "Import 2 đơn",
+            "detail": "Chỉ bấm được khi file hết lỗi; sửa file rồi chọn lại."
+          }
+        ]
+      },
+      {
+        "flow": "import",
+        "step": 4,
+        "file": "import-04-preview-valid.webp",
+        "width": 886,
+        "height": 256,
+        "screen": "/portal/orders/2d/import",
+        "shows": "File đã sửa: mọi dòng hợp lệ, cột Sản phẩm hệ thống hiện đúng sản phẩm, biến thể và giá cho từng SKU.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 18.5,
+            "yPct": 12,
+            "boxPct": {
+              "x": 12.2,
+              "y": 6.7,
+              "w": 12.5,
+              "h": 10.7
+            },
+            "label": "Tất cả dòng hợp lệ",
+            "detail": "Không còn ô lỗi — sẵn sàng import."
+          },
+          {
+            "n": 2,
+            "xPct": 55.2,
+            "yPct": 48.6,
+            "boxPct": {
+              "x": 45.9,
+              "y": 41.3,
+              "w": 18.7,
+              "h": 14.6
+            },
+            "label": "USA Gildan - Heavy Cotton™ T-Shirt - 5000",
+            "detail": "Sản phẩm hệ thống nhận ra từ SKU: kiểm tên, màu/cỡ và giá trước khi import."
+          },
+          {
+            "n": 3,
+            "xPct": 90.9,
+            "yPct": 12,
+            "boxPct": {
+              "x": 83.5,
+              "y": 4.6,
+              "w": 14.8,
+              "h": 14.8
+            },
+            "label": "Import 2 đơn",
+            "detail": "Tạo toàn bộ đơn trong file ở trạng thái Chờ đẩy SX."
+          }
+        ]
+      },
+      {
+        "flow": "import",
+        "step": 5,
+        "file": "import-05-result.webp",
+        "width": 882,
+        "height": 140,
+        "screen": "/portal/orders/2d/import",
+        "shows": "Kết quả import: số đơn tạo mới / trùng / lỗi và trạng thái từng đơn theo order_id.",
+        "callouts": [
+          {
+            "n": 1,
+            "xPct": 5.2,
+            "yPct": 22,
+            "boxPct": {
+              "x": 1.2,
+              "y": 12.2,
+              "w": 7.9,
+              "h": 19.5
+            },
+            "label": "2 tạo mới",
+            "detail": "Số đơn đã tạo thành công."
+          },
+          {
+            "n": 2,
+            "xPct": 93.8,
+            "yPct": 52.7,
+            "boxPct": {
+              "x": 90.2,
+              "y": 43.4,
+              "w": 7,
+              "h": 18.6
+            },
+            "label": "Đã tạo",
+            "detail": "Trạng thái từng đơn theo order_id trong file."
+          },
+          {
+            "n": 3,
+            "xPct": 91.5,
+            "yPct": 22,
+            "boxPct": {
+              "x": 84.3,
+              "y": 8.4,
+              "w": 14.5,
+              "h": 27.1
+            },
+            "label": "Xem đơn vừa tạo",
+            "detail": "Mở tab Chờ đẩy SX để đẩy các đơn vừa tạo vào sản xuất."
+          }
+        ]
+      }
+    ]
+  }
+]

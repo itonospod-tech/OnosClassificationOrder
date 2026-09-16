@@ -41,7 +41,19 @@ export const ordersRegistry: AgentTableSpec = {
     cancelledAt: plain('date', 'Khác rỗng = đơn ĐÃ HỦY, bị loại khỏi mọi công đoạn và thống kê'),
     cancelReason: freeText('Lý do hủy, người vận hành gõ tay'),
     heldAt: plain('date', 'Khác rỗng = đơn đang bị GIỮ, không chạy tiếp công đoạn nào'),
-    holdReason: freeText('Lý do giữ đơn, người vận hành gõ tay'),
+    holdReason: freeText('Lý do giữ đơn, người vận hành gõ tay. "Giữ theo OnosPod" = hệ thống tự giữ theo OnosPod'),
+    holdSource: plain(
+      'enum',
+      'Nguồn lượt giữ: manual = nhân viên giữ, onospod = hệ thống tự giữ theo trạng thái On Hold bên OnosPod. Đơn đang giữ mà rỗng = manual',
+    ),
+    onospodHold: plain(
+      'object',
+      'Cờ "OnosPod đang giữ" {onHoldAt, seenAt} — có khi item bên OnosPod đang On Hold, kể cả khi đơn bên mình không bị giữ (đã xong / nhân viên đã mở giữ)',
+    ),
+    onospodHoldDismissedAt: plain(
+      'date',
+      'Mốc đợt giữ OnosPod mà nhân viên đã mở giữ — hệ thống không tự giữ lại đợt đó',
+    ),
 
     orderAt: plain('date'),
     inProductionAt: plain('date', 'Ngày đơn vào sản xuất — trục thời gian của hầu hết thống kê'),

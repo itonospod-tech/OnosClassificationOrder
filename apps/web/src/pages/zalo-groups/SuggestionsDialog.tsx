@@ -68,7 +68,10 @@ export default function SuggestionsDialog({ onClose, onApplied }: Props) {
         try {
           await RepositoryRemote.zaloGroup.updateLink(idByGroup[s.groupGlobalId], {
             kind: ZaloGroupKind.Seller,
-            customerId: s.customerId,
+            // `create` = mã có thật nhưng chưa có khách nào mang mã đó; server
+            // tạo khách rồi ghép trong CÙNG một lần gọi, để ops không phải sang
+            // trang khác tạo tay rồi quay lại (thực tế là họ bỏ luôn).
+            ...(s.action === 'create' ? { newCustomerSku: s.userSku } : { customerId: s.customerId }),
           });
           ok += 1;
         } catch (error) {
@@ -132,7 +135,15 @@ export default function SuggestionsDialog({ onClose, onApplied }: Props) {
                       />
                     </TableCell>
                     <TableCell className="text-sm">{s.title || t('table.noTitle')}</TableCell>
-                    <TableCell className="font-mono text-sm">{s.userSku}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {s.userSku}
+                      {s.action === 'create' && (
+                        <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 font-sans text-[10px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                          {t('suggestions.willCreate')}
+                        </span>
+                      )}
+                      {s.customerName && <div className="font-sans text-xs text-slate-500">{s.customerName}</div>}
+                    </TableCell>
                     <TableCell>
                       <span
                         className={cn(

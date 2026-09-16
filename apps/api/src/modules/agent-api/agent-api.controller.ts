@@ -1,7 +1,9 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post, Query, UseFilters, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post, Query, Res, UseFilters, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import type { FastifyReply } from 'fastify';
 import type { CeoOverview, CeoReport } from 'shared';
+import type { GetCustomerReportResDto } from 'shared';
 import {
   AgentQueryPayload,
   CeoOverviewQueryDto,
@@ -16,6 +18,14 @@ import {
   ReadAgentTableQueryDto,
   ReadAgentTableResDto,
 } from 'shared';
+import {
+  AgentZaloSendDto,
+  type AgentZaloSendResDto,
+  GetAgentZaloInboxDto,
+  type GetAgentZaloInboxResDto,
+  GetAgentZaloMessagesDto,
+  type GetAgentZaloMessagesResDto,
+} from 'shared';
 import { Logger } from 'winston';
 
 import { Auth } from '@/decorators';
@@ -23,7 +33,8 @@ import { SWAGGER_AGENT_KEY_SECURITY } from '@/setup-swagger';
 
 import { CeoDashboardService } from '../ceo-dashboard/ceo-dashboard.service';
 import { CeoReportService } from '../ceo-dashboard/ceo-report.service';
-import { AGENT_API_RATE_LIMIT_PER_MIN, AGENT_API_RATE_LIMIT_TTL_MS } from './agent-api.constants';
+import { CustomerReportService } from '../customer-report/customer-report.service';
+import { AGENT_API_RATE_LIMIT_PER_MIN, AGENT_API_RATE_LIMIT_TTL_MS, AGENT_ZALO_SEND_PER_MIN } from './agent-api.constants';
 import { AgentApiKeyGuard } from './agent-api-key.guard';
 import { AgentAuditService } from './agent-audit.service';
 import { AgentDocsService } from './agent-docs.service';
@@ -32,6 +43,9 @@ import { AgentQueryService } from './agent-query.service';
 import { AgentReadService } from './agent-read.service';
 import { AgentSellerSupportService } from './agent-seller-support.service';
 import { AGENT_SWAGGER_DESCRIPTION, agentSummary } from './agent-swagger-guide';
+import { AgentZaloInboundService } from './agent-zalo-inbound.service';
+import { AgentZaloReadService } from './agent-zalo-read.service';
+import { AgentZaloSendService } from './agent-zalo-send.service';
 
 /**
  * Bộ API nội bộ cho AI agent (`API-1`) — xem
@@ -96,6 +110,10 @@ export class AgentApiController {
     private readonly sellerSupport: AgentSellerSupportService,
     private readonly ceo: CeoDashboardService,
     private readonly ceoReports: CeoReportService,
+    private readonly customerReports: CustomerReportService,
+    private readonly zaloSend: AgentZaloSendService,
+    private readonly zaloRead: AgentZaloReadService,
+    private readonly zaloInbound: AgentZaloInboundService,
     private readonly audit: AgentAuditService,
     @Inject('winston') private readonly logger: Logger,
   ) {}
@@ -280,6 +298,188 @@ export class AgentApiController {
     const report = await this.ceoReports.getLatest(q.from, q.to);
     this.audit.write({ capability: 'ceo_report', queryDigest: { from: q.from, to: q.to }, returned: report ? 1 : 0, durationMs: Date.now() - startedAt, outcome: 'ok' });
     return { success: true, data: { report, generating: this.ceoReports.isGenerating(q.from, q.to) } };
+  }
+
+  /**
+   * Ảnh báo cáo dựng SẴN phía máy chủ (PNG) — agent tải rồi gửi thẳng
+   * Telegram/Zalo, KHÔNG phải tự vẽ.
+   *
+   * Nhận MỌI khoảng ngày (khác `ceo-report` vốn phải khớp đúng kỳ đã sinh): số
+   * liệu luôn dựng được, còn nhận định thì có mới in, chưa có thì ảnh chỉ gồm
+   * số. Trả nhị phân nên KHÔNG bọc `{success, data}` như các endpoint khác.
+   */
+  /**
+   * Báo cáo KHÁCH HÀNG cho kỳ — song song `ceo-report`, cùng luật khớp
+   * `periodKey` chính xác. Cron sinh 07:15 mỗi sáng cho cửa sổ 7 ngày kết thúc
+   * ở hôm qua; kỳ khác thì `null` cho tới khi có người sinh.
+   */
+  @Get('customer-report')
+  @Auth([], [], { public: true })
+  @Throttle({ default: { limit: AGENT_API_RATE_LIMIT_PER_MIN, ttl: AGENT_API_RATE_LIMIT_TTL_MS } })
+  @ApiOperation({ summary: 'Báo cáo khách hàng cho kỳ (from/to) — tiếng Việt viết sẵn, kèm khách tăng/tụt và vướng mắc' })
+  @HttpCode(HttpStatus.OK)
+  async getCustomerReport(@Query() q: CeoOverviewQueryDto): Promise<GetCustomerReportResDto> {
+    const startedAt = Date.now();
+    this.log('GET', '/agent/customer-report');
+    const report = await this.customerReports.getLatest(q.from, q.to);
+    this.audit.write({ capability: 'customer_report', queryDigest: { from: q.from, to: q.to }, returned: report ? 1 : 0, durationMs: Date.now() - startedAt, outcome: 'ok' });
+
+    return { success: true, data: { report, generating: this.customerReports.isGenerating(q.from, q.to) } };
+  }
+
+  /**
+   * GỬI tin Zalo — ngoại lệ DUY NHẤT của luật chỉ-đọc (BR-3).
+   *
+   * Chốt chặn ở `agent-zalo-send.logic.ts`: chỉ nhóm `internal`/`operation`,
+   * CẤM nhóm khách và nhóm chưa phân loại; `conversationId` (nếu truyền) phải
+   * thuộc đúng nhóm đó. Mọi lượt gửi đều vào nhật ký kèm nội dung — nhắn ra
+   * ngoài mà không có vết thì sau này không truy được ai đã nói gì.
+   */
+  @Post('zalo/send')
+  @Auth([], [], { public: true })
+  @Throttle({ default: { limit: AGENT_ZALO_SEND_PER_MIN, ttl: AGENT_API_RATE_LIMIT_TTL_MS } })
+  @ApiOperation({ summary: 'Gửi tin vào nhóm Zalo nội bộ/vận hành (CẤM nhóm khách)' })
+  @HttpCode(HttpStatus.OK)
+  async sendZalo(@Body() dto: AgentZaloSendDto): Promise<AgentZaloSendResDto> {
+    const startedAt = Date.now();
+    this.log('POST', '/agent/zalo/send');
+    try {
+      // Chế độ chọn bằng sự có mặt của `groupGlobalId`, không bằng suy đoán:
+      // hai đường có HAI chốt chặn khác nhau (phân loại nhóm vs vai người nhận).
+      const data = dto.groupGlobalId
+        ? await this.zaloSend.guiTinNhom(dto.groupGlobalId, dto.content, { conversationId: dto.conversationId, accountName: dto.accountName, allowFallback: dto.allowFallback })
+        : await this.zaloSend.guiTinRieng(dto.conversationId as string, dto.content);
+      this.audit.write({
+        capability: 'zalo_send',
+        queryDigest: {
+          groupGlobalId: dto.groupGlobalId,
+          conversationId: data.conversationId,
+          // Ghi vết ai nhận: đường DM không có tên nhóm để tra ngược sau này.
+          recipient: 'recipient' in data ? data.recipient : undefined,
+          // Ghi vết nick đã gửi: danh tính bộ phận là thứ người trong nhóm nhìn thấy.
+          sentAsNick: data.sentAsNick,
+          content: dto.content.slice(0, DIGEST_MAX),
+        },
+        returned: 1,
+        durationMs: Date.now() - startedAt,
+        outcome: 'ok',
+      });
+
+      return { success: true, data };
+    } catch (e) {
+      // Ghi vết cả lượt BỊ CHẶN: biết agent định nhắn vào đâu quan trọng ngang
+      // biết nó đã nhắn gì.
+      this.audit.write({
+        capability: 'zalo_send',
+        queryDigest: { groupGlobalId: dto.groupGlobalId, content: dto.content.slice(0, DIGEST_MAX), loi: e instanceof Error ? e.message : String(e) },
+        returned: 0,
+        durationMs: Date.now() - startedAt,
+        outcome: 'error',
+      });
+      throw e;
+    }
+  }
+
+  /**
+   * ĐỌC tin của một nhóm — nền của cả ba nguồn kích hoạt.
+   *
+   * Cùng chốt loại nhóm với đường gửi: agent không đọc được nhóm khách hàng.
+   * Đọc nhóm khách còn nặng hơn gửi nhầm — gửi nhầm thì người ta thấy và mắng,
+   * còn đọc lén thì không ai biết.
+   */
+  @Get('zalo/groups/:groupGlobalId/messages')
+  @Auth([], [], { public: true })
+  @ApiOperation({ summary: 'Đọc tin của một nhóm Zalo nội bộ/vận hành' })
+  @HttpCode(HttpStatus.OK)
+  async zaloMessages(
+    @Param('groupGlobalId') groupGlobalId: string,
+    @Query() q: GetAgentZaloMessagesDto,
+  ): Promise<GetAgentZaloMessagesResDto> {
+    const startedAt = Date.now();
+    this.log('GET', `/agent/zalo/groups/${groupGlobalId}/messages`);
+    const data = await this.zaloRead.tinCuaNhom(groupGlobalId, q.limit ?? 50, q.since);
+    this.audit.write({
+      capability: 'zalo_read',
+      queryDigest: { groupGlobalId, limit: q.limit, since: q.since },
+      returned: data.length,
+      durationMs: Date.now() - startedAt,
+      outcome: 'ok',
+    });
+
+    return { success: true, data, total: data.length };
+  }
+
+  /**
+   * ĐỌC tin của một hội thoại RIÊNG.
+   *
+   * Cùng chốt với đường gửi riêng — mặc định cấm, chỉ `chairman`/`staff`. Đọc
+   * trộm tin riêng của một người chưa ai xác định là ai còn khó biện minh hơn
+   * nhắn nhầm cho họ: nhắn nhầm thì người ta thấy, đọc thì không.
+   */
+  @Get('zalo/dm/:conversationId/messages')
+  @Auth([], [], { public: true })
+  @ApiOperation({ summary: 'Đọc tin của một hội thoại riêng (chỉ nhân viên/chủ tịch)' })
+  @HttpCode(HttpStatus.OK)
+  async zaloDmMessages(
+    @Param('conversationId') conversationId: string,
+    @Query() q: GetAgentZaloMessagesDto,
+  ): Promise<GetAgentZaloMessagesResDto> {
+    const startedAt = Date.now();
+    this.log('GET', `/agent/zalo/dm/${conversationId}/messages`);
+    const data = await this.zaloRead.tinCuaDm(conversationId, q.limit ?? 50, q.since);
+    this.audit.write({
+      capability: 'zalo_read',
+      queryDigest: { conversationId, limit: q.limit, since: q.since, dm: true },
+      returned: data.length,
+      durationMs: Date.now() - startedAt,
+      outcome: 'ok',
+    });
+
+    return { success: true, data, total: data.length };
+  }
+
+  /**
+   * Hộp thư sự kiện đã lọc — đường lui khi máy bên nhận sập.
+   *
+   * Cùng một kho với đường đẩy webhook, không phải hai nguồn dữ liệu song song:
+   * hai nguồn thì sớm muộn lệch nhau, và lúc đó không ai biết cái nào đúng.
+   */
+  @Get('zalo/inbox')
+  @Auth([], [], { public: true })
+  @ApiOperation({ summary: 'Sự kiện Zalo đáng đánh thức agent, từ một con trỏ' })
+  @HttpCode(HttpStatus.OK)
+  async zaloInbox(@Query() q: GetAgentZaloInboxDto): Promise<GetAgentZaloInboxResDto> {
+    const startedAt = Date.now();
+    this.log('GET', '/agent/zalo/inbox');
+    const r = await this.zaloInbound.hopThu(q.cursor, q.since, q.limit ?? 50);
+    this.audit.write({
+      capability: 'zalo_inbox',
+      queryDigest: { cursor: q.cursor, since: q.since },
+      returned: r.total,
+      durationMs: Date.now() - startedAt,
+      outcome: 'ok',
+    });
+
+    return { success: true, ...r };
+  }
+
+  @Get('ceo-report/chart.png')
+  @Auth([], [], { public: true })
+  @Throttle({ default: { limit: AGENT_API_RATE_LIMIT_PER_MIN, ttl: AGENT_API_RATE_LIMIT_TTL_MS } })
+  @ApiOperation({ summary: 'Ảnh PNG báo cáo điều hành cho kỳ (from/to) — dựng sẵn để gửi Telegram/Zalo' })
+  @HttpCode(HttpStatus.OK)
+  async getCeoReportChart(@Query() q: CeoOverviewQueryDto, @Res() reply: FastifyReply): Promise<void> {
+    const startedAt = Date.now();
+    this.log('GET', '/agent/ceo-report/chart.png');
+    const png = await this.ceoReports.renderChartPng(q.from, q.to);
+    this.audit.write({ capability: 'ceo_report_chart', queryDigest: { from: q.from, to: q.to }, returned: 1, durationMs: Date.now() - startedAt, outcome: 'ok' });
+    void reply
+      .header('content-type', 'image/png')
+      .header('content-disposition', `inline; filename="ceo-${q.from}_${q.to}.png"`)
+      // Ảnh của một kỳ đã chốt không đổi nữa; cho phép cache ngắn để agent gọi
+      // lại nhiều lần trong một phiên trả lời không dựng lại.
+      .header('cache-control', 'private, max-age=300')
+      .send(png);
   }
 
   @Get('docs')
