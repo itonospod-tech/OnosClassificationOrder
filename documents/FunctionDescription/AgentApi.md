@@ -7,6 +7,9 @@
 > **API:** `/api/v1/agent/*`
 > **Nguồn yêu cầu:** task `API-1` — SRS `.devtasks/srs/API-1.md`, thiết kế `.devtasks/design/API-1.md`. **Mở hết bề mặt ở `API-19`.**
 
+
+> **`meta` của `/query` và `/read_rows`** (bổ sung 16/09/2026): ngoài `table`/`returned`/`limitApplied` nay luôn có **`hasMore`** — đo bằng cách đọc dư một dòng rồi cắt, nên phân biệt được "hết dữ liệu" với "bị trần cắt"; `read_rows` cũng chỉ trả `nextCursor` khi thật sự còn dòng phía sau. **`total`** chỉ xuất hiện khi bên gọi xin `select.withTotal: true` (mặc định tắt: mỗi lần đếm là một lần quét thêm). Lý do thêm: trần lô bị kẹp im lặng đã khiến một đợt đọc bị cắt ở 200 dòng được hiểu thành thiếu dữ liệu thật.
+
 ## 1. Overview
 
 Bộ API phục vụ một AI agent nội bộ trả lời khách hàng qua tin nhắn. Agent cần hai thứ: **hiểu nghiệp vụ** (đọc tài liệu) và **tra được dữ liệu thực** (đọc đơn của khách).

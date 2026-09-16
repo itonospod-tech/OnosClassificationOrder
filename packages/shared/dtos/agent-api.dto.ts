@@ -113,6 +113,15 @@ export const AgentRowsPayloadZod = z.object({
     returned: z.number().int().nonnegative(),
     /** Tran lo thuc su duoc ap — ben goi truyen `limit` lon hon tran thi bi kep xuong day. */
     limitApplied: z.number().int().positive(),
+    /**
+     * Con du lieu phia sau trang nay khong. Do bang cach doc `limit + 1` dong
+     * roi cat bot, nen la su that chu khong phai suy tu `returned === limit`.
+     *
+     * Vi sao can: tran lo bi kep IM LANG, `limitApplied` mot minh khong noi len
+     * dieu gi — doi agent doc thieu duoi bang roi ket luan 22 nhom "khong co
+     * link", mat nua ngay dieu tra mot van de khong ton tai (16/09/2026).
+     */
+    hasMore: z.boolean(),
   }),
 });
 export type AgentRowsPayload = z.infer<typeof AgentRowsPayloadZod>;
@@ -183,6 +192,12 @@ export const AgentSelectZod = z
     sort: AgentSortZod.array().max(3).optional(),
     limit: z.number().int().min(1).optional(),
     offset: z.number().int().min(0).optional(),
+    /**
+     * Xin them tong so dong khop bo loc (`meta.total`). MAC DINH TAT vi mot
+     * lan dem la mot lan quet them; `hasMore` da du de biet minh dang cam du
+     * lieu cat do. Bat khi that su can chia lo theo tong.
+     */
+    withTotal: z.boolean().optional(),
   })
   .strict();
 export type AgentSelect = z.infer<typeof AgentSelectZod>;
@@ -246,6 +261,10 @@ export const AgentQueryPayloadZod = z.object({
     mode: z.enum(['rows', 'aggregate']),
     returned: z.number().int().nonnegative(),
     limitApplied: z.number().int().positive(),
+    /** Con du lieu phia sau trang nay khong — xem `AgentRowsPayloadZod.meta.hasMore`. */
+    hasMore: z.boolean(),
+    /** Tong so dong khop bo loc; CHI co khi goi xin `select.withTotal`. */
+    total: z.number().int().nonnegative().optional(),
   }),
 });
 export type AgentQueryPayload = z.infer<typeof AgentQueryPayloadZod>;

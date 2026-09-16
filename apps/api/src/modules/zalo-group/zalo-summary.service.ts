@@ -324,6 +324,9 @@ export class ZaloSummaryService {
    * theo `lyDoBoQua` rồi quyết, việc dọn để người quyết.
    */
   private async dongDauMoCoi(gidPhanTichDuoc: string[], luc: Date): Promise<void> {
+    // Danh sách rỗng thì `$nin: []` khớp MỌI dòng — một lượt đọc link hỏng sẽ
+    // đóng dấu mồ côi cho toàn bảng. Không có nhóm nào để so thì không so.
+    if (gidPhanTichDuoc.length === 0) return;
     try {
       const r = await this.summaryModel.updateMany(
         { groupGlobalId: { $nin: gidPhanTichDuoc } },
