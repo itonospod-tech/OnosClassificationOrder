@@ -23,7 +23,7 @@
     "importSuccess": "Imported {{imported}}, updated {{updated}}, mapped {{mapped}}/{{total}}",
     "reworkSuccess": "Review: updated {{updated}}, not-found {{notFound}}, cancel {{cancelled}}, assigned designer {{assigneeMatched}}",
     "errorSuffix": " (error)",
-    "onosPodSuccess": "Fetched {{totalFetched}} orders from {{count}} OnosPod factories ({{summary}}): imported {{imported}}, updated {{updated}}, mapped {{mapped}}/{{total}}",
+    "onosPodSuccess": "Fetched {{totalFetched}} orders from {{count}} OnosPod factories ({{summary}}): imported {{imported}}, updated {{updated}}, mapped {{mapped}}/{{total}}, shipping address {{shippingAttached}}",
     "onosPodFailed": "{{count}} factories failed: {{list}}",
     "lastResultNewTitle": "Last import result",
     "lastResultReworkTitle": "Last review result",
@@ -338,7 +338,10 @@
     "clearOption": "— Clear —",
     "newTextLabel": "New text (empty = clear)",
     "notePlaceholder": "Note...",
-    "auditNote": "This action will write an audit log for each order (Phase 3). Cannot be undone."
+    "auditNote": "This action will write an audit log for each order (Phase 3). Cannot be undone.",
+    "printShippingLabelBtn": "Print shipping labels",
+    "printShippingLabelTitle": "Print 4×6 inch shipping labels (one page per order) for the selected orders",
+    "shippingLabelNoAddress": "{{count}} orders have no shipping address and were skipped: {{list}}"
   },
   "cancelledBadge": {
     "label": "Cancelled",
@@ -536,7 +539,10 @@
     "checkDesignUpdated": "Found and applied new design from OnosPod",
     "vnpShipment": "VNP shipment",
     "printCustomerLabel": "Print customer label",
-    "forceComplete": "Mark as completed"
+    "forceComplete": "Mark as completed",
+    "printShippingLabel": "Print shipping label",
+    "shippingLabelNotFound": "Could not load label data for this order (cancelled?).",
+    "shippingLabelNoAddress": "Order {{productionId}} has no shipping address — refusing to print a blank label. Try \"Check new design\" or wait for the OnosPod address cron."
   },
   "orderActions": {
     "alreadyCancelled": "Order already cancelled.",

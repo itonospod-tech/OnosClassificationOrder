@@ -13,7 +13,7 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
-import type { BarcodeLabel, OrderWorkshopField, WorkshopConfigCategory } from 'shared';
+import type { BarcodeLabel, OrderWorkshopField, ShippingLabel, WorkshopConfigCategory } from 'shared';
 import { ORDER_PRIORITIES, ORDER_PRIORITY_LABELS, ORDER_WORKSHOP_FIELDS } from 'shared';
 import { toast } from 'sonner';
 
@@ -36,6 +36,7 @@ import { LucideIcon } from '@/pages/workshop-config/IconPicker';
 import { AssignDesignerDialog } from './AssignDesignerDialog';
 import { BarcodeLabelPrint } from './BarcodeLabelPrint';
 import { CustomerLabelPrint } from './CustomerLabelPrint';
+import { hasShippingAddress, ShippingLabelPrint } from './ShippingLabelPrint';
 import { HOLD_REASON_PRESETS } from './HoldOrderDialog';
 import type { WorkshopOrderRow } from './workshopTableConfig';
 
@@ -125,6 +126,9 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
   const [loadingBarcodes, setLoadingBarcodes] = useState(false);
   // Tem barcode xưởng 75×50mm — cùng vòng đời mount-in-gỡ như labelOrders.
   const [barcodeLabels, setBarcodeLabels] = useState<BarcodeLabel[] | null>(null);
+  const [loadingShipLabels, setLoadingShipLabels] = useState(false);
+  // Label giao hàng 4×6 INCH (Orders.md §16.8) — cùng vòng đời mount-in-gỡ.
+  const [shippingLabels, setShippingLabels] = useState<ShippingLabel[] | null>(null);
 
   // In tem khách hàng loạt — CÙNG con tem 40×60mm với mục "In nhãn khách" ở
   // menu "..." từng dòng (`CustomerLabelPrint`), chỉ khác là truyền N đơn nên
@@ -186,6 +190,45 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
       handleAxiosError(err);
     } finally {
       setLoadingBarcodes(false);
+    }
+  };
+
+  // In label giao hàng 4×6in loạt (Orders.md §16.8) — dữ liệu BE trả sẵn qua
+  // `POST /orders/shipping-labels` (SKU biến thể/cân/tên xưởng/địa chỉ), cùng
+  // lý do chọn-xuyên-trang như 2 nút in trên. Đơn THIẾU ĐỊA CHỈ bị tách ra
+  // cảnh báo kèm productionId (đơn cũ trước ngày kéo địa chỉ từ OnosPod) —
+  // chỉ in phần còn lại, không in tem trống.
+  const handlePrintShippingLabels = async () => {
+    if (selectedIds.length > MAX_LABELS_PER_PRINT) {
+      return toast.error(t('bulkEdit.labelTooMany', { max: MAX_LABELS_PER_PRINT, count: selectedIds.length }));
+    }
+    try {
+      setLoadingShipLabels(true);
+      const res = await RepositoryRemote.order.getShippingLabels({ ids: selectedIds });
+      const rows = (res.data?.data || []) as ShippingLabel[];
+      if (rows.length === 0) return toast.warning(t('bulkEdit.noLabel'));
+      if (rows.length < selectedIds.length) {
+        toast.warning(t('bulkEdit.labelPartial', { count: rows.length, total: selectedIds.length }));
+      }
+      const printable = rows.filter(hasShippingAddress);
+      const missing = rows.filter((r) => !hasShippingAddress(r));
+      if (missing.length > 0) {
+        toast.warning(
+          t('bulkEdit.shippingLabelNoAddress', {
+            count: missing.length,
+            list: missing
+              .slice(0, 5)
+              .map((r) => r.productionId)
+              .join(', '),
+          }),
+        );
+      }
+      if (printable.length === 0) return;
+      setShippingLabels(printable);
+    } catch (err) {
+      handleAxiosError(err);
+    } finally {
+      setLoadingShipLabels(false);
     }
   };
 
@@ -402,6 +445,16 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
           <Button
             variant="outline"
             size="sm"
+            onClick={handlePrintShippingLabels}
+            disabled={loadingShipLabels}
+            title={t('bulkEdit.printShippingLabelTitle')}
+          >
+            {loadingShipLabels ? <Spinner size={13} className="text-muted-foreground" /> : <Printer size={13} />}
+            {t('bulkEdit.printShippingLabelBtn')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExport}
             disabled={exporting}
             title={t('bulkEdit.exportTitle')}
@@ -418,6 +471,8 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
       {labelOrders && <CustomerLabelPrint orders={labelOrders} onDone={() => setLabelOrders(null)} />}
 
       {barcodeLabels && <BarcodeLabelPrint labels={barcodeLabels} onDone={() => setBarcodeLabels(null)} />}
+
+      {shippingLabels && <ShippingLabelPrint labels={shippingLabels} onDone={() => setShippingLabels(null)} />}
 
       <AssignDesignerDialog
         open={assignOpen}

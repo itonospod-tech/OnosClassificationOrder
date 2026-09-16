@@ -149,6 +149,7 @@ export function ImportOrderTab({ onImported }: ImportOrderTabProps) {
       const resp = await RepositoryRemote.order.importFromOnosPod(payload);
       const result = resp.data.data as NewImportResult & {
         totalFetched: number;
+        shippingAttached?: number;
         byManufacture: { id: string; name: string; sku: string; fetched: number; error?: string }[];
       };
       setLastNewResult(result);
@@ -165,6 +166,7 @@ export function ImportOrderTab({ onImported }: ImportOrderTabProps) {
           updated: result.updated,
           mapped: result.mapped,
           total: result.mapped + result.unmapped,
+          shippingAttached: result.shippingAttached ?? 0,
         }),
       );
       const failedManufactures = result.byManufacture.filter((m) => m.error);

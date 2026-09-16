@@ -11,6 +11,7 @@ import type {
   CancelOrderDto,
   ClaimDesignerTasksDto,
   GetBarcodeLabelsDto,
+  GetShippingLabelsDto,
   HoldOrderDto,
   ImportFromOnosPodDto,
   ImportProductionOrdersDto,
@@ -36,6 +37,11 @@ const getOrdersByIds = (query: string = '') => {
 // Dữ liệu tem barcode xưởng — nút "In tem barcode" ở thanh bulk (Orders.md §16.7).
 const getBarcodeLabels = (data: GetBarcodeLabelsDto) => {
   return callApi(`/${CONFIG.API_VERSION}/orders/barcode-labels`, 'post', data);
+};
+
+// Dữ liệu label giao hàng 4×6in — menu "..." + thanh bulk (Orders.md §16.8).
+const getShippingLabels = (data: GetShippingLabelsDto) => {
+  return callApi(`/${CONFIG.API_VERSION}/orders/shipping-labels`, 'post', data);
 };
 
 // Drill-down dashboard — KHÔNG scoping theo role (mọi role thấy cùng tập đơn).
@@ -242,6 +248,7 @@ export const order = {
   getOrders,
   getOrdersByIds,
   getBarcodeLabels,
+  getShippingLabels,
   getOverviewList,
   importOrders,
   importRework,

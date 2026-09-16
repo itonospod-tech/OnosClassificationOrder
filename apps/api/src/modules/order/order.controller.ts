@@ -33,6 +33,8 @@ import {
   FulfillmentStatusCountsResDto,
   GetBarcodeLabelsDto,
   GetBarcodeLabelsResDto,
+  GetShippingLabelsDto,
+  GetShippingLabelsResDto,
   GetCancelledOrdersDto,
   GetCancelledOrdersResDto,
   GetDesignReviewErrorFileOptionsResDto,
@@ -241,6 +243,29 @@ export class OrderController {
       message: JSON.stringify({ method: 'POST', url: '/orders/barcode-labels', userId: user._id, count: dto.ids.length }),
     });
     return { success: true, data: await this.orderService.getBarcodeLabels(dto.ids) };
+  }
+
+  /**
+   * `@Auth([])` chứ KHÔNG `ORDER_VIEW_ROLES` — theo chốt nghiệp vụ label giao
+   * hàng in được ở MỌI công đoạn bởi MỌI role đăng nhập (Designer/Fulfillment/
+   * Support...). Chỉ đọc, không đổi gì trên đơn. POST vì cùng lý do trần URL
+   * với `barcode-labels` ở trên.
+   */
+  @Post('shipping-labels')
+  @Auth([])
+  @ApiOperation({
+    summary: 'Dữ liệu label giao hàng 4×6in theo danh sách _id — menu "..." + thanh bulk (Orders.md §16.8)',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetShippingLabelsResDto })
+  async getShippingLabels(
+    @Body() dto: GetShippingLabelsDto,
+    @AuthUser() user: UserDocument,
+  ): Promise<GetShippingLabelsResDto> {
+    this.logger.info({
+      message: JSON.stringify({ method: 'POST', url: '/orders/shipping-labels', userId: user._id, count: dto.ids.length }),
+    });
+    return { success: true, data: await this.orderService.getShippingLabels(dto.ids) };
   }
 
   @Get('overview-list')

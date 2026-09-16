@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import axios from 'axios';
-import type { DesignFields, ImportFromOnosPodDto, ImportFromOnosPodResDto } from 'shared';
+import type { DesignFields, ImportFromOnosPodDto, ImportFromOnosPodResDto, ProductionOrderShippingAddress } from 'shared';
 
 import { ApiConfigService } from '@/shared/services';
 
 import type { AuditContext } from '../order-log/order-log.service';
+import { OnospodOrderLookupService } from './onospod-order-lookup.service';
 import { OrderService } from './order.service';
 
 const TZ_OFFSET_MINUTES = 7 * 60;
@@ -418,7 +419,16 @@ function extractDesigns(print: MrpPrint | null | undefined): Partial<DesignField
 // từ `print.print_areas_customs` (entry `is_embroidery=true` + `file.src`,
 // match front/back qua key/name) — nguồn mới có từ khi đồng bộ
 // PAGINATE_QUERY với query thật của FE OnosPod.
-function mapItemToRow(item: MrpProductItem) {
+//
+// `shippingAddress`: KHÔNG có trên `paginateMrpProduct` (mức production item
+// cho xưởng) — lấy qua lượt gọi THỨ HAI theo lô `orders(ids)` bên
+// api.onospod.com (`OnospodOrderLookupService.lookupShippingByOrderIds()`),
+// truyền vào đây qua `shippingByOrderId` (key = `item.order_id`). Địa chỉ ở
+// mức ORDER nên các item cùng đơn dùng chung 1 entry. Export cho unit test.
+export function mapItemToRow(
+  item: MrpProductItem,
+  shippingByOrderId?: Map<string, ProductionOrderShippingAddress>,
+) {
   const meta = new Map<string, string>();
   for (const m of item.print?.meta_data || []) {
     if (m?.key && m.value) meta.set(m.key.toLowerCase(), m.value);
@@ -448,6 +458,7 @@ function mapItemToRow(item: MrpProductItem) {
     orderId: item.increment_order_id || undefined,
     orderAt: item.order_id ? formatVnDateTime(objectIdTimestamp(item.order_id)) : undefined,
     inProductionAt: item.mrp_created_at ? formatVnDateTime(new Date(item.mrp_created_at)) : undefined,
+    shippingAddress: item.order_id ? shippingByOrderId?.get(item.order_id) : undefined,
   };
 }
 
@@ -509,6 +520,7 @@ export class OnospodImportService {
   constructor(
     private readonly apiConfigService: ApiConfigService,
     private readonly orderService: OrderService,
+    private readonly onospodOrderLookupService: OnospodOrderLookupService,
   ) {}
 
   async importFromOnosPod(dto: ImportFromOnosPodDto, ctx?: AuditContext): Promise<ImportFromOnosPodResDto> {
@@ -548,6 +560,7 @@ export class OnospodImportService {
           skipped: [],
           totalFetched: 0,
           duplicatesInBatch: 0,
+          shippingAttached: 0,
           period: { start: start.toISOString(), end: end.toISOString() },
           byManufacture: [],
         },
@@ -560,7 +573,20 @@ export class OnospodImportService {
     // ProductConfig như CSV, xem `OrderService.importOrders()`).
     const byManufacture = this.groupByManufacture(allItems);
 
-    const { rows, duplicatesInBatch } = this.dedupeByProductionId(allItems.map(mapItemToRow).filter((r) => r.productionId));
+    // Lượt gọi THỨ HAI: lấy địa chỉ giao của khách theo LÔ `order_id` (Mongo
+    // `_id` order cha, MRP item mang sẵn) qua api.onospod.com — địa chỉ ở mức
+    // ORDER, `paginateMrpProduct` (mức production item) không có. Dedupe theo
+    // order_id trước (đơn nhiều item chỉ tra 1 lần). Bước LÀM GIÀU dữ liệu:
+    // `lookupShippingByOrderIds()` không bao giờ throw — OnosPod order API
+    // lỗi/thiếu config (ONOSPOD_API_*) thì import vẫn chạy, chỉ thiếu địa chỉ.
+    const shippingByOrderId = await this.onospodOrderLookupService.lookupShippingByOrderIds(
+      allItems.map((item) => item.order_id || ''),
+    );
+
+    const { rows, duplicatesInBatch } = this.dedupeByProductionId(
+      allItems.map((item) => mapItemToRow(item, shippingByOrderId)).filter((r) => r.productionId),
+    );
+    const shippingAttached = rows.filter((r) => r.shippingAddress).length;
 
     const importResult = await this.orderService.importOrders({ rows }, ctx);
 
@@ -570,6 +596,7 @@ export class OnospodImportService {
         ...importResult.data,
         totalFetched: allItems.length,
         duplicatesInBatch,
+        shippingAttached,
         period: { start: start.toISOString(), end: end.toISOString() },
         byManufacture,
       },

@@ -760,6 +760,12 @@ export const ImportFromOnosPodResZod = ResZod.extend({
     // trang, hoặc trùng giữa 2 manufacture.
     duplicatesInBatch: z.number(),
     period: z.object({ start: z.string(), end: z.string() }),
+    // Số row được gắn `shippingAddress` từ lượt gọi thứ hai `orders(ids)`
+    // bên api.onospod.com (địa chỉ giao của khách, mức ORDER — xem Orders.md
+    // §3.6). 0 hoặc thấp bất thường = OnosPod order API lỗi/thiếu config
+    // ONOSPOD_API_* (import vẫn chạy, chỉ thiếu địa chỉ — xem log
+    // `onospodShippingBatch`).
+    shippingAttached: z.number().optional(),
     // Pull từ TẤT CẢ manufacture của account trong 1 lượt phân trang duy
     // nhất (không truyền `manufacture_id`) — group lại từ field `manufacture`
     // có sẵn trên mỗi item, KHÔNG loop gọi riêng từng manufacture nữa nên
@@ -1417,6 +1423,40 @@ export const BarcodeLabelZod = z.object({
 export type BarcodeLabel = z.infer<typeof BarcodeLabelZod>;
 export const GetBarcodeLabelsResZod = ResZod.extend({ data: z.array(BarcodeLabelZod) });
 export class GetBarcodeLabelsResDto extends createZodDto(extendApi(GetBarcodeLabelsResZod)) {}
+
+/**
+ * Label giao hàng 4×6 INCH kiểu carrier (Orders.md §16.8) — "DO NOT SHIP",
+ * barcode Code128 = `productionId` trần (KHÔNG prefix `N-`), địa chỉ người
+ * nhận từ `shippingAddress`, ảnh mockup + seller/size/color. In được ở MỌI
+ * công đoạn, MỌI role. BE resolve sẵn SKU biến thể + cân nặng — FE chỉ render.
+ */
+export const GetShippingLabelsZod = z.object({
+  ids: z.array(IDZod).min(1).max(500),
+});
+export class GetShippingLabelsDto extends createZodDto(extendApi(GetShippingLabelsZod)) {}
+export const ShippingLabelZod = z.object({
+  _id: z.string(),
+  productionId: z.string(),
+  /** Mã seller (in dòng "Seller:"). */
+  userSku: z.string().optional(),
+  /** Merchant ID trên label. */
+  orderId: z.string().optional(),
+  size: z.string().optional(),
+  color: z.string().optional(),
+  quantity: z.number().optional(),
+  mockupUrl: z.string().optional(),
+  /** Tên xưởng gửi — resolve từ `factoryId`. */
+  factoryName: z.string().optional(),
+  /** SKU biến thể ĐẦY ĐỦ khớp size (vd `PAOPPOLO-SAME-DESIGN-3XL`) — KHÁC
+   *  `BarcodeLabel.sku` (đã gọt đuôi size). Không khớp → SKU cấp sản phẩm. */
+  sku: z.string().optional(),
+  /** Cân nặng GRAM: `order.weight` ?? biến thể khớp size ?? default sản phẩm. */
+  weightGram: z.number().optional(),
+  shippingAddress: ProductionOrderShippingAddressZod.optional(),
+});
+export type ShippingLabel = z.infer<typeof ShippingLabelZod>;
+export const GetShippingLabelsResZod = ResZod.extend({ data: z.array(ShippingLabelZod) });
+export class GetShippingLabelsResDto extends createZodDto(extendApi(GetShippingLabelsResZod)) {}
 
 export const TransferOrderResZod = ResZod.extend({
   data: z.object({ matched: z.number(), modified: z.number() }),
