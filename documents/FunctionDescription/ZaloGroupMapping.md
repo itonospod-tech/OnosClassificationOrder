@@ -638,13 +638,21 @@ phần tóm tắt phía sau hỏng) và **không upsert** — nhóm chưa từng
 không đẻ bản ghi rỗng, vì bên đọc đếm số dòng bảng này ra "số nhóm có tóm tắt".
 
 **Bản tóm tắt mồ côi** (`lyDoBoQua = 'khong-co-link-phan-tich'`): có dòng trong
-`zalo_group_summaries` nhưng `groupGlobalId` không còn nhóm phân tích được nào
-mang. Đo 16/09 trên prod: **22/153 bản**. Nguồn gốc gần như chắc chắn là đợt gộp
-hai engine Zalo (11/09) — mỗi engine tự cấp id, đợt gộp khớp hội thoại theo khoá
-tự nhiên chứ không theo id, nên bản tóm tắt sinh ở thời engine cũ trỏ vào một id
-không còn tồn tại. Lượt quét **chỉ đánh dấu, KHÔNG xoá**: bản mồ côi vẫn là tóm
-tắt thật của một nhóm thật và thường còn ghi việc đang treo; xoá là mất luôn
-phần đó. Muốn dọn thì đối chiếu theo `title` trước rồi quyết từng bản.
+`zalo_group_summaries` nhưng `groupGlobalId` không nhóm phân tích được nào mang.
+Đây là **lưới an toàn, không phải hiện trạng** — đo trên prod 16/09/2026: **0
+bản**, đúng như thiết kế, vì `assertDuocDocChat()` đòi có link trước khi sinh
+tóm tắt và không có đường nào xoá link (sync chỉ upsert, API không có delete).
+
+> Đợt đo đầu tiên báo 22 bản mồ côi và suýt thành một cuộc điều tra thật. Con số
+> đó là ảo: `POST /agent/query` kẹp trần 200 dòng **im lặng**, bên đọc xin 500,
+> nhận 200, và 22 nhóm nằm ngoài trang đầu bị hiểu thành "không có link". Từ đó
+> `meta.hasMore` ra đời (xem `AgentApi.md`). Bài học cho chỗ này: **trước khi kết
+> luận một bảng thiếu dữ liệu, kiểm xem mình có đọc hết bảng không.**
+
+Nếu sau này có bản rơi vào diện mồ côi thật, lượt quét **chỉ đánh dấu, KHÔNG
+xoá**: bản mồ côi vẫn là tóm tắt thật của một nhóm thật và thường còn ghi việc
+đang treo; xoá là mất luôn phần đó. Muốn dọn thì đối chiếu theo `title` rồi quyết
+từng bản.
 
 ⚠️ **Hai chỗ còn đóng băng thật, chưa vá:**
 
