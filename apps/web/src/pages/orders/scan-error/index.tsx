@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import axios from 'axios';
-import { CheckCircle2, History, Keyboard, Loader2, ScanLine, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, History, Keyboard, Loader2, Printer, ScanLine, Trash2, XCircle } from 'lucide-react';
 import type { FulfillmentStage, ProductionOrderRow } from 'shared';
 import { toast } from 'sonner';
 
@@ -21,6 +21,7 @@ import { beepError, beepScan, parseScanCode } from '@/utils/scanCodes';
 
 import { usePermission } from '@/hooks/usePermission';
 
+import { ActionCodeSheetPrint } from './ActionCodeSheetPrint';
 import { FulfillmentScanActionDialog } from './FulfillmentScanActionDialog';
 import { OrderErrorScanDialog } from './OrderErrorScanDialog';
 
@@ -90,6 +91,8 @@ function ScanErrorPageContent() {
   // chờ quét lần 2 cùng mã (hoặc Enter) để xác nhận.
   const [preselectedCode, setPreselectedCode] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  // Sheet bảng mã hành động — mount lúc in rồi tự gỡ (xem ActionCodeSheetPrint).
+  const [printingActionSheet, setPrintingActionSheet] = useState(false);
   const [mode, setMode] = useState<ScanMode>(() => {
     if (typeof window === 'undefined') return 'barcode';
     const saved = window.localStorage.getItem(MODE_STORAGE_KEY);
@@ -127,9 +130,9 @@ function ScanErrorPageContent() {
       const code = normalizeCode(raw, mode);
       if (!code) return;
       if (loading) return;
-      // Quét nhầm mã hành động (OK / E-…) khi CHƯA có đơn đang chờ → nhắc quét đơn trước.
+      // Quét nhầm mã hành động (OK / E-… / ACT-…) khi CHƯA có đơn đang chờ → nhắc quét đơn trước.
       const action = parseScanCode(code);
-      if (action.kind === 'ok' || action.kind === 'error') {
+      if (action.kind === 'ok' || action.kind === 'error' || action.kind === 'action') {
         beepError();
         toast.error(t('page.scanOrderFirst'));
         setValue('');
@@ -250,10 +253,15 @@ function ScanErrorPageContent() {
         <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
           <ScanLine size={20} />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-semibold">{myStage ? t('page.titleStage') : t('page.titleGeneric')}</h1>
           <p className="text-sm text-muted-foreground">{myStage ? t('page.descStage') : t('page.descGeneric')}</p>
         </div>
+        {/* In bảng mã hành động (OK / ACT-*) dán tại trạm — điều khiển popup bằng máy quét. */}
+        <Button variant="outline" onClick={() => setPrintingActionSheet(true)} disabled={printingActionSheet}>
+          <Printer size={15} className="mr-1.5" />
+          {t('actionSheet.printBtn')}
+        </Button>
       </div>
 
       {/* Scan box */}
@@ -410,6 +418,8 @@ function ScanErrorPageContent() {
             initialCode={preselectedCode ?? undefined}
           />
         ))}
+
+      {printingActionSheet && <ActionCodeSheetPrint onDone={() => setPrintingActionSheet(false)} />}
     </div>
   );
 }

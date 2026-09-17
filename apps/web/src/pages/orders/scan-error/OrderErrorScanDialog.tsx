@@ -10,7 +10,9 @@ import {
   MessageSquareWarning,
   Pencil,
   Plus,
+  Printer,
   RotateCcw,
+  Tag,
 } from 'lucide-react';
 import type { FulfillmentStage as FulfillmentStageT, ProductionOrderRow, WorkshopConfig } from 'shared';
 import { FulfillmentStage, WorkshopConfigCategory } from 'shared';
@@ -36,6 +38,7 @@ import { isCancelled } from '@/utils/orderActions';
 import { beepError, beepScan, beepSuccess, parseScanCode, resolveErrorScan } from '@/utils/scanCodes';
 
 import { GuideStep, GuideZone } from './ScanGuide';
+import { useScanPrint } from './useScanPrint';
 
 const MAX_NOTE = 500;
 
@@ -92,6 +95,9 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
   const [code, setCode] = useState<string>(initialCode ?? '');
   const [note, setNote] = useState<string>('');
   const [saving, setSaving] = useState(false);
+
+  // In tem khách / label giao hàng ngay từ popup — nút bấm hoặc mã `ACT-PRINT-*`.
+  const { printTem, printLabel, loadingLabel, elements: printElements } = useScanPrint(order);
 
   const selectedCfg = useMemo(() => stageErrors.find((o) => o.code === code), [stageErrors, code]);
   // Nguồn + đích đẩy về suy từ config — hiển thị read-only, không cho chọn tay.
@@ -173,6 +179,18 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
   /** Route 1 mã đã quét về đúng hành động. Trả false nếu mã không hợp lệ. */
   const dispatchScan = (raw: string): boolean => {
     const action = parseScanCode(raw);
+    // Mã hành động `ACT-*` (bảng mã dán trạm) — điều khiển popup không cần chuột.
+    if (action.kind === 'action') {
+      if (action.command === 'cancel') onClose();
+      else if (action.command === 'print-tem') printTem();
+      else if (action.command === 'print-label') void printLabel();
+      else {
+        // report-error: đã đứng sẵn ở màn báo lỗi → nhắc quét thẳng mã lỗi E-…
+        beepScan();
+        toast(t('orderErrorDialog.alreadyInErrorMode'));
+      }
+      return true;
+    }
     if (action.kind === 'error') {
       handleErrorScan(action.code);
       return true;
@@ -525,6 +543,19 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
         </div>
 
         <DialogFooter className="gap-3 shrink-0">
+          <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg">
+            <Printer size={20} className="mr-2" />
+            {t('printActions.printTemBtn')}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => void printLabel()}
+            disabled={saving || loadingLabel}
+            className="h-14 px-5 text-lg"
+          >
+            <Tag size={20} className="mr-2" />
+            {t('printActions.printLabelBtn')}
+          </Button>
           <Button variant="outline" onClick={onClose} disabled={saving} className="h-14 px-7 text-lg">
             {t('common:actions.cancel')}
           </Button>
@@ -533,6 +564,7 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
             {t('orderErrorDialog.assignAndContinueBtn')}
           </Button>
         </DialogFooter>
+        {printElements}
       </DialogContent>
     </Dialog>
   );
