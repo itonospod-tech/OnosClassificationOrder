@@ -25,6 +25,8 @@ import {
   CreateVnpShipmentDto,
   CreateVnpShipmentResDto,
   DeleteVnpFromAddressResDto,
+  GetPackingPackagesDto,
+  GetPackingPackagesResDto,
   GetVnpOrderShipmentsResDto,
   GetVnpRemoteAddressesResDto,
   GetVnpShipmentGroupResDto,
@@ -37,6 +39,8 @@ import {
   GetVnpShippingStatusResDto,
   GetVnpTrackingResDto,
   GetVnpWalletResDto,
+  HandoverPackagesDto,
+  HandoverPackagesResDto,
   ImportVnpFromAddressDto,
   RoleType,
   RunVnpTrackingCronResDto,
@@ -48,6 +52,7 @@ import { Logger } from 'winston';
 import { Auth, ClientIp } from '@/decorators';
 
 import { UserDocument } from '../user/user.entity';
+import { PackingService } from './packing.service';
 import { ShippingVnpService } from './shipping-vnp.service';
 
 /**
@@ -61,8 +66,51 @@ import { ShippingVnpService } from './shipping-vnp.service';
 export class ShippingVnpController {
   constructor(
     private readonly shippingVnpService: ShippingVnpService,
+    private readonly packingService: PackingService,
     @Inject('winston') private readonly logger: Logger,
   ) {}
+
+  // ─── Kiện hàng ở công đoạn Đóng hàng (GAP-25/26/27) ───────────────────────
+  //
+  // `@Auth([])` — MỌI role đăng nhập. Người bàn giao cho hãng là nhân sự kho
+  // của xưởng, không phải admin; bắt quyền admin ở đây là đẩy họ quay lại ký
+  // giấy tay như hệ cũ.
+
+  @Get('packages')
+  @Auth([])
+  @ApiOperation({ summary: 'Kiện đã đóng gói — mặc định lấy kiện CHƯA bàn giao' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetPackingPackagesResDto })
+  async getPackages(@Query() query: GetPackingPackagesDto, @AuthUser() user: UserDocument): Promise<GetPackingPackagesResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'GET', url: '/shipping-vnp/packages', userId: user._id }) });
+    const rows = await this.packingService.danhSachKien({
+      factoryId: query.factoryId,
+      daBanGiao: query.daBanGiao,
+      limit: query.limit,
+    });
+
+    return { success: true, data: rows as never };
+  }
+
+  @Post('packages/handover')
+  @Auth([])
+  @ApiOperation({ summary: 'Bàn giao lô kiện cho hãng — cấp mã phiếu + đóng dấu giờ xuất kho' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: HandoverPackagesResDto })
+  async handover(@Body() body: HandoverPackagesDto, @AuthUser() user: UserDocument): Promise<HandoverPackagesResDto> {
+    this.logger.info({
+      message: JSON.stringify({ method: 'POST', url: '/shipping-vnp/packages/handover', userId: user._id, count: body.ids.length }),
+    });
+    // Xưởng lấy theo người bàn giao: nhân sự kho thuộc đúng một xưởng, và phiếu
+    // phải mang tên xưởng đó chứ không phải xưởng của kiện đầu tiên trong lô.
+    const data = await this.packingService.banGiao(
+      body.ids,
+      { factoryId: (user as unknown as { factoryId?: string }).factoryId, carrier: body.carrier },
+      { _id: String(user._id) },
+    );
+
+    return { success: true, data };
+  }
 
   @Get('status')
   @Auth([RoleType.SuperAdmin, RoleType.Admin])

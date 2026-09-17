@@ -725,3 +725,38 @@ Worker scope enforce ở BE: `user.fulfillmentStage === body.stage` && `user.fac
 
 ### 3. Ô "Thống kê lỗi công đoạn" trong trang task
 - `pages/fulfillment/my-tasks/StageErrorPanel.tsx` — click xổ **bảng lỗi theo ngày** (`inProductionAt`, VN tz; hàng = mã lỗi, cột = ngày). BE: `GET /fulfillment/stage-error-daily` (khóa stage+xưởng theo user role Fulfillment).
+
+---
+
+## Bổ sung: KIỆN HÀNG + BÀN GIAO (17/09/2026)
+
+> **File BE:** `apps/api/src/modules/shipping-vnp/packing.service.ts` + `packing.logic.ts` (+ spec) · `shipping-package.entity.ts` (11 field mới) · 2 endpoint trong `shipping-vnp.controller.ts` · hook trong `fulfillment-task.service.ts`
+> **File FE:** `apps/web/src/pages/handover/{index,HandoverSheetPrint}.tsx` · `pages/fulfillment/my-tasks/PackWeightDialog.tsx`
+> **Route:** `/ffm/fulfillment/handover` · **API:** `GET /shipping-vnp/packages` · `POST /shipping-vnp/packages/handover`
+> **Lấp GAP-25/26/27** của tài liệu chuyển đổi OnosPod.
+
+Trước đây bản ghi kiện CHỈ sinh lúc mua vận đơn và chỉ gom danh sách mã — hệ không biết xưởng đã đóng cái gì, nặng bao nhiêu, ra khỏi kho lúc nào. Ba thứ đó hệ cũ có, và là **đầu vào bắt buộc để đối soát cước** ở giai đoạn sau.
+
+**Ba chốt nghiệp vụ (chốt với người vận hành 17/09/2026):**
+
+| Chốt | Quyết định | Vì sao |
+| --- | --- | --- |
+| Đơn vị kiện | **1 kiện = 1 đơn seller** (`khoaGopKien`) | Khớp cách mua label VNP (nhiều item chung 1 label) và cách xưởng đóng thật. Đơn không có mã đơn → mỗi item một kiện, KHÔNG gộp nhóm thiếu dữ liệu với nhau |
+| Nhập cân | **Tuỳ chọn** ở bước Đóng hàng | Trạm chưa có cân điện tử vẫn phải đóng được hàng. Bắt buộc nhập = ngày triển khai đầu tiên cả chuyền đứng. Kiện thiếu cân bị đánh dấu ở màn Bàn giao |
+| Phiếu bàn giao | Gom theo **xưởng + ngày + hãng** | Một chuyến xe một phiếu, tài xế ký một tờ. Hệ cũ in theo seller nên một chuyến phải in nhiều phiếu |
+
+**Luồng:**
+
+1. Công nhân hoàn thành công đoạn **Đóng hàng** → FE chặn lại bằng `PackWeightDialog` hỏi cân + số đo (có nút **Bỏ qua**) → gửi kèm `weightGram`/`dimensions` trong `FulfillmentTransitionDto`.
+2. BE ở cạnh chuyển thật (`!wasCompleted && nowCompleted`) gọi `PackingService.ghiNhanDongGoi()` → upsert kiện theo `(orderId, factoryId)`, `$addToSet` mã item, đóng dấu `packedAt`/`packedByUserId`/`packedByUserName`. Item thứ hai cùng đơn **ghép vào kiện đã có**, quét lại cùng item không đẻ kiện mới.
+3. Kho mở `/ffm/fulfillment/handover` → danh sách kiện đã đóng **chưa bàn giao** (sắp theo `packedAt` tăng dần — kiện nằm lâu nhất lên đầu) → tick → nhập hãng → **Bàn giao + in phiếu**.
+4. `banGiao()` cấp **một mã `BG-<xưởng>-<ngày VN>-<số>`** cho cả lô, đóng dấu `handoverAt` (giờ xuất kho), rồi FE in `HandoverSheetPrint` (A4, có ô ký hai bên).
+
+**Bốn quyết định kỹ thuật đáng nhớ:**
+
+- **Hook không được ném lỗi** — `PackingService` tự nuốt và ghi log; công nhân đóng xong hàng rồi thì không thể vì lỗi ghi sổ mà bắt đóng lại.
+- **Cân + in phiếu là MỘT thao tác** với việc đóng dấu giờ xuất kho. Tách ra sẽ có phiếu in rồi mà kiện vẫn nằm trong danh sách chờ.
+- **Kiện đã bàn giao bị loại khỏi lượt sau** (`handoverAt: {$exists: false}` trong filter update) — đóng dấu đè sẽ xoá mất giờ xuất kho thật của chuyến trước; số kiện bị loại trả về `skipped` để FE báo.
+- **Cân tính cước** dùng chung công thức với lúc seller tự mua label: `max(cân thật, dài×rộng×cao/6)`, thiếu một chiều thì bỏ phần quy đổi chứ không tính thể tích bằng 0 (`canTinhCuoc`, có spec).
+
+**Chưa làm (vẫn thuộc phase P2 của lộ trình chuyển đổi):** chưa sinh bút toán chi phí trả xưởng khi đóng kiện (GAP-18), chưa đối soát cước thật với cân vừa thu được (GAP-19), chưa có thùng master gộp nhiều kiện (`parentPackageId` đã chừa sẵn field).

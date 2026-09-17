@@ -25,6 +25,8 @@ export const PATHS = {
 
   // Fulfillment 5-stage Workflow
   FULFILLMENT_MY_TASKS: '/ffm/fulfillment/my-tasks',
+  /** Bàn giao kiện cho hãng vận chuyển (GAP-27). */
+  HANDOVER: '/ffm/fulfillment/handover',
   FULFILLMENT_TEAM: '/ffm/fulfillment/team',
   FULFILLMENT_STATS: '/ffm/fulfillment/stats',
 

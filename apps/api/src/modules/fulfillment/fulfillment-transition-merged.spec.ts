@@ -17,7 +17,14 @@ import { FulfillmentTaskService } from './fulfillment-task.service';
  * patch, không đụng Mongo) bằng cách instantiate service với deps null. Nếu
  * constructor thêm dep mới chỉ cần thêm null tương ứng.
  */
-const svc = new FulfillmentTaskService(null as never, null as never, null as never, null as never, null as never);
+const svc = new FulfillmentTaskService(
+  null as never,
+  null as never,
+  null as never,
+  null as never,
+  null as never,
+  null as never,
+);
 
 type TransitionInput = {
   stage: FulfillmentStage;

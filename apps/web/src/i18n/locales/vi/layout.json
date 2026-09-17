@@ -43,7 +43,8 @@
     "work": {
       "title": "Công việc",
       "myTasks": "Task của tôi",
-      "fulfillmentTasks": "Task Fulfillment"
+      "fulfillmentTasks": "Task Fulfillment",
+      "handover": "Bàn giao kiện"
     },
     "products": "Sản phẩm",
     "promotions": "Chương trình giảm giá",
