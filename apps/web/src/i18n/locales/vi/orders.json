@@ -341,7 +341,13 @@
     "auditNote": "Hành động sẽ ghi log audit cho từng đơn (Phase 3). Không undo được.",
     "printShippingLabelBtn": "In label giao hàng",
     "printShippingLabelTitle": "In label giao hàng 4×6 inch (mỗi đơn 1 trang) cho các đơn đang chọn",
-    "shippingLabelNoAddress": "{{count}} đơn chưa có địa chỉ giao nên bỏ qua: {{list}}"
+    "shippingLabelNoAddress": "{{count}} đơn chưa có địa chỉ giao nên bỏ qua: {{list}}",
+    "exportLabelPdfBtn": "Xuất PDF label",
+    "exportLabelPdfTitle": "Gộp label thật của đơn vị vận chuyển (đã mua qua VNP / khách tự cấp) thành 1 file PDF — mỗi label 1 trang",
+    "exportLabelPdfSuccess": "Đã xuất {{count}} label ({{pages}} trang) vào 1 file PDF.",
+    "exportLabelPdfSkipped": "{{count}} đơn bị bỏ qua (chưa có label / tải label lỗi): {{list}}…",
+    "exportLabelPdfMerged": "{{count}} item chung kiện đã gộp chung trang label.",
+    "exportLabelPdfEmpty": "Không đơn nào có label carrier dùng được — cần mua label VNP hoặc đơn có label khách tự cấp."
   },
   "cancelledBadge": {
     "label": "Đã hủy",

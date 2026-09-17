@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next';
 import {
   CheckCircle2,
   Download,
+  FileDown,
   Flag,
   PauseCircle,
   PlayCircle,
@@ -13,7 +14,7 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
-import type { BarcodeLabel, OrderWorkshopField, ShippingLabel, WorkshopConfigCategory } from 'shared';
+import type { BarcodeLabel, ExportShippingLabelsRes, OrderWorkshopField, ShippingLabel, WorkshopConfigCategory } from 'shared';
 import { ORDER_PRIORITIES, ORDER_PRIORITY_LABELS, ORDER_WORKSHOP_FIELDS } from 'shared';
 import { toast } from 'sonner';
 
@@ -36,8 +37,8 @@ import { LucideIcon } from '@/pages/workshop-config/IconPicker';
 import { AssignDesignerDialog } from './AssignDesignerDialog';
 import { BarcodeLabelPrint } from './BarcodeLabelPrint';
 import { CustomerLabelPrint } from './CustomerLabelPrint';
-import { hasShippingAddress, ShippingLabelPrint } from './ShippingLabelPrint';
 import { HOLD_REASON_PRESETS } from './HoldOrderDialog';
+import { hasShippingAddress, ShippingLabelPrint } from './ShippingLabelPrint';
 import type { WorkshopOrderRow } from './workshopTableConfig';
 
 const FIELD_TO_CATEGORY: Record<OrderWorkshopField, WorkshopConfigCategory | null> = {
@@ -90,6 +91,9 @@ const BULK_UPDATE_BLACKLIST: OrderWorkshopField[] = ['assignee', 'priority'];
  * classic có thể tick hàng chục nghìn đơn chỉ bằng 1 cú bấm.
  */
 const MAX_LABELS_PER_PRINT = 500;
+// Trần xuất PDF label carrier — mirror `ExportShippingLabelsZod.ids.max(200)`:
+// mỗi label BE phải TẢI VỀ từ CDN/Drive nên nặng hơn hẳn đường in tem.
+const MAX_LABELS_PER_EXPORT_PDF = 200;
 
 interface Props {
   selectedIds: string[];
@@ -127,6 +131,7 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
   // Tem barcode xưởng 75×50mm — cùng vòng đời mount-in-gỡ như labelOrders.
   const [barcodeLabels, setBarcodeLabels] = useState<BarcodeLabel[] | null>(null);
   const [loadingShipLabels, setLoadingShipLabels] = useState(false);
+  const [exportingLabelPdf, setExportingLabelPdf] = useState(false);
   // Label giao hàng 4×6 INCH (Orders.md §16.8) — cùng vòng đời mount-in-gỡ.
   const [shippingLabels, setShippingLabels] = useState<ShippingLabel[] | null>(null);
 
@@ -229,6 +234,52 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
       handleAxiosError(err);
     } finally {
       setLoadingShipLabels(false);
+    }
+  };
+
+  // Xuất PDF gộp label THẬT của carrier (USPS…) — Orders.md §16.9. KHÁC nút
+  // "In label giao hàng" ở trên (bản nội bộ FE render): đây là file label đã
+  // mua qua VNP / khách tự cấp, BE tải về ghép mỗi label 1 trang. Đơn thiếu
+  // label / tải lỗi chỉ bị bỏ qua kèm cảnh báo, file vẫn ra phần còn lại.
+  const handleExportLabelPdf = async () => {
+    if (selectedIds.length > MAX_LABELS_PER_EXPORT_PDF) {
+      return toast.error(t('bulkEdit.labelTooMany', { max: MAX_LABELS_PER_EXPORT_PDF, count: selectedIds.length }));
+    }
+    try {
+      setExportingLabelPdf(true);
+      const res = await RepositoryRemote.order.exportShippingLabelsPdf({ ids: selectedIds });
+      const data = res.data?.data as ExportShippingLabelsRes | undefined;
+      if (!data) return;
+      if (data.skipped.length > 0) {
+        toast.warning(
+          t('bulkEdit.exportLabelPdfSkipped', {
+            count: data.skipped.length,
+            list: data.skipped
+              .slice(0, 5)
+              .map((s) => s.productionId)
+              .join(', '),
+          }),
+        );
+      }
+      if (data.merged.length > 0) {
+        toast.info(t('bulkEdit.exportLabelPdfMerged', { count: data.merged.length }));
+      }
+      if (!data.pdfBase64) return toast.warning(t('bulkEdit.exportLabelPdfEmpty'));
+      const bin = atob(data.pdfBase64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      const stamp = new Date().toLocaleString('sv-SE', { hour12: false }).replace(/[: ]/g, '-');
+      a.href = url;
+      a.download = `shipping-labels-${stamp}-${data.labelCount}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(t('bulkEdit.exportLabelPdfSuccess', { count: data.labelCount, pages: data.pageCount }));
+    } catch (err) {
+      handleAxiosError(err);
+    } finally {
+      setExportingLabelPdf(false);
     }
   };
 
@@ -451,6 +502,16 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
           >
             {loadingShipLabels ? <Spinner size={13} className="text-muted-foreground" /> : <Printer size={13} />}
             {t('bulkEdit.printShippingLabelBtn')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportLabelPdf}
+            disabled={exportingLabelPdf}
+            title={t('bulkEdit.exportLabelPdfTitle')}
+          >
+            {exportingLabelPdf ? <Spinner size={13} className="text-muted-foreground" /> : <FileDown size={13} />}
+            {t('bulkEdit.exportLabelPdfBtn')}
           </Button>
           <Button
             variant="outline"

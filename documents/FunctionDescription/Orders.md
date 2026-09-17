@@ -1775,6 +1775,16 @@ Layout (từ trên xuống): ô "G" + tên xưởng gửi + OnosFactory/DO NOT S
 
 FE: `services/order.ts` `getShippingLabels` · i18n `rowActionsMenu.printShippingLabel/shippingLabelNotFound/shippingLabelNoAddress` + `bulkEdit.printShippingLabelBtn/printShippingLabelTitle/shippingLabelNoAddress`. Shared: `GetShippingLabelsDto`/`ShippingLabelZod`/`GetShippingLabelsResDto` (`production-order.dto.ts`).
 
+### 16.9 "Xuất PDF label" — gộp label THẬT của carrier thành 1 file (2026-09-17)
+
+Tick N đơn → nút **"Xuất PDF label"** trên `BulkEditToolbar` (CHỈ Danh sách đơn `/ffm/orders`, chốt nghiệp vụ) → tải về **1 file PDF, mỗi label 1 trang**. KHÁC HẲN §16.8: đây là **file label USPS/carrier thật** đã tồn tại — mua qua VNP (`vnpShipment.labelUrl`, PDF trên CloudFront) hoặc khách tự cấp ORD-26 (`tracking.labelUrl`, thường là link Google Drive) — BE **tải về và ghép nguyên văn, KHÔNG vẽ lại**.
+
+- **BE** `POST /orders/shipping-labels/export-pdf` (`@Auth([])`, body `{ids}` max **200** — thấp hơn trần 500 của in tem vì mỗi label phải tải từ CDN/Drive): `ShippingLabelPdfService.exportPdf()` (`order/shipping-label-pdf.service.ts`, ghép bằng **pdf-lib** thuần JS — không headless browser trên VPS).
+- **Chọn nguồn per đơn** = hàm thuần `resolveLabelExportSources()` (`order/label-export.ts` + spec): ưu tiên label VNP còn hiệu lực (bỏ label đã `cancelledAt`) → fallback label khách cấp; không có → skip `no-label`; id lạ → `not-found`. **GIỮ THỨ TỰ tick** — thứ tự trang = thứ tự bảng.
+- **Item chung kiện** (mua gộp theo orderId — VnpShipping.md, N item chung 1 `labelUrl`) → chỉ 1 trang, item sau trả về mảng `merged` (FE toast info "đã gộp trang", KHÔNG phải lỗi).
+- **Ghép file**: label PDF → copy nguyên trang (label nhiều trang giữ đủ); PNG/JPG → trang 4×6in fit ảnh; Drive link đổi sang direct-download qua `extractDriveId`/`buildDriveDownloadUrl` (`utils/design-url.ts`), Drive trả HTML (file không public) → skip `fetch-failed`. Tải song song 5 luồng, timeout 20s, trần 25MB/file. Đơn hỏng chỉ hỏng riêng nó — file vẫn ra phần còn lại (mirror khuôn in-thiếu §16.7).
+- **Response** (`ExportShippingLabels*` DTOs, `production-order.dto.ts`): `{pdfBase64|null, pageCount, labelCount, merged[], skipped[{productionId, reason}]}` — FE decode base64 → Blob tải `shipping-labels-<stamp>-<n>.pdf`, toast warning nhóm skipped (5 mã đầu) + info merged + success đếm label/trang. i18n `bulkEdit.exportLabelPdf*`.
+
 ## 17. Ưu tiên đơn hàng + hạn dự kiến từng bước
 
 > **File FE:** `apps/web/src/components/orders/cells/PrioritySelectCell.tsx` (`PrioritySelectCell` + `PriorityBadge` + `PRIORITY_META`), `apps/web/src/utils/priorityEstimate.ts` (`getStageDeadline` + `getActiveStageKey` + `formatCountdown`), `apps/web/src/hooks/useNow.ts` (tick chip đếm ngược), cột "Ưu tiên" (`PriorityCell`) trong `apps/web/src/components/orders/workshopTableConfig.tsx`, cell trong `apps/web/src/pages/orders/ListOrderTab.tsx`, nút + dialog bulk riêng trong `apps/web/src/components/orders/BulkEditToolbar.tsx`, cột hiển thị + filter trong `apps/web/src/pages/home/ToolCheckTab.tsx` (`toPriorityOpts`), badge + estimate trong `apps/web/src/pages/home/DesignerAssignBacklog.tsx`

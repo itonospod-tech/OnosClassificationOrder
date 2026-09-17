@@ -33,6 +33,8 @@ import {
   FulfillmentStatusCountsResDto,
   GetBarcodeLabelsDto,
   GetBarcodeLabelsResDto,
+  ExportShippingLabelsDto,
+  ExportShippingLabelsResDto,
   GetShippingLabelsDto,
   GetShippingLabelsResDto,
   GetCancelledOrdersDto,
@@ -98,6 +100,7 @@ import type { UserDocument } from '../user/user.entity';
 import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodImportService } from './onospod-import.service';
 import { OrderService } from './order.service';
+import { ShippingLabelPdfService } from './shipping-label-pdf.service';
 
 const ORDER_VIEW_ROLES = [
   RoleType.SuperAdmin,
@@ -143,6 +146,7 @@ export class OrderController {
     private readonly orderService: OrderService,
     private readonly onospodImportService: OnospodImportService,
     private readonly onospodHoldSyncService: OnospodHoldSyncService,
+    private readonly shippingLabelPdfService: ShippingLabelPdfService,
     @Inject('winston') private readonly logger: Logger,
   ) {}
 
@@ -269,6 +273,34 @@ export class OrderController {
       message: JSON.stringify({ method: 'POST', url: '/orders/shipping-labels', userId: user._id, count: dto.ids.length }),
     });
     return { success: true, data: await this.orderService.getShippingLabels(dto.ids) };
+  }
+
+  /**
+   * Xuất PDF gộp label THẬT của carrier (Orders.md §16.9) — khác hẳn
+   * `shipping-labels` ở trên (bản nội bộ FE tự render): đây là file label đã
+   * mua qua VNP / khách tự cấp, BE tải về và ghép, mỗi label 1 trang. Cùng
+   * chốt `@Auth([])` với 2 đường label trên: chỉ đọc, ai đăng nhập cũng xuất được.
+   */
+  @Post('shipping-labels/export-pdf')
+  @Auth([])
+  @ApiOperation({
+    summary: 'Gộp label carrier (VNP/khách cấp) của N đơn thành 1 PDF — nút "Xuất PDF label" thanh bulk (Orders.md §16.9)',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ExportShippingLabelsResDto })
+  async exportShippingLabelsPdf(
+    @Body() dto: ExportShippingLabelsDto,
+    @AuthUser() user: UserDocument,
+  ): Promise<ExportShippingLabelsResDto> {
+    this.logger.info({
+      message: JSON.stringify({
+        method: 'POST',
+        url: '/orders/shipping-labels/export-pdf',
+        userId: user._id,
+        count: dto.ids.length,
+      }),
+    });
+    return { success: true, data: await this.shippingLabelPdfService.exportPdf(dto.ids) };
   }
 
   @Get('overview-list')

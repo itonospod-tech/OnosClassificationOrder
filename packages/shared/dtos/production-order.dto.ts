@@ -1504,6 +1504,32 @@ export type ShippingLabel = z.infer<typeof ShippingLabelZod>;
 export const GetShippingLabelsResZod = ResZod.extend({ data: z.array(ShippingLabelZod) });
 export class GetShippingLabelsResDto extends createZodDto(extendApi(GetShippingLabelsResZod)) {}
 
+/**
+ * Xuất 1 file PDF gộp label THẬT của carrier (USPS…) cho N đơn tick chọn
+ * (Orders.md §16.9) — KHÔNG phải bản nội bộ "DO NOT SHIP" ở trên. Mỗi label
+ * 1 trang, thứ tự trang = thứ tự tick; nguồn = file đã mua qua VNP
+ * (`vnpShipment.labelUrl`) hoặc khách tự cấp ORD-26 (`tracking.labelUrl`).
+ * Trần 200/lượt — mỗi label phải TẢI VỀ từ CDN/Drive, nặng hơn hẳn 500 của in tem.
+ */
+export const ExportShippingLabelsZod = z.object({
+  ids: z.array(IDZod).min(1).max(200),
+});
+export class ExportShippingLabelsDto extends createZodDto(extendApi(ExportShippingLabelsZod)) {}
+export const LabelSkipReasonZod = z.enum(['not-found', 'no-label', 'fetch-failed', 'unsupported-format']);
+export const ExportShippingLabelsResDataZod = z.object({
+  /** null = không đơn nào có label dùng được (xem `skipped`). */
+  pdfBase64: z.string().nullable(),
+  pageCount: z.number(),
+  /** Số label đã vào file (1 label PDF nhiều trang vẫn đếm 1). */
+  labelCount: z.number(),
+  /** productionId các item CHUNG KIỆN với item đứng trước — đã gộp trang, không phải lỗi. */
+  merged: z.array(z.string()),
+  skipped: z.array(z.object({ productionId: z.string(), reason: LabelSkipReasonZod })),
+});
+export type ExportShippingLabelsRes = z.infer<typeof ExportShippingLabelsResDataZod>;
+export const ExportShippingLabelsResZod = ResZod.extend({ data: ExportShippingLabelsResDataZod });
+export class ExportShippingLabelsResDto extends createZodDto(extendApi(ExportShippingLabelsResZod)) {}
+
 export const TransferOrderResZod = ResZod.extend({
   data: z.object({ matched: z.number(), modified: z.number() }),
 });
