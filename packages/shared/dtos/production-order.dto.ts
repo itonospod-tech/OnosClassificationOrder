@@ -803,6 +803,12 @@ export const ImportFromOnosPodResZod = ResZod.extend({
     // trang, hoặc trùng giữa 2 manufacture.
     duplicatesInBatch: z.number(),
     period: z.object({ start: z.string(), end: z.string() }),
+    // Số row được gắn `shippingAddress` từ lượt gọi thứ hai `orders(ids)`
+    // bên api.onospod.com (địa chỉ giao của khách, mức ORDER — xem Orders.md
+    // §3.6). 0 hoặc thấp bất thường = OnosPod order API lỗi/thiếu config
+    // ONOSPOD_API_* (import vẫn chạy, chỉ thiếu địa chỉ — xem log
+    // `onospodShippingBatch`).
+    shippingAttached: z.number().optional(),
     // Pull từ TẤT CẢ manufacture của account trong 1 lượt phân trang duy
     // nhất (không truyền `manufacture_id`) — group lại từ field `manufacture`
     // có sẵn trên mỗi item, KHÔNG loop gọi riêng từng manufacture nữa nên
@@ -1463,6 +1469,66 @@ export const BarcodeLabelZod = z.object({
 export type BarcodeLabel = z.infer<typeof BarcodeLabelZod>;
 export const GetBarcodeLabelsResZod = ResZod.extend({ data: z.array(BarcodeLabelZod) });
 export class GetBarcodeLabelsResDto extends createZodDto(extendApi(GetBarcodeLabelsResZod)) {}
+
+/**
+ * Label giao hàng 4×6 INCH kiểu carrier (Orders.md §16.8) — "DO NOT SHIP",
+ * barcode Code128 = `productionId` trần (KHÔNG prefix `N-`), địa chỉ người
+ * nhận từ `shippingAddress`, ảnh mockup + seller/size/color. In được ở MỌI
+ * công đoạn, MỌI role. BE resolve sẵn SKU biến thể + cân nặng — FE chỉ render.
+ */
+export const GetShippingLabelsZod = z.object({
+  ids: z.array(IDZod).min(1).max(500),
+});
+export class GetShippingLabelsDto extends createZodDto(extendApi(GetShippingLabelsZod)) {}
+export const ShippingLabelZod = z.object({
+  _id: z.string(),
+  productionId: z.string(),
+  /** Mã seller (in dòng "Seller:"). */
+  userSku: z.string().optional(),
+  /** Merchant ID trên label. */
+  orderId: z.string().optional(),
+  size: z.string().optional(),
+  color: z.string().optional(),
+  quantity: z.number().optional(),
+  mockupUrl: z.string().optional(),
+  /** Tên xưởng gửi — resolve từ `factoryId`. */
+  factoryName: z.string().optional(),
+  /** SKU biến thể ĐẦY ĐỦ khớp size (vd `PAOPPOLO-SAME-DESIGN-3XL`) — KHÁC
+   *  `BarcodeLabel.sku` (đã gọt đuôi size). Không khớp → SKU cấp sản phẩm. */
+  sku: z.string().optional(),
+  /** Cân nặng GRAM: `order.weight` ?? biến thể khớp size ?? default sản phẩm. */
+  weightGram: z.number().optional(),
+  shippingAddress: ProductionOrderShippingAddressZod.optional(),
+});
+export type ShippingLabel = z.infer<typeof ShippingLabelZod>;
+export const GetShippingLabelsResZod = ResZod.extend({ data: z.array(ShippingLabelZod) });
+export class GetShippingLabelsResDto extends createZodDto(extendApi(GetShippingLabelsResZod)) {}
+
+/**
+ * Xuất 1 file PDF gộp label THẬT của carrier (USPS…) cho N đơn tick chọn
+ * (Orders.md §16.9) — KHÔNG phải bản nội bộ "DO NOT SHIP" ở trên. Mỗi label
+ * 1 trang, thứ tự trang = thứ tự tick; nguồn = file đã mua qua VNP
+ * (`vnpShipment.labelUrl`) hoặc khách tự cấp ORD-26 (`tracking.labelUrl`).
+ * Trần 200/lượt — mỗi label phải TẢI VỀ từ CDN/Drive, nặng hơn hẳn 500 của in tem.
+ */
+export const ExportShippingLabelsZod = z.object({
+  ids: z.array(IDZod).min(1).max(200),
+});
+export class ExportShippingLabelsDto extends createZodDto(extendApi(ExportShippingLabelsZod)) {}
+export const LabelSkipReasonZod = z.enum(['not-found', 'no-label', 'fetch-failed', 'unsupported-format']);
+export const ExportShippingLabelsResDataZod = z.object({
+  /** null = không đơn nào có label dùng được (xem `skipped`). */
+  pdfBase64: z.string().nullable(),
+  pageCount: z.number(),
+  /** Số label đã vào file (1 label PDF nhiều trang vẫn đếm 1). */
+  labelCount: z.number(),
+  /** productionId các item CHUNG KIỆN với item đứng trước — đã gộp trang, không phải lỗi. */
+  merged: z.array(z.string()),
+  skipped: z.array(z.object({ productionId: z.string(), reason: LabelSkipReasonZod })),
+});
+export type ExportShippingLabelsRes = z.infer<typeof ExportShippingLabelsResDataZod>;
+export const ExportShippingLabelsResZod = ResZod.extend({ data: ExportShippingLabelsResDataZod });
+export class ExportShippingLabelsResDto extends createZodDto(extendApi(ExportShippingLabelsResZod)) {}
 
 export const TransferOrderResZod = ResZod.extend({
   data: z.object({ matched: z.number(), modified: z.number() }),

@@ -88,6 +88,7 @@ import type {
   RecoverHeldOrdersResDto,
   SetProductionErrorDto,
   SetProductionErrorResDto,
+  ShippingLabel,
   SizeMatrixRow,
   SizeSummary,
   SyncDesignByCustomerResDto,
@@ -170,6 +171,7 @@ import { OnospodOrderLookupService } from './onospod-order-lookup.service';
 import { OrderDocument, OrderEntity } from './order.entity';
 import { OrderRepository } from './order.repository';
 import { parseTypeFilter, TYPE_NONE_TOKEN } from './parse-type-filter';
+import { resolveShippingLabelInfo } from './shipping-label';
 
 const FIELD_CONFIG_CATEGORY: Record<OrderWorkshopField, WorkshopConfigCategory | null> = {
   printStatus: WorkshopConfigCategory.PrintStatus,
@@ -2058,6 +2060,105 @@ export class OrderService implements OnModuleInit {
         variant: [o.size, o.color].filter(Boolean).join(' ') || undefined,
         itemIndex: pos?.index ?? 1,
         itemTotal: pos?.total ?? 1,
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Dữ liệu LABEL GIAO HÀNG 4×6 inch (Orders.md §16.8) — nút "In label giao
+   * hàng" ở menu "..." từng dòng + thanh bulk. Cùng khung với `getBarcodeLabels`:
+   * kết quả theo ĐÚNG thứ tự `ids`, đơn hủy/không tồn tại bị loại lặng lẽ
+   * (caller so độ dài để báo in thiếu). KHÔNG loại đơn thiếu `shippingAddress`
+   * ở đây — trả về đủ để FE tách riêng và cảnh báo "thiếu địa chỉ" theo
+   * productionId thay vì in tem trống.
+   *
+   * Resolve server-side (OrderEntity không lưu SKU/cân biến thể/tên xưởng):
+   * - `sku`/`weightGram`: `resolveShippingLabelInfo()` — biến thể khớp size
+   *   (SKU ĐẦY ĐỦ, khác tem barcode xưởng đã gọt đuôi), cân ưu tiên
+   *   `order.weight` → biến thể → default sản phẩm.
+   * - `factoryName`: đọc thẳng bảng `factories` theo `factoryId`.
+   */
+  async getShippingLabels(ids: string[]): Promise<ShippingLabel[]> {
+    const clean = [...new Set(ids.map((s) => s.trim()).filter(Boolean))];
+    if (clean.length === 0) return [];
+    type Row = {
+      _id: unknown;
+      productionId?: string;
+      userSku?: string;
+      orderId?: string;
+      size?: string;
+      color?: string;
+      quantity?: number;
+      weight?: number;
+      mockupUrl?: string;
+      shippingAddress?: Record<string, string | undefined>;
+      factoryId?: unknown;
+      productConfigId?: unknown;
+    };
+    const orders = await this.orderRepository.findAll<Row>(
+      { _id: { $in: clean }, cancelledAt: { $exists: false } },
+      {
+        select: [
+          'productionId',
+          'userSku',
+          'orderId',
+          'size',
+          'color',
+          'quantity',
+          'weight',
+          'mockupUrl',
+          'shippingAddress',
+          'factoryId',
+          'productConfigId',
+        ],
+      },
+    );
+
+    const factoryIds = [...new Set(orders.map((o) => o.factoryId && String(o.factoryId)).filter(Boolean))] as string[];
+    const factories = factoryIds.length
+      ? await this.factoryRepository.findAll<{ _id: unknown; name?: string }>(
+          { _id: { $in: factoryIds } },
+          { select: ['name'] },
+        )
+      : [];
+    const factoryNameById = new Map(factories.map((f) => [String(f._id), f.name || undefined]));
+
+    const pcIds = [...new Set(orders.map((o) => o.productConfigId && String(o.productConfigId)).filter(Boolean))] as string[];
+    const configs = pcIds.length
+      ? await this.productConfigRepository.findAll<{
+          _id: unknown;
+          weight?: number;
+          variations?: { sku?: string; weight?: number }[];
+        }>({ _id: { $in: pcIds } }, { select: ['weight', 'variations.sku', 'variations.weight'] })
+      : [];
+    const configById = new Map(configs.map((c) => [String(c._id), c]));
+
+    const byId = new Map(orders.map((o) => [String(o._id), o]));
+    const out: ShippingLabel[] = [];
+    for (const id of clean) {
+      const o = byId.get(id);
+      if (!o?.productionId) continue;
+      const config = o.productConfigId ? configById.get(String(o.productConfigId)) : undefined;
+      const { sku, weightGram } = resolveShippingLabelInfo(
+        config?.variations || [],
+        o.size,
+        o.weight,
+        config?.weight,
+      );
+      out.push({
+        _id: String(o._id),
+        productionId: o.productionId,
+        userSku: o.userSku || undefined,
+        orderId: o.orderId?.trim() || undefined,
+        size: o.size || undefined,
+        color: o.color || undefined,
+        quantity: o.quantity ?? 1,
+        mockupUrl: o.mockupUrl || undefined,
+        factoryName: o.factoryId ? factoryNameById.get(String(o.factoryId)) : undefined,
+        sku,
+        weightGram,
+        shippingAddress: o.shippingAddress as ShippingLabel['shippingAddress'],
       });
     }
     return out;
@@ -7494,9 +7595,10 @@ export class OrderService implements OnModuleInit {
           .findOne(
             { productionId: data.productionId },
             // `priority: 1` thêm ngoài keys của `data` — cần biết đơn cũ đã có
-            // priority chưa để quyết định auto-gán bên dưới.
-            // `heldAt: 1` — đơn đang giữ không bị ghi đè design (xem ngay dưới).
-            { ...Object.fromEntries(Object.keys(data).map((k) => [k, 1])), priority: 1, heldAt: 1 },
+            // priority chưa để quyết định auto-gán bên dưới. `heldAt: 1` — đơn
+            // đang giữ không bị ghi đè design; `holdReason: 1` — guard snapshot
+            // địa chỉ của đơn giữ chờ sửa địa chỉ (cả hai xem ngay dưới).
+            { ...Object.fromEntries(Object.keys(data).map((k) => [k, 1])), priority: 1, heldAt: 1, holdReason: 1 },
           )
           .lean();
         const existed = !!beforeDoc;
@@ -7510,6 +7612,21 @@ export class OrderService implements OnModuleInit {
           delete d.designs;
           delete d.designsOriginal;
           delete d.designsStatus;
+        }
+        // Đơn đang GIỮ chờ khách sửa địa chỉ + đã có snapshot → KHÔNG cho
+        // re-import (OnosPod hàng ngày) đè snapshot bằng địa chỉ hiện tại:
+        // snapshot cũ chính là baseline để cron `recoverHeldOrders()` (§9c)
+        // so với OnosPod phát hiện "khách ĐÃ đổi" → cập nhật + MỞ GIỮ. Đè ở
+        // đây = baseline luôn bằng hiện tại, tín hiệu đổi bị nuốt, đơn giữ
+        // vĩnh viễn. Đơn không giữ (hoặc giữ lý do khác) vẫn nhận địa chỉ
+        // mới bình thường.
+        if (
+          (data as Record<string, unknown>).shippingAddress &&
+          beforeDoc?.heldAt &&
+          beforeDoc.holdReason === HOLD_REASON_WAITING_ADDRESS &&
+          beforeDoc.shippingAddress
+        ) {
+          delete (data as Record<string, unknown>).shippingAddress;
         }
         // Ưu tiên đơn theo khách: chỉ gán khi đơn CHƯA có priority (đơn mới,
         // hoặc đơn cũ import lại mà chưa ai set) — thêm vào `data` TRƯỚC upsert

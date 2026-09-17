@@ -92,7 +92,12 @@ if [ "$current_branch" != "$BRANCH" ]; then
   exit 0
 fi
 
-git fetch --quiet origin "$BRANCH" || { log "LỖI: fetch hỏng"; exit 1; }
+# Thử lại MỘT lần trước khi kêu hỏng: đo 3 ngày thì fetch trượt 5/4300 lượt —
+# mạng chớp chứ không phải cấu hình sai, mà mỗi lần trượt là một phút dev đứng
+# yên cộng một dòng đỏ trong log làm người đọc tưởng hệ hỏng.
+git fetch --quiet origin "$BRANCH" 2>/dev/null ||
+  { sleep 3; git fetch --quiet origin "$BRANCH"; } ||
+  { log "LỖI: fetch hỏng (đã thử lại 1 lần)"; exit 1; }
 local_sha=$(git rev-parse HEAD)
 remote_sha=$(git rev-parse "origin/$BRANCH")
 [ "$local_sha" = "$remote_sha" ] && exit 0

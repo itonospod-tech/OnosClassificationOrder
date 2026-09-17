@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Ban, CheckCircle2, MoreHorizontal, PauseCircle, Pencil, PlayCircle, Printer, RefreshCw, Truck } from 'lucide-react';
-import type { BarcodeLabel } from 'shared';
+import { Ban, CheckCircle2, MoreHorizontal, PauseCircle, Pencil, PlayCircle, Printer, RefreshCw, Tag, Truck } from 'lucide-react';
+import type { BarcodeLabel, ShippingLabel } from 'shared';
 import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
@@ -32,6 +32,7 @@ import { CancelOrderDialog } from './CancelOrderDialog';
 import { EditOrderDesignDialog } from './EditOrderDesignDialog';
 import { ForceCompleteDialog } from './ForceCompleteDialog';
 import { HoldOrderDialog } from './HoldOrderDialog';
+import { hasShippingAddress, ShippingLabelPrint } from './ShippingLabelPrint';
 import { VnpShipmentDialog } from './VnpShipmentDialog';
 
 interface Props {
@@ -60,6 +61,9 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
   const [unholding, setUnholding] = useState(false);
   const [checkingDesign, setCheckingDesign] = useState(false);
   const [forceCompleteOpen, setForceCompleteOpen] = useState(false);
+  // Label giao hàng 4×6 INCH (Orders.md §16.8) — vòng đời mount-in-gỡ.
+  const [shippingLabels, setShippingLabels] = useState<ShippingLabel[] | null>(null);
+  const [loadingShipLabel, setLoadingShipLabel] = useState(false);
   // Tem nhỏ 60×40mm chỉ tồn tại trong lúc in rồi tự gỡ — xem BarcodeLabelPrint.
   // Dữ liệu tem lấy từ BE (SKU sản phẩm + chỉ số i/n của orderId resolve
   // server-side), không dựng từ row đang hiển thị.
@@ -82,7 +86,9 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
 
   const canHold = canUserHold(roleName);
   const canComplete = canForceComplete(roleName);
-  if (!isAdmin && !canHold && !canComplete) return null;
+  // KHÔNG return null cho role thường nữa (từng chỉ hiện cho Admin/hold/
+  // force-complete): 2 mục in nhãn theo chốt nghiệp vụ là của MỌI role —
+  // role thường thấy menu chỉ gồm 2 mục in, các mục còn lại vẫn gate như cũ.
 
   const cancelled = isCancelled(order);
   const held = isHeld(order);
@@ -107,6 +113,27 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
       handleAxiosError(err);
     } finally {
       setUnholding(false);
+    }
+  };
+
+  // In label giao hàng cho ĐÚNG đơn này — dữ liệu label (SKU biến thể/cân/
+  // tên xưởng) BE resolve sẵn, row đang hiển thị không đủ. Đơn thiếu địa chỉ
+  // → cảnh báo thay vì in tem trống (đơn cũ trước ngày kéo địa chỉ từ OnosPod,
+  // hoặc OnosPod không trả).
+  const doPrintShippingLabel = async () => {
+    try {
+      setLoadingShipLabel(true);
+      const res = await RepositoryRemote.order.getShippingLabels({ ids: [order._id] });
+      const label = ((res.data?.data || []) as ShippingLabel[])[0];
+      if (!label) return toast.warning(t('rowActionsMenu.shippingLabelNotFound'));
+      if (!hasShippingAddress(label)) {
+        return toast.warning(t('rowActionsMenu.shippingLabelNoAddress', { productionId: label.productionId }));
+      }
+      setShippingLabels([label]);
+    } catch (err) {
+      handleAxiosError(err);
+    } finally {
+      setLoadingShipLabel(false);
     }
   };
 
@@ -154,6 +181,16 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
             }}
           >
             <Printer size={14} className="mr-2" /> {t('rowActionsMenu.printSmallLabel')}
+          </DropdownMenuItem>
+          {/* Label giao hàng 4×6in — cũng CHỈ ĐỌC, mở cho mọi role như mục trên. */}
+          <DropdownMenuItem
+            disabled={loadingShipLabel}
+            onSelect={(e) => {
+              e.preventDefault();
+              void doPrintShippingLabel();
+            }}
+          >
+            <Tag size={14} className="mr-2" /> {t('rowActionsMenu.printShippingLabel')}
           </DropdownMenuItem>
           {isAdmin && (
             <DropdownMenuItem disabled={cancelled || held} onSelect={() => setDesignOpen(true)}>
@@ -222,6 +259,7 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {shippingLabels && <ShippingLabelPrint labels={shippingLabels} onDone={() => setShippingLabels(null)} />}
       {smallLabels && <BarcodeLabelPrint labels={smallLabels} size="60x40" onDone={() => setSmallLabels(null)} />}
       <CancelOrderDialog order={order} open={cancelOpen} onOpenChange={setCancelOpen} onDone={onChanged} />
       <HoldOrderDialog order={order} open={holdOpen} onOpenChange={setHoldOpen} onDone={onChanged} />

@@ -15,10 +15,12 @@ import {
   Palette,
   PlayCircle,
   Plus,
+  Printer,
   RotateCw,
   Ruler,
   ScanLine,
   ShieldAlert,
+  Tag,
   Wrench,
 } from 'lucide-react';
 import type {   FulfillmentStage,ProductionOrderRow, WorkshopConfig } from 'shared';
@@ -45,6 +47,7 @@ import { getStageLabel } from '@/utils/fulfillmentStageLabel';
 import { beepError, beepSuccess, parseScanCode } from '@/utils/scanCodes';
 
 import { GuideStep, GuideZone } from './ScanGuide';
+import { useScanPrint } from './useScanPrint';
 
 /** Link sang trang danh mục lỗi công đoạn — đặt ở góc vùng "Báo lỗi". */
 function AddErrorLink() {
@@ -180,6 +183,9 @@ export function FulfillmentScanActionDialog({
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
+  // In tem khách / label giao hàng ngay từ popup — nút bấm hoặc mã `ACT-PRINT-*`.
+  const { printTem, printLabel, loadingLabel, elements: printElements } = useScanPrint(order);
+
   const myStageLabel = getStageLabel(t, myStage);
 
   // Danh mục lỗi CỦA CÔNG ĐOẠN user (Stage Error Catalog) — validate mã `E-<code>`
@@ -265,6 +271,14 @@ export function FulfillmentScanActionDialog({
       return;
     }
     const action = parseScanCode(raw);
+    // Mã hành động `ACT-*` (bảng mã dán trạm) — điều khiển popup không cần chuột.
+    if (action.kind === 'action') {
+      if (action.command === 'cancel') onClose();
+      else if (action.command === 'print-tem') printTem();
+      else if (action.command === 'print-label') void printLabel();
+      else onReportError(); // report-error → chuyển sang dialog gán lỗi
+      return;
+    }
     if (action.kind === 'ok') {
       if (isMyTask) void doComplete();
       else {
@@ -552,6 +566,19 @@ export function FulfillmentScanActionDialog({
         )}
 
         <DialogFooter className="gap-3 shrink-0">
+          <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg">
+            <Printer size={20} className="mr-2" />
+            {t('printActions.printTemBtn')}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => void printLabel()}
+            disabled={saving || loadingLabel}
+            className="h-14 px-5 text-lg"
+          >
+            <Tag size={20} className="mr-2" />
+            {t('printActions.printLabelBtn')}
+          </Button>
           {isMyTask ? (
             <>
               <Button variant="outline" onClick={onReportError} disabled={saving} className="h-14 px-6 text-lg">
@@ -575,6 +602,7 @@ export function FulfillmentScanActionDialog({
             </>
           )}
         </DialogFooter>
+        {printElements}
       </DialogContent>
     </Dialog>
   );

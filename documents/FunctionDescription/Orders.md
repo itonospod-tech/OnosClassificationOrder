@@ -230,11 +230,24 @@ User bấm "Lấy đơn từ OnosPod"
          trên mỗi item (KHÔNG gọi/loop riêng) → chỉ để hiển thị số lượng theo manufacture
          trên toast FE, KHÔNG ảnh hưởng mapping xưởng nội bộ (vẫn qua `ProductConfig` như
          CSV, xem §3.1/§3.3)
-      4. Gọi lại OrderService.importOrders({ rows }) MỘT LẦN cho toàn bộ rows đã gộp —
+      4. Lượt gọi THỨ HAI lấy ĐỊA CHỈ GIAO của khách (2026-09-16):
+         `OnospodOrderLookupService.lookupShippingByOrderIds()` — query `orders(ids)`
+         theo LÔ 50 trên `api.onospod.com` (env `ONOSPOD_API_*`, KHÁC token QC; địa chỉ
+         nằm ở mức ORDER, `paginateMrpProduct` mức production item KHÔNG có). Key lô =
+         `item.order_id` (Mongo `_id` order cha, MRP item mang sẵn) — dedupe trước, đơn
+         nhiều item chỉ tra 1 lần; id lọc `isValidObjectIdHex` (hex 24) trước khi nhúng
+         vào query. ⚠️ Phân trang OnosPod ở HEADER `x-page`/`x-per-page` — per-page phải
+         ≥ số ids gửi (search rỗng KHÔNG kèm header → 502, verify gọi thật 2026-09-16).
+         Bước LÀM GIÀU: method KHÔNG BAO GIỜ throw — thiếu config/OnosPod lỗi thì import
+         vẫn chạy, chỉ thiếu địa chỉ (log Winston `action:'onospodShippingBatch'`).
+      5. Gọi lại OrderService.importOrders({ rows }) MỘT LẦN cho toàn bộ rows đã gộp —
          TÁI DÙNG 100% pipeline upsert/mapping/design-job/notification đã có ở §3.1/§3.3
-  → Response giống ImportProductionOrdersResDto + { totalFetched, period, byManufacture[] }
-     (byManufacture: { id, name, sku, fetched, error? } — hiện trên toast FE; `error` giờ
-     luôn rỗng vì gọi 1 lượt duy nhất, fail = throw luôn thay vì cô lập theo manufacture)
+         (row có `shippingAddress` → `$set` lên đơn, xem guard đơn giữ bên dưới)
+  → Response giống ImportProductionOrdersResDto + { totalFetched, period, byManufacture[],
+     shippingAttached } (byManufacture: { id, name, sku, fetched, error? } — hiện trên
+     toast FE; `error` giờ luôn rỗng vì gọi 1 lượt duy nhất, fail = throw luôn thay vì
+     cô lập theo manufacture; `shippingAttached` = số row gắn được địa chỉ — 0/thấp bất
+     thường nghĩa là OnosPod order API lỗi/thiếu `ONOSPOD_API_*`, toast FE có hiện)
 ```
 
 **Field mapping (`MrpProduct` GraphQL → `ImportProductionOrderRow`):**
@@ -257,6 +270,7 @@ User bấm "Lấy đơn từ OnosPod"
 | `color` | `print.meta_data` key `"Color"` | vd "As Design"; null với 1 số sản phẩm |
 | `baseCost` | `price` (parse number) | field gộp, KHÔNG tách được base/ship |
 | `weight`, `width`, `height`, `length`, `shipCost`, `externalId`, `referent` | — | không tìm được field nguồn nào trên schema (đã probe qua GraphQL error "Did you mean" — introspection bị chặn), để trống (đều optional) |
+| `shippingAddress` | lượt gọi thứ 2 `orders(ids: [order_id])` bên `api.onospod.com` → `order.shipping.{first_name,last_name,company,address_1,address_2,city,state,postcode,country,email,phone}` (snake→camel, cùng mapper `toShippingAddress()` với §9c) | địa chỉ mức ORDER — item cùng đơn dùng chung; OnosPod lỗi/thiếu `ONOSPOD_API_*` → để trống, import vẫn chạy. **Guard ở `importOrders`**: đơn đang GIỮ `holdReason=HOLD_REASON_WAITING_ADDRESS` + đã có snapshot → KHÔNG đè (snapshot cũ là baseline cron §9c so để phát hiện khách đã đổi → mở giữ; đè = tín hiệu bị nuốt, đơn giữ vĩnh viễn). Đơn khác re-import đè bình thường (địa chỉ tươi hơn) |
 
 **Dedupe trong batch:** cùng 1 `productionId` có thể lặp lại giữa các trang (data live dịch
 chuyển khi đang phân trang) — `dedupeByProductionId()` gom trước khi gọi `importOrders()`
@@ -309,7 +323,7 @@ GET /v1/orders/import-from-onospod/cron
 | `order.entity.ts` | Schema + 4 virtual (`factory`, `originalFactory`, `machineType`, `productConfig`) |
 | `order.repository.ts` | Extends DatabaseRepositoryAbstract |
 | `order.service.ts` | `getOrders`, `getDashboard`, `getStatusOverview`, `getFactoryOverview`, `getOrdersGroupedByType`, `getImportSummary`, `exportOrders`, `importOrders`, `updateField`, `bulkUpdateField`, `transferOrder`, `bulkTransferOrders`, `backfillOrderFabric`, `deleteOrder` |
-| `onospod-import.service.ts` | `OnospodImportService.importFromOnosPod()` — query GraphQL `paginateMrpProduct` từ `qc.onospod.com`, map JSON → rows rồi gọi lại `OrderService.importOrders()`. Xem §3.6. |
+| `onospod-import.service.ts` | `OnospodImportService.importFromOnosPod()` — query GraphQL `paginateMrpProduct` từ `qc.onospod.com`, map JSON → rows + gắn `shippingAddress` qua `lookupShippingByOrderIds()` (lượt 2, `api.onospod.com`) rồi gọi lại `OrderService.importOrders()`. Xem §3.6. Unit test `onospod-import.spec.ts`. |
 | `order.controller.ts` | Endpoints (xem §4.2) |
 
 ### 4.2 Endpoints
@@ -705,6 +719,9 @@ Gọi `api.onospod.com/graphql` (query `orders`, **khác** host với
 `paginateMrpProduct`). Config `ApiConfigService.onospodApiConfig` (env
 `ONOSPOD_API_URL`/`ONOSPOD_API_BEARER_TOKEN`/`ONOSPOD_API_SUPER_TOKEN`) —
 thiếu config → getter trả `null`, cron tự skip toàn bộ (không throw).
+Service này còn có `lookupShippingByOrderIds()` — query `orders(ids)` theo lô
+lấy RIÊNG địa chỉ ship cho import hàng ngày (§3.6), dùng chung mapper
+`toShippingAddress()` + hằng `ONOSPOD_ORIGIN`.
 
 ⚠️ **Gateway OnosPod BẮT BUỘC header `Origin: https://app.onospod.com`** (verify
 bằng test gọi thật 2026-07-23) — thiếu header này → **403 Forbidden** dù token
@@ -771,12 +788,16 @@ address_1,address_2,city,state,postcode,country,email,phone}`.
   bộ sẽ KHÔNG giữ lại đơn cho tới khi OnosPod có đợt giữ mới hơn. Đơn giữ theo
   OnosPod có `holdReason = 'Giữ theo OnosPod'` nên cron `recoverHeldOrders()`
   (khớp CHÍNH XÁC 2 lý do) không bao giờ nhặt.
-- **Địa chỉ**: `order.shippingAddress` là field MỚI, chưa từng có baseline →
-  **lần check đầu chỉ SNAPSHOT** (`$set shippingAddress`), **KHÔNG tự mở giữ**
-  (chưa biết có đổi hay không). Từ lần thứ 2 trở đi mới so sánh snapshot đã
-  lưu với dữ liệu OnosPod hiện tại (so từng field, rỗng coi như `''`) — khác
-  → cập nhật snapshot + mở giữ + log `unhold`; giống → giữ nguyên (vẫn chờ).
-  Logic địa chỉ CHƯA có bản thủ công per-order (chỉ chạy trong cron).
+- **Địa chỉ**: nếu `order.shippingAddress` chưa có baseline → **lần check đầu
+  chỉ SNAPSHOT** (`$set shippingAddress`), **KHÔNG tự mở giữ** (chưa biết có
+  đổi hay không). Từ lần thứ 2 trở đi mới so sánh snapshot đã lưu với dữ liệu
+  OnosPod hiện tại (so từng field, rỗng coi như `''`) — khác → cập nhật
+  snapshot + mở giữ + log `unhold`; giống → giữ nguyên (vẫn chờ). Từ
+  2026-09-16 **import hàng ngày đã gắn sẵn `shippingAddress` lúc tạo đơn**
+  (§3.6) nên đa số đơn CÓ SẴN baseline — cron so được ngay từ lượt đầu, không
+  phải chờ 2 lượt; kèm guard ở `importOrders` không cho re-import đè snapshot
+  của đơn đang giữ chờ sửa địa chỉ (xem bảng field mapping §3.6). Logic địa
+  chỉ CHƯA có bản thủ công per-order (chỉ chạy trong cron).
 - Đơn thiếu `orderId` (chưa từng có mã đơn OnosPod) → skip, lý do rõ ràng
   trong response `skipped[]` (không đoán, không throw).
 
@@ -1755,6 +1776,30 @@ AOP-CUS-SHAPE-TIE      10.6x62.2   ← SKU sản phẩm (trái) · biến thể 
 - **Cơ chế in** (`components/orders/BarcodeLabelPrint.tsx`, dùng chung cho cả hai khổ §16.6/§16.7): portal ra `document.body`, `display: none` anh chị em, `@page {size: 75mm 50mm}` chỉ sống lúc mount, ngắt trang mọi tem trừ `:last-child`, in sau 2 khung hình. Barcode `width={1}`: mã cố định 16 ký tự → ~211 module ≈ 56mm luôn lọt lòng tem 69mm; KHÔNG kéo giãn SVG bằng CSS (JsBarcode xuất svg không viewBox — scale CSS chỉ cắt hình chứ không phóng vạch).
 
 FE: `services/order.ts` `getBarcodeLabels` · i18n `bulkEdit.printBarcodeBtn/printBarcodeTitle`. Shared: `GetBarcodeLabelsDto`/`BarcodeLabelZod`/`GetBarcodeLabelsResDto` (`production-order.dto.ts`).
+
+### 16.8 "In label giao hàng" — label 4×6 INCH kiểu carrier (2026-09-16)
+
+Label "DO NOT SHIP" dán túi/kiện theo khuôn label OnosPod cũ (ảnh mẫu do vận hành cung cấp) — con tem THỨ BA, khác hẳn 2 tem trên: khổ **4×6 inch** (không phải 4×6cm), có ĐỊA CHỈ NGƯỜI NHẬN (từ `shippingAddress` kéo về từ OnosPod lúc import — §3.6) + ảnh mockup + SKU biến thể. **Chốt nghiệp vụ: in được ở MỌI công đoạn, bởi MỌI role đăng nhập** — vì vậy `OrderRowActionsMenu` KHÔNG còn return null cho role thường (role không có quyền hold/admin giờ vẫn thấy menu "..." nhưng chỉ gồm 2 mục in nhãn).
+
+Layout (từ trên xuống): ô "G" + tên xưởng gửi + OnosFactory/DO NOT SHIP/ngày/cân nặng + hộp POSTAGE PAID → banner **DO NOT SHIP** + Created date → dòng xưởng gửi → QR (trỏ `/track/<productionId>`, cùng convention tem khách §16.6) + khối địa chỉ người nhận in hoa → `TRACKING #` + **Code128 = `productionId` TRẦN** (KHÔNG prefix `N-` — muốn quét trạm xưởng thì dùng tem §16.7; chữ dưới vạch in LIỀN không giãn cách, chốt nghiệp vụ) → ảnh mockup + `<SKU biến thể> × qty` + `Seller · Size · Color` + `Merchant ID: <orderId>`. Chữ trên mặt tem CỐ Ý tiếng Anh cố định (khuôn carrier quốc tế, không theo toggle ngôn ngữ — cùng tiền lệ trang Careers).
+
+- **Dữ liệu BE trả sẵn** qua `POST /orders/shipping-labels` (`@Auth([])` — mọi role, chỉ đọc; body `{ids}` max 500): `OrderService.getShippingLabels()` trả `ShippingLabel[]` đúng thứ tự ids, đơn hủy loại lặng lẽ như §16.7. Resolve server-side: `factoryName` (bảng `factories`), `sku`/`weightGram` qua `resolveShippingLabelInfo()` (`order/shipping-label.ts`, pure + spec `shipping-label.spec.ts`) — biến thể norm-endsWith size trả **SKU ĐẦY ĐỦ** (`PAOPPOLO-SAME-DESIGN-3XL`, KHÁC `resolveBarcodeSkuBase` đã gọt đuôi); cân GRAM ưu tiên `order.weight` → cân biến thể khớp size → `ProductConfig.weight` mặc định (đơn OnosPod import không có weight nên thường rơi vào 2 nguồn sau); FE format "0 lb 10.2 oz (288 g)".
+- **Đơn thiếu địa chỉ KHÔNG in tem trống** — BE vẫn trả row, FE lọc bằng `hasShippingAddress()` (export từ `ShippingLabelPrint.tsx`: cần `address1` + city/postcode): bản 1 đơn toast cảnh báo kèm productionId, bản bulk tách nhóm thiếu ra toast (`bulkEdit.shippingLabelNoAddress` liệt kê tối đa 5 mã) và chỉ in phần còn lại. Đơn cũ trước ngày kéo địa chỉ (2026-09-16) phần lớn sẽ rơi nhóm này.
+- **Cơ chế in** (`components/orders/ShippingLabelPrint.tsx`): cùng khuôn portal + `@page {size: 4in 6in}` + ngắt trang như 2 tem trên, KHÁC duy nhất: tem có ẢNH mockup từ CDN → phải **chờ mọi `<img>` load xong** (trần `IMAGE_WAIT_MS=2500ms` — CDN hỏng vẫn in, ô ảnh trống) rồi mới `window.print()`, không thì tem ra ô ảnh trắng dù màn hình sau đó hiện đủ. Barcode `width={1.6}`: productionId 14 ký tự → 189 module ≈ 3.15in lọt lòng tem 3.68in.
+- **Điểm vào**: menu "..." từng hàng (mục "In label giao hàng", icon `Tag`, mở cho mọi role) + nút "In label giao hàng" trên `BulkEditToolbar` (cạnh "In tem barcode", cùng trần 500 + toast in-thiếu §16.7).
+- **Còn mở**: dòng "Mailed from `<zip>`" của label mẫu chưa in được — xưởng trong hệ chưa có địa chỉ/zip (thêm field cho `FactoryEntity` hoặc dùng địa chỉ ShippingFrom cấu hình VNP theo xưởng khi cần).
+
+FE: `services/order.ts` `getShippingLabels` · i18n `rowActionsMenu.printShippingLabel/shippingLabelNotFound/shippingLabelNoAddress` + `bulkEdit.printShippingLabelBtn/printShippingLabelTitle/shippingLabelNoAddress`. Shared: `GetShippingLabelsDto`/`ShippingLabelZod`/`GetShippingLabelsResDto` (`production-order.dto.ts`).
+
+### 16.9 "Xuất PDF label" — gộp label THẬT của carrier thành 1 file (2026-09-17)
+
+Tick N đơn → nút **"Xuất PDF label"** trên `BulkEditToolbar` (CHỈ Danh sách đơn `/ffm/orders`, chốt nghiệp vụ) → tải về **1 file PDF, mỗi label 1 trang**. KHÁC HẲN §16.8: đây là **file label USPS/carrier thật** đã tồn tại — mua qua VNP (`vnpShipment.labelUrl`, PDF trên CloudFront) hoặc khách tự cấp ORD-26 (`tracking.labelUrl`, thường là link Google Drive) — BE **tải về và ghép nguyên văn, KHÔNG vẽ lại**.
+
+- **BE** `POST /orders/shipping-labels/export-pdf` (`@Auth([])`, body `{ids}` max **200** — thấp hơn trần 500 của in tem vì mỗi label phải tải từ CDN/Drive): `ShippingLabelPdfService.exportPdf()` (`order/shipping-label-pdf.service.ts`, ghép bằng **pdf-lib** thuần JS — không headless browser trên VPS).
+- **Chọn nguồn per đơn** = hàm thuần `resolveLabelExportSources()` (`order/label-export.ts` + spec): ưu tiên label VNP còn hiệu lực (bỏ label đã `cancelledAt`) → fallback label khách cấp; không có → skip `no-label`; id lạ → `not-found`. **GIỮ THỨ TỰ tick** — thứ tự trang = thứ tự bảng.
+- **Item chung kiện** (mua gộp theo orderId — VnpShipping.md, N item chung 1 `labelUrl`) → chỉ 1 trang, item sau trả về mảng `merged` (FE toast info "đã gộp trang", KHÔNG phải lỗi).
+- **Ghép file**: label PDF → copy nguyên trang (label nhiều trang giữ đủ); PNG/JPG → trang 4×6in fit ảnh; Drive link đổi sang direct-download qua `extractDriveId`/`buildDriveDownloadUrl` (`utils/design-url.ts`), Drive trả HTML (file không public) → skip `fetch-failed`. Tải song song 5 luồng, timeout 20s, trần 25MB/file. Đơn hỏng chỉ hỏng riêng nó — file vẫn ra phần còn lại (mirror khuôn in-thiếu §16.7).
+- **Response** (`ExportShippingLabels*` DTOs, `production-order.dto.ts`): `{pdfBase64|null, pageCount, labelCount, merged[], skipped[{productionId, reason}]}` — FE decode base64 → Blob tải `shipping-labels-<stamp>-<n>.pdf`, toast warning nhóm skipped (5 mã đầu) + info merged + success đếm label/trang. i18n `bulkEdit.exportLabelPdf*`.
 
 ## 17. Ưu tiên đơn hàng + hạn dự kiến từng bước
 
