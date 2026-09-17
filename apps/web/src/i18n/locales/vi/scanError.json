@@ -166,6 +166,41 @@
     "resolutionHint": "Tự động theo cấu hình danh mục lỗi. Quét lại <strong>CÙNG MÃ</strong> (hoặc nhấn Enter) để ghi nhận — quét mã khác để đổi lựa chọn, gõ mô tả bên dưới nếu cần.",
     "noteLabel": "Mô tả lỗi",
     "notePlaceholder": "Mô tả ngắn gọn lỗi gặp phải (tùy chọn)",
-    "assignAndContinueBtn": "Gán lỗi & Quét tiếp"
+    "assignAndContinueBtn": "Gán lỗi & Quét tiếp",
+    "alreadyInErrorMode": "Đang ở màn báo lỗi — quét thẳng mã lỗi E-… của công đoạn."
+  },
+  "printActions": {
+    "printTemBtn": "In tem khách",
+    "printLabelBtn": "In label giao hàng",
+    "labelNotFound": "Không lấy được dữ liệu label của đơn này.",
+    "labelNoAddress": "Đơn {{productionId}} chưa có địa chỉ nhận hàng — không in được label giao hàng."
+  },
+  "actionSheet": {
+    "printBtn": "In bảng mã hành động",
+    "title": "Bảng mã hành động — dán tại trạm quét",
+    "desc": "Quét mã đơn N-… để mở popup, sau đó quét các mã dưới đây để thao tác không cần chuột/bàn phím.",
+    "printDialogHint": "Khi hộp thoại in của trình duyệt đang mở: quét mã OK = bấm nút In (máy quét gửi kèm phím Enter). Muốn hủy in thì bấm phím ESC trên bàn phím — các mã quét khác không dùng được ở bước này.",
+    "codes": {
+      "ok": {
+        "title": "OK — Xác nhận / Hoàn thành",
+        "desc": "Tương đương phím Enter: hoàn thành công đoạn, xác nhận in"
+      },
+      "cancel": {
+        "title": "Cancel — Đóng popup",
+        "desc": "Tương đương phím ESC: đóng popup đơn đang mở"
+      },
+      "printTem": {
+        "title": "In tem khách",
+        "desc": "In tem 4×6cm có QR tra cứu đơn — dán gói hàng cho khách"
+      },
+      "printLabel": {
+        "title": "In label giao hàng",
+        "desc": "In label 4×6 inch kiểu carrier — cho bên vận chuyển"
+      },
+      "reportError": {
+        "title": "Báo lỗi",
+        "desc": "Mở màn gán lỗi — quét tiếp mã lỗi E-… của công đoạn"
+      }
+    }
   }
 }

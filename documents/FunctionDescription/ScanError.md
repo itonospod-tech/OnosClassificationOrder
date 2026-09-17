@@ -306,6 +306,36 @@ curl -X GET http://localhost:3001/v1/orders/by-production-id/PROD-1234 \
 
 ---
 
+## 10b. Bảng mã hành động `ACT-*` + in tem/label từ popup (2026-09-17)
+
+> Bối cảnh nghiệp vụ: **tem to** (tem khách 4×6cm QR `/track/:productionId` — `CustomerLabelPrint`) cho khách xem, **tem nhỏ** (tem barcode xưởng 75×50mm `N-<productionId>` — `BarcodeLabelPrint`) cho nội bộ dán vào vải/sản phẩm từ đầu chuyền, **label** (4×6 inch kiểu carrier — `ShippingLabelPrint`) cho bên vận chuyển. Công nhân đến bước đóng gói quét tem nhỏ → popup → quét mã action để in tem to + label, **hai tay không rời máy quét**.
+
+### 10b.1 Bộ mã action (`utils/scanCodes.ts`)
+
+Prefix mới `ACT-` (`SCAN_ACTION_PREFIX`), parse case-insensitive → `{ kind: 'action', command }`:
+
+| Payload barcode | Command | Hành vi trong popup |
+| --- | --- | --- |
+| `OK` (sẵn có) | — | Như phím Enter: hoàn thành công đoạn / xác nhận in trong hộp thoại in |
+| `ACT-CANCEL` | `cancel` | Như ESC: đóng popup đơn đang mở |
+| `ACT-PRINT-TEM` | `print-tem` | In tem khách 4×6cm cho đơn đang mở |
+| `ACT-PRINT-LABEL` | `print-label` | In label giao hàng 4×6 inch cho đơn đang mở |
+| `ACT-ERROR` | `report-error` | Mở màn gán lỗi (dialog công đoạn → chuyển `OrderErrorScanDialog`; đang ở màn lỗi → toast nhắc quét thẳng `E-…`) |
+
+`print-design` đã đặt chỗ trong type (`ScanActionCommand`) nhưng **chưa triển khai** — chưa in ra sheet. Quét `ACT-*` khi CHƯA mở đơn nào → toast "quét đơn trước" (cùng nhánh với `OK`/`E-…` ở `handleLookup`).
+
+### 10b.2 In từ popup (`useScanPrint.tsx` — hook dùng chung 2 dialog)
+
+- 2 nút mới ở footer CẢ 2 dialog: **"In tem khách"** + **"In label giao hàng"** — bấm tay hoặc quét `ACT-PRINT-*` đều gọi cùng handler.
+- Tem khách: `getByProductionId` trả full document nên truyền thẳng order vào `CustomerLabelPrint` (cast sang `WorkshopOrderRow`). Label: fetch `POST /orders/shipping-labels` (ids=[_id]) rồi mount `ShippingLabelPrint`; thiếu địa chỉ → toast cảnh báo `printActions.labelNoAddress`, không in tem trống.
+- **Cơ chế OK-để-in**: cả 2 component in đều mount → `window.print()` → hộp thoại in trình duyệt mở. Máy quét luôn gửi kèm Enter cuối mã, Enter trong hộp thoại in = nút "In" → **quét `OK` là in ra**. Muốn hủy phải bấm ESC bàn phím (mọi mã quét đều kết thúc bằng Enter nên không có mã hủy dùng được ở bước này — ghi rõ trên sheet).
+
+### 10b.3 Sheet in bảng mã (`ActionCodeSheetPrint.tsx`)
+
+Nút **"In bảng mã hành động"** trên header trang quét → sheet A4 Code128 (react-barcode) 5 mã trên + mô tả từng mã + ghi chú cơ chế OK/ESC, in ra dán cạnh trạm. Dùng khuôn portal + `display:none` siblings của `CustomerLabelPrint`, **KHÔNG** dùng visibility-trick luôn-mount như sheet `stage-errors` — trang này còn in tem/label từ chính nó, style `visibility: hidden` thường trực sẽ nuốt trắng các bản in kia. Sheet mount lúc in rồi tự gỡ (`afterprint` + timeout).
+
+---
+
 ## 11. Files / Folders liên quan
 
 **Shared:**
@@ -317,8 +347,11 @@ curl -X GET http://localhost:3001/v1/orders/by-production-id/PROD-1234 \
 - `apps/api/src/modules/order/order.service.ts` — `getByProductionId()`
 
 **Frontend:**
-- `apps/web/src/pages/orders/scan-error/index.tsx` — page chính (input + history)
+- `apps/web/src/pages/orders/scan-error/index.tsx` — page chính (input + history + nút in bảng mã hành động)
 - `apps/web/src/pages/orders/scan-error/OrderErrorScanDialog.tsx` — modal gán lỗi
+- `apps/web/src/pages/orders/scan-error/useScanPrint.tsx` — hook in tem khách/label từ popup (§10b.2)
+- `apps/web/src/pages/orders/scan-error/ActionCodeSheetPrint.tsx` — sheet A4 bảng mã hành động (§10b.3)
+- `apps/web/src/utils/scanCodes.ts` — `SCAN_ACTION_PREFIX`/`ScanActionCommand`/`ACTION_SHEET_CODES` (§10b.1)
 - `apps/web/src/services/order.ts` — `getByProductionId(code)`
 - `apps/web/src/constants/paths.ts` — `PATHS.ORDERS_SCAN_ERROR`
 - `apps/web/src/constants/routerConfig.ts` — lazy route
@@ -328,6 +361,7 @@ curl -X GET http://localhost:3001/v1/orders/by-production-id/PROD-1234 \
 
 ## 12. Lịch sử thay đổi
 
+- **2026-09-17** — **Bảng mã hành động `ACT-*` + in tem/label từ popup** (§10b): prefix `ACT-` trong `parseScanCode`, hook `useScanPrint` gắn vào cả 2 dialog (nút + mã quét in tem khách 4×6cm / label giao hàng 4×6"), sheet A4 `ActionCodeSheetPrint` in dán trạm, cơ chế "quét OK trong hộp thoại in = bấm In" nhờ Enter cuối mã của máy quét.
 - **2026-07-21** — Quét 2 bước: dialog bắt keystroke máy quét (buffer + reset 600ms) → `OK` = hoàn thành, `E-<code>` = báo lỗi theo config (`resolveErrorScan`), `N-…` = thay đơn đang chờ. Beep WebAudio 3 loại. Xem `StageErrorCatalog.md`.
 - **2026-07-21 (update)** — **Xác nhận 2 lần quét lỗi**: quét `E-` lần 1 chỉ CHỌN lỗi (validate thuộc danh mục công đoạn người quét; `FulfillmentScanActionDialog.onScanError` → handoff `OrderErrorScanDialog` `initialCode`); quét lần 2 CÙNG MÃ hoặc Enter tay mới ghi nhận + đẩy về; quét mã khác = đổi lựa chọn; burst-detector cắt mã máy quét gõ nhầm vào textarea note. Bỏ prop `onErrorSaved`.
 

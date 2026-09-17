@@ -10,7 +10,9 @@ import type {
   BulkUpdateOrderFieldDto,
   CancelOrderDto,
   ClaimDesignerTasksDto,
+  ExportShippingLabelsDto,
   GetBarcodeLabelsDto,
+  GetShippingLabelsDto,
   HoldOrderDto,
   ImportFromOnosPodDto,
   ImportProductionOrdersDto,
@@ -36,6 +38,17 @@ const getOrdersByIds = (query: string = '') => {
 // Dữ liệu tem barcode xưởng — nút "In tem barcode" ở thanh bulk (Orders.md §16.7).
 const getBarcodeLabels = (data: GetBarcodeLabelsDto) => {
   return callApi(`/${CONFIG.API_VERSION}/orders/barcode-labels`, 'post', data);
+};
+
+// Dữ liệu label giao hàng 4×6in — menu "..." + thanh bulk (Orders.md §16.8).
+const getShippingLabels = (data: GetShippingLabelsDto) => {
+  return callApi(`/${CONFIG.API_VERSION}/orders/shipping-labels`, 'post', data);
+};
+
+// Xuất PDF gộp label THẬT của carrier (VNP/khách cấp) — nút "Xuất PDF label"
+// ở thanh bulk (Orders.md §16.9). BE tải file label + ghép, trả base64.
+const exportShippingLabelsPdf = (data: ExportShippingLabelsDto) => {
+  return callApi(`/${CONFIG.API_VERSION}/orders/shipping-labels/export-pdf`, 'post', data);
 };
 
 // Drill-down dashboard — KHÔNG scoping theo role (mọi role thấy cùng tập đơn).
@@ -242,6 +255,8 @@ export const order = {
   getOrders,
   getOrdersByIds,
   getBarcodeLabels,
+  getShippingLabels,
+  exportShippingLabelsPdf,
   getOverviewList,
   importOrders,
   importRework,

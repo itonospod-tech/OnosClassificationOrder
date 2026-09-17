@@ -23,7 +23,7 @@
     "importSuccess": "Imported {{imported}}, updated {{updated}}, mapped {{mapped}}/{{total}}",
     "reworkSuccess": "Soát: updated {{updated}}, not-found {{notFound}}, cancel {{cancelled}}, gán designer {{assigneeMatched}}",
     "errorSuffix": " (lỗi)",
-    "onosPodSuccess": "Đã lấy {{totalFetched}} đơn từ {{count}} xưởng OnosPod ({{summary}}): imported {{imported}}, updated {{updated}}, mapped {{mapped}}/{{total}}",
+    "onosPodSuccess": "Đã lấy {{totalFetched}} đơn từ {{count}} xưởng OnosPod ({{summary}}): imported {{imported}}, updated {{updated}}, mapped {{mapped}}/{{total}}, địa chỉ giao {{shippingAttached}}",
     "onosPodFailed": "{{count}} xưởng lỗi: {{list}}",
     "lastResultNewTitle": "Kết quả import lần trước",
     "lastResultReworkTitle": "Kết quả soát lần trước",
@@ -338,7 +338,16 @@
     "clearOption": "— Bỏ chọn —",
     "newTextLabel": "Text mới (để trống = xóa)",
     "notePlaceholder": "Ghi chú...",
-    "auditNote": "Hành động sẽ ghi log audit cho từng đơn (Phase 3). Không undo được."
+    "auditNote": "Hành động sẽ ghi log audit cho từng đơn (Phase 3). Không undo được.",
+    "printShippingLabelBtn": "In label giao hàng",
+    "printShippingLabelTitle": "In label giao hàng 4×6 inch (mỗi đơn 1 trang) cho các đơn đang chọn",
+    "shippingLabelNoAddress": "{{count}} đơn chưa có địa chỉ giao nên bỏ qua: {{list}}",
+    "exportLabelPdfBtn": "Xuất PDF label",
+    "exportLabelPdfTitle": "Gộp label thật của đơn vị vận chuyển (đã mua qua VNP / khách tự cấp) thành 1 file PDF — mỗi label 1 trang",
+    "exportLabelPdfSuccess": "Đã xuất {{count}} label ({{pages}} trang) vào 1 file PDF.",
+    "exportLabelPdfSkipped": "{{count}} đơn bị bỏ qua (chưa có label / tải label lỗi): {{list}}…",
+    "exportLabelPdfMerged": "{{count}} item chung kiện đã gộp chung trang label.",
+    "exportLabelPdfEmpty": "Không đơn nào có label carrier dùng được — cần mua label VNP hoặc đơn có label khách tự cấp."
   },
   "cancelledBadge": {
     "label": "Đã hủy",
@@ -540,7 +549,10 @@
     "vnpShipment": "Vận đơn VNP",
     "printSmallLabel": "In tem nhỏ",
     "noLabel": "Đơn này chưa có mã sản xuất để in tem",
-    "forceComplete": "Chuyển hoàn thành"
+    "forceComplete": "Chuyển hoàn thành",
+    "printShippingLabel": "In label giao hàng",
+    "shippingLabelNotFound": "Không tải được dữ liệu label cho đơn này (đơn đã hủy?).",
+    "shippingLabelNoAddress": "Đơn {{productionId}} chưa có địa chỉ giao — không in label trống. Thử \"Kiểm tra design mới\" hoặc chờ cron kéo địa chỉ từ OnosPod."
   },
   "orderActions": {
     "alreadyCancelled": "Đơn đã hủy.",

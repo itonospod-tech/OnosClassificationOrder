@@ -105,6 +105,7 @@
     "p-limit": "^3.0.0",
     "passport": "^0.6.0",
     "passport-jwt": "^4.0.1",
+    "pdf-lib": "^1.17.1",
     "rate-limiter-flexible": "^5.0.3",
     "redis": "^4.6.15",
     "reflect-metadata": "^0.1.13",

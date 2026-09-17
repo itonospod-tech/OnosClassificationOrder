@@ -20,6 +20,7 @@ import { DriveFileNameService } from './drive-file-name.service';
 import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodImportService } from './onospod-import.service';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
+import { ShippingLabelPdfService } from './shipping-label-pdf.service';
 import { OrderController } from './order.controller';
 import { OrderEntity, OrderSchema } from './order.entity';
 import { OrderRepository } from './order.repository';
@@ -59,6 +60,7 @@ import { OrderService } from './order.service';
     OnospodImportService,
     OnospodHoldSyncService,
     OnospodOrderLookupService,
+    ShippingLabelPdfService,
   ],
   exports: [OrderService],
 })

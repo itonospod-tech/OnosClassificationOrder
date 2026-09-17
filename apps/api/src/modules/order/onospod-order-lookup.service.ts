@@ -138,6 +138,80 @@ const DESIGN_FIELD_MAP: Partial<Record<keyof DesignFields, OnospodDesignKey>> = 
   rightCuff: 'design_right_cuff',
 };
 
+type OnospodShipping = NonNullable<OnospodOrder['shipping']>;
+
+// snake_case (OnosPod `order.shipping`) → camelCase snapshot nội bộ. Trả
+// undefined khi object rỗng/toàn field trống — caller khỏi ghi snapshot rỗng.
+function toShippingAddress(shipping: OnospodShipping | null | undefined): ProductionOrderShippingAddress | undefined {
+  if (!shipping) return undefined;
+  const mapped: ProductionOrderShippingAddress = {
+    firstName: shipping.first_name || undefined,
+    lastName: shipping.last_name || undefined,
+    company: shipping.company || undefined,
+    address1: shipping.address_1 || undefined,
+    address2: shipping.address_2 || undefined,
+    city: shipping.city || undefined,
+    state: shipping.state || undefined,
+    postcode: shipping.postcode || undefined,
+    country: shipping.country || undefined,
+    email: shipping.email || undefined,
+    phone: shipping.phone || undefined,
+  };
+  return Object.values(mapped).some(Boolean) ? mapped : undefined;
+}
+
+// Query theo LÔ `ids` (Mongo `_id` của order — MRP item mang sẵn ở field
+// `order_id`) — chỉ lấy `_id` + `shipping` cho import hàng ngày. Type biến
+// `[String]` + phân trang qua header `x-page`/`x-per-page` (per-page phải ≥
+// số ids gửi lên, không thì gateway cắt bớt kết quả) — verify bằng test gọi
+// thật 2026-09-16: 3 ids gửi → 3 order về đủ shipping; search rỗng KHÔNG kèm
+// header phân trang → 502 (query toàn bộ orders quá nặng).
+const ORDER_SHIPPING_BATCH_QUERY = `query OrderShippingByIds($ids: [String]) {
+  orders(
+    search: ""
+    _id: ""
+    id: ""
+    ids: $ids
+    identity: ""
+    status: "All"
+    tracking_status: ""
+    platform: ""
+    store_id: ""
+    product_id: ""
+    product_name: ""
+    buyer: ""
+    start: ""
+    end: ""
+    auth_id: ""
+    manufacture_id: ""
+    ignoreReturn: true
+  ) {
+    _id
+    shipping {
+      first_name
+      last_name
+      company
+      address_1
+      address_2
+      city
+      state
+      postcode
+      country
+      email
+      phone
+    }
+  }
+}`;
+
+// Kích thước lô mỗi request `OrderShippingByIds` — cân giữa số request (batch
+// 1 ngày ~vài trăm order) và độ nặng mỗi query phía gateway OnosPod.
+const SHIPPING_BATCH_SIZE = 50;
+
+/** Mongo ObjectId dạng hex 24 ký tự — lọc trước khi nhúng vào query theo lô. */
+export function isValidObjectIdHex(id: string | undefined | null): id is string {
+  return typeof id === 'string' && /^[a-f0-9]{24}$/i.test(id);
+}
+
 export type OnospodLookupResult = {
   /** true nếu tìm thấy ĐÚNG 1 line_item khớp `productionId`. */
   matched: boolean;
@@ -231,23 +305,70 @@ export class OnospodOrderLookupService {
       }
     }
 
-    let shipping: ProductionOrderShippingAddress | undefined;
-    if (order.shipping) {
-      shipping = {
-        firstName: order.shipping.first_name || undefined,
-        lastName: order.shipping.last_name || undefined,
-        company: order.shipping.company || undefined,
-        address1: order.shipping.address_1 || undefined,
-        address2: order.shipping.address_2 || undefined,
-        city: order.shipping.city || undefined,
-        state: order.shipping.state || undefined,
-        postcode: order.shipping.postcode || undefined,
-        country: order.shipping.country || undefined,
-        email: order.shipping.email || undefined,
-        phone: order.shipping.phone || undefined,
-      };
+    return { matched: true, ambiguous: false, design, shipping: toShippingAddress(order.shipping) };
+  }
+
+  /**
+   * Lấy địa chỉ ship theo LÔ Mongo `_id` của order OnosPod (MRP item mang sẵn
+   * ở `order_id`) — dùng cho import đơn hàng ngày (`OnospodImportService`):
+   * gắn `shippingAddress` vào row trước khi `importOrders()`.
+   *
+   * KHÔNG BAO GIỜ throw — đây là bước LÀM GIÀU dữ liệu, lỗi ở đây (OnosPod
+   * down, token hết hạn, thiếu config) không được làm hỏng lượt import chính.
+   * Lô nào fail chỉ log + bỏ qua, các lô còn lại vẫn xử lý tiếp; kết quả là
+   * map `orderId (_id)` → địa chỉ, thiếu key = không lấy được.
+   */
+  async lookupShippingByOrderIds(orderIds: string[]): Promise<Map<string, ProductionOrderShippingAddress>> {
+    const result = new Map<string, ProductionOrderShippingAddress>();
+    const config = this.apiConfigService.onospodApiConfig;
+    if (!config) return result;
+
+    const ids = Array.from(new Set(orderIds.filter((id) => isValidObjectIdHex(id))));
+
+    for (let i = 0; i < ids.length; i += SHIPPING_BATCH_SIZE) {
+      const chunk = ids.slice(i, i + SHIPPING_BATCH_SIZE);
+      try {
+        const res = await axios.post(
+          config.apiUrl,
+          { operationName: 'OrderShippingByIds', variables: { ids: chunk }, query: ORDER_SHIPPING_BATCH_QUERY },
+          {
+            headers: {
+              Authorization: `Bearer ${config.bearerToken}`,
+              'x-onos-super-token': config.superToken,
+              'Content-Type': 'application/json',
+              Origin: ONOSPOD_ORIGIN,
+              Referer: `${ONOSPOD_ORIGIN}/`,
+              // Phân trang của OnosPod nằm ở HEADER — per-page phải ≥ số ids
+              // trong lô, không thì kết quả bị cắt bớt (xem comment query).
+              'x-page': '1',
+              'x-per-page': String(chunk.length),
+            },
+            timeout: 20_000,
+          },
+        );
+
+        const gqlErrors = res.data?.errors;
+        if (Array.isArray(gqlErrors) && gqlErrors.length > 0) {
+          this.logger.error({
+            message: JSON.stringify({ action: 'onospodShippingBatch', chunkStart: i, chunkSize: chunk.length, gqlErrors }),
+          });
+          continue;
+        }
+
+        const orders = (res.data?.data?.orders as Pick<OnospodOrder, '_id' | 'shipping'>[] | undefined) || [];
+        for (const order of orders) {
+          const shipping = toShippingAddress(order.shipping);
+          if (order._id && shipping) result.set(order._id, shipping);
+        }
+      } catch (err) {
+        const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+        const message = axios.isAxiosError(err) ? err.message : 'Unknown error';
+        this.logger.error({
+          message: JSON.stringify({ action: 'onospodShippingBatch', chunkStart: i, chunkSize: chunk.length, status, error: message }),
+        });
+      }
     }
 
-    return { matched: true, ambiguous: false, design, shipping };
+    return result;
   }
 }
