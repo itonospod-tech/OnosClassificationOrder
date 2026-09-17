@@ -86,6 +86,20 @@ export class AgentApiRepository {
       .toArray()) as Row[];
   }
 
+  /**
+   * Đếm số dòng khớp bộ lọc — chỉ gọi khi bên gọi xin `select.withTotal`.
+   *
+   * Cùng `maxTimeMS` và cùng `secondaryPreferred` với `find()`: một phép đếm
+   * trên bảng lớn vẫn là một lần quét, không được phép chạy lâu hơn hay đè lên
+   * primary chỉ vì nó "chỉ đếm".
+   */
+  async count(args: { collection: string; filter: Record<string, unknown>; maxTimeMS: number }): Promise<number> {
+    return this.connection.collection(args.collection).countDocuments(args.filter, {
+      maxTimeMS: args.maxTimeMS,
+      readPreference: 'secondaryPreferred',
+    });
+  }
+
   async aggregate(args: { collection: string; pipeline: PipelineStage[]; maxTimeMS: number }): Promise<Row[]> {
     return (await this.connection
       .collection(args.collection)

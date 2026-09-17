@@ -39,7 +39,7 @@ import {
   moTaDinhKem,
   moTaDon,
   nhanChang,
-  quyetDinhHangDoi,
+  phanLoaiHangDoi,
   SUMMARY_JSON_SCHEMA,
   tachJson,
 } from './zalo-summary.logic';
@@ -256,6 +256,23 @@ export class ZaloSummaryService {
    * vậy nó chỉ kéo phần MỚI thay vì tải lại toàn bộ lịch sử mỗi lượt.
    */
   async getQueue(): Promise<ZaloSummaryQueueItem[]> {
+    return (await this.phanLoaiTatCa()).hang;
+  }
+
+  /**
+   * Xét TẤT CẢ nhóm được phép đọc chat, tách làm hai: nhóm tới hạn tóm tắt và
+   * nhóm cố ý bỏ qua kèm lý do.
+   *
+   * Vì sao trả cả nhóm bỏ qua: bên ngoài nhìn bảng tóm tắt chỉ thấy "bản này cũ
+   * 18 ngày" mà không biết cũ do cố ý hay do hệ bỏ sót — đội agent đã đoán nhầm
+   * thành "summarizer chạy không đều" (báo cáo 16/09/2026). Lý do được ghi
+   * xuống bản ghi ở `cronQuetTomTat` để công cụ bên kia tự lọc thay vì đoán.
+   */
+  private async phanLoaiTatCa(): Promise<{
+    hang: ZaloSummaryQueueItem[];
+    boQua: { groupGlobalId: string; lyDo: string }[];
+    gidPhanTichDuoc: string[];
+  }> {
     // Chốt riêng tư: chỉ nhóm đã phân loại seller/operation mới được đọc chat.
     const groups = await this.linkModel
       .find({ kind: { $in: ZALO_GROUP_ANALYZABLE_KINDS }, deletedAt: { $exists: false } })
@@ -266,13 +283,14 @@ export class ZaloSummaryService {
     const byGroup = new Map(summaries.map((s) => [String(s.groupGlobalId), s]));
 
     const now = Date.now();
-    const out: ZaloSummaryQueueItem[] = [];
+    const hang: ZaloSummaryQueueItem[] = [];
+    const boQua: { groupGlobalId: string; lyDo: string }[] = [];
 
     for (const g of groups) {
       const gid = String((g as { groupGlobalId: string }).groupGlobalId);
       const lastMsg = (g as { lastMessageAt?: Date }).lastMessageAt;
       const prev = byGroup.get(gid);
-      const qd = quyetDinhHangDoi({
+      const pl = phanLoaiHangDoi({
         lastMessageAt: lastMsg ? new Date(lastMsg) : null,
         denMocTin: prev?.denMocTin ? new Date(prev.denMocTin) : null,
         docDayDuLuc: prev?.docDayDuLuc ? new Date(prev.docDayDuLuc) : null,
@@ -280,12 +298,73 @@ export class ZaloSummaryService {
         ngayDocLai: NGAY_DOC_LAI,
         ngayBoQua: NGAY_BO_QUA_NHOM_IM,
       });
-      if (!qd) continue;
+      if (!pl.xepHang) {
+        if (pl.lyDoBoQua) boQua.push({ groupGlobalId: gid, lyDo: pl.lyDoBoQua });
+        continue;
+      }
 
-      out.push({ groupGlobalId: gid, title: (g as { title?: string }).title, ...qd });
+      hang.push({ groupGlobalId: gid, title: (g as { title?: string }).title, ...pl.xepHang });
     }
 
-    return out;
+    return { hang, boQua, gidPhanTichDuoc: groups.map((g) => String((g as { groupGlobalId: string }).groupGlobalId)) };
+  }
+
+  /**
+   * Đóng dấu các bản tóm tắt MỒ CÔI — có trong `zalo_group_summaries` nhưng
+   * groupGlobalId không còn nhóm nào phân tích được mang.
+   *
+   * Vì sao có: hai engine Zalo từng chạy song song và mỗi engine tự cấp id
+   * riêng; đợt gộp về một engine (11/09/2026) khớp hội thoại theo khoá tự
+   * nhiên chứ không theo id, nên bản tóm tắt sinh ở thời engine cũ có thể trỏ
+   * vào một `groupGlobalId` không còn tồn tại. Đội agent đo 16/09: 22 bản
+   * không khớp được nhóm nào.
+   *
+   * CHỈ ĐÁNH DẤU, KHÔNG XOÁ: bản mồ côi vẫn có thể là tóm tắt thật của một
+   * nhóm thật, và xoá là mất luôn phần việc còn treo ghi trong đó. Bên đọc lọc
+   * theo `lyDoBoQua` rồi quyết, việc dọn để người quyết.
+   */
+  private async dongDauMoCoi(gidPhanTichDuoc: string[], luc: Date): Promise<void> {
+    // Danh sách rỗng thì `$nin: []` khớp MỌI dòng — một lượt đọc link hỏng sẽ
+    // đóng dấu mồ côi cho toàn bảng. Không có nhóm nào để so thì không so.
+    if (gidPhanTichDuoc.length === 0) return;
+    try {
+      const r = await this.summaryModel.updateMany(
+        { groupGlobalId: { $nin: gidPhanTichDuoc } },
+        { $set: { lanChayCuoi: luc, lyDoBoQua: 'khong-co-link-phan-tich' } },
+      );
+      if (r.modifiedCount > 0) {
+        this.logger.warn(`[zalo-summary-sweep] ${r.modifiedCount} bản tóm tắt mồ côi (không khớp nhóm nào phân tích được)`);
+      }
+    } catch (e) {
+      this.logger.warn(`[zalo-summary-sweep] không đánh dấu được bản mồ côi: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  /**
+   * Đóng dấu lượt quét lên bản tóm tắt: `lanChayCuoi` cho mọi nhóm được xét,
+   * `lyDoBoQua` cho nhóm không tóm tắt lượt này (xoá khi nhóm được xếp hàng).
+   *
+   * `upsert: false` có chủ đích — nhóm CHƯA TỪNG có tóm tắt thì không đẻ bản
+   * ghi rỗng, vì bên đọc đếm số dòng của bảng này ra "số nhóm có tóm tắt".
+   */
+  private async dongDauLuotQuet(items: { groupGlobalId: string; lyDo: string | null }[], luc: Date): Promise<void> {
+    if (items.length === 0) return;
+    try {
+      await this.summaryModel.bulkWrite(
+        items.map((it) => ({
+          updateOne: {
+            filter: { groupGlobalId: it.groupGlobalId },
+            update: it.lyDo
+              ? { $set: { lanChayCuoi: luc, lyDoBoQua: it.lyDo } }
+              : { $set: { lanChayCuoi: luc }, $unset: { lyDoBoQua: '' } },
+          },
+        })),
+        { ordered: false },
+      );
+    } catch (e) {
+      // Đóng dấu hỏng không được làm hỏng lượt tóm tắt — đây là dữ liệu phụ trợ.
+      this.logger.warn(`[zalo-summary-sweep] không ghi được dấu lượt quét: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   /**
@@ -313,19 +392,38 @@ export class ZaloSummaryService {
     if (!this.engine.daCauHinh) return;
 
     let hang: ZaloSummaryQueueItem[];
+    let boQua: { groupGlobalId: string; lyDo: string }[];
+    let gidPhanTichDuoc: string[];
     try {
-      hang = await this.getQueue();
+      ({ hang, boQua, gidPhanTichDuoc } = await this.phanLoaiTatCa());
     } catch (e) {
       this.logger.error(`[zalo-summary-sweep] không lấy được hàng đợi: ${e instanceof Error ? e.message : String(e)}`);
 
       return;
     }
-    if (hang.length === 0) return;
 
     // Trần mỗi lượt: mỗi nhóm là một lần gọi mô hình. Không có trần thì một ngày
     // nào đó 113 nhóm cùng tới hạn và lượt quét đó tốn gấp trăm lần bình thường.
     const lam = hang.slice(0, SWEEP_MOI_LUOT);
-    this.logger.log(`[zalo-summary-sweep] ${hang.length} nhóm tới hạn, xếp hàng ${lam.length}`);
+
+    // Đóng dấu TRƯỚC khi gọi mô hình: lượt quét có chạy là sự thật, kể cả khi
+    // phần tóm tắt phía sau hỏng. Nhóm quá trần lượt này mang lý do riêng để
+    // bên đọc phân biệt "hệ bận" với "cố ý bỏ qua".
+    const luc = new Date();
+    await this.dongDauLuotQuet(
+      [
+        ...lam.map((it) => ({ groupGlobalId: it.groupGlobalId, lyDo: null })),
+        ...hang.slice(SWEEP_MOI_LUOT).map((it) => ({ groupGlobalId: it.groupGlobalId, lyDo: 'qua-tran-luot' })),
+        ...boQua.map((it) => ({ groupGlobalId: it.groupGlobalId, lyDo: it.lyDo })),
+      ],
+      luc,
+    );
+    await this.dongDauMoCoi(gidPhanTichDuoc, luc);
+    if (hang.length === 0) return;
+
+    this.logger.log(
+      `[zalo-summary-sweep] ${hang.length} nhóm tới hạn, xếp hàng ${lam.length}, bỏ qua ${boQua.length} (${hang.length - lam.length} quá trần)`,
+    );
 
     let xong = 0;
     for (const item of lam) {

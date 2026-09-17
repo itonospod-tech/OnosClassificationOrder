@@ -280,7 +280,7 @@ export class AgentQueryService {
     spec: AgentTableSpec,
     filter: Record<string, unknown>,
     select: AgentSelect | undefined,
-  ): Promise<{ items: Row[]; limitApplied: number }> {
+  ): Promise<{ items: Row[]; limitApplied: number; hasMore: boolean; total?: number }> {
     const limit = this.clampLimit(select?.limit);
     const timeoutMs = this.config.agentApi.queryTimeoutMs;
     const projection = this.buildProjection(spec, select?.fields);
@@ -296,23 +296,36 @@ export class AgentQueryService {
           projection,
           sort: Object.keys(sort).length ? sort : { [spec.defaultSort]: 1 },
           skip: offset,
-          limit,
+          // Xin DƯ MỘT dòng để biết chắc còn trang sau hay không. Suy từ
+          // `returned === limit` thì sai đúng ở lô cuối vừa khít trần, và bên
+          // gọi không có cách nào phân biệt "hết dữ liệu" với "bị cắt".
+          limit: limit + 1,
           maxTimeMS: timeoutMs,
         }),
       timeoutMs,
     );
 
+    const hasMore = raw.length > limit;
+    const trang = hasMore ? raw.slice(0, limit) : raw;
+
     // Không xin trường nào thì trả nguyên bản ghi — `pickProjected` chỉ dùng khi
     // có `$project` thu hẹp, vì nó cắt đúng theo danh sách đã xin.
-    const rows = Object.keys(projection).length ? raw.map((r) => pickProjected(r, projection)) : raw;
-    return { items: this.maskRows(spec, rows), limitApplied: limit };
+    const rows = Object.keys(projection).length ? trang.map((r) => pickProjected(r, projection)) : trang;
+
+    // Đếm tổng CHỈ khi được xin: mỗi lần đếm là một lần quét thêm, và phần lớn
+    // lời gọi chỉ cần biết mình có đang cầm dữ liệu cắt dở hay không.
+    const total = select?.withTotal
+      ? await this.run(() => this.repository.count({ collection: spec.key, filter, maxTimeMS: timeoutMs }), timeoutMs)
+      : undefined;
+
+    return { items: this.maskRows(spec, rows), limitApplied: limit, hasMore, total };
   }
 
   async aggregate(
     spec: AgentTableSpec,
     filter: Record<string, unknown>,
     agg: AgentAggregate,
-  ): Promise<{ items: Row[]; limitApplied: number }> {
+  ): Promise<{ items: Row[]; limitApplied: number; hasMore: boolean }> {
     const timeoutMs = this.config.agentApi.queryTimeoutMs;
     const limit = Math.min(agg.limit ?? 200, 1000);
 
@@ -379,14 +392,18 @@ export class AgentQueryService {
       pipeline.push({ $project: projectStage });
     }
     if (Object.keys(sort).length) pipeline.push({ $sort: sort });
-    pipeline.push({ $limit: limit });
+    // Dư một nhóm, cùng lý do với `selectRows`: bên gọi phải phân biệt được
+    // "hết nhóm" với "bị trần cắt".
+    pipeline.push({ $limit: limit + 1 });
 
-    const items = await this.run(
+    const raw = await this.run(
       () => this.repository.aggregate({ collection: spec.key, pipeline, maxTimeMS: timeoutMs }),
       timeoutMs,
     );
+    const hasMore = raw.length > limit;
+    const items = hasMore ? raw.slice(0, limit) : raw;
 
-    return { items: items.map((row) => stripDeniedDeep(row)), limitApplied: limit };
+    return { items: items.map((row) => stripDeniedDeep(row)), limitApplied: limit, hasMore };
   }
 
   /**

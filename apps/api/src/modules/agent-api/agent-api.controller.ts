@@ -199,6 +199,7 @@ export class AgentApiController {
         ? await this.queries.aggregate(spec, filter, body.aggregate)
         : await this.queries.selectRows(spec, filter, body.select);
 
+      const tong = body.aggregate ? undefined : (result as { total?: number }).total;
       const data: AgentQueryPayload = {
         items: result.items,
         meta: {
@@ -206,6 +207,9 @@ export class AgentApiController {
           mode: body.aggregate ? 'aggregate' : 'rows',
           returned: result.items.length,
           limitApplied: result.limitApplied,
+          hasMore: result.hasMore,
+          // `total` chỉ có ở nhánh rows và chỉ khi bên gọi xin `select.withTotal`.
+          ...(tong !== undefined ? { total: tong } : {}),
         },
       };
       this.audit.write({

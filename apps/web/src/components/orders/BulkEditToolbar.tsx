@@ -35,11 +35,9 @@ import { buildDetailOnlyWorkbook, downloadWorkbook, type ExportableOrder } from 
 import { LucideIcon } from '@/pages/workshop-config/IconPicker';
 
 import { AssignDesignerDialog } from './AssignDesignerDialog';
-import { BarcodeLabelPrint } from './BarcodeLabelPrint';
-import { CustomerLabelPrint } from './CustomerLabelPrint';
+import { BarcodeLabelPrint, type BarcodeLabelSize } from './BarcodeLabelPrint';
 import { HOLD_REASON_PRESETS } from './HoldOrderDialog';
 import { hasShippingAddress, ShippingLabelPrint } from './ShippingLabelPrint';
-import type { WorkshopOrderRow } from './workshopTableConfig';
 
 const FIELD_TO_CATEGORY: Record<OrderWorkshopField, WorkshopConfigCategory | null> = {
   printStatus: 'print_status' as WorkshopConfigCategory,
@@ -124,79 +122,48 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
   const [unassigning, setUnassigning] = useState(false);
   const [checkingDesign, setCheckingDesign] = useState(false);
   const [loadingLabels, setLoadingLabels] = useState(false);
-  // Đơn đã tải xong để in tem — set là nhãn mount + tự bung hộp thoại in, in
-  // xong `onDone` trả về null để gỡ khỏi DOM (xem CustomerLabelPrint).
-  const [labelOrders, setLabelOrders] = useState<WorkshopOrderRow[] | null>(null);
   const [loadingBarcodes, setLoadingBarcodes] = useState(false);
-  // Tem barcode xưởng 75×50mm — cùng vòng đời mount-in-gỡ như labelOrders.
-  const [barcodeLabels, setBarcodeLabels] = useState<BarcodeLabel[] | null>(null);
+  // Tem đã tải xong — set là nhãn mount + tự bung hộp thoại in, in xong
+  // `onDone` trả về null để gỡ khỏi DOM (xem BarcodeLabelPrint). `size` đi kèm
+  // vì hai nút dùng chung dữ liệu, chỉ khác khổ decal.
+  const [barcodeLabels, setBarcodeLabels] = useState<{ rows: BarcodeLabel[]; size: BarcodeLabelSize } | null>(null);
   const [loadingShipLabels, setLoadingShipLabels] = useState(false);
   const [exportingLabelPdf, setExportingLabelPdf] = useState(false);
   // Label giao hàng 4×6 INCH (Orders.md §16.8) — cùng vòng đời mount-in-gỡ.
   const [shippingLabels, setShippingLabels] = useState<ShippingLabel[] | null>(null);
 
-  // In tem khách hàng loạt — CÙNG con tem 40×60mm với mục "In nhãn khách" ở
-  // menu "..." từng dòng (`CustomerLabelPrint`), chỉ khác là truyền N đơn nên
-  // ra N trang trong 1 lệnh in.
+  // In tem hàng loạt — CÙNG bố cục tem hệ cũ cho cả hai khổ, chỉ khác decal:
+  // 60×40mm là tem nhỏ dán sản phẩm, 75×50mm là tem dán túi PE (Orders.md
+  // §16.6 / §16.7). Mỗi productionId ra 1 trang trong cùng một lệnh in.
   //
   // Dữ liệu tem lấy từ SERVER theo `ids` chứ không lấy từ row đang hiển thị:
   // tick chọn sống xuyên trang ("Chọn tất cả N đơn khớp bộ lọc" ở Danh sách đơn
   // classic) nên phần lớn đơn được chọn KHÔNG có mặt trong `items` của bảng —
-  // in theo row là lặng lẽ thiếu tem. `includeExcludedFactory=true` vì đơn xưởng
-  // US bị loại mặc định khỏi list dùng chung (Orders.md §21) mà kiện hàng của nó
-  // vẫn cần tem; thiếu cờ này là tem biến mất không một lời báo.
-  const handlePrintLabels = async () => {
+  // in theo row là lặng lẽ thiếu tem. BE cũng là nơi resolve SKU sản phẩm theo
+  // Product Config và chỉ số i/n của orderId, đơn hủy bị loại lặng lẽ nên vẫn
+  // cần toast "in thiếu".
+  const fetchLabels = async (size: BarcodeLabelSize, setLoading: (v: boolean) => void) => {
     if (selectedIds.length > MAX_LABELS_PER_PRINT) {
       return toast.error(t('bulkEdit.labelTooMany', { max: MAX_LABELS_PER_PRINT, count: selectedIds.length }));
     }
     try {
-      setLoadingLabels(true);
-      const params = new URLSearchParams({
-        ids: selectedIds.join(','),
-        page: '1',
-        limit: String(selectedIds.length),
-        includeExcludedFactory: 'true',
-      });
-      const res = await RepositoryRemote.order.getOrders('?' + params.toString());
-      const rows = (res.data?.data || []) as WorkshopOrderRow[];
-      if (rows.length === 0) return toast.warning(t('bulkEdit.noLabel'));
-      // Đơn ĐÃ HỦY bị loại khỏi mọi list dùng chung nên không quay về đây được;
-      // báo rõ số tem thực in thay vì để người dùng đếm thiếu sau khi bóc tem.
-      if (rows.length < selectedIds.length) {
-        toast.warning(t('bulkEdit.labelPartial', { count: rows.length, total: selectedIds.length }));
-      }
-      setLabelOrders(rows);
-    } catch (err) {
-      handleAxiosError(err);
-    } finally {
-      setLoadingLabels(false);
-    }
-  };
-
-  // In tem barcode xưởng loạt (Orders.md §16.7) — mỗi productionId 1 trang
-  // 75×50mm. Dữ liệu tem BE trả sẵn qua `POST /orders/barcode-labels` (kể cả
-  // SKU sản phẩm resolve từ Product Config + chỉ số i/n của orderId) — không
-  // lấy từ row đang hiển thị, cùng lý do chọn-xuyên-trang như handlePrintLabels;
-  // đơn hủy bị BE loại lặng lẽ nên vẫn cần toast "in thiếu".
-  const handlePrintBarcodes = async () => {
-    if (selectedIds.length > MAX_LABELS_PER_PRINT) {
-      return toast.error(t('bulkEdit.labelTooMany', { max: MAX_LABELS_PER_PRINT, count: selectedIds.length }));
-    }
-    try {
-      setLoadingBarcodes(true);
+      setLoading(true);
       const res = await RepositoryRemote.order.getBarcodeLabels({ ids: selectedIds });
       const rows = (res.data?.data || []) as BarcodeLabel[];
       if (rows.length === 0) return toast.warning(t('bulkEdit.noLabel'));
       if (rows.length < selectedIds.length) {
         toast.warning(t('bulkEdit.labelPartial', { count: rows.length, total: selectedIds.length }));
       }
-      setBarcodeLabels(rows);
+      setBarcodeLabels({ rows, size });
     } catch (err) {
       handleAxiosError(err);
     } finally {
-      setLoadingBarcodes(false);
+      setLoading(false);
     }
   };
+
+  const handlePrintLabels = () => fetchLabels('60x40', setLoadingLabels);
+  const handlePrintBarcodes = () => fetchLabels('75x50', setLoadingBarcodes);
 
   // In label giao hàng 4×6in loạt (Orders.md §16.8) — dữ liệu BE trả sẵn qua
   // `POST /orders/shipping-labels` (SKU biến thể/cân/tên xưởng/địa chỉ), cùng
@@ -529,9 +496,9 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
         </div>
       </div>
 
-      {labelOrders && <CustomerLabelPrint orders={labelOrders} onDone={() => setLabelOrders(null)} />}
-
-      {barcodeLabels && <BarcodeLabelPrint labels={barcodeLabels} onDone={() => setBarcodeLabels(null)} />}
+      {barcodeLabels && (
+        <BarcodeLabelPrint labels={barcodeLabels.rows} size={barcodeLabels.size} onDone={() => setBarcodeLabels(null)} />
+      )}
 
       {shippingLabels && <ShippingLabelPrint labels={shippingLabels} onDone={() => setShippingLabels(null)} />}
 

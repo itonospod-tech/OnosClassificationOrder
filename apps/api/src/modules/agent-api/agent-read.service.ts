@@ -87,20 +87,25 @@ export class AgentReadService {
           projection,
           sort: { _id: 1 },
           skip: 0,
-          limit: limitApplied,
+          // Dư một dòng: `nextCursor` cũ suy từ "lô đầy tới trần" nên lô cuối
+          // vừa khít trần vẫn trả con trỏ, bên gọi phải gọi thêm một lượt rỗng
+          // mới biết là hết.
+          limit: limitApplied + 1,
           maxTimeMS: timeoutMs,
         }),
       timeoutMs,
     );
 
-    const rows = Object.keys(projection).length ? raw.map((r) => pickProjected(r, projection)) : raw;
+    const hasMore = raw.length > limitApplied;
+    const trang = hasMore ? raw.slice(0, limitApplied) : raw;
+    const rows = Object.keys(projection).length ? trang.map((r) => pickProjected(r, projection)) : trang;
     const items = this.queries.maskRows(spec, rows);
 
-    // Còn trang sau khi lô đầy tới trần — lô vơi nghĩa là đã hết dữ liệu.
-    const last = raw.at(-1);
-    const nextCursor = items.length === limitApplied && last?._id ? String(last._id) : undefined;
+    // Con trỏ chỉ có khi thật sự còn dòng phía sau.
+    const last = trang.at(-1);
+    const nextCursor = hasMore && last?._id ? String(last._id) : undefined;
 
-    return { items, nextCursor, meta: { table: spec.key, returned: items.length, limitApplied } };
+    return { items, nextCursor, meta: { table: spec.key, returned: items.length, limitApplied, hasMore } };
   }
 
   /**

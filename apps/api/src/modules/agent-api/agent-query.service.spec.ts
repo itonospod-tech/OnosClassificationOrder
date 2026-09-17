@@ -283,3 +283,61 @@ describe('văn bản tự do trả về NGUYÊN VĂN (API-11)', () => {
     expect(row.toolResultNote).toBe(raw);
   });
 });
+
+/**
+ * `meta.hasMore` — trần lô bị kẹp IM LẶNG, nên bên gọi phải có cách biết mình
+ * đang cầm dữ liệu cắt dở.
+ *
+ * Ca 3 là lý do không suy từ `returned === limitApplied`: lô cuối vừa khít trần
+ * trông y hệt lô bị cắt. Đo bằng cách xin dư một dòng thì hai trường hợp đó
+ * tách ra được. Bối cảnh: 16/09/2026 một đợt đọc bị cắt ở dòng 200 đã bị hiểu
+ * thành thiếu dữ liệu thật, mất nửa ngày điều tra một vấn đề không tồn tại.
+ */
+describe('selectRows — hasMore và total', () => {
+  const dungService = (rows: unknown[], count = 0) => {
+    const find = jest.fn().mockResolvedValue(rows);
+    const đếm = jest.fn().mockResolvedValue(count);
+    const svc = new AgentQueryService(
+      { find, count: đếm, aggregate: jest.fn(), insertLog: jest.fn(), ensureLogTtlIndex: jest.fn() } as never,
+      { agentApi: { maxLimit: 200, readTimeoutMs: 3000, queryTimeoutMs: 8000 } } as never,
+    );
+
+    return { svc, find, đếm };
+  };
+  const dong = (n: number) => Array.from({ length: n }, (_, i) => ({ _id: String(i) }));
+
+  it('xin DƯ một dòng so với trần', async () => {
+    const { svc, find } = dungService(dong(3));
+    await svc.selectRows(orders, {}, { kind: 'rows', limit: 50 });
+    expect(find.mock.calls[0][0].limit).toBe(51);
+  });
+
+  it('còn dòng phía sau → hasMore, và cắt lại đúng trần', async () => {
+    const { svc } = dungService(dong(201));
+    const r = await svc.selectRows(orders, {}, { kind: 'rows', limit: 500 });
+    expect(r.limitApplied).toBe(200);
+    expect(r.items).toHaveLength(200);
+    expect(r.hasMore).toBe(true);
+  });
+
+  it('lô vừa khít trần nhưng hết dữ liệu → KHÔNG hasMore', async () => {
+    const { svc } = dungService(dong(200));
+    const r = await svc.selectRows(orders, {}, { kind: 'rows', limit: 200 });
+    expect(r.items).toHaveLength(200);
+    expect(r.hasMore).toBe(false);
+  });
+
+  it('không xin total thì không đếm', async () => {
+    const { svc, đếm } = dungService(dong(3));
+    const r = await svc.selectRows(orders, {}, { kind: 'rows', limit: 50 });
+    expect(đếm).not.toHaveBeenCalled();
+    expect(r.total).toBeUndefined();
+  });
+
+  it('xin withTotal thì trả tổng', async () => {
+    const { svc, đếm } = dungService(dong(3), 4213);
+    const r = await svc.selectRows(orders, {}, { kind: 'rows', limit: 50, withTotal: true });
+    expect(đếm).toHaveBeenCalledTimes(1);
+    expect(r.total).toBe(4213);
+  });
+});

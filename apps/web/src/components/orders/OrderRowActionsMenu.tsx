@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Ban, CheckCircle2, MoreHorizontal, PauseCircle, Pencil, PlayCircle, Printer, RefreshCw, Tag, Truck } from 'lucide-react';
+import type { BarcodeLabel, ShippingLabel } from 'shared';
 import { toast } from 'sonner';
-import type { ShippingLabel } from 'shared';
 
 import { RepositoryRemote } from '@/services';
 
@@ -27,8 +27,8 @@ import {
 
 import { usePermission } from '@/hooks/usePermission';
 
+import { BarcodeLabelPrint } from './BarcodeLabelPrint';
 import { CancelOrderDialog } from './CancelOrderDialog';
-import { CustomerLabelPrint } from './CustomerLabelPrint';
 import { EditOrderDesignDialog } from './EditOrderDesignDialog';
 import { ForceCompleteDialog } from './ForceCompleteDialog';
 import { HoldOrderDialog } from './HoldOrderDialog';
@@ -61,11 +61,28 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
   const [unholding, setUnholding] = useState(false);
   const [checkingDesign, setCheckingDesign] = useState(false);
   const [forceCompleteOpen, setForceCompleteOpen] = useState(false);
-  // Nhãn 4×6cm chỉ tồn tại trong lúc in rồi tự gỡ — xem CustomerLabelPrint.
-  const [printingLabel, setPrintingLabel] = useState(false);
-  // Label giao hàng 4×6 INCH (Orders.md §16.8) — cùng vòng đời mount-in-gỡ.
+  // Label giao hàng 4×6 INCH (Orders.md §16.8) — vòng đời mount-in-gỡ.
   const [shippingLabels, setShippingLabels] = useState<ShippingLabel[] | null>(null);
   const [loadingShipLabel, setLoadingShipLabel] = useState(false);
+  // Tem nhỏ 60×40mm chỉ tồn tại trong lúc in rồi tự gỡ — xem BarcodeLabelPrint.
+  // Dữ liệu tem lấy từ BE (SKU sản phẩm + chỉ số i/n của orderId resolve
+  // server-side), không dựng từ row đang hiển thị.
+  const [smallLabels, setSmallLabels] = useState<BarcodeLabel[] | null>(null);
+  const [loadingLabel, setLoadingLabel] = useState(false);
+
+  const printSmallLabel = async () => {
+    try {
+      setLoadingLabel(true);
+      const res = await RepositoryRemote.order.getBarcodeLabels({ ids: [order._id] });
+      const rows = (res.data?.data || []) as BarcodeLabel[];
+      if (rows.length === 0) return toast.warning(t('rowActionsMenu.noLabel'));
+      setSmallLabels(rows);
+    } catch (err) {
+      handleAxiosError(err);
+    } finally {
+      setLoadingLabel(false);
+    }
+  };
 
   const canHold = canUserHold(roleName);
   const canComplete = canForceComplete(roleName);
@@ -153,16 +170,17 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-          {/* In nhãn khách — thao tác CHỈ ĐỌC, không đổi gì trên đơn, nên không
+          {/* In tem nhỏ — thao tác CHỈ ĐỌC, không đổi gì trên đơn, nên không
               khoá theo đơn đã hủy / đang giữ như các mục bên dưới: xưởng vẫn cần
               dán tem lên kiện hàng của đơn giữ để tìm lại nó. */}
           <DropdownMenuItem
+            disabled={loadingLabel}
             onSelect={(e) => {
               e.preventDefault();
-              setPrintingLabel(true);
+              void printSmallLabel();
             }}
           >
-            <Printer size={14} className="mr-2" /> {t('rowActionsMenu.printCustomerLabel')}
+            <Printer size={14} className="mr-2" /> {t('rowActionsMenu.printSmallLabel')}
           </DropdownMenuItem>
           {/* Label giao hàng 4×6in — cũng CHỈ ĐỌC, mở cho mọi role như mục trên. */}
           <DropdownMenuItem
@@ -241,8 +259,8 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {printingLabel && <CustomerLabelPrint orders={[order]} onDone={() => setPrintingLabel(false)} />}
       {shippingLabels && <ShippingLabelPrint labels={shippingLabels} onDone={() => setShippingLabels(null)} />}
+      {smallLabels && <BarcodeLabelPrint labels={smallLabels} size="60x40" onDone={() => setSmallLabels(null)} />}
       <CancelOrderDialog order={order} open={cancelOpen} onOpenChange={setCancelOpen} onDone={onChanged} />
       <HoldOrderDialog order={order} open={holdOpen} onOpenChange={setHoldOpen} onDone={onChanged} />
       <EditOrderDesignDialog order={order} open={designOpen} onOpenChange={setDesignOpen} onDone={onChanged} />

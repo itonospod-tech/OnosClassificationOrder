@@ -42,6 +42,12 @@ Không truyền `fields` thì trả **nguyên bản ghi** — đó là cách duy
 
 Lô mặc định 50 dòng, trần 200 — xin nhiều hơn thì bị kẹp xuống trần và `meta.limitApplied` cho biết mức thực tế.
 
+**Luôn đọc `meta.hasMore` trước khi kết luận.** Trần lô bị kẹp im lặng: gửi `limit: 500` vẫn trả 200 dòng, `success: true`, không lỗi. `hasMore: true` nghĩa là dữ liệu đang cắt dở — phải lấy tiếp (`select.offset`, hoặc `cursor` ở `read_rows`) rồi mới kết luận. Suy từ `returned === limitApplied` là sai ở lô cuối vừa khít trần: `hasMore` đo bằng cách đọc dư một dòng nên nói đúng cả trường hợp đó.
+
+Cần tổng số dòng khớp bộ lọc thì xin `select.withTotal: true` → `meta.total`. Mặc định TẮT vì mỗi lần đếm là một lần quét thêm; phần lớn trường hợp `hasMore` đã đủ.
+
+> Đây không phải tình huống giả định: 16/09/2026 một đợt đọc `zalo_group_links` bị cắt ở dòng 200, 22 nhóm nằm ngoài trang đầu bị hiểu thành "không có link", và kết luận sai suýt được đẩy sang đội khác. Mất nửa ngày điều tra một vấn đề không tồn tại.
+
 **Bề mặt dữ liệu hiện tại: mọi bảng, mọi trường, lọc/sắp xếp/nhóm được hết.** Đúng sáu tên bị chặn ở
 mọi bảng: `password`, `passwordSource`, `ip`, `userAgent`, `apiKeys`, `secret`. Mười một bảng dưới đây là những bảng **có
 mô tả nghiệp vụ** — đọc chúng để hiểu nghiệp vụ; các bảng khác đọc được nhưng bạn phải tự suy cấu trúc.

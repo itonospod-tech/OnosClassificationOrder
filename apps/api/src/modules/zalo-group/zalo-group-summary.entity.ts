@@ -98,6 +98,21 @@ export class ZaloGroupSummaryEntity extends DatabaseEntityAbstract {
 
   @Prop({ index: true })
   tomTatLuc?: Date;
+
+  /**
+   * Lần summarizer XÉT nhóm này gần nhất — ghi mỗi lượt quét kể cả khi không
+   * sinh bản tóm tắt mới. Tách khỏi `tomTatLuc` để người đọc phân biệt được
+   * "hệ không chạy" với "hệ có chạy nhưng cố ý bỏ qua".
+   */
+  @Prop({ index: true })
+  lanChayCuoi?: Date;
+
+  /**
+   * Vì sao lượt quét gần nhất KHÔNG tóm tắt lại nhóm này (`null` = có tóm tắt).
+   * `chua-co-tin` · `nhom-im-lau` · `khong-co-tin-moi` — xem `phanLoaiHangDoi`.
+   */
+  @Prop({ trim: true })
+  lyDoBoQua?: string;
 }
 
 export const ZaloGroupSummarySchema = SchemaFactory.createForClass(ZaloGroupSummaryEntity);

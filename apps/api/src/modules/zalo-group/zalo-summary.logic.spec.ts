@@ -10,6 +10,7 @@ import {
   moTaDinhKem,
   moTaDon,
   nhanChang,
+  phanLoaiHangDoi,
   quyetDinhHangDoi,
   SUMMARY_JSON_SCHEMA,
   tachJson,
@@ -55,17 +56,26 @@ describe('moTaDon — thứ tự hủy → giữ → xong → công đoạn', ()
     expect(moTaDon({ cancelledAt: ngayTruoc(1), heldAt: ngayTruoc(2) }, NOW)).toBe('ĐÃ HỦY');
   });
 
-  it('đang giữ: số ngày + lý do', () => {
-    expect(moTaDon({ heldAt: ngayTruoc(3), holdReason: 'thiếu file' }, NOW)).toBe(
-      'ĐANG BỊ GIỮ 3 ngày (lý do: thiếu file)',
-    );
+  // ĐỔI CÓ CHỦ Ý 16/09/2026: mốc tuyệt đối thay cho tuổi tương đối. Bản tóm tắt
+  // sống nhiều ngày trong bảng, "đã 3 ngày" viết hôm nay đọc tuần sau vẫn là
+  // "3 ngày" — đã gây báo cáo sai thật (xem `moTaDon`).
+  it('đang giữ: mốc giữ + lý do, KHÔNG phải số ngày', () => {
+    const r = moTaDon({ heldAt: ngayTruoc(3), holdReason: 'thiếu file' }, NOW);
+    expect(r).toBe('ĐANG BỊ GIỮ từ 31/08 09:00 (lý do: thiếu file)');
+    expect(r).not.toMatch(/\d+ ngày/);
   });
 
-  it('đã xong sản xuất', () => {
-    expect(moTaDon({ fulfillmentCompletedAt: ngayTruoc(2) }, NOW)).toBe('đã xong sản xuất 2 ngày trước');
+  it('đã xong sản xuất: ghi mốc xong', () => {
+    expect(moTaDon({ fulfillmentCompletedAt: ngayTruoc(2) }, NOW)).toBe('đã xong sản xuất lúc 01/09 09:00');
   });
 
-  it('đang chạy có lỗi: công đoạn + lỗi + ghi chú + số ngày vào sản xuất', () => {
+  it('mô tả KHÔNG đổi theo thời điểm đọc — cùng đơn, đọc sau 30 ngày vẫn ra một chuỗi', () => {
+    const don = { heldAt: ngayTruoc(3), holdReason: 'thiếu file' };
+    const sau30Ngay = new Date(NOW.getTime() + 30 * 86_400_000);
+    expect(moTaDon(don, sau30Ngay)).toBe(moTaDon(don, NOW));
+  });
+
+  it('đang chạy có lỗi: công đoạn + lỗi + ghi chú + mốc vào sản xuất', () => {
     expect(
       moTaDon(
         {
@@ -76,7 +86,7 @@ describe('moTaDon — thứ tự hủy → giữ → xong → công đoạn', ()
         },
         NOW,
       ),
-    ).toBe(`${FULFILLMENT_STAGE_LABELS[FulfillmentStage.Print]}, ĐANG CÓ LỖI: lệch màu — in lại, vào sản xuất 5 ngày trước`);
+    ).toBe(`${FULFILLMENT_STAGE_LABELS[FulfillmentStage.Print]}, ĐANG CÓ LỖI: lệch màu — in lại, vào sản xuất lúc 29/08 09:00`);
   });
 });
 
@@ -291,6 +301,30 @@ describe('apDungSanMucDo — sàn mức độ từ dữ liệu đơn, không bao
 
   it('mô hình can-chu-y + đơn nhắc bị giữ → nâng lên gap, ghi lại mức cũ', () => {
     expect(apDungSanMucDo(ZaloSummaryLevel.CanChuY, { donNhacBiGiuHoacLoi: 2, donKhachBiGiuHoacLoi: 2 }).nangTu).toBe(ZaloSummaryLevel.CanChuY);
+  });
+});
+
+describe('phanLoaiHangDoi — nói ra LÝ DO bỏ qua thay vì trả null câm', () => {
+  const base = { now: NOW.getTime(), ngayDocLai: 7, ngayBoQua: 14 };
+
+  it('chưa có tin nào', () => {
+    expect(phanLoaiHangDoi({ ...base }).lyDoBoQua).toBe('chua-co-tin');
+  });
+
+  it('nhóm im quá ngưỡng', () => {
+    expect(phanLoaiHangDoi({ ...base, lastMessageAt: ngayTruoc(15) }).lyDoBoQua).toBe('nhom-im-lau');
+  });
+
+  it('đã tóm tắt tới tin cuối — cũ nhưng ĐÚNG, không phải bỏ sót', () => {
+    const r = phanLoaiHangDoi({ ...base, lastMessageAt: ngayTruoc(1), denMocTin: ngayTruoc(1) });
+    expect(r.xepHang).toBeNull();
+    expect(r.lyDoBoQua).toBe('khong-co-tin-moi');
+  });
+
+  it('có tin mới → xếp hàng, không có lý do bỏ qua', () => {
+    const r = phanLoaiHangDoi({ ...base, lastMessageAt: ngayTruoc(1), denMocTin: ngayTruoc(2), docDayDuLuc: ngayTruoc(2) });
+    expect(r.xepHang).not.toBeNull();
+    expect(r.lyDoBoQua).toBeNull();
   });
 });
 
