@@ -61,6 +61,8 @@ interface ListItem {
   flowType?: FactoryFlowType;
   /** Chỉ factory — toggle "tự hoàn thành Đóng hàng" (đơn chảy tới pack tự xong). */
   autoCompletePack?: boolean;
+  /** Chỉ factory — bỏ qua soát tool: đơn mới vào thẳng cột In (xưởng DTF). */
+  skipToolCheck?: boolean;
 }
 
 interface FormState {
@@ -74,6 +76,7 @@ interface FormState {
     isActive: boolean;
     flowType: FactoryFlowType;
     autoCompletePack: boolean;
+    skipToolCheck: boolean;
   };
 }
 
@@ -81,7 +84,14 @@ const DEFAULT_FORM: FormState = {
   open: false,
   mode: 'create',
   type: 'factory',
-  data: { name: '', shortName: '', isActive: true, flowType: FactoryFlowType.Standard, autoCompletePack: false },
+  data: {
+    name: '',
+    shortName: '',
+    isActive: true,
+    flowType: FactoryFlowType.Standard,
+    autoCompletePack: false,
+    skipToolCheck: false,
+  },
 };
 
 export function FactoryTab() {
@@ -212,7 +222,14 @@ export function FactoryTab() {
       open: true,
       mode: 'create',
       type,
-      data: { name: '', shortName: '', isActive: true, flowType: FactoryFlowType.Standard, autoCompletePack: false },
+      data: {
+        name: '',
+        shortName: '',
+        isActive: true,
+        flowType: FactoryFlowType.Standard,
+        autoCompletePack: false,
+        skipToolCheck: false,
+      },
     });
 
   const openEdit = (type: 'factory' | 'machineType', item: ListItem) =>
@@ -227,6 +244,7 @@ export function FactoryTab() {
         isActive: item.isActive,
         flowType: item.flowType ?? FactoryFlowType.Standard,
         autoCompletePack: item.autoCompletePack ?? false,
+        skipToolCheck: item.skipToolCheck ?? false,
       },
     });
 
@@ -267,6 +285,7 @@ export function FactoryTab() {
             isActive: data.isActive,
             flowType: data.flowType,
             autoCompletePack: data.autoCompletePack,
+            skipToolCheck: data.skipToolCheck,
           });
         } else {
           await RepositoryRemote.machineType.createMachineType({
@@ -284,6 +303,7 @@ export function FactoryTab() {
             isActive: data.isActive,
             flowType: data.flowType,
             autoCompletePack: data.autoCompletePack,
+            skipToolCheck: data.skipToolCheck,
           });
         } else {
           await RepositoryRemote.machineType.updateMachineType(data._id, {
@@ -348,12 +368,19 @@ export function FactoryTab() {
                     <Badge variant="secondary" className="ml-2">
                       {it.flowType === FactoryFlowType.Merged
                         ? t('factoryTab.table.flowBadge.merged')
-                        : t('factoryTab.table.flowBadge.noSew')}
+                        : it.flowType === FactoryFlowType.PressComplete
+                          ? t('factoryTab.table.flowBadge.pressComplete')
+                          : t('factoryTab.table.flowBadge.noSew')}
                     </Badge>
                   )}
                   {type === 'factory' && it.autoCompletePack && (
                     <Badge variant="outline" className="ml-2 border-emerald-400 text-emerald-600 dark:text-emerald-400">
                       {t('factoryTab.table.autoPackBadge')}
+                    </Badge>
+                  )}
+                  {type === 'factory' && it.skipToolCheck && (
+                    <Badge variant="outline" className="ml-2 border-sky-400 text-sky-600 dark:text-sky-400">
+                      {t('factoryTab.table.skipToolCheckBadge')}
                     </Badge>
                   )}
                 </TableCell>
@@ -587,10 +614,12 @@ export function FactoryTab() {
                   <option value={FactoryFlowType.Standard}>{t('factoryTab.form.flowOptions.standard')}</option>
                   <option value={FactoryFlowType.Merged}>{t('factoryTab.form.flowOptions.merged')}</option>
                   <option value={FactoryFlowType.NoSew}>{t('factoryTab.form.flowOptions.noSew')}</option>
+                  <option value={FactoryFlowType.PressComplete}>{t('factoryTab.form.flowOptions.pressComplete')}</option>
                 </select>
                 <p className="text-xs text-muted-foreground">
                   {form.data.flowType === FactoryFlowType.Merged && t('factoryTab.form.flowHint.merged')}
                   {form.data.flowType === FactoryFlowType.NoSew && t('factoryTab.form.flowHint.noSew')}
+                  {form.data.flowType === FactoryFlowType.PressComplete && t('factoryTab.form.flowHint.pressComplete')}
                   {form.data.flowType === FactoryFlowType.Standard && t('factoryTab.form.flowHint.standard')}
                 </p>
               </div>
@@ -617,6 +646,18 @@ export function FactoryTab() {
                     {t('factoryTab.form.autoPack.sweepBtn')}
                   </Button>
                 )}
+              </div>
+            )}
+            {form.type === 'factory' && (
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <Label>{t('factoryTab.form.skipToolCheck.label')}</Label>
+                  <Switch
+                    checked={form.data.skipToolCheck}
+                    onCheckedChange={(v) => setForm({ ...form, data: { ...form.data, skipToolCheck: v } })}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{t('factoryTab.form.skipToolCheck.hint')}</p>
               </div>
             )}
           </div>

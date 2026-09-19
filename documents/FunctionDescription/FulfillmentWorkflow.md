@@ -90,6 +90,7 @@ Mỗi xưởng chọn 1 luồng ở select "Luồng sản xuất" tab Xưởng `
 - **`standard`** (mặc định): đủ 6 công đoạn tuần tự, không auto gì.
 - **`merged`** (xưởng gỗ — TNW): auto = {`press`, `sew-out`}. **In complete → Ép tự Done** → QC; **May vào complete → May ra tự Done** → Đóng hàng.
 - **`no-sew`** (xưởng Mê Linh): auto = {`sew-in`, `sew-out`}. **QC sau ép complete → May vào + May ra tự Done liên tiếp** → đơn CHỜ ở Đóng hàng (Đóng hàng vẫn xác nhận tay). In/Ép/QC nửa đầu giữ nguyên tuần tự.
+- **`press-complete`** (xưởng DTF Mê Linh — 2026-09-18): auto = {`qc-post-press`, `sew-in`, `sew-out`, `pack`}. Chỉ 2 công đoạn tay **In → Ép**; **Ép complete → QC + May vào + May ra + Đóng hàng tự Done cùng lúc** → đơn KẾT THÚC fulfillment ngay (`fulfillmentCompletedAt` + bắn `production_completed` như đóng tay). KHÁC các flow trên: **Pack nằm THẲNG trong tập auto của flow** — chọn flow này là đủ, KHÔNG cần bật thêm toggle `autoCompletePack` (§2.2c). Rework-back nhắm QC/May/Đóng hàng đều lùi về **Ép**. Chỉ áp đơn chảy tới TỪ LÚC BẬT — đơn tồn ở QC/Đóng hàng xưởng tự xác nhận nốt tay. Thường đi kèm cờ `skipToolCheck` (§2.2d) để thành luồng trọn vẹn "lên đơn → In → Ép → xong".
 
 Chi tiết auto-complete (trong `resolveTransition()` case Complete, `fulfillment-task.service.ts`):
 
@@ -98,7 +99,7 @@ Chi tiết auto-complete (trong `resolveTransition()` case Complete, `fulfillmen
 - **Rework-back redirect**: đích lùi là auto-stage → tự lùi tiếp về công đoạn thường gần nhất phía trước (`redirectAutoTarget` — merged: press→print, sew-out→sew-in; no-sew: sew-in/sew-out→qc-post-press) ở CẢ 2 đường: `resolveTransition()` case ReworkBack (kanban/dialog) + `OrderService.buildFulfillmentReworkBack()` (scan lỗi / danh mục lỗi công đoạn `reworkTarget` / admin) — đơn không bao giờ dừng ở auto-stage nên lùi về đó sẽ kẹt (xưởng không có worker giữ).
 - Nhận diện flow của xưởng: cache process-wide `utils/merged-flow-factory.ts` (`getFactoryFlowTypeSync` trả `FactoryFlowType`, TTL 60s, load `loadFactoryFlowTypes` ở `OrderService.onModuleInit` — pattern `excluded-factory.ts` nhưng theo field `flowType`, KHÔNG hardcode shortName).
 
-**Vận hành:** xưởng rút gọn không cần user giữ các auto-stage (merged: bỏ Press/SewOut → 4 worker; no-sew: bỏ SewIn/SewOut — unique index partial cho phép thiếu). Với xưởng TẠO MỚI: bật flag trước khi cho đơn chảy vào — bật muộn thì đơn đã lỡ nằm ở auto-stage sẽ kẹt nếu xưởng không có worker stage đó (admin override cứu được). Với xưởng ĐANG CHẠY chuyển sang `no-sew` (Mê Linh): đơn đang nằm ở May vào/May ra KHÔNG kẹt nếu vẫn còn worker may — worker complete nốt là đơn tự trôi (May vào xong → May ra auto vì thuộc tập auto → Đóng hàng), sau đó 2 công đoạn may không nhận đơn mới nữa. Mọi màn hình giữ nguyên 6 công đoạn; auto-stage hiển thị Done tức thì. Unit tests: `fulfillment-transition-merged.spec.ts` (16 test: merged + no-sew + standard).
+**Vận hành:** xưởng rút gọn không cần user giữ các auto-stage (merged: bỏ Press/SewOut → 4 worker; no-sew: bỏ SewIn/SewOut — unique index partial cho phép thiếu). Với xưởng TẠO MỚI: bật flag trước khi cho đơn chảy vào — bật muộn thì đơn đã lỡ nằm ở auto-stage sẽ kẹt nếu xưởng không có worker stage đó (admin override cứu được). Với xưởng ĐANG CHẠY chuyển sang `no-sew` (Mê Linh): đơn đang nằm ở May vào/May ra KHÔNG kẹt nếu vẫn còn worker may — worker complete nốt là đơn tự trôi (May vào xong → May ra auto vì thuộc tập auto → Đóng hàng), sau đó 2 công đoạn may không nhận đơn mới nữa. Mọi màn hình giữ nguyên 6 công đoạn; auto-stage hiển thị Done tức thì. Unit tests: `fulfillment-transition-merged.spec.ts` (23 test: merged + no-sew + press-complete + standard + toggle autoPack).
 
 ### 2.2c Toggle "Tự hoàn thành Đóng hàng" theo xưởng (`FactoryEntity.autoCompletePack` — 2026-08-27)
 
@@ -108,6 +109,16 @@ Toggle **ĐỘC LẬP với `flowType`** (bật được cho mọi loại luồn
 - **Toggle CHỈ áp đơn MỚI chảy tới** — đơn đang tồn ở Đóng hàng không tự xong. Dọn tồn 1 lần bằng nút trên → `POST /fulfillment/complete-pack-backlog {factoryId}` (`@Auth([SuperAdmin, Admin])`): tìm mọi đơn `currentFulfillmentStage='pack'` status waiting/rework/in-progress (loại đơn hủy) → chạy qua `bulkTransition` start-complete từng đơn (giữ đủ hook; đơn giữ/hold fail riêng nó với message rõ, trả `{total, ok, fail, failures}`).
 - Cache sync: `merged-flow-factory.ts` mở rộng — cùng query/TTL 60s load thêm `autoCompletePack` (`getFactoryAutoPackSync`); admin bật/tắt áp dụng chậm nhất sau 60s.
 - Rework/báo lỗi nhắm về Đóng hàng khi toggle ON → redirect lùi về công đoạn thường gần nhất (standard: May ra; no-sew: QC sau ép) — cả `resolveTransition` lẫn `buildFulfillmentReworkBack`; "Chuyển hoàn thành" (`force-complete-plan.ts`) cũng coi pack là khâu auto (không chiếm lát thời gian). Unit tests: describe "Toggle autoCompletePack" trong `fulfillment-transition-merged.spec.ts`.
+
+### 2.2d Cờ "Bỏ qua soát tool" theo xưởng (`FactoryEntity.skipToolCheck` — 2026-09-18)
+
+Toggle **ĐỘC LẬP với `flowType`** (switch "Bỏ qua soát tool" trong dialog sửa xưởng `FactoryTab.tsx`, badge xanh dương "Bỏ soát tool" ở bảng): đơn **MỚI** import/push vào xưởng này được coi là đã soát xong ngay lúc tạo — mở thêm **Entry C** vào fulfillment bên cạnh Entry A (designer complete) và Entry B (`toolResultNote='ok'` tay):
+
+- **Cơ chế**: trong `OrderService.importOrders()`, sau khi resolve `factoryId` (gồm cả override gán xưởng theo khách), nếu xưởng bật cờ → `$setOnInsert` stamp: `toolResultNote='ok'` + `toolCheckedAt=now` + `readyForFulfill=true` + `buildFulfillmentEntrySet()` (In waiting). Nằm trong `$setOnInsert` nên **re-import KHÔNG reset đơn đang chạy**; xưởng US không bao giờ được stamp (guard `getExcludedFactoryIdSync`).
+- **Hệ quả dây chuyền tự khớp**: đơn 'ok' → tool soát tự động (`getNextDesignReviewOrder`) bỏ qua; auto-gán designer bỏ qua (ứng viên yêu cầu `toolResultNote != 'ok'`); lifecycle funnel/badge/thống kê coi đơn đã qua chặng soát tool tại `toolCheckedAt`.
+- **Đường lỗi giữ nguyên**: công nhân In/Ép báo lỗi nguồn designer/tool-check thì đơn vẫn rơi về designer (auto-gán đơn rework chưa ai ôm) / Support làm lại rồi re-flow từ In như mọi xưởng.
+- Cache sync: cùng query/TTL 60s ở `merged-flow-factory.ts` (`getFactorySkipToolCheckSync`) — admin bật/tắt áp dụng chậm nhất sau 60s, và chỉ ảnh hưởng đơn tạo sau đó.
+- Đang bật cho: **DTF Mê Linh (MLDTF)** cùng flowType `press-complete` → luồng trọn vẹn: khách lên đơn → push → In → Ép → hoàn thành (E2E 20/20: import CSV khách → push vào thẳng cột In không designer → In complete → Ép complete → 4 khâu sau tự Done workMs=0 → portal khách hiện Fulfilled).
 
 ### 2.3 Báo lỗi (rework-back)
 
@@ -725,3 +736,38 @@ Worker scope enforce ở BE: `user.fulfillmentStage === body.stage` && `user.fac
 
 ### 3. Ô "Thống kê lỗi công đoạn" trong trang task
 - `pages/fulfillment/my-tasks/StageErrorPanel.tsx` — click xổ **bảng lỗi theo ngày** (`inProductionAt`, VN tz; hàng = mã lỗi, cột = ngày). BE: `GET /fulfillment/stage-error-daily` (khóa stage+xưởng theo user role Fulfillment).
+
+---
+
+## Bổ sung: KIỆN HÀNG + BÀN GIAO (17/09/2026)
+
+> **File BE:** `apps/api/src/modules/shipping-vnp/packing.service.ts` + `packing.logic.ts` (+ spec) · `shipping-package.entity.ts` (11 field mới) · 2 endpoint trong `shipping-vnp.controller.ts` · hook trong `fulfillment-task.service.ts`
+> **File FE:** `apps/web/src/pages/handover/{index,HandoverSheetPrint}.tsx` · `pages/fulfillment/my-tasks/PackWeightDialog.tsx`
+> **Route:** `/ffm/fulfillment/handover` · **API:** `GET /shipping-vnp/packages` · `POST /shipping-vnp/packages/handover`
+> **Lấp GAP-25/26/27** của tài liệu chuyển đổi OnosPod.
+
+Trước đây bản ghi kiện CHỈ sinh lúc mua vận đơn và chỉ gom danh sách mã — hệ không biết xưởng đã đóng cái gì, nặng bao nhiêu, ra khỏi kho lúc nào. Ba thứ đó hệ cũ có, và là **đầu vào bắt buộc để đối soát cước** ở giai đoạn sau.
+
+**Ba chốt nghiệp vụ (chốt với người vận hành 17/09/2026):**
+
+| Chốt | Quyết định | Vì sao |
+| --- | --- | --- |
+| Đơn vị kiện | **1 kiện = 1 đơn seller** (`khoaGopKien`) | Khớp cách mua label VNP (nhiều item chung 1 label) và cách xưởng đóng thật. Đơn không có mã đơn → mỗi item một kiện, KHÔNG gộp nhóm thiếu dữ liệu với nhau |
+| Nhập cân | **Tuỳ chọn** ở bước Đóng hàng | Trạm chưa có cân điện tử vẫn phải đóng được hàng. Bắt buộc nhập = ngày triển khai đầu tiên cả chuyền đứng. Kiện thiếu cân bị đánh dấu ở màn Bàn giao |
+| Phiếu bàn giao | Gom theo **xưởng + ngày + hãng** | Một chuyến xe một phiếu, tài xế ký một tờ. Hệ cũ in theo seller nên một chuyến phải in nhiều phiếu |
+
+**Luồng:**
+
+1. Công nhân hoàn thành công đoạn **Đóng hàng** → FE chặn lại bằng `PackWeightDialog` hỏi cân + số đo (có nút **Bỏ qua**) → gửi kèm `weightGram`/`dimensions` trong `FulfillmentTransitionDto`.
+2. BE ở cạnh chuyển thật (`!wasCompleted && nowCompleted`) gọi `PackingService.ghiNhanDongGoi()` → upsert kiện theo `(orderId, factoryId)`, `$addToSet` mã item, đóng dấu `packedAt`/`packedByUserId`/`packedByUserName`. Item thứ hai cùng đơn **ghép vào kiện đã có**, quét lại cùng item không đẻ kiện mới.
+3. Kho mở `/ffm/fulfillment/handover` → danh sách kiện đã đóng **chưa bàn giao** (sắp theo `packedAt` tăng dần — kiện nằm lâu nhất lên đầu) → tick → nhập hãng → **Bàn giao + in phiếu**.
+4. `banGiao()` cấp **một mã `BG-<xưởng>-<ngày VN>-<số>`** cho cả lô, đóng dấu `handoverAt` (giờ xuất kho), rồi FE in `HandoverSheetPrint` (A4, có ô ký hai bên).
+
+**Bốn quyết định kỹ thuật đáng nhớ:**
+
+- **Hook không được ném lỗi** — `PackingService` tự nuốt và ghi log; công nhân đóng xong hàng rồi thì không thể vì lỗi ghi sổ mà bắt đóng lại.
+- **Cân + in phiếu là MỘT thao tác** với việc đóng dấu giờ xuất kho. Tách ra sẽ có phiếu in rồi mà kiện vẫn nằm trong danh sách chờ.
+- **Kiện đã bàn giao bị loại khỏi lượt sau** (`handoverAt: {$exists: false}` trong filter update) — đóng dấu đè sẽ xoá mất giờ xuất kho thật của chuyến trước; số kiện bị loại trả về `skipped` để FE báo.
+- **Cân tính cước** dùng chung công thức với lúc seller tự mua label: `max(cân thật, dài×rộng×cao/6)`, thiếu một chiều thì bỏ phần quy đổi chứ không tính thể tích bằng 0 (`canTinhCuoc`, có spec).
+
+**Chưa làm (vẫn thuộc phase P2 của lộ trình chuyển đổi):** chưa sinh bút toán chi phí trả xưởng khi đóng kiện (GAP-18), chưa đối soát cước thật với cân vừa thu được (GAP-19), chưa có thùng master gộp nhiều kiện (`parentPackageId` đã chừa sẵn field).

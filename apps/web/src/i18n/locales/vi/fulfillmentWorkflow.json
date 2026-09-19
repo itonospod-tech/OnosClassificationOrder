@@ -179,5 +179,36 @@
       "skippedNote": "({{count}} đơn trạng thái khác bị bỏ qua)",
       "continue": ". Tiếp tục?"
     }
+  },
+  "packWeight": {
+    "title": "Cân kiện trước khi đóng",
+    "weight": "Cân thực tế (gram)",
+    "weightPlaceholder": "VD: 288",
+    "dimensions": "Số đo kiện (cm) — dài × rộng × cao",
+    "length": "Dài",
+    "width": "Rộng",
+    "height": "Cao",
+    "hint": "Để trống cũng được — kiện thiếu cân sẽ được đánh dấu ở màn Bàn giao.",
+    "skip": "Bỏ qua",
+    "confirm": "Lưu và đóng hàng"
+  },
+  "handover": {
+    "title": "Bàn giao kiện",
+    "summary": "{{total}} kiện chờ bàn giao · {{missing}} kiện chưa cân",
+    "carrierPlaceholder": "Hãng nhận hàng (tuỳ chọn)",
+    "submit": "Bàn giao {{count}} kiện + in phiếu",
+    "empty": "Không có kiện nào chờ bàn giao.",
+    "noWeight": "chưa cân",
+    "done": "Đã bàn giao {{count}} kiện — phiếu {{code}}",
+    "skipped": "{{count}} kiện đã bàn giao ở chuyến trước, bỏ qua.",
+    "hint": "Bấm bàn giao là hệ đóng dấu giờ xuất kho rồi in phiếu để tài xế ký.",
+    "col": {
+      "code": "Mã kiện",
+      "orderId": "Mã đơn",
+      "productionIds": "Mã sản xuất",
+      "weight": "Cân",
+      "packedAt": "Đóng lúc",
+      "packedBy": "Người đóng"
+    }
   }
 }

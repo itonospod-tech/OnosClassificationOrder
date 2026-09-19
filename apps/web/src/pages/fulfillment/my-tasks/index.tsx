@@ -54,6 +54,7 @@ import { useSidebarResetSignal } from '@/hooks/useSidebarResetSignal';
 import { FulfillmentScanActionDialog } from '../../orders/scan-error/FulfillmentScanActionDialog';
 import { OrderErrorScanDialog } from '../../orders/scan-error/OrderErrorScanDialog';
 import { FulfillmentTaskCard } from './FulfillmentTaskCard';
+import { PackWeightDialog } from './PackWeightDialog';
 import PrintWorkshopView from './PrintWorkshopView';
 import { ReworkBackDialog } from './ReworkBackDialog';
 import { StageErrorPanel } from './StageErrorPanel';
@@ -562,10 +563,15 @@ function FulfillmentKanbanView() {
   }, [columns, filters]);
 
   // ─── Transition + bulk ────────────────────────────────────────
+  // Công đoạn Đóng hàng: hỏi cân kiện TRƯỚC khi chốt hoàn thành (GAP-26).
+  // Giữ nguyên đơn đang chờ ở đây thay vì cờ boolean — dialog cần mã sản xuất
+  // để công nhân biết mình đang cân kiện nào.
+  const [canKien, setCanKien] = useState<ProductionOrderRow | null>(null);
+
   const callTransition = async (
     order: ProductionOrderRow,
     action: FulfillmentTransitionAction,
-    body?: Pick<FulfillmentTransitionDto, 'target' | 'reason'>,
+    body?: Pick<FulfillmentTransitionDto, 'target' | 'reason' | 'weightGram' | 'dimensions'>,
   ) => {
     if (!myStage) return;
     try {
@@ -985,7 +991,11 @@ function FulfillmentKanbanView() {
                 onClickProductionId={(o) => setDetailOrder({ id: o._id, productionId: o.productionId })}
                 onAssignDesigner={(o) => setAssignDesignerOrderId(o._id)}
                 onStart={(o) => void callTransition(o, FulfillmentTransitionAction.Start)}
-                onComplete={(o) => void callTransition(o, FulfillmentTransitionAction.Complete)}
+                onComplete={(o) =>
+                  myStage === FulfillmentStage.Pack
+                    ? setCanKien(o)
+                    : void callTransition(o, FulfillmentTransitionAction.Complete)
+                }
                 onReportError={(o) => setReworkOrder(o)}
                 onPreview={onPreview}
                 onCheckCard={(id, checked, withShift) => handleCardCheckbox(key, id, checked, withShift)}
@@ -1076,6 +1086,17 @@ function FulfillmentKanbanView() {
             </div>
           </div>
         )}
+
+        <PackWeightDialog
+          open={!!canKien}
+          productionId={canKien?.productionId}
+          onCancel={() => setCanKien(null)}
+          onConfirm={(value) => {
+            const don = canKien;
+            setCanKien(null);
+            if (don) void callTransition(don, FulfillmentTransitionAction.Complete, value);
+          }}
+        />
 
         {reworkOrder && (
           <ReworkBackDialog

@@ -3,7 +3,7 @@ import { extendApi } from '@anatine/zod-openapi';
 import { BaseEntityZod, ResZod } from '@shared/types';
 import { z } from 'zod';
 
-import { DESIGN_CDN_VARIANTS, designCdnUrl, designFileKey, designVariantUrl, extractDesignSha, Sha256Zod, type DesignCdnVariant } from '../client';
+import { DESIGN_CDN_VARIANTS, designCdnUrl, type DesignCdnVariant,designFileKey, designVariantUrl, extractDesignSha, Sha256Zod } from '../client';
 
 /**
  * Design file storage (R2 + worker xử lý riêng) — xem plan
@@ -27,7 +27,7 @@ export const DesignFileStatusZod = z.enum(DESIGN_FILE_STATUSES);
 export type DesignFileStatus = z.infer<typeof DesignFileStatusZod>;
 
 // Nest-free, dời sang `client/design-cdn.ts` (apps/seller ghép URL CDN sau upload).
-export { DESIGN_CDN_VARIANTS, Sha256Zod, designCdnUrl, designFileKey, designVariantUrl, extractDesignSha, type DesignCdnVariant };
+export { DESIGN_CDN_VARIANTS, designCdnUrl, type DesignCdnVariant,designFileKey, designVariantUrl, extractDesignSha, Sha256Zod };
 
 //
 export const DesignFileZod = BaseEntityZod.extend({

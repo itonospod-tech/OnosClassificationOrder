@@ -99,11 +99,15 @@ export const factoriesRegistry: AgentTableSpec = {
     isActive: plain('bool'),
     flowType: plain(
       'enum',
-      'Luồng fulfillment của xưởng: standard (đủ 6 công đoạn) / merged (gộp Ép vào In, May ra vào May vào) / no-sew (QC xong bỏ qua 2 công đoạn may)',
+      'Luồng fulfillment của xưởng: standard (đủ 6 công đoạn) / merged (gộp Ép vào In, May ra vào May vào) / no-sew (QC xong bỏ qua 2 công đoạn may) / press-complete (DTF — Ép xong thì QC + May + Đóng hàng đều tự xong, đơn hoàn thành ngay)',
     ),
     autoCompletePack: plain(
       'bool',
       'Bật = đơn chảy tới công đoạn Đóng hàng tự hoàn thành luôn (kết thúc fulfillment không cần xác nhận tay). Độc lập với flowType, chỉ áp đơn mới',
+    ),
+    skipToolCheck: plain(
+      'bool',
+      'Bật = bỏ qua soát tool: đơn MỚI import/push vào xưởng được stamp toolResultNote=ok + toolCheckedAt ngay lúc tạo và vào thẳng công đoạn In (xưởng DTF). Chỉ áp đơn tạo mới',
     ),
 
     // ── `API-17` mở đọc

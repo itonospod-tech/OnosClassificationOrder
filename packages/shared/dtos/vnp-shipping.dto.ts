@@ -479,3 +479,55 @@ export class GetVnpShipmentResDto extends createZodDto(
 export class CancelVnpShipmentResDto extends createZodDto(
   extendApi(ResZod.extend({ data: z.object({ shipment: VnpShipmentInfoZod, raw: z.unknown() }) })),
 ) {}
+
+// ─── Kiện hàng ở công đoạn Đóng hàng (GAP-25/26/27) ─────────────────────────
+
+/**
+ * Một kiện trong màn Bàn giao. Chốt nghiệp vụ 17/09/2026: **1 kiện = 1 đơn
+ * seller**, sinh lúc công nhân hoàn thành công đoạn Đóng hàng.
+ */
+export const PackingPackageZod = z.object({
+  _id: z.string(),
+  code: z.string(),
+  orderId: z.string().optional(),
+  factoryId: z.string().optional(),
+  productionIds: z.string().array().default([]),
+  /** Cân thực tế do trạm nhập (gram) — thiếu nghĩa là kiện chưa được cân. */
+  weightGram: z.number().optional(),
+  dimensions: z.object({ width: z.number().optional(), height: z.number().optional(), length: z.number().optional() }).optional(),
+  packedAt: z.coerce.date().optional(),
+  packedByUserName: z.string().optional(),
+  handoverAt: z.coerce.date().optional(),
+  handoverCode: z.string().optional(),
+  handoverCarrier: z.string().optional(),
+});
+export type PackingPackage = z.infer<typeof PackingPackageZod>;
+
+export const GetPackingPackagesZod = z.object({
+  factoryId: z.string().optional(),
+  /** Mặc định `false` = kiện chưa bàn giao (việc cần làm hôm nay). */
+  daBanGiao: z.coerce.boolean().optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+});
+export class GetPackingPackagesDto extends createZodDto(extendApi(GetPackingPackagesZod)) {}
+
+export const GetPackingPackagesResZod = ResZod.extend({ data: PackingPackageZod.array() });
+export class GetPackingPackagesResDto extends createZodDto(extendApi(GetPackingPackagesResZod)) {}
+
+export const HandoverPackagesZod = z.object({
+  ids: z.string().array().min(1).max(500),
+  /** Hãng nhận hàng — nhập tự do, chưa ràng buộc danh mục. */
+  carrier: z.string().max(100).optional(),
+});
+export class HandoverPackagesDto extends createZodDto(extendApi(HandoverPackagesZod)) {}
+
+export const HandoverPackagesResZod = ResZod.extend({
+  data: z.object({
+    /** Mã phiếu cấp cho CẢ lô: `BG-<xưởng>-<ngày VN>-<số>`. */
+    handoverCode: z.string(),
+    count: z.number(),
+    /** Kiện bị bỏ qua vì đã bàn giao ở chuyến trước — không đóng dấu đè. */
+    skipped: z.number(),
+  }),
+});
+export class HandoverPackagesResDto extends createZodDto(extendApi(HandoverPackagesResZod)) {}

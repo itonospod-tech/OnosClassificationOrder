@@ -144,7 +144,12 @@ import { Logger } from 'winston';
 import { workshopStageSwitchExpr } from '@/utils/workshop-stage';
 
 import { getExcludedFactoryIdSync, loadExcludedFactoryId, productionFactoryClause } from '../../utils/excluded-factory';
-import { getFactoryAutoPackSync, getFactoryFlowTypeSync, loadFactoryFlowTypes } from '../../utils/merged-flow-factory';
+import {
+  getFactoryAutoPackSync,
+  getFactoryFlowTypeSync,
+  getFactorySkipToolCheckSync,
+  loadFactoryFlowTypes,
+} from '../../utils/merged-flow-factory';
 import { CustomerRepository } from '../customer/customer.repository';
 import { CustomerAssignmentService } from '../customer-assignment/customer-assignment.service';
 import { CustomerOrderEventService } from '../customer-event/customer-order-event.service';
@@ -7575,6 +7580,24 @@ export class OrderService implements OnModuleInit {
         // is pinned for the same reason. `toolResult` KHÔNG nằm trong danh sách
         // này nữa — luôn để trống lúc tạo đơn mới, chờ tool tự động soát set.
         const insertOnly: Record<string, unknown> = { originalFactoryId: factoryId };
+        // Xưởng "bỏ qua soát tool" (`FactoryEntity.skipToolCheck` — DTF Mê Linh,
+        // FulfillmentWorkflow.md §2.2d): đơn MỚI coi như đã soát 'ok' ngay lúc
+        // tạo → vào thẳng cột In chờ, không qua Support, không auto-gán designer
+        // (ứng viên auto-gán loại đơn 'ok'). CHỈ nằm trong $setOnInsert nên
+        // re-import KHÔNG reset đơn đang chạy giữa flow; xưởng US (ngoài luồng
+        // sản xuất) không bao giờ được stamp dù có bật nhầm cờ.
+        if (
+          factoryId &&
+          factoryId !== getExcludedFactoryIdSync(this.orderModel.db) &&
+          getFactorySkipToolCheckSync(this.orderModel.db, factoryId)
+        ) {
+          Object.assign(insertOnly, {
+            toolResultNote: READY_FOR_FULFILL_CODE,
+            toolCheckedAt: new Date(),
+            readyForFulfill: true,
+            ...buildFulfillmentEntrySet(),
+          });
+        }
         // Đơn MỚI mà file không có "In production at" → mặc định = lúc import.
         // Thiếu mốc này đơn thành TÀNG HÌNH: mọi màn hình đơn lọc theo
         // `inProductionAt` nên đơn không lọt qua bất kỳ khoảng ngày nào —

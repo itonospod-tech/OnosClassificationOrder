@@ -8,6 +8,11 @@ import { FULFILLMENT_STAGE_ORDER, FULFILLMENT_STAGES, FulfillmentStage } from '.
  *    May vào xong → May ra tự xong → Đóng hàng.
  *  - `no-sew`  : luồng bỏ may (xưởng Mê Linh) — QC sau ép xong → May vào +
  *    May ra tự xong → Đóng hàng (Đóng hàng vẫn xác nhận tay).
+ *  - `press-complete`: luồng DTF (xưởng DTF Mê Linh) — chỉ 2 công đoạn tay
+ *    In → Ép; Ép xong thì QC sau ép + May vào + May ra + ĐÓNG HÀNG đều tự
+ *    xong → đơn hoàn thành fulfillment ngay (set `fulfillmentCompletedAt`,
+ *    bắn `production_completed` như đóng tay — Pack nằm THẲNG trong tập
+ *    auto của flow, KHÔNG cần bật thêm toggle `autoCompletePack`).
  *
  * Cơ chế chung: mỗi flowType có 1 tập AUTO-STAGE (`FACTORY_FLOW_AUTO_STAGES`).
  * Khi 1 công đoạn hoàn thành, mọi công đoạn KẾ TIẾP LIÊN TỤC nằm trong tập
@@ -24,16 +29,30 @@ export const FactoryFlowType = {
   Standard: 'standard',
   Merged: 'merged',
   NoSew: 'no-sew',
+  PressComplete: 'press-complete',
 } as const;
 export type FactoryFlowType = (typeof FactoryFlowType)[keyof typeof FactoryFlowType];
 
-export const FACTORY_FLOW_TYPES = [FactoryFlowType.Standard, FactoryFlowType.Merged, FactoryFlowType.NoSew] as const;
+export const FACTORY_FLOW_TYPES = [
+  FactoryFlowType.Standard,
+  FactoryFlowType.Merged,
+  FactoryFlowType.NoSew,
+  FactoryFlowType.PressComplete,
+] as const;
 
 /** Tập công đoạn TỰ HOÀN THÀNH theo từng flowType. */
 export const FACTORY_FLOW_AUTO_STAGES: Record<FactoryFlowType, readonly FulfillmentStage[]> = {
   [FactoryFlowType.Standard]: [],
   [FactoryFlowType.Merged]: [FulfillmentStage.Press, FulfillmentStage.SewOut],
   [FactoryFlowType.NoSew]: [FulfillmentStage.SewIn, FulfillmentStage.SewOut],
+  // Pack nằm trong tập auto (khác các flow trên vốn dựa toggle `autoCompletePack`
+  // cho Pack) — chọn flow này là đủ, không phải bật 2 công tắc.
+  [FactoryFlowType.PressComplete]: [
+    FulfillmentStage.QCPostPress,
+    FulfillmentStage.SewIn,
+    FulfillmentStage.SewOut,
+    FulfillmentStage.Pack,
+  ],
 };
 
 /**

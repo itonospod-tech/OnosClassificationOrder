@@ -33,6 +33,7 @@ const Impersonate = lazy(() => import('../pages/impersonate'));
 const DesignerTeam = lazy(() => import('../pages/designer/team'));
 const MyTasks = lazy(() => import('../pages/designer/my-tasks'));
 const FulfillmentMyTasks = lazy(() => import('../pages/fulfillment/my-tasks'));
+const HandoverPage = lazy(() => import('@/pages/handover'));
 const CeoDashboard = lazy(() => import('../pages/ceo'));
 const DtfGuide = lazy(() => import('../pages/guide/dtf'));
 
@@ -74,6 +75,7 @@ export const routerConfig: RouterConfig[] = [
   { path: PATHS.DESIGNER_TEAM, component: DesignerTeam },
   { path: PATHS.MY_TASKS, component: MyTasks },
   { path: PATHS.FULFILLMENT_MY_TASKS, component: FulfillmentMyTasks },
+  { path: PATHS.HANDOVER, component: HandoverPage },
   { path: PATHS.CEO_DASHBOARD, component: CeoDashboard },
   { path: PATHS.DTF_GUIDE, component: DtfGuide },
 ];

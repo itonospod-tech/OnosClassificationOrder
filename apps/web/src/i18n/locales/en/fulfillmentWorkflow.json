@@ -179,5 +179,36 @@
       "skippedNote": "({{count}} orders with other statuses will be skipped)",
       "continue": ". Continue?"
     }
+  },
+  "packWeight": {
+    "title": "Weigh the package before closing",
+    "weight": "Actual weight (grams)",
+    "weightPlaceholder": "e.g. 288",
+    "dimensions": "Package size (cm) — length × width × height",
+    "length": "Length",
+    "width": "Width",
+    "height": "Height",
+    "hint": "You can leave this empty — packages without a weight are flagged on the Handover screen.",
+    "skip": "Skip",
+    "confirm": "Save and close"
+  },
+  "handover": {
+    "title": "Package handover",
+    "summary": "{{total}} packages waiting · {{missing}} not weighed",
+    "carrierPlaceholder": "Carrier (optional)",
+    "submit": "Hand over {{count}} packages + print",
+    "empty": "No packages waiting for handover.",
+    "noWeight": "not weighed",
+    "done": "Handed over {{count}} packages — sheet {{code}}",
+    "skipped": "{{count}} packages were already handed over earlier; skipped.",
+    "hint": "Handing over stamps the departure time and prints the sheet for the driver to sign.",
+    "col": {
+      "code": "Package",
+      "orderId": "Order",
+      "productionIds": "Production IDs",
+      "weight": "Weight",
+      "packedAt": "Packed at",
+      "packedBy": "Packed by"
+    }
   }
 }

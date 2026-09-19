@@ -4,10 +4,32 @@ import type {
   FulfillmentStage,
   FulfillmentTaskTab,
   FulfillmentTransitionDto,
+  HandoverPackagesDto,
 } from 'shared';
 
 import { callApi } from '../apis';
 import { CONFIG } from '../constants';
+
+/**
+ * Kiện đã đóng gói (GAP-25/26/27). Mặc định BE trả kiện CHƯA bàn giao — đúng
+ * việc cần làm khi xe hãng tới.
+ */
+const getPackages = (params?: { factoryId?: string; daBanGiao?: boolean; limit?: number }) => {
+  const q = new URLSearchParams();
+  if (params?.factoryId) q.set('factoryId', params.factoryId);
+  if (params?.daBanGiao) q.set('daBanGiao', 'true');
+  if (params?.limit) q.set('limit', String(params.limit));
+
+  return callApi(
+    `/${CONFIG.API_VERSION}/shipping-vnp/packages${q.toString() ? `?${q}` : ''}`,
+    'get',
+  );
+};
+
+/** Bàn giao lô kiện: cấp 1 mã phiếu cho cả lô + đóng dấu giờ xuất kho. */
+const handoverPackages = (data: HandoverPackagesDto) => {
+  return callApi(`/${CONFIG.API_VERSION}/shipping-vnp/packages/handover`, 'post', data);
+};
 
 const transition = (orderId: string, data: FulfillmentTransitionDto) => {
   return callApi(
@@ -72,6 +94,8 @@ const dailyOverview = (
 };
 
 export const fulfillment = {
+  getPackages,
+  handoverPackages,
   transition,
   bulkTransition,
   completePackBacklog,
