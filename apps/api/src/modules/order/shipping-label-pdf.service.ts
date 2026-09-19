@@ -72,6 +72,9 @@ export class ShippingLabelPdfService {
     if (labelCount === 0) {
       return { pdfBase64: null, pageCount: 0, labelCount: 0, merged, skipped: allSkipped };
     }
+    // `PDFDocument.save()` của pdf-lib (serialize ra bytes) — không phải
+    // Mongoose document.save() mà rule cấm.
+    // eslint-disable-next-line no-restricted-properties
     const pdfBytes = await out.save();
     return {
       pdfBase64: Buffer.from(pdfBytes).toString('base64'),

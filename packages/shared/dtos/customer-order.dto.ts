@@ -4,20 +4,20 @@ import { CustomerOrderStatus, PRODUCT_LINES } from '@shared/enums';
 import { PageResZod, ResZod } from '@shared/types';
 import { z } from 'zod';
 
+import { IDZod } from '..';
 import {
   CUSTOMER_SHIP_METHODS,
+  type CustomerImportOrder,
+  type CustomerImportOrderItem,
   CustomerImportOrderItemZod,
   CustomerImportOrderZod,
+  type CustomerImportShippingAddress,
   CustomerImportShippingAddressZod,
+  type CustomerShipMethod,
   CustomerShipMethodZod,
   DEFAULT_CUSTOMER_SHIP_METHOD,
   parseCustomerShipMethod,
-  type CustomerImportOrder,
-  type CustomerImportOrderItem,
-  type CustomerImportShippingAddress,
-  type CustomerShipMethod,
 } from '../client';
-import { IDZod } from '..';
 import type {
   ProductionOrderTracking} from './production-order.dto';
 import {
@@ -49,7 +49,7 @@ export const CUSTOMER_PAYMENT_GATE_KEY = 'customer_payment_gate_enabled';
 // ---------------------------------------------------------------------------
 
 // Nest-free, dời sang `client/customer-import.ts`.
-export { CUSTOMER_SHIP_METHODS, CustomerShipMethodZod, DEFAULT_CUSTOMER_SHIP_METHOD, parseCustomerShipMethod, type CustomerShipMethod };
+export { CUSTOMER_SHIP_METHODS, type CustomerShipMethod,CustomerShipMethodZod, DEFAULT_CUSTOMER_SHIP_METHOD, parseCustomerShipMethod };
 
 /**
  * Idempotency mức ĐƠN (plan §13.4): chuẩn hóa cặp `(order_id, identifier)`
@@ -253,12 +253,12 @@ export class GetCustomerOrderCountsResDto extends createZodDto(extendApi(GetCust
  */
 // Nest-free, dời sang `client/customer-import.ts` — NGUỒN RULE DUY NHẤT cho FE (web + seller) và BE.
 export {
-  CustomerImportShippingAddressZod,
+  type CustomerImportOrder,
+  type CustomerImportOrderItem,
   CustomerImportOrderItemZod,
   CustomerImportOrderZod,
   type CustomerImportShippingAddress,
-  type CustomerImportOrderItem,
-  type CustomerImportOrder,
+  CustomerImportShippingAddressZod,
 };
 
 /** Cap tổng ~500 dòng/lần — validate thêm ở service (tổng items mọi đơn). */

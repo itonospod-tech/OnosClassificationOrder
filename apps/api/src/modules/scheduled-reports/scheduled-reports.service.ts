@@ -5,11 +5,11 @@ import { TelegramService } from 'core';
 import { Logger } from 'winston';
 
 import { ApiConfigService } from '@/shared/services';
+import { laTienTrinhChayCron } from '@/utils/cron-guard';
 
 import { TelegramNotificationService } from '../telegram-notification/telegram-notification.service';
 import { DailyOrdersAggregator } from './aggregators/daily-orders-aggregator';
 import type { ReportKind } from './types';
-import { laTienTrinhChayCron } from '@/utils/cron-guard';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 

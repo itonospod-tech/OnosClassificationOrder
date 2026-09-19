@@ -25,8 +25,8 @@ import {
 
 import { Auth } from '@/decorators';
 
-import { DesignStorageService } from '../design-storage/design-storage.service';
 import { CustomerService } from '../customer/customer.service';
+import { DesignStorageService } from '../design-storage/design-storage.service';
 import { CustomerCatalogService } from './customer-catalog.service';
 import { CustomerOrderService } from './customer-order.service';
 
