@@ -1905,6 +1905,20 @@ export const FulfillmentTransitionZod = z.object({
   target: z.union([z.literal('designer'), FulfillmentStageZod]).optional(),
   /** Required khi action='rework-back'. */
   reason: z.string().max(500).optional(),
+  /**
+   * Cân THỰC TẾ của kiện, gram — chỉ dùng khi hoàn thành công đoạn Đóng hàng.
+   * TUỲ CHỌN theo chốt nghiệp vụ 17/09/2026: trạm chưa có cân điện tử vẫn phải
+   * đóng được hàng, kiện thiếu cân bị đánh dấu ở báo cáo chứ không chặn chuyền.
+   */
+  weightGram: z.coerce.number().min(0).max(100_000).optional(),
+  /** Số đo thực tế (cm) đi kèm cân — dùng để tính cân quy đổi khi đối soát cước. */
+  dimensions: z
+    .object({
+      width: z.coerce.number().min(0).max(500).optional(),
+      height: z.coerce.number().min(0).max(500).optional(),
+      length: z.coerce.number().min(0).max(500).optional(),
+    })
+    .optional(),
 });
 export class FulfillmentTransitionDto extends createZodDto(extendApi(FulfillmentTransitionZod)) {}
 

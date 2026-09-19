@@ -38,6 +38,7 @@ import { OrderDocument, OrderEntity } from '../order/order.entity';
 import { OrderService } from '../order/order.service';
 import type { AuditContext } from '../order-log/order-log.service';
 import { OrderLogService } from '../order-log/order-log.service';
+import { PackingService } from '../shipping-vnp/packing.service';
 import { UserDocument, UserEntity } from '../user/user.entity';
 
 /**
@@ -102,6 +103,7 @@ export class FulfillmentTaskService {
     private readonly orderLogService: OrderLogService,
     private readonly orderService: OrderService,
     private readonly customerOrderEventService: CustomerOrderEventService,
+    private readonly packingService: PackingService,
   ) {}
 
   // ─── Transition ─────────────────────────────────────────────────
@@ -114,6 +116,9 @@ export class FulfillmentTaskService {
       action: FulfillmentTransitionAction;
       target?: 'designer' | FulfillmentStage;
       reason?: string;
+      /** Cân + số đo thực tế, chỉ đi kèm lượt hoàn thành Đóng hàng (tuỳ chọn). */
+      weightGram?: number;
+      dimensions?: { width?: number; height?: number; length?: number };
     },
     ctx: AuditContext,
   ): Promise<OrderDocument> {
@@ -259,6 +264,25 @@ export class FulfillmentTaskService {
     const wasCompleted = (order as unknown as { fulfillmentCompletedAt?: Date | null }).fulfillmentCompletedAt;
     const nowCompleted = (updated as unknown as { fulfillmentCompletedAt?: Date | null }).fulfillmentCompletedAt;
     if (!wasCompleted && nowCompleted) {
+      // Kiện hàng (GAP-25/26/27): item vừa đóng xong được ghi vào kiện của đơn
+      // — 1 kiện = 1 đơn seller. `void`: sổ kiện hỏng không được kéo theo lỗi
+      // cho công nhân vừa đóng xong hàng, PackingService tự nuốt và ghi log.
+      void this.packingService.ghiNhanDongGoi(
+        {
+          _id: String((updated as unknown as { _id: unknown })._id),
+          productionId: (updated as unknown as { productionId?: string }).productionId,
+          orderId: (updated as unknown as { orderId?: string }).orderId,
+          factoryId: (updated as unknown as { factoryId?: string }).factoryId,
+        },
+        { _id: String(user._id), fullName: (user as unknown as { fullName?: string }).fullName },
+      );
+      if (body.weightGram || body.dimensions) {
+        void this.packingService.capNhatCan(String((updated as unknown as { _id: unknown })._id), {
+          weightGram: body.weightGram,
+          dimensions: body.dimensions,
+        });
+      }
+
       this.customerOrderEventService.emit('order.production_completed', [
         {
           productionId: (updated as unknown as { productionId?: string }).productionId,

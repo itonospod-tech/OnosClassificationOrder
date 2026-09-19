@@ -404,6 +404,15 @@ function buildProductionItems(t: TFunction<'layout'>, factoryId?: string, keyPre
           icon: <Factory size={14} />,
           perm: 'page.fulfillment_my_tasks',
         },
+        {
+          // Cùng quyền với Task Fulfillment: người bàn giao cho hãng chính là
+          // nhân sự kho của xưởng, không cần quyền riêng.
+          key: k(PATHS.HANDOVER),
+          label: t('sidebar.work.handover'),
+          to: to(PATHS.HANDOVER),
+          icon: <Truck size={14} />,
+          perm: 'page.fulfillment_my_tasks',
+        },
       ],
     },
     {

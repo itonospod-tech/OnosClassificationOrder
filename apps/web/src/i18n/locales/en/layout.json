@@ -43,7 +43,8 @@
     "work": {
       "title": "Work",
       "myTasks": "My tasks",
-      "fulfillmentTasks": "Fulfillment tasks"
+      "fulfillmentTasks": "Fulfillment tasks",
+      "handover": "Package handover"
     },
     "products": "Products",
     "promotions": "Promotions",
