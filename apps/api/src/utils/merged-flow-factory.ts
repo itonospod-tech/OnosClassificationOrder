@@ -10,15 +10,19 @@ import { FactoryFlowType } from 'shared';
  *    May vào+May ra; `no-sew` Mê Linh — QC xong bỏ qua 2 công đoạn may).
  *  - `autoCompletePack` — toggle ĐỘC LẬP với flowType: đơn chảy tới công đoạn
  *    ĐÓNG HÀNG tự hoàn thành luôn (xem FulfillmentWorkflow.md §2.2b).
+ *  - `skipToolCheck` — bỏ qua soát tool (xưởng DTF Mê Linh): `importOrders`
+ *    stamp đơn MỚI của xưởng này 'ok' + vào thẳng cột In (FulfillmentWorkflow.md
+ *    §2.2d).
  *
  * Await `loadFactoryFlowTypes` ở `OrderService.onModuleInit` để cache sẵn
  * sàng trước khi nhận traffic (FulfillmentModule phụ thuộc OrderModule nên
  * init sau). Admin đổi cấu hình giữa chừng → áp dụng chậm nhất sau TTL.
  */
 const TTL_MS = 60_000;
-let cache: { flows: Map<string, FactoryFlowType>; autoPack: Set<string>; at: number } = {
+let cache: { flows: Map<string, FactoryFlowType>; autoPack: Set<string>; skipToolCheck: Set<string>; at: number } = {
   flows: new Map(),
   autoPack: new Set(),
+  skipToolCheck: new Set(),
   at: 0,
 };
 let refreshing = false;
@@ -27,10 +31,14 @@ export async function loadFactoryFlowTypes(db: Connection): Promise<Map<string, 
   const docs = await db
     .collection('factories')
     .find({
-      $or: [{ flowType: { $exists: true, $ne: FactoryFlowType.Standard } }, { autoCompletePack: true }],
+      $or: [
+        { flowType: { $exists: true, $ne: FactoryFlowType.Standard } },
+        { autoCompletePack: true },
+        { skipToolCheck: true },
+      ],
       deletedAt: { $exists: false },
     })
-    .project({ _id: 1, flowType: 1, autoCompletePack: 1 })
+    .project({ _id: 1, flowType: 1, autoCompletePack: 1, skipToolCheck: 1 })
     .toArray();
   cache = {
     flows: new Map(
@@ -39,6 +47,7 @@ export async function loadFactoryFlowTypes(db: Connection): Promise<Map<string, 
         .map((d) => [String(d._id), d.flowType as FactoryFlowType]),
     ),
     autoPack: new Set(docs.filter((d) => d.autoCompletePack === true).map((d) => String(d._id))),
+    skipToolCheck: new Set(docs.filter((d) => d.skipToolCheck === true).map((d) => String(d._id))),
     at: Date.now(),
   };
   return cache.flows;
@@ -67,4 +76,11 @@ export function getFactoryAutoPackSync(db: Connection, factoryId: string | null 
   refreshIfStale(db);
   if (factoryId == null) return false;
   return cache.autoPack.has(String(factoryId));
+}
+
+/** Xưởng có bật "bỏ qua soát tool" không — đọc sync, cùng cache/TTL. */
+export function getFactorySkipToolCheckSync(db: Connection, factoryId: string | null | undefined): boolean {
+  refreshIfStale(db);
+  if (factoryId == null) return false;
+  return cache.skipToolCheck.has(String(factoryId));
 }

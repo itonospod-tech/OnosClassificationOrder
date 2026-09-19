@@ -155,9 +155,11 @@
       "inactive": "Tắt",
       "flowBadge": {
         "merged": "Rút gọn (gỗ)",
-        "noSew": "Bỏ may"
+        "noSew": "Bỏ may",
+        "pressComplete": "DTF (Ép là xong)"
       },
-      "autoPackBadge": "Tự xong Đóng hàng"
+      "autoPackBadge": "Tự xong Đóng hàng",
+      "skipToolCheckBadge": "Bỏ soát tool"
     },
     "form": {
       "nameShortNameRequired": "Tên và viết tắt là bắt buộc",
@@ -168,12 +170,14 @@
       "flowOptions": {
         "standard": "Chuẩn — đủ 6 công đoạn",
         "merged": "Rút gọn gỗ — gộp Ép vào In, May ra vào May vào",
-        "noSew": "Bỏ may — QC xong nhảy thẳng Đóng hàng"
+        "noSew": "Bỏ may — QC xong nhảy thẳng Đóng hàng",
+        "pressComplete": "DTF — In → Ép là xong"
       },
       "flowHint": {
         "standard": "Đơn đi tuần tự đủ 6 công đoạn: In → Ép → QC → May vào → May ra → Đóng hàng.",
         "merged": "In xong → Ép tự xong → QC; May vào xong → May ra tự xong → Đóng hàng. Chỉ bật cho xưởng gỗ.",
-        "noSew": "QC sau ép xong → May vào + May ra tự xong → Đóng hàng (vẫn xác nhận tay). Bật cho xưởng không có công đoạn may."
+        "noSew": "QC sau ép xong → May vào + May ra tự xong → Đóng hàng (vẫn xác nhận tay). Bật cho xưởng không có công đoạn may.",
+        "pressComplete": "In xong → Ép; Ép xong thì QC + May vào + May ra + Đóng hàng đều TỰ hoàn thành — đơn xong sản xuất ngay, bắn thông báo/webhook cho khách như đóng tay. Bật cho xưởng DTF."
       },
       "autoPack": {
         "label": "Tự hoàn thành Đóng hàng",
@@ -183,6 +187,10 @@
         "sweepEmpty": "Không có đơn nào đang tồn ở Đóng hàng.",
         "sweepDone": "Đã hoàn thành {{ok}} đơn ở Đóng hàng.",
         "sweepPartial": "Hoàn thành {{ok}} đơn, {{fail}} đơn lỗi (đơn đang giữ / trạng thái không hợp lệ)."
+      },
+      "skipToolCheck": {
+        "label": "Bỏ qua soát tool",
+        "hint": "Bật: đơn MỚI import/push vào xưởng này được coi là đã soát \"ok\" ngay lúc tạo và vào thẳng công đoạn In — không qua Support soát, không auto-gán designer. Chỉ áp đơn tạo mới; đơn đang chạy giữ nguyên."
       }
     },
     "factory": {

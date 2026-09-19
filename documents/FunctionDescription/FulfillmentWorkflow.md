@@ -90,6 +90,7 @@ Mỗi xưởng chọn 1 luồng ở select "Luồng sản xuất" tab Xưởng `
 - **`standard`** (mặc định): đủ 6 công đoạn tuần tự, không auto gì.
 - **`merged`** (xưởng gỗ — TNW): auto = {`press`, `sew-out`}. **In complete → Ép tự Done** → QC; **May vào complete → May ra tự Done** → Đóng hàng.
 - **`no-sew`** (xưởng Mê Linh): auto = {`sew-in`, `sew-out`}. **QC sau ép complete → May vào + May ra tự Done liên tiếp** → đơn CHỜ ở Đóng hàng (Đóng hàng vẫn xác nhận tay). In/Ép/QC nửa đầu giữ nguyên tuần tự.
+- **`press-complete`** (xưởng DTF Mê Linh — 2026-09-18): auto = {`qc-post-press`, `sew-in`, `sew-out`, `pack`}. Chỉ 2 công đoạn tay **In → Ép**; **Ép complete → QC + May vào + May ra + Đóng hàng tự Done cùng lúc** → đơn KẾT THÚC fulfillment ngay (`fulfillmentCompletedAt` + bắn `production_completed` như đóng tay). KHÁC các flow trên: **Pack nằm THẲNG trong tập auto của flow** — chọn flow này là đủ, KHÔNG cần bật thêm toggle `autoCompletePack` (§2.2c). Rework-back nhắm QC/May/Đóng hàng đều lùi về **Ép**. Chỉ áp đơn chảy tới TỪ LÚC BẬT — đơn tồn ở QC/Đóng hàng xưởng tự xác nhận nốt tay. Thường đi kèm cờ `skipToolCheck` (§2.2d) để thành luồng trọn vẹn "lên đơn → In → Ép → xong".
 
 Chi tiết auto-complete (trong `resolveTransition()` case Complete, `fulfillment-task.service.ts`):
 
@@ -98,7 +99,7 @@ Chi tiết auto-complete (trong `resolveTransition()` case Complete, `fulfillmen
 - **Rework-back redirect**: đích lùi là auto-stage → tự lùi tiếp về công đoạn thường gần nhất phía trước (`redirectAutoTarget` — merged: press→print, sew-out→sew-in; no-sew: sew-in/sew-out→qc-post-press) ở CẢ 2 đường: `resolveTransition()` case ReworkBack (kanban/dialog) + `OrderService.buildFulfillmentReworkBack()` (scan lỗi / danh mục lỗi công đoạn `reworkTarget` / admin) — đơn không bao giờ dừng ở auto-stage nên lùi về đó sẽ kẹt (xưởng không có worker giữ).
 - Nhận diện flow của xưởng: cache process-wide `utils/merged-flow-factory.ts` (`getFactoryFlowTypeSync` trả `FactoryFlowType`, TTL 60s, load `loadFactoryFlowTypes` ở `OrderService.onModuleInit` — pattern `excluded-factory.ts` nhưng theo field `flowType`, KHÔNG hardcode shortName).
 
-**Vận hành:** xưởng rút gọn không cần user giữ các auto-stage (merged: bỏ Press/SewOut → 4 worker; no-sew: bỏ SewIn/SewOut — unique index partial cho phép thiếu). Với xưởng TẠO MỚI: bật flag trước khi cho đơn chảy vào — bật muộn thì đơn đã lỡ nằm ở auto-stage sẽ kẹt nếu xưởng không có worker stage đó (admin override cứu được). Với xưởng ĐANG CHẠY chuyển sang `no-sew` (Mê Linh): đơn đang nằm ở May vào/May ra KHÔNG kẹt nếu vẫn còn worker may — worker complete nốt là đơn tự trôi (May vào xong → May ra auto vì thuộc tập auto → Đóng hàng), sau đó 2 công đoạn may không nhận đơn mới nữa. Mọi màn hình giữ nguyên 6 công đoạn; auto-stage hiển thị Done tức thì. Unit tests: `fulfillment-transition-merged.spec.ts` (16 test: merged + no-sew + standard).
+**Vận hành:** xưởng rút gọn không cần user giữ các auto-stage (merged: bỏ Press/SewOut → 4 worker; no-sew: bỏ SewIn/SewOut — unique index partial cho phép thiếu). Với xưởng TẠO MỚI: bật flag trước khi cho đơn chảy vào — bật muộn thì đơn đã lỡ nằm ở auto-stage sẽ kẹt nếu xưởng không có worker stage đó (admin override cứu được). Với xưởng ĐANG CHẠY chuyển sang `no-sew` (Mê Linh): đơn đang nằm ở May vào/May ra KHÔNG kẹt nếu vẫn còn worker may — worker complete nốt là đơn tự trôi (May vào xong → May ra auto vì thuộc tập auto → Đóng hàng), sau đó 2 công đoạn may không nhận đơn mới nữa. Mọi màn hình giữ nguyên 6 công đoạn; auto-stage hiển thị Done tức thì. Unit tests: `fulfillment-transition-merged.spec.ts` (23 test: merged + no-sew + press-complete + standard + toggle autoPack).
 
 ### 2.2c Toggle "Tự hoàn thành Đóng hàng" theo xưởng (`FactoryEntity.autoCompletePack` — 2026-08-27)
 
@@ -108,6 +109,16 @@ Toggle **ĐỘC LẬP với `flowType`** (bật được cho mọi loại luồn
 - **Toggle CHỈ áp đơn MỚI chảy tới** — đơn đang tồn ở Đóng hàng không tự xong. Dọn tồn 1 lần bằng nút trên → `POST /fulfillment/complete-pack-backlog {factoryId}` (`@Auth([SuperAdmin, Admin])`): tìm mọi đơn `currentFulfillmentStage='pack'` status waiting/rework/in-progress (loại đơn hủy) → chạy qua `bulkTransition` start-complete từng đơn (giữ đủ hook; đơn giữ/hold fail riêng nó với message rõ, trả `{total, ok, fail, failures}`).
 - Cache sync: `merged-flow-factory.ts` mở rộng — cùng query/TTL 60s load thêm `autoCompletePack` (`getFactoryAutoPackSync`); admin bật/tắt áp dụng chậm nhất sau 60s.
 - Rework/báo lỗi nhắm về Đóng hàng khi toggle ON → redirect lùi về công đoạn thường gần nhất (standard: May ra; no-sew: QC sau ép) — cả `resolveTransition` lẫn `buildFulfillmentReworkBack`; "Chuyển hoàn thành" (`force-complete-plan.ts`) cũng coi pack là khâu auto (không chiếm lát thời gian). Unit tests: describe "Toggle autoCompletePack" trong `fulfillment-transition-merged.spec.ts`.
+
+### 2.2d Cờ "Bỏ qua soát tool" theo xưởng (`FactoryEntity.skipToolCheck` — 2026-09-18)
+
+Toggle **ĐỘC LẬP với `flowType`** (switch "Bỏ qua soát tool" trong dialog sửa xưởng `FactoryTab.tsx`, badge xanh dương "Bỏ soát tool" ở bảng): đơn **MỚI** import/push vào xưởng này được coi là đã soát xong ngay lúc tạo — mở thêm **Entry C** vào fulfillment bên cạnh Entry A (designer complete) và Entry B (`toolResultNote='ok'` tay):
+
+- **Cơ chế**: trong `OrderService.importOrders()`, sau khi resolve `factoryId` (gồm cả override gán xưởng theo khách), nếu xưởng bật cờ → `$setOnInsert` stamp: `toolResultNote='ok'` + `toolCheckedAt=now` + `readyForFulfill=true` + `buildFulfillmentEntrySet()` (In waiting). Nằm trong `$setOnInsert` nên **re-import KHÔNG reset đơn đang chạy**; xưởng US không bao giờ được stamp (guard `getExcludedFactoryIdSync`).
+- **Hệ quả dây chuyền tự khớp**: đơn 'ok' → tool soát tự động (`getNextDesignReviewOrder`) bỏ qua; auto-gán designer bỏ qua (ứng viên yêu cầu `toolResultNote != 'ok'`); lifecycle funnel/badge/thống kê coi đơn đã qua chặng soát tool tại `toolCheckedAt`.
+- **Đường lỗi giữ nguyên**: công nhân In/Ép báo lỗi nguồn designer/tool-check thì đơn vẫn rơi về designer (auto-gán đơn rework chưa ai ôm) / Support làm lại rồi re-flow từ In như mọi xưởng.
+- Cache sync: cùng query/TTL 60s ở `merged-flow-factory.ts` (`getFactorySkipToolCheckSync`) — admin bật/tắt áp dụng chậm nhất sau 60s, và chỉ ảnh hưởng đơn tạo sau đó.
+- Đang bật cho: **DTF Mê Linh (MLDTF)** cùng flowType `press-complete` → luồng trọn vẹn: khách lên đơn → push → In → Ép → hoàn thành (E2E 20/20: import CSV khách → push vào thẳng cột In không designer → In complete → Ép complete → 4 khâu sau tự Done workMs=0 → portal khách hiện Fulfilled).
 
 ### 2.3 Báo lỗi (rework-back)
 
