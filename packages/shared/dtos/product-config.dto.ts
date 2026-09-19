@@ -1,4 +1,3 @@
-import { designAcceptKeys } from '../client';
 import { createZodDto } from '@anatine/zod-nestjs';
 import { extendApi } from '@anatine/zod-openapi';
 import { PriceZod, PRINT_AREA_MAX_WIDTH_CM, ProductPrintAreaKeyZod } from '@shared/constants';
@@ -6,6 +5,7 @@ import { PRODUCT_LINE_SOURCES, PRODUCT_LINES, ProductConfigStatus, Status } from
 import { BaseEntityZod, PageQueryZod, PageResZod, ResZod } from '@shared/types';
 import { z } from 'zod';
 
+import { designAcceptKeys } from '../client';
 import { IDZod } from '../constants/common-zod';
 import { getObjectValues } from '../utils/getObjectValues';
 

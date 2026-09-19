@@ -19,6 +19,14 @@ export const FactoryZod = BaseEntityZod.extend({
    * tồn" (`POST /fulfillment/complete-pack-backlog`).
    */
   autoCompletePack: z.boolean().default(false),
+  /**
+   * Bỏ qua công đoạn SOÁT TOOL cho xưởng này (xưởng DTF Mê Linh): đơn MỚI
+   * import/push vào xưởng được stamp `toolResultNote='ok'` + `toolCheckedAt`
+   * ngay lúc tạo và vào thẳng cột In chờ — không qua Support soát, không
+   * auto-gán designer. Chỉ áp đơn tạo mới; đơn đang chạy giữ nguyên. Toggle
+   * ĐỘC LẬP với flowType.
+   */
+  skipToolCheck: z.boolean().default(false),
 });
 export type Factory = z.infer<typeof FactoryZod>;
 
@@ -60,6 +68,7 @@ export const CreateFactoryZod = z.object({
   isActive: FactoryZod.shape.isActive.optional(),
   flowType: z.nativeEnum(FactoryFlowType).optional(),
   autoCompletePack: z.boolean().optional(),
+  skipToolCheck: z.boolean().optional(),
 });
 export class CreateFactoryDto extends createZodDto(extendApi(CreateFactoryZod)) {}
 
@@ -73,6 +82,7 @@ export const UpdateFactoryZod = z.object({
   isActive: FactoryZod.shape.isActive.optional(),
   flowType: z.nativeEnum(FactoryFlowType).optional(),
   autoCompletePack: z.boolean().optional(),
+  skipToolCheck: z.boolean().optional(),
 });
 export class UpdateFactoryDto extends createZodDto(extendApi(UpdateFactoryZod)) {}
 

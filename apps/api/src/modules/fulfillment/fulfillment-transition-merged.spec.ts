@@ -328,6 +328,68 @@ describe('Toggle autoCompletePack — Đóng hàng tự hoàn thành (độc l�
   });
 });
 
+describe('Complete trên xưởng press-complete (DTF Mê Linh) — Ép xong là xong', () => {
+  it('In xong → dừng CHỜ ở Ép (nửa đầu vẫn tuần tự tay)', () => {
+    const plan = resolve({
+      stage: FulfillmentStage.Print,
+      action: FulfillmentTransitionAction.Complete,
+      currentStatus: FulfillmentStageStatus.InProgress,
+      stageState: inProgress(),
+      stages: {} as FulfillmentStages,
+      user: worker,
+      flowType: FactoryFlowType.PressComplete,
+    });
+    expect(plan.patch.$set.currentFulfillmentStage).toBe(FulfillmentStage.Press);
+    expect(plan.patch.$set['fulfillmentStages.press.status']).toBe(FulfillmentStageStatus.Waiting);
+    expect(timelineEntries(plan)).toHaveLength(1);
+  });
+
+  it('Ép xong → QC + May vào + May ra + Đóng hàng tự Done cùng lúc, flow KẾT THÚC (không cần toggle autoPack)', () => {
+    const plan = resolve({
+      stage: FulfillmentStage.Press,
+      action: FulfillmentTransitionAction.Complete,
+      currentStatus: FulfillmentStageStatus.InProgress,
+      stageState: inProgress(new Date(Date.now() - 30_000)),
+      stages: {} as FulfillmentStages,
+      user: worker,
+      flowType: FactoryFlowType.PressComplete,
+      // autoPack cố ý KHÔNG bật — Pack nằm thẳng trong tập auto của flow.
+    });
+
+    const set = plan.patch.$set;
+    for (const stg of ['qc-post-press', 'sew-in', 'sew-out', 'pack']) {
+      expect(set[`fulfillmentStages.${stg}.status`]).toBe(FulfillmentStageStatus.Done);
+      expect(set[`fulfillmentStages.${stg}.assignee`]).toBe('worker-1');
+      expect(set[`fulfillmentStages.${stg}.workMs`]).toBe(0);
+      for (const field of ['waitingAt', 'startedAt', 'firstStartedAt', 'completedAt']) {
+        expect(set[`fulfillmentStages.${stg}.${field}`]).toBeInstanceOf(Date);
+      }
+    }
+    expect(set.currentFulfillmentStage).toBeNull();
+    expect(set.fulfillmentCompletedAt).toBeInstanceOf(Date);
+
+    // Timeline 5 entry: press complete + 4 auto, đều ghi vết người Ép, nguồn
+    // auto là LUỒNG RÚT GỌN (kể cả Pack — không phải toggle).
+    const entries = timelineEntries(plan);
+    expect(entries).toHaveLength(5);
+    expect(entries[4].stage).toBe(FulfillmentStage.Pack);
+    expect(entries[4].reason).toContain('luồng rút gọn');
+  });
+
+  it('redirectAutoTarget: lỗi nhắm QC/May/Đóng hàng đều lùi về Ép', () => {
+    for (const target of [
+      FulfillmentStage.QCPostPress,
+      FulfillmentStage.SewIn,
+      FulfillmentStage.SewOut,
+      FulfillmentStage.Pack,
+    ]) {
+      expect(redirectAutoTarget(FactoryFlowType.PressComplete, target)).toBe(FulfillmentStage.Press);
+    }
+    expect(redirectAutoTarget(FactoryFlowType.PressComplete, FulfillmentStage.Press)).toBe(FulfillmentStage.Press);
+    expect(redirectAutoTarget(FactoryFlowType.PressComplete, FulfillmentStage.Print)).toBe(FulfillmentStage.Print);
+  });
+});
+
 describe('ReworkBack trên xưởng luồng rút gọn — redirect đích', () => {
   it('merged: QC báo lỗi target=Ép → lùi về In', () => {
     const plan = resolve({

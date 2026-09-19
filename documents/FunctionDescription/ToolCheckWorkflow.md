@@ -7,6 +7,8 @@
 
 > **Loại đơn xưởng US (2026-07):** đơn xưởng `US` KHÔNG vào hàng đợi soát tool (`GET /orders/design-review/next` lọc `factoryId $ne` xưởng US) và bị loại khỏi mọi thống kê tab Soát tool — xem `Orders.md §21`.
 
+> **Xưởng bỏ qua soát tool (2026-09-18):** xưởng bật cờ `FactoryEntity.skipToolCheck` (hiện: DTF Mê Linh) — đơn MỚI import/push được stamp `toolResultNote='ok'` + `toolCheckedAt` NGAY LÚC TẠO tại `importOrders` và vào thẳng cột In, KHÔNG xuất hiện trong hàng đợi/backlog soát tool (đơn 'ok' không được `getNextDesignReviewOrder` claim). Đường lỗi ngược `errorSource='tool-check'` từ In vẫn hoạt động bình thường. Xem `FulfillmentWorkflow.md §2.2d`.
+
 
 Bổ sung **nguồn lỗi thứ 3** cho `productionError`: `errorSource = 'tool-check'` (nhãn **"Soát tool"**), song song `designer` / `factory`.
 

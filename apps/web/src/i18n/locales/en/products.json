@@ -155,9 +155,11 @@
       "inactive": "Inactive",
       "flowBadge": {
         "merged": "Merged (wood)",
-        "noSew": "No-sew"
+        "noSew": "No-sew",
+        "pressComplete": "DTF (done after Press)"
       },
-      "autoPackBadge": "Auto-pack"
+      "autoPackBadge": "Auto-pack",
+      "skipToolCheckBadge": "Skips tool check"
     },
     "form": {
       "nameShortNameRequired": "Name and short name are required",
@@ -168,12 +170,14 @@
       "flowOptions": {
         "standard": "Standard — all 6 stages",
         "merged": "Wood merged — Press into Print, Sew-out into Sew-in",
-        "noSew": "No-sew — QC jumps straight to Pack"
+        "noSew": "No-sew — QC jumps straight to Pack",
+        "pressComplete": "DTF — done after Press"
       },
       "flowHint": {
         "standard": "Orders go through all 6 stages: Print → Press → QC → Sew-in → Sew-out → Pack.",
         "merged": "Print done auto-completes Press; Sew-in done auto-completes Sew-out. Wood factories only.",
-        "noSew": "QC done auto-completes Sew-in + Sew-out; order waits at Pack (still confirmed manually). For factories without sewing."
+        "noSew": "QC done auto-completes Sew-in + Sew-out; order waits at Pack (still confirmed manually). For factories without sewing.",
+        "pressComplete": "Print → Press; once Press completes, QC + Sew-in + Sew-out + Pack all auto-complete — the order finishes production immediately and customer notifications/webhooks fire as with manual packing. Enable for DTF factories."
       },
       "autoPack": {
         "label": "Auto-complete Packing",
@@ -183,6 +187,10 @@
         "sweepEmpty": "No orders waiting at Packing.",
         "sweepDone": "Completed {{ok}} orders at Packing.",
         "sweepPartial": "Completed {{ok}} orders, {{fail}} failed (held orders / invalid state)."
+      },
+      "skipToolCheck": {
+        "label": "Skip tool check",
+        "hint": "On: NEW orders imported/pushed into this factory are stamped tool-checked \"ok\" at creation and go straight to the Print stage — no Support review, no designer auto-assign. New orders only; in-flight orders are untouched."
       }
     },
     "factory": {

@@ -1,10 +1,10 @@
-import { WALLET_TXN_KINDS, type WalletTxnKind } from '../client';
 import { createZodDto } from '@anatine/zod-nestjs';
 import { extendApi } from '@anatine/zod-openapi';
 import { ResZod } from '@shared/types';
 import { z } from 'zod';
 
 import { IDZod } from '..';
+import { WALLET_TXN_KINDS, type WalletTxnKind } from '../client';
 
 /**
  * Ví seller (USD) — ví TỔNG đa mục đích: hôm nay trừ tiền mua label, sau này

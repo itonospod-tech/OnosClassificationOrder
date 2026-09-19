@@ -5,14 +5,14 @@ import { BaseEntityZod, PageQueryZod, PageResZod, ResZod } from '@shared/types';
 import { z } from 'zod';
 
 import {
+  type DesignFields,
   DesignFieldsZod,
   hasProductionOrderTracking,
   normalizeProductionOrderTracking,
-  ProductionOrderShippingAddressZod,
-  ProductionOrderTrackingZod,
-  type DesignFields,
   type ProductionOrderShippingAddress,
+  ProductionOrderShippingAddressZod,
   type ProductionOrderTracking,
+  ProductionOrderTrackingZod,
 } from '../client';
 import { BooleanFlagZod, IDZod } from '../constants/common-zod';
 import { HOLD_SOURCES } from '../constants/hold-reason';
@@ -85,7 +85,7 @@ export const FulfillmentTimelineEntryZod = z.object({
 export type FulfillmentTimelineEntry = z.infer<typeof FulfillmentTimelineEntryZod>;
 
 // Nest-free, dời sang `client/design-fields.ts` (apps/seller dùng runtime qua `shared/client`).
-export { DesignFieldsZod, type DesignFields };
+export { type DesignFields,DesignFieldsZod };
 
 /**
  * Địa chỉ ship — mirror field `shipping` trả về từ OnosPod (order API).
@@ -93,7 +93,7 @@ export { DesignFieldsZod, type DesignFields };
  * `OrderService.getHeldOrdersForRecovery` + `OnospodOrderLookupService`.
  */
 // Nest-free, dời sang `client/shipping.ts`.
-export { ProductionOrderShippingAddressZod, type ProductionOrderShippingAddress };
+export { type ProductionOrderShippingAddress,ProductionOrderShippingAddressZod };
 
 /**
  * Vận đơn KHÁCH TỰ CẤP (label mua sẵn bên ngoài — SBTT/hệ cũ/API riêng của
@@ -108,7 +108,7 @@ export { ProductionOrderShippingAddressZod, type ProductionOrderShippingAddress 
  * — xem `documents/FunctionDescription/VnpShipping.md §2a`.
  */
 // Nest-free, dời sang `client/shipping.ts` (+ `hasProductionOrderTracking`/`normalizeProductionOrderTracking`).
-export { ProductionOrderTrackingZod, type ProductionOrderTracking, hasProductionOrderTracking, normalizeProductionOrderTracking };
+export { hasProductionOrderTracking, normalizeProductionOrderTracking,type ProductionOrderTracking, ProductionOrderTrackingZod };
 
 /** Trạng thái pipeline R2 cho từng vị trí design (Phase 6 Design-R2-Pipeline). */
 export const DesignStatusZod = z.enum(['pending', 'ready', 'failed']);

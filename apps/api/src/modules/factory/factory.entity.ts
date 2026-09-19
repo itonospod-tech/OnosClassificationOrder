@@ -32,6 +32,15 @@ export class FactoryEntity extends DatabaseEntityAbstract {
    */
   @Prop({ required: true, default: false })
   autoCompletePack: boolean;
+
+  /**
+   * Bỏ qua SOÁT TOOL (xưởng DTF Mê Linh): đơn MỚI import/push vào xưởng được
+   * stamp `toolResultNote='ok'` + `toolCheckedAt` + vào thẳng cột In ngay tại
+   * `importOrders` ($setOnInsert — đơn đang chạy không bị đụng). Cache sync:
+   * `merged-flow-factory.ts` (`getFactorySkipToolCheckSync`).
+   */
+  @Prop({ required: true, default: false })
+  skipToolCheck: boolean;
 }
 
 assertSameType<Factory, FactoryEntity>();
