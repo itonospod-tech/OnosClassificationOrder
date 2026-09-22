@@ -21,6 +21,7 @@ import { designerAssignment } from './designerAssignment';
 import { factory } from './factory';
 import { fulfillment } from './fulfillment';
 import { impersonate } from './impersonate';
+import { inventory } from './inventory';
 import { machineType } from './machineType';
 import { notifications } from './notifications';
 import { order } from './order';
@@ -73,6 +74,7 @@ export const RepositoryRemote = {
   customerNotification,
   customerNotificationPortal,
   fulfillment,
+  inventory,
   reports,
   promotion,
   vnpShipping,

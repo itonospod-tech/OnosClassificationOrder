@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import type { TFunction } from 'i18next';
 import {
   Barcode,
+  Boxes,
   CheckCircle2,
   Clock,
   ExternalLink,
@@ -48,6 +49,7 @@ import { beepError, beepSuccess, parseScanCode } from '@/utils/scanCodes';
 
 import { GuideStep, GuideZone } from './ScanGuide';
 import { useScanPrint } from './useScanPrint';
+import { useScanStockOut } from './useScanStockOut';
 
 /** Link sang trang danh mục lỗi công đoạn — đặt ở góc vùng "Báo lỗi". */
 function AddErrorLink() {
@@ -183,8 +185,24 @@ export function FulfillmentScanActionDialog({
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
+  // Trừ tồn kho theo đơn (`ACT-STOCK-OUT` + OK chốt; auto sau in label nếu xưởng bật).
+  const {
+    stockOutOpen,
+    stockOutBusy,
+    openStockOut,
+    confirmStockOut,
+    closeStockOut,
+    autoAfterLabel,
+    stockOutElement,
+  } = useScanStockOut(order);
+
   // In tem khách / label giao hàng ngay từ popup — nút bấm hoặc mã `ACT-PRINT-*`.
-  const { printTem, printLabel, loadingLabel, elements: printElements } = useScanPrint(order);
+  const {
+    printTem,
+    printLabel,
+    loadingLabel,
+    elements: printElements,
+  } = useScanPrint(order, { onLabelPrinted: () => void autoAfterLabel() });
 
   const myStageLabel = getStageLabel(t, myStage);
 
@@ -266,20 +284,33 @@ export function FulfillmentScanActionDialog({
     const raw = scanBufRef.current.trim();
     scanBufRef.current = '';
     if (!raw) {
-      if (isMyTask) void doComplete();
+      if (stockOutOpen) void confirmStockOut(); // Enter tay khi khối trừ kho mở = chốt
+      else if (isMyTask) void doComplete();
       else onClose(); // không phải task → Enter để quét tiếp
       return;
     }
     const action = parseScanCode(raw);
     // Mã hành động `ACT-*` (bảng mã dán trạm) — điều khiển popup không cần chuột.
     if (action.kind === 'action') {
-      if (action.command === 'cancel') onClose();
-      else if (action.command === 'print-tem') printTem();
+      if (action.command === 'cancel') {
+        // Khối trừ kho đang mở → CANCEL chỉ đóng khối, không đóng popup.
+        if (stockOutOpen) closeStockOut();
+        else onClose();
+      } else if (action.command === 'print-tem') printTem();
       else if (action.command === 'print-label') void printLabel();
-      else onReportError(); // report-error → chuyển sang dialog gán lỗi
+      else if (action.command === 'stock-out') {
+        // Lần 1 mở khối xác nhận; đang mở → quét lặp = chốt trừ.
+        if (stockOutOpen) void confirmStockOut();
+        else void openStockOut();
+      } else onReportError(); // report-error → chuyển sang dialog gán lỗi
       return;
     }
     if (action.kind === 'ok') {
+      // Khối trừ kho đang mở → OK chốt trừ, KHÔNG hoàn thành công đoạn.
+      if (stockOutOpen) {
+        void confirmStockOut();
+        return;
+      }
       if (isMyTask) void doComplete();
       else {
         beepError();
@@ -565,6 +596,7 @@ export function FulfillmentScanActionDialog({
           </div>
         )}
 
+        {stockOutElement}
         <DialogFooter className="gap-3 shrink-0">
           <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg">
             <Printer size={20} className="mr-2" />
@@ -578,6 +610,15 @@ export function FulfillmentScanActionDialog({
           >
             <Tag size={20} className="mr-2" />
             {t('printActions.printLabelBtn')}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => void (stockOutOpen ? confirmStockOut() : openStockOut())}
+            disabled={saving || stockOutBusy}
+            className="h-14 px-5 text-lg"
+          >
+            <Boxes size={20} className="mr-2" />
+            {t('stockOut.btn')}
           </Button>
           {isMyTask ? (
             <>

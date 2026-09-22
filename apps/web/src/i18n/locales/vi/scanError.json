@@ -175,6 +175,21 @@
     "labelNotFound": "Không lấy được dữ liệu label của đơn này.",
     "labelNoAddress": "Đơn {{productionId}} chưa có địa chỉ nhận hàng — không in được label giao hàng."
   },
+  "stockOut": {
+    "btn": "Trừ kho",
+    "confirmTitle": "Trừ kho cho đơn {{productionId}}",
+    "sku": "SKU",
+    "qty": "Trừ",
+    "current": "Tồn hiện tại: {{qty}}",
+    "currentNew": "SKU chưa có trong kho — sẽ tạo mới (tồn đi âm)",
+    "unresolved": "Không suy được SKU kho từ đơn này — vào trang Tồn kho nhập tay.",
+    "alreadyDeducted": "Đơn đã trừ kho {{times}} lần (lần cuối {{at}}). Xác nhận lần nữa = trừ LẦN {{next}} cho đơn LÀM LẠI.",
+    "confirmHint": "Quét OK (hoặc quét ACT-STOCK-OUT lần nữa) để chốt trừ, ACT-CANCEL để bỏ.",
+    "done": "Đã trừ kho {{qty}} × {{sku}} — tồn còn {{after}}.",
+    "doneRework": "Đã trừ LÀM LẠI {{qty}} × {{sku}} — tồn còn {{after}}.",
+    "duplicated": "Đơn này đã trừ rồi — không trừ thêm.",
+    "autoDone": "Tự trừ kho {{qty}} × {{sku}} (xưởng bật tự trừ sau in label)."
+  },
   "actionSheet": {
     "printBtn": "In bảng mã hành động",
     "title": "Bảng mã hành động — dán tại trạm quét",
@@ -196,6 +211,10 @@
       "printLabel": {
         "title": "In label giao hàng",
         "desc": "In label 4×6 inch kiểu carrier — cho bên vận chuyển"
+      },
+      "stockOut": {
+        "title": "Trừ kho",
+        "desc": "Trừ tồn kho phôi theo đơn đang mở — quét OK để chốt"
       },
       "reportError": {
         "title": "Báo lỗi",

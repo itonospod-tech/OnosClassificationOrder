@@ -27,6 +27,8 @@ export const PATHS = {
   FULFILLMENT_MY_TASKS: '/ffm/fulfillment/my-tasks',
   /** Bàn giao kiện cho hãng vận chuyển (GAP-27). */
   HANDOVER: '/ffm/fulfillment/handover',
+  /** Tồn kho theo xưởng — nhập tay + quét trừ theo đơn (Inventory-FactoryStock plan). */
+  INVENTORY: '/ffm/inventory',
   FULFILLMENT_TEAM: '/ffm/fulfillment/team',
   FULFILLMENT_STATS: '/ffm/fulfillment/stats',
 

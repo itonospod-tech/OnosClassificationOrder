@@ -24,6 +24,7 @@ export * from './dropship-order-item.dto';
 export * from './export.dto';
 export * from './factory.dto';
 export * from './feedback.dto';
+export * from './inventory.dto';
 export * from './issue.dto';
 export * from './machine-type.dto';
 export * from './mail.dto';

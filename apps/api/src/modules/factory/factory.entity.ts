@@ -41,6 +41,14 @@ export class FactoryEntity extends DatabaseEntityAbstract {
    */
   @Prop({ required: true, default: false })
   skipToolCheck: boolean;
+
+  /**
+   * Tự TRỪ TỒN KHO sau khi in label giao hàng tại trạm quét (mặc định tắt —
+   * quét `ACT-STOCK-OUT` xác nhận tay). FE đọc cờ qua scan-out preview;
+   * trừ lặp vô hại nhờ idempotency sổ cái `inventory_transactions`.
+   */
+  @Prop({ required: true, default: false })
+  autoStockOut: boolean;
 }
 
 assertSameType<Factory, FactoryEntity>();

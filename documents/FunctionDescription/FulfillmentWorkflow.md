@@ -120,6 +120,10 @@ Toggle **ĐỘC LẬP với `flowType`** (switch "Bỏ qua soát tool" trong dia
 - Cache sync: cùng query/TTL 60s ở `merged-flow-factory.ts` (`getFactorySkipToolCheckSync`) — admin bật/tắt áp dụng chậm nhất sau 60s, và chỉ ảnh hưởng đơn tạo sau đó.
 - Đang bật cho: **DTF Mê Linh (MLDTF)** cùng flowType `press-complete` → luồng trọn vẹn: khách lên đơn → push → In → Ép → hoàn thành (E2E 20/20: import CSV khách → push vào thẳng cột In không designer → In complete → Ép complete → 4 khâu sau tự Done workMs=0 → portal khách hiện Fulfilled).
 
+### 2.2e Cờ "Tự trừ tồn kho sau in label" theo xưởng (`FactoryEntity.autoStockOut` — 2026-09-21)
+
+Toggle ĐỘC LẬP thứ tư trên xưởng (switch trong cùng dialog `FactoryTab.tsx`, badge vàng "Tự trừ kho"): bật → tại trạm quét, sau khi in label giao hàng của đơn thì FE tự gọi `POST /inventory/scan-out` trừ tồn kho phôi theo đơn (mặc định TẮT — quét `ACT-STOCK-OUT` xác nhận tay). Trừ idempotent theo đơn nên in lại không trừ đúp. Chi tiết toàn bộ module tồn kho: [`Inventory.md`](Inventory.md).
+
 ### 2.3 Báo lỗi (rework-back)
 
 Trong tab "Đang làm", bấm "Báo lỗi" mở dialog:

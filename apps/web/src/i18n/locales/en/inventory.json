@@ -1,0 +1,117 @@
+{
+  "title": "Factory inventory",
+  "description": "Receive stock with receipts, deduct by scanning order labels at the scan station, reconcile daily.",
+  "needFactory": "Pick a factory in the header switcher to view its inventory.",
+  "tabs": {
+    "items": "Stock",
+    "txns": "Transactions",
+    "receipts": "Receipts"
+  },
+  "actions": {
+    "receiptIn": "Receive stock",
+    "adjust": "Stocktake",
+    "reconcile": "Daily reconcile",
+    "closeOut": "Close today's out-receipt",
+    "refresh": "Refresh"
+  },
+  "items": {
+    "searchPlaceholder": "Search SKU / name...",
+    "negativeOnly": "Negative only",
+    "sku": "SKU",
+    "name": "Name",
+    "unit": "Unit",
+    "quantity": "On hand",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "autoCreatedBadge": "Auto-created",
+    "autoCreatedHint": "SKU was auto-created during a deduction scan — review name/unit and save to clear this badge.",
+    "empty": "No items yet. Click \"Receive stock\" to create the first receipt.",
+    "editTitle": "Edit item",
+    "markReviewed": "Reviewed (clear auto-created badge)",
+    "updated": "Item updated."
+  },
+  "receiptIn": {
+    "title": "Stock-in receipt",
+    "hint": "One SKU per line. Unknown SKUs are created with the name you enter.",
+    "sku": "SKU",
+    "skuPlaceholder": "CAMOSHIRT-XL",
+    "name": "Name (for new SKUs)",
+    "qty": "Quantity",
+    "note": "Note",
+    "addLine": "Add line",
+    "removeLine": "Remove line",
+    "submit": "Save receipt",
+    "invalid": "Each line needs an SKU and quantity > 0.",
+    "created": "Created receipt {{code}}."
+  },
+  "adjustDialog": {
+    "title": "Stocktake adjustment",
+    "hint": "Enter the ACTUAL counted quantity — the system computes the difference and writes an adjustment entry.",
+    "sku": "SKU",
+    "counted": "Counted quantity",
+    "current": "System: {{qty}}",
+    "submit": "Apply stocktake",
+    "invalid": "Each line needs an SKU and a count ≥ 0.",
+    "done": "Adjusted {{applied}} SKUs ({{unchanged}} unchanged)."
+  },
+  "reconcile": {
+    "title": "Daily deduction reconcile",
+    "hint": "Lists orders that finished Print today but were NOT deducted yet — apply all; already-deducted orders are skipped automatically.",
+    "date": "Date",
+    "preview": "Preview",
+    "empty": "No undeducted orders for this day.",
+    "production": "Production ID",
+    "sku": "SKU to deduct",
+    "noSku": "Unresolved — deduct manually at scan station",
+    "qty": "Qty",
+    "printDoneAt": "Print done at",
+    "apply": "Deduct all ({{count}})",
+    "confirm": "Deduct inventory for {{count}} undeducted orders of {{date}}?",
+    "applied": "Deducted {{applied}} orders, skipped {{skipped}}."
+  },
+  "closeOut": {
+    "confirm": "Group all of today's unreceipted deductions into one out-receipt?",
+    "done": "Closed out-receipt {{code}}.",
+    "empty": "No deductions to close today."
+  },
+  "txns": {
+    "time": "Time",
+    "kind": "Kind",
+    "kindIn": "In",
+    "kindOut": "Out",
+    "kindAdjust": "Adjust",
+    "sku": "SKU",
+    "qty": "Qty",
+    "balance": "Balance",
+    "balanceTitle": "{{before}} → {{after}}",
+    "production": "Order",
+    "by": "By",
+    "note": "Note",
+    "reworkBadge": "Rework",
+    "source": {
+      "scan": "Manual scan",
+      "auto-label": "Auto after label",
+      "reconcile": "Reconcile",
+      "manual": "Manual"
+    },
+    "filterKind": "Kind",
+    "filterAll": "All",
+    "filterSku": "SKU",
+    "filterProduction": "Production ID",
+    "empty": "No transactions yet."
+  },
+  "receipts": {
+    "code": "Code",
+    "type": "Type",
+    "typeIn": "Stock-in",
+    "typeOut": "Stock-out",
+    "lineCount": "{{count}} lines",
+    "totalQty": "Total qty",
+    "by": "Created by",
+    "time": "Time",
+    "note": "Note",
+    "empty": "No receipts yet.",
+    "detailTitle": "Receipt {{code}}"
+  }
+}

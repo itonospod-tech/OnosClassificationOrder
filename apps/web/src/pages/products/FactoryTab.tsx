@@ -63,6 +63,8 @@ interface ListItem {
   autoCompletePack?: boolean;
   /** Chỉ factory — bỏ qua soát tool: đơn mới vào thẳng cột In (xưởng DTF). */
   skipToolCheck?: boolean;
+  /** Chỉ factory — trạm quét tự trừ tồn kho sau khi in label giao hàng. */
+  autoStockOut?: boolean;
 }
 
 interface FormState {
@@ -77,6 +79,7 @@ interface FormState {
     flowType: FactoryFlowType;
     autoCompletePack: boolean;
     skipToolCheck: boolean;
+    autoStockOut: boolean;
   };
 }
 
@@ -91,6 +94,7 @@ const DEFAULT_FORM: FormState = {
     flowType: FactoryFlowType.Standard,
     autoCompletePack: false,
     skipToolCheck: false,
+    autoStockOut: false,
   },
 };
 
@@ -229,6 +233,7 @@ export function FactoryTab() {
         flowType: FactoryFlowType.Standard,
         autoCompletePack: false,
         skipToolCheck: false,
+        autoStockOut: false,
       },
     });
 
@@ -245,6 +250,7 @@ export function FactoryTab() {
         flowType: item.flowType ?? FactoryFlowType.Standard,
         autoCompletePack: item.autoCompletePack ?? false,
         skipToolCheck: item.skipToolCheck ?? false,
+        autoStockOut: item.autoStockOut ?? false,
       },
     });
 
@@ -286,6 +292,7 @@ export function FactoryTab() {
             flowType: data.flowType,
             autoCompletePack: data.autoCompletePack,
             skipToolCheck: data.skipToolCheck,
+            autoStockOut: data.autoStockOut,
           });
         } else {
           await RepositoryRemote.machineType.createMachineType({
@@ -304,6 +311,7 @@ export function FactoryTab() {
             flowType: data.flowType,
             autoCompletePack: data.autoCompletePack,
             skipToolCheck: data.skipToolCheck,
+            autoStockOut: data.autoStockOut,
           });
         } else {
           await RepositoryRemote.machineType.updateMachineType(data._id, {
@@ -381,6 +389,11 @@ export function FactoryTab() {
                   {type === 'factory' && it.skipToolCheck && (
                     <Badge variant="outline" className="ml-2 border-sky-400 text-sky-600 dark:text-sky-400">
                       {t('factoryTab.table.skipToolCheckBadge')}
+                    </Badge>
+                  )}
+                  {type === 'factory' && it.autoStockOut && (
+                    <Badge variant="outline" className="ml-2 border-amber-400 text-amber-600 dark:text-amber-400">
+                      {t('factoryTab.table.autoStockOutBadge')}
                     </Badge>
                   )}
                 </TableCell>
@@ -658,6 +671,18 @@ export function FactoryTab() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">{t('factoryTab.form.skipToolCheck.hint')}</p>
+              </div>
+            )}
+            {form.type === 'factory' && (
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <Label>{t('factoryTab.form.autoStockOut.label')}</Label>
+                  <Switch
+                    checked={form.data.autoStockOut}
+                    onCheckedChange={(v) => setForm({ ...form, data: { ...form.data, autoStockOut: v } })}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{t('factoryTab.form.autoStockOut.hint')}</p>
               </div>
             )}
           </div>

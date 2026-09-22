@@ -320,6 +320,7 @@ Prefix mới `ACT-` (`SCAN_ACTION_PREFIX`), parse case-insensitive → `{ kind: 
 | `ACT-CANCEL` | `cancel` | Như ESC: đóng popup đơn đang mở |
 | `ACT-PRINT-TEM` | `print-tem` | In tem khách 4×6cm cho đơn đang mở |
 | `ACT-PRINT-LABEL` | `print-label` | In label giao hàng 4×6 inch cho đơn đang mở |
+| `ACT-STOCK-OUT` | `stock-out` | Trừ TỒN KHO phôi theo đơn đang mở (Inventory.md): quét lần 1 mở khối xác nhận (SKU + số trừ + tồn), quét `OK`/Enter hoặc `ACT-STOCK-OUT` lần nữa để chốt; khối đang mở thì `OK` ƯU TIÊN chốt trừ (không hoàn thành công đoạn), `ACT-CANCEL` chỉ đóng khối. Đơn đã trừ → chốt tiếp = trừ LÀM LẠI (rework). Hook dùng chung `useScanStockOut.tsx`; xưởng bật `autoStockOut` thì tự trừ sau in label (`useScanPrint` `onLabelPrinted`) |
 | `ACT-ERROR` | `report-error` | Mở màn gán lỗi (dialog công đoạn → chuyển `OrderErrorScanDialog`; đang ở màn lỗi → toast nhắc quét thẳng `E-…`) |
 
 `print-design` đã đặt chỗ trong type (`ScanActionCommand`) nhưng **chưa triển khai** — chưa in ra sheet. Quét `ACT-*` khi CHƯA mở đơn nào → toast "quét đơn trước" (cùng nhánh với `OK`/`E-…` ở `handleLookup`).

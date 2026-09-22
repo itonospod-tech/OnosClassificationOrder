@@ -40,6 +40,7 @@ export const PERMISSION_CATALOG: PermissionItem[] = [
   { code: 'page.fulfillment_stats', label: 'Stats fulfillment', group: 'page' },
   { code: 'page.scan_error', label: 'Quét mã (workshop scan)', group: 'page' },
   { code: 'page.stage_errors', label: 'Danh mục lỗi công đoạn (QR)', group: 'page' },
+  { code: 'page.inventory', label: 'Tồn kho xưởng (nhập/xuất/đối soát)', group: 'page' },
   { code: 'page.tool_check', label: 'Soát tool (support dashboard)', group: 'page' },
   { code: 'page.unmapped_factory', label: 'Đơn chưa xác định xưởng (menu tạm)', group: 'page' },
   { code: 'page.promotions', label: 'Quản lý chương trình giảm giá', group: 'page' },
@@ -405,6 +406,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Partial<Record<RoleType, string[]>> = {
     'page.scan_error',
     'page.stage_errors',
     'page.guide_dtf',
+    // Tồn kho xưởng: thủ kho/công nhân nhập phiếu + quét trừ theo đơn.
+    'page.inventory',
   ],
 };
 

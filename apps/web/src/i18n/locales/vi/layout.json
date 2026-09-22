@@ -44,7 +44,8 @@
       "title": "Công việc",
       "myTasks": "Task của tôi",
       "fulfillmentTasks": "Task Fulfillment",
-      "handover": "Bàn giao kiện"
+      "handover": "Bàn giao kiện",
+      "inventory": "Tồn kho"
     },
     "products": "Sản phẩm",
     "promotions": "Chương trình giảm giá",
