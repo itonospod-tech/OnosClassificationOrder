@@ -148,6 +148,7 @@ import {
   getFactoryAutoPackSync,
   getFactoryFlowTypeSync,
   getFactorySkipToolCheckSync,
+  listSkipToolCheckFactoryIdsSync,
   loadFactoryFlowTypes,
 } from '../../utils/merged-flow-factory';
 import { CustomerRepository } from '../customer/customer.repository';
@@ -7039,15 +7040,25 @@ export class OrderService implements OnModuleInit {
     remaining: number;
   }> {
     const excludedFactoryId = getExcludedFactoryIdSync(this.orderModel.db);
+    // Xưởng bật "bỏ qua soát tool" (`FactoryEntity.skipToolCheck` —
+    // FulfillmentWorkflow.md §2.2d) KHÔNG vào hàng đợi soát tool tự động.
+    // Phải chặn ở đây chứ không thể trông vào stamp 'ok' lúc import: stamp chỉ
+    // áp đơn MỚI ($setOnInsert) và chỉ set `toolResultNote`, còn queue này lọc
+    // theo `toolResult` rỗng — không chặn thì đơn của xưởng (nhất là đơn CŨ
+    // import trước khi bật cờ) vẫn bị tool soát lại + ghi đè kết quả.
+    const blockedFactoryIds = [
+      ...(excludedFactoryId ? [excludedFactoryId] : []),
+      ...listSkipToolCheckFactoryIdsSync(this.orderModel.db),
+    ];
     const baseFilter: Record<string, unknown> = {
       deletedAt: { $exists: false },
       cancelledAt: { $exists: false },
       heldAt: { $exists: false },
       toolResult: { $in: [null, ''] },
       designerStatus: DesignerStatus.Unassigned,
-      // Đơn xưởng US (ngoài luồng sản xuất) KHÔNG vào hàng đợi soát tool —
-      // $ne vẫn cho đơn chưa map xưởng (factoryId null) vào queue như cũ.
-      ...(excludedFactoryId ? { factoryId: { $ne: excludedFactoryId } } : {}),
+      // Đơn xưởng US (ngoài luồng sản xuất) + xưởng bỏ-soát-tool KHÔNG vào hàng
+      // đợi — $nin vẫn cho đơn chưa map xưởng (factoryId null) vào queue như cũ.
+      ...(blockedFactoryIds.length ? { factoryId: { $nin: blockedFactoryIds } } : {}),
     };
     if (dto?.from || dto?.to) {
       const range: Record<string, Date> = {};
@@ -7204,10 +7215,20 @@ export class OrderService implements OnModuleInit {
 
     const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const order = await this.orderModel
-      .findOne({ productionId: { $regex: `^${escaped}$`, $options: 'i' } }, { _id: 1 })
+      .findOne({ productionId: { $regex: `^${escaped}$`, $options: 'i' } }, { _id: 1, factoryId: 1 })
       .lean();
     if (!order) throw new NotFoundException('Không tìm thấy đơn với mã này.');
     const id = String((order as { _id: string })._id);
+
+    // Xưởng bật "bỏ qua soát tool" → tool ngoài KHÔNG được ghi kết quả soát
+    // (hàng đợi đã loại các đơn này, guard này chặn nốt đường `pid` tra thẳng
+    // + claim còn treo từ trước). Muốn sửa kết quả thì nhân viên sửa tay ở
+    // Danh sách đơn như thường.
+    if (getFactorySkipToolCheckSync(this.orderModel.db, (order as { factoryId?: string }).factoryId)) {
+      throw new BadRequestException(
+        'Xưởng của đơn này đang bật "Bỏ qua soát tool" — không ghi kết quả soát tự động.',
+      );
+    }
 
     let result = await this.updateField(id, { field: 'toolResult', value: input.toolResult }, RoleType.SuperAdmin, ctx);
 
