@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
   Barcode,
+  Boxes,
   CheckCircle2,
   Factory,
   Layers,
@@ -39,6 +40,7 @@ import { beepError, beepScan, beepSuccess, parseScanCode, resolveErrorScan } fro
 
 import { GuideStep, GuideZone } from './ScanGuide';
 import { useScanPrint } from './useScanPrint';
+import { useScanStockOut } from './useScanStockOut';
 
 const MAX_NOTE = 500;
 
@@ -96,8 +98,24 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
   const [note, setNote] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
+  // Trừ tồn kho theo đơn (`ACT-STOCK-OUT` + OK chốt; auto sau in label nếu xưởng bật).
+  const {
+    stockOutOpen,
+    stockOutBusy,
+    openStockOut,
+    confirmStockOut,
+    closeStockOut,
+    autoAfterLabel,
+    stockOutElement,
+  } = useScanStockOut(order);
+
   // In tem khách / label giao hàng ngay từ popup — nút bấm hoặc mã `ACT-PRINT-*`.
-  const { printTem, printLabel, loadingLabel, elements: printElements } = useScanPrint(order);
+  const {
+    printTem,
+    printLabel,
+    loadingLabel,
+    elements: printElements,
+  } = useScanPrint(order, { onLabelPrinted: () => void autoAfterLabel() });
 
   const selectedCfg = useMemo(() => stageErrors.find((o) => o.code === code), [stageErrors, code]);
   // Nguồn + đích đẩy về suy từ config — hiển thị read-only, không cho chọn tay.
@@ -181,10 +199,17 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
     const action = parseScanCode(raw);
     // Mã hành động `ACT-*` (bảng mã dán trạm) — điều khiển popup không cần chuột.
     if (action.kind === 'action') {
-      if (action.command === 'cancel') onClose();
-      else if (action.command === 'print-tem') printTem();
+      if (action.command === 'cancel') {
+        // Khối trừ kho đang mở → CANCEL chỉ đóng khối, không đóng popup.
+        if (stockOutOpen) closeStockOut();
+        else onClose();
+      } else if (action.command === 'print-tem') printTem();
       else if (action.command === 'print-label') void printLabel();
-      else {
+      else if (action.command === 'stock-out') {
+        // Lần 1 mở khối xác nhận; đang mở → quét lặp = chốt trừ.
+        if (stockOutOpen) void confirmStockOut();
+        else void openStockOut();
+      } else {
         // report-error: đã đứng sẵn ở màn báo lỗi → nhắc quét thẳng mã lỗi E-…
         beepScan();
         toast(t('orderErrorDialog.alreadyInErrorMode'));
@@ -204,6 +229,11 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
       return true;
     }
     if (action.kind === 'ok') {
+      // Khối trừ kho đang mở → OK chốt trừ; ngoài ra OK không có nghĩa ở màn này.
+      if (stockOutOpen) {
+        void confirmStockOut();
+        return true;
+      }
       beepError();
       toast.error(t('orderErrorDialog.okOnlyForWorker'));
       return true;
@@ -542,6 +572,7 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
           </div>
         </div>
 
+        {stockOutElement}
         <DialogFooter className="gap-3 shrink-0">
           <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg">
             <Printer size={20} className="mr-2" />
@@ -555,6 +586,15 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
           >
             <Tag size={20} className="mr-2" />
             {t('printActions.printLabelBtn')}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => void (stockOutOpen ? confirmStockOut() : openStockOut())}
+            disabled={saving || stockOutBusy}
+            className="h-14 px-5 text-lg"
+          >
+            <Boxes size={20} className="mr-2" />
+            {t('stockOut.btn')}
           </Button>
           <Button variant="outline" onClick={onClose} disabled={saving} className="h-14 px-7 text-lg">
             {t('common:actions.cancel')}

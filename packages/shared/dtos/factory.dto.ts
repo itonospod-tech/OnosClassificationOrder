@@ -27,6 +27,14 @@ export const FactoryZod = BaseEntityZod.extend({
    * ĐỘC LẬP với flowType.
    */
   skipToolCheck: z.boolean().default(false),
+  /**
+   * Tự TRỪ TỒN KHO sau khi in label giao hàng thành công tại trạm quét —
+   * mặc định TẮT: người dùng quét `ACT-STOCK-OUT` xác nhận trừ tay. Cờ do FE
+   * đọc (qua `GET /inventory/scan-out/preview`) để quyết định có gọi
+   * `POST /inventory/scan-out` sau lệnh in label không; trừ lặp vô hại nhờ
+   * idempotency sổ cái. Xem `documents/Plans/Inventory-FactoryStock.md`.
+   */
+  autoStockOut: z.boolean().default(false),
 });
 export type Factory = z.infer<typeof FactoryZod>;
 
@@ -69,6 +77,7 @@ export const CreateFactoryZod = z.object({
   flowType: z.nativeEnum(FactoryFlowType).optional(),
   autoCompletePack: z.boolean().optional(),
   skipToolCheck: z.boolean().optional(),
+  autoStockOut: z.boolean().optional(),
 });
 export class CreateFactoryDto extends createZodDto(extendApi(CreateFactoryZod)) {}
 
@@ -83,6 +92,7 @@ export const UpdateFactoryZod = z.object({
   flowType: z.nativeEnum(FactoryFlowType).optional(),
   autoCompletePack: z.boolean().optional(),
   skipToolCheck: z.boolean().optional(),
+  autoStockOut: z.boolean().optional(),
 });
 export class UpdateFactoryDto extends createZodDto(extendApi(UpdateFactoryZod)) {}
 

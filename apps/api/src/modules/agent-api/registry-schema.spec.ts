@@ -4,6 +4,9 @@ import { CollectionSchema } from '../collection/collection.entity';
 import { CustomerSchema } from '../customer/customer.entity';
 import { CustomerNotificationSchema } from '../customer-notification/customer-notification.entity';
 import { FactorySchema } from '../factory/factory.entity';
+import { InventoryItemSchema } from '../inventory/inventory-item.entity';
+import { InventoryReceiptSchema } from '../inventory/inventory-receipt.entity';
+import { InventoryTransactionSchema } from '../inventory/inventory-transaction.entity';
 import { MachineTypeSchema } from '../machine-type/machine-type.entity';
 import { OrderSchema } from '../order/order.entity';
 import { OrderLogSchema } from '../order-log/order-log.entity';
@@ -39,6 +42,9 @@ const SCHEMAS: Record<string, Schema> = {
   machineTypes: MachineTypeSchema,
   workshopConfigs: WorkshopConfigSchema,
   customer_notifications: CustomerNotificationSchema,
+  inventory_items: InventoryItemSchema,
+  inventory_transactions: InventoryTransactionSchema,
+  inventory_receipts: InventoryReceiptSchema,
 };
 
 /** Gốc của một đường dẫn: `variations.retailPrice` → `variations`. */

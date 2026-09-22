@@ -1,0 +1,117 @@
+{
+  "title": "Tồn kho xưởng",
+  "description": "Nhập kho bằng phiếu, trừ kho bằng quét tem đơn tại trạm quét, đối soát cuối ngày.",
+  "needFactory": "Chọn xưởng ở bộ chọn trên header để xem kho.",
+  "tabs": {
+    "items": "Tồn kho",
+    "txns": "Giao dịch",
+    "receipts": "Phiếu"
+  },
+  "actions": {
+    "receiptIn": "Nhập kho",
+    "adjust": "Kiểm kê",
+    "reconcile": "Đối soát ngày",
+    "closeOut": "Chốt phiếu xuất hôm nay",
+    "refresh": "Tải lại"
+  },
+  "items": {
+    "searchPlaceholder": "Tìm SKU / tên...",
+    "negativeOnly": "Chỉ tồn âm",
+    "sku": "SKU",
+    "name": "Tên",
+    "unit": "ĐVT",
+    "quantity": "Tồn",
+    "status": "Trạng thái",
+    "active": "Hoạt động",
+    "inactive": "Tắt",
+    "autoCreatedBadge": "Tự tạo từ quét",
+    "autoCreatedHint": "SKU sinh tự động lúc quét trừ — kiểm tra lại tên/đơn vị rồi lưu để bỏ nhãn này.",
+    "empty": "Chưa có mặt hàng nào. Bấm \"Nhập kho\" để tạo phiếu nhập đầu tiên.",
+    "editTitle": "Sửa mặt hàng",
+    "markReviewed": "Đã rà xong (bỏ nhãn tự tạo)",
+    "updated": "Đã cập nhật mặt hàng."
+  },
+  "receiptIn": {
+    "title": "Phiếu nhập kho",
+    "hint": "Mỗi dòng 1 SKU. SKU chưa có trong kho sẽ được tạo mới với tên bạn điền.",
+    "sku": "SKU",
+    "skuPlaceholder": "CAMOSHIRT-XL",
+    "name": "Tên (cho SKU mới)",
+    "qty": "Số lượng",
+    "note": "Ghi chú",
+    "addLine": "Thêm dòng",
+    "removeLine": "Xóa dòng",
+    "submit": "Lưu phiếu nhập",
+    "invalid": "Mỗi dòng cần SKU và số lượng > 0.",
+    "created": "Đã tạo phiếu nhập {{code}}."
+  },
+  "adjustDialog": {
+    "title": "Kiểm kê điều chỉnh",
+    "hint": "Nhập số ĐẾM THỰC TẾ trên kệ — hệ thống tự tính chênh lệch và ghi sổ điều chỉnh.",
+    "sku": "SKU",
+    "counted": "Số đếm thực tế",
+    "current": "Hệ thống: {{qty}}",
+    "submit": "Chốt kiểm kê",
+    "invalid": "Mỗi dòng cần SKU và số đếm ≥ 0.",
+    "done": "Đã điều chỉnh {{applied}} SKU ({{unchanged}} không lệch)."
+  },
+  "reconcile": {
+    "title": "Đối soát trừ kho theo ngày",
+    "hint": "Liệt kê các đơn đã In xong trong ngày nhưng CHƯA trừ kho — bấm trừ tất cả, đơn nào trừ rồi tự bị bỏ qua.",
+    "date": "Ngày",
+    "preview": "Xem danh sách",
+    "empty": "Không còn đơn nào chưa trừ trong ngày này.",
+    "production": "Mã sản xuất",
+    "sku": "SKU sẽ trừ",
+    "noSku": "Không suy được — trừ tay ở trạm quét",
+    "qty": "SL",
+    "printDoneAt": "In xong lúc",
+    "apply": "Trừ tất cả ({{count}})",
+    "confirm": "Trừ kho {{count}} đơn chưa trừ của ngày {{date}}?",
+    "applied": "Đã trừ {{applied}} đơn, bỏ qua {{skipped}}."
+  },
+  "closeOut": {
+    "confirm": "Gom mọi lượt xuất chưa có phiếu của hôm nay thành 1 phiếu xuất?",
+    "done": "Đã chốt phiếu xuất {{code}}.",
+    "empty": "Hôm nay chưa có lượt xuất nào cần chốt."
+  },
+  "txns": {
+    "time": "Lúc",
+    "kind": "Loại",
+    "kindIn": "Nhập",
+    "kindOut": "Xuất",
+    "kindAdjust": "Kiểm kê",
+    "sku": "SKU",
+    "qty": "SL",
+    "balance": "Tồn sau",
+    "balanceTitle": "{{before}} → {{after}}",
+    "production": "Đơn",
+    "by": "Người",
+    "note": "Ghi chú",
+    "reworkBadge": "Làm lại",
+    "source": {
+      "scan": "Quét tay",
+      "auto-label": "Tự động sau label",
+      "reconcile": "Đối soát",
+      "manual": "Tay"
+    },
+    "filterKind": "Loại",
+    "filterAll": "Tất cả",
+    "filterSku": "SKU",
+    "filterProduction": "Mã sản xuất",
+    "empty": "Chưa có giao dịch."
+  },
+  "receipts": {
+    "code": "Số phiếu",
+    "type": "Loại",
+    "typeIn": "Phiếu nhập",
+    "typeOut": "Phiếu xuất",
+    "lineCount": "{{count}} dòng",
+    "totalQty": "Tổng SL",
+    "by": "Người lập",
+    "time": "Lúc",
+    "note": "Ghi chú",
+    "empty": "Chưa có phiếu nào.",
+    "detailTitle": "Phiếu {{code}}"
+  }
+}

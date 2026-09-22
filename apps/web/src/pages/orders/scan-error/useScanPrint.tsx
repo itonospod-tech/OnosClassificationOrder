@@ -28,7 +28,7 @@ type ScannedOrder = ProductionOrderRow & {
  * bấm ESC bàn phím (mọi mã quét đều kết thúc bằng Enter nên không có "mã hủy"
  * dùng được ở bước này).
  */
-export function useScanPrint(order: ScannedOrder) {
+export function useScanPrint(order: ScannedOrder, opts?: { onLabelPrinted?: () => void }) {
   const { t } = useTranslation('scanError');
   const [temOrders, setTemOrders] = useState<WorkshopOrderRow[] | null>(null);
   const [shipLabels, setShipLabels] = useState<ShippingLabel[] | null>(null);
@@ -70,7 +70,18 @@ export function useScanPrint(order: ScannedOrder) {
   const elements = (
     <>
       {temOrders && <CustomerLabelPrint orders={temOrders} onDone={() => setTemOrders(null)} />}
-      {shipLabels && <ShippingLabelPrint labels={shipLabels} onDone={() => setShipLabels(null)} />}
+      {shipLabels && (
+        <ShippingLabelPrint
+          labels={shipLabels}
+          onDone={() => {
+            setShipLabels(null);
+            // Xưởng bật autoStockOut: tự trừ kho sau khi hộp thoại in đóng.
+            // (Đóng hộp thoại ≠ chắc chắn in thành công — chấp nhận, vì trừ
+            // idempotent theo đơn và đối soát ngày bắt sót.)
+            opts?.onLabelPrinted?.();
+          }}
+        />
+      )}
     </>
   );
 

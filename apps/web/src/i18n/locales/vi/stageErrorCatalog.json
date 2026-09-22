@@ -26,7 +26,5 @@
   "hiddenBadge": "Đang ẩn",
   "hideTooltip": "Ẩn lỗi (giữ thống kê cũ)",
   "showTooltip": "Hiện lại lỗi",
-  "printSheetTitle": "Bảng mã lỗi công đoạn: {{stage}}",
-  "printSheetDesc": "Quét barcode ĐƠN trước → quét 1 mã dưới đây. \"{{ok}}\" = hoàn thành công đoạn; mã lỗi = báo lỗi + tự đẩy về công đoạn ghi trên nhãn.",
   "printCardPushTo": "Đẩy về: {{target}} ·"
 }

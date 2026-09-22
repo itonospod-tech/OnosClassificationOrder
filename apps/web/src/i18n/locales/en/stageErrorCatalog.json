@@ -26,7 +26,5 @@
   "hiddenBadge": "Hidden",
   "hideTooltip": "Hide error (keep old stats)",
   "showTooltip": "Show error again",
-  "printSheetTitle": "Stage error code board: {{stage}}",
-  "printSheetDesc": "Scan the ORDER barcode first → scan one code below. \"{{ok}}\" = complete the stage; error code = report an error + auto push back to the stage on the label.",
   "printCardPushTo": "Push back to: {{target}} ·"
 }

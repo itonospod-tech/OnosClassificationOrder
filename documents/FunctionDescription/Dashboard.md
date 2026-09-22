@@ -444,13 +444,17 @@ User di chuột vào 1 slice xưởng
 ### 5.1 Pipeline `getDashboard()`
 
 ```
-$match { deletedAt: null, orderAt between [startDate, endDate], type ~ searchType, $or [userSku ~ searchUser, userEmail ~ searchUser] }
-$facet {
-  totals: $group { _id: null, totalOrders: $sum 1, totalQuantity: $sum quantity, ... }
-  byType: $group by type → tính min/max/sum cost, unique mockups, duplicate mockups, sizes
-  byFactory: $lookup factory + machineType → $group factory → nested $group machineType → tính %
-  byUser: $group by userSku + userEmail → $sort orderCount desc
-}
+match chung: { inProductionAt between [startDate, endDate] (nếu có), type ~ searchType,
+               $or [userSku ~ searchUser, userEmail ~ searchUser], cancelledAt $exists:false,
+               factoryId scope (Fulfillment/factoryId tường minh/productionFactoryClause) }
+8 truy vấn ĐỘC LẬP chạy SONG SONG qua Promise.all (2026-09 — trước đây await tuần tự, ~4.5s):
+  countDocuments cancelled + countDocuments held
+  totals: $group { _id: null, totalOrders, totalQuantity, totalProductionCost, totalShippingCost }
+  byType: $group by type → min/max/sum cost + $push rows (size/mockup) → post-process JS
+  byFactory: $group (factoryId, machineTypeId) → $lookup factories + machineTypes → tính %
+  sizeMatrix: $group (factoryId, type, size) → $lookup factories
+  byUser: $group by userEmail||userSku → $sort orderCount desc
+  listFactoryOptions()
 ```
 
 ### 5.2 Helper functions
@@ -460,8 +464,8 @@ $facet {
 
 ### 5.3 Cache
 
-- Key: `dashboard:${md5(query)}` → TTL 60s
-- Invalidate: khi `createOrder`, `importOrders`, `deleteOrder`, `updateOrder`
+- **Hiện TẮT** — các block đọc/ghi Redis trong `getDashboard` đang comment `[cache disabled]`;
+  tốc độ dựa vào việc chạy song song 8 truy vấn (§5.1). Bật lại cache = mở comment 2 block đó.
 
 ---
 

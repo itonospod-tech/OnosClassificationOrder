@@ -84,3 +84,14 @@ export function getFactorySkipToolCheckSync(db: Connection, factoryId: string | 
   if (factoryId == null) return false;
   return cache.skipToolCheck.has(String(factoryId));
 }
+
+/**
+ * DANH SÁCH xưởng bật "bỏ qua soát tool" — cho hàng đợi soát tool tự động
+ * (`getNextDesignReviewOrder`) loại trừ cả loạt bằng `$nin` (stamp 'ok' lúc
+ * import chỉ áp đơn MỚI, đơn cũ của xưởng vẫn `toolResult` rỗng nên phải chặn
+ * ở tầng query). Cùng cache/TTL với các getter trên.
+ */
+export function listSkipToolCheckFactoryIdsSync(db: Connection): string[] {
+  refreshIfStale(db);
+  return [...cache.skipToolCheck];
+}

@@ -115,10 +115,15 @@ Toggle **ĐỘC LẬP với `flowType`** (bật được cho mọi loại luồn
 Toggle **ĐỘC LẬP với `flowType`** (switch "Bỏ qua soát tool" trong dialog sửa xưởng `FactoryTab.tsx`, badge xanh dương "Bỏ soát tool" ở bảng): đơn **MỚI** import/push vào xưởng này được coi là đã soát xong ngay lúc tạo — mở thêm **Entry C** vào fulfillment bên cạnh Entry A (designer complete) và Entry B (`toolResultNote='ok'` tay):
 
 - **Cơ chế**: trong `OrderService.importOrders()`, sau khi resolve `factoryId` (gồm cả override gán xưởng theo khách), nếu xưởng bật cờ → `$setOnInsert` stamp: `toolResultNote='ok'` + `toolCheckedAt=now` + `readyForFulfill=true` + `buildFulfillmentEntrySet()` (In waiting). Nằm trong `$setOnInsert` nên **re-import KHÔNG reset đơn đang chạy**; xưởng US không bao giờ được stamp (guard `getExcludedFactoryIdSync`).
-- **Hệ quả dây chuyền tự khớp**: đơn 'ok' → tool soát tự động (`getNextDesignReviewOrder`) bỏ qua; auto-gán designer bỏ qua (ứng viên yêu cầu `toolResultNote != 'ok'`); lifecycle funnel/badge/thống kê coi đơn đã qua chặng soát tool tại `toolCheckedAt`.
+- **Hệ quả dây chuyền tự khớp**: auto-gán designer bỏ qua (ứng viên yêu cầu `toolResultNote != 'ok'`); lifecycle funnel/badge/thống kê coi đơn đã qua chặng soát tool tại `toolCheckedAt`.
+- **Tool soát TỰ ĐỘNG loại hẳn xưởng này (fix 2026-09-22)**: stamp 'ok' KHÔNG đủ để né tool ngoài — hàng đợi `getNextDesignReviewOrder` lọc theo `toolResult` (field automation, luôn rỗng lúc tạo) chứ không phải `toolResultNote`, nên trước đây đơn xưởng skip (nhất là đơn CŨ import trước khi bật cờ, không được stamp) vẫn bị tool soát lại + ghi đè kết quả. Fix 2 lớp: hàng đợi + `remaining` loại `factoryId $nin` danh sách xưởng bật cờ (`listSkipToolCheckFactoryIdsSync` — cùng cache TTL 60s), và `setDesignReviewResult` chặn 400 mọi đường ghi (kể cả `pid` tra thẳng/claim treo từ trước) cho đơn thuộc xưởng skip — muốn đổi kết quả thì nhân viên sửa tay ở Danh sách đơn.
 - **Đường lỗi giữ nguyên**: công nhân In/Ép báo lỗi nguồn designer/tool-check thì đơn vẫn rơi về designer (auto-gán đơn rework chưa ai ôm) / Support làm lại rồi re-flow từ In như mọi xưởng.
-- Cache sync: cùng query/TTL 60s ở `merged-flow-factory.ts` (`getFactorySkipToolCheckSync`) — admin bật/tắt áp dụng chậm nhất sau 60s, và chỉ ảnh hưởng đơn tạo sau đó.
+- Cache sync: cùng query/TTL 60s ở `merged-flow-factory.ts` (`getFactorySkipToolCheckSync` + `listSkipToolCheckFactoryIdsSync`) — admin bật/tắt áp dụng chậm nhất sau 60s; stamp chỉ ảnh hưởng đơn tạo sau đó, còn loại-khỏi-hàng-đợi áp NGAY cho mọi đơn của xưởng.
 - Đang bật cho: **DTF Mê Linh (MLDTF)** cùng flowType `press-complete` → luồng trọn vẹn: khách lên đơn → push → In → Ép → hoàn thành (E2E 20/20: import CSV khách → push vào thẳng cột In không designer → In complete → Ép complete → 4 khâu sau tự Done workMs=0 → portal khách hiện Fulfilled).
+
+### 2.2e Cờ "Tự trừ tồn kho sau in label" theo xưởng (`FactoryEntity.autoStockOut` — 2026-09-21)
+
+Toggle ĐỘC LẬP thứ tư trên xưởng (switch trong cùng dialog `FactoryTab.tsx`, badge vàng "Tự trừ kho"): bật → tại trạm quét, sau khi in label giao hàng của đơn thì FE tự gọi `POST /inventory/scan-out` trừ tồn kho phôi theo đơn (mặc định TẮT — quét `ACT-STOCK-OUT` xác nhận tay). Trừ idempotent theo đơn nên in lại không trừ đúp. Chi tiết toàn bộ module tồn kho: [`Inventory.md`](Inventory.md).
 
 ### 2.3 Báo lỗi (rework-back)
 

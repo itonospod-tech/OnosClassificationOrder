@@ -159,7 +159,8 @@
         "pressComplete": "DTF (Ép là xong)"
       },
       "autoPackBadge": "Tự xong Đóng hàng",
-      "skipToolCheckBadge": "Bỏ soát tool"
+      "skipToolCheckBadge": "Bỏ soát tool",
+      "autoStockOutBadge": "Tự trừ kho"
     },
     "form": {
       "nameShortNameRequired": "Tên và viết tắt là bắt buộc",
@@ -191,6 +192,10 @@
       "skipToolCheck": {
         "label": "Bỏ qua soát tool",
         "hint": "Bật: đơn MỚI import/push vào xưởng này được coi là đã soát \"ok\" ngay lúc tạo và vào thẳng công đoạn In — không qua Support soát, không auto-gán designer. Chỉ áp đơn tạo mới; đơn đang chạy giữ nguyên."
+      },
+      "autoStockOut": {
+        "label": "Tự trừ tồn kho sau in label",
+        "hint": "Bật: tại trạm quét, sau khi in label giao hàng của đơn thì hệ thống TỰ trừ tồn kho (phôi) theo đơn — không cần quét mã ACT-STOCK-OUT xác nhận. Trừ lặp vô hại: mỗi đơn chỉ trừ 1 lần trừ khi chủ đích trừ lại cho đơn làm lại."
       }
     },
     "factory": {

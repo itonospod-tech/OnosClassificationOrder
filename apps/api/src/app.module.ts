@@ -42,6 +42,7 @@ import { DesignerModule } from './modules/designer/designer.module';
 import { DesignerAssignmentModule } from './modules/designer-assignment/designer-assignment.module';
 import { FactoryModule } from './modules/factory/factory.module';
 import { FulfillmentModule } from './modules/fulfillment/fulfillment.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { MachineTypeModule } from './modules/machine-type/machine-type.module';
 import { MailModule } from './modules/mail/mail.module';
 import { NotificationModule } from './modules/notifications/notification.module';
@@ -102,6 +103,8 @@ import { SharedModule } from './shared/shared.module';
     CustomerWalletModule,
     DesignStorageModule,
     FulfillmentModule,
+    // Tồn kho theo xưởng — sổ cái append-only (Inventory-FactoryStock plan).
+    InventoryModule,
     ShippingVnpModule,
     SellerShippingModule,
     TelegramNotificationModule,

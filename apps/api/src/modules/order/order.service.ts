@@ -148,6 +148,7 @@ import {
   getFactoryAutoPackSync,
   getFactoryFlowTypeSync,
   getFactorySkipToolCheckSync,
+  listSkipToolCheckFactoryIdsSync,
   loadFactoryFlowTypes,
 } from '../../utils/merged-flow-factory';
 import { CustomerRepository } from '../customer/customer.repository';
@@ -2434,32 +2435,159 @@ export class OrderService implements OnModuleInit {
     // Đơn hủy: LOẠI khỏi MỌI số liệu dashboard (`cancelledAt` không tồn tại) và
     // đếm RIÊNG (`cancelledOrders`) trong cùng scope xưởng + khoảng inProductionAt.
     match.cancelledAt = { $exists: false };
-    const cancelledOrders = await this.orderModel.countDocuments({
-      ...match,
-      cancelledAt: { $exists: true },
-    });
-    // Đơn đang GIỮ: VẪN nằm trong totalOrders (chỉ tạm dừng) nhưng đếm riêng để
-    // dashboard hiện "Đơn đang giữ". Cùng scope xưởng + khoảng inProductionAt.
-    const heldOrders = await this.orderModel.countDocuments({
-      ...match,
-      heldAt: { $exists: true },
-    });
 
-    const totalsAgg = await this.orderModel.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: null,
-          totalOrders: { $sum: 1 },
-          totalQuantity: { $sum: { $ifNull: ['$quantity', 1] } },
-          totalProductionCost: {
-            $sum: { $multiply: [{ $ifNull: ['$baseCost', 0] }, { $ifNull: ['$quantity', 1] }] },
-          },
-          totalShippingCost: {
-            $sum: { $multiply: [{ $ifNull: ['$shipCost', 0] }, { $ifNull: ['$quantity', 1] }] },
+    // 8 truy vấn bên dưới độc lập nhau — chạy SONG SONG thay vì await tuần tự
+    // (trước đây tuần tự nên latency = tổng 8 lượt quét, ~4.5s trên data thật).
+    const [
+      cancelledOrders,
+      heldOrders,
+      totalsAgg,
+      byTypeAgg,
+      byFactoryAgg,
+      sizeMatrixAgg,
+      byUserAgg,
+      factoryOptions,
+    ] = await Promise.all([
+      this.orderModel.countDocuments({ ...match, cancelledAt: { $exists: true } }),
+      // Đơn đang GIỮ: VẪN nằm trong totalOrders (chỉ tạm dừng) nhưng đếm riêng để
+      // dashboard hiện "Đơn đang giữ". Cùng scope xưởng + khoảng inProductionAt.
+      this.orderModel.countDocuments({ ...match, heldAt: { $exists: true } }),
+      this.orderModel.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            totalQuantity: { $sum: { $ifNull: ['$quantity', 1] } },
+            totalProductionCost: {
+              $sum: { $multiply: [{ $ifNull: ['$baseCost', 0] }, { $ifNull: ['$quantity', 1] }] },
+            },
+            totalShippingCost: {
+              $sum: { $multiply: [{ $ifNull: ['$shipCost', 0] }, { $ifNull: ['$quantity', 1] }] },
+            },
           },
         },
-      },
+      ]),
+      // Per-type aggregation: group, collect raw rows to post-process size/mockup
+      this.orderModel.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: { $ifNull: ['$type', 'Không xác định'] },
+            quantity: { $sum: { $ifNull: ['$quantity', 1] } },
+            orderCount: { $sum: 1 },
+            minCost: { $min: '$baseCost' },
+            maxCost: { $max: '$baseCost' },
+            productionCost: {
+              $sum: { $multiply: [{ $ifNull: ['$baseCost', 0] }, { $ifNull: ['$quantity', 1] }] },
+            },
+            shippingCost: {
+              $sum: { $multiply: [{ $ifNull: ['$shipCost', 0] }, { $ifNull: ['$quantity', 1] }] },
+            },
+            // Push minimal fields needed for post-processing
+            rows: {
+              $push: {
+                size: '$size',
+                quantity: { $ifNull: ['$quantity', 1] },
+                mockupUrl: '$mockupUrl',
+                mockupOriginalUrl: '$mockupOriginalUrl',
+              },
+            },
+          },
+        },
+        { $sort: { quantity: -1 } },
+      ]),
+      // Factory breakdown with nested machine-type breakdown
+      this.orderModel.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: { factoryId: '$factoryId', machineTypeId: '$machineTypeId' },
+            quantity: { $sum: { $ifNull: ['$quantity', 1] } },
+          },
+        },
+        {
+          $lookup: {
+            from: 'factories',
+            localField: '_id.factoryId',
+            foreignField: '_id',
+            as: 'factory',
+          },
+        },
+        {
+          $lookup: {
+            from: 'machineTypes',
+            localField: '_id.machineTypeId',
+            foreignField: '_id',
+            as: 'machineType',
+          },
+        },
+        {
+          $project: {
+            factoryId: '$_id.factoryId',
+            machineTypeId: '$_id.machineTypeId',
+            factoryName: { $arrayElemAt: ['$factory.name', 0] },
+            factoryShortName: { $arrayElemAt: ['$factory.shortName', 0] },
+            machineTypeName: { $arrayElemAt: ['$machineType.name', 0] },
+            machineTypeShortName: { $arrayElemAt: ['$machineType.shortName', 0] },
+            quantity: 1,
+          },
+        },
+      ]),
+      // Size matrix — quantity per (factory, type, size). FE pivot type × size,
+      // lọc theo xưởng. Group nhỏ gọn (chỉ sum quantity) + lookup tên xưởng.
+      this.orderModel.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: {
+              factoryId: '$factoryId',
+              type: { $ifNull: ['$type', 'Không xác định'] },
+              size: { $ifNull: ['$size', '—'] },
+            },
+            count: { $sum: { $ifNull: ['$quantity', 1] } },
+          },
+        },
+        {
+          $lookup: {
+            from: 'factories',
+            localField: '_id.factoryId',
+            foreignField: '_id',
+            as: 'factory',
+          },
+        },
+        {
+          $project: {
+            factoryId: '$_id.factoryId',
+            factoryName: { $arrayElemAt: ['$factory.name', 0] },
+            type: '$_id.type',
+            size: '$_id.size',
+            count: 1,
+          },
+        },
+      ]),
+      // User breakdown — grouped by userEmail (primary identifier), falling back
+      // to userSku when email is missing. Sorted by orderCount desc.
+      this.orderModel.aggregate([
+        { $match: match },
+        {
+          $group: {
+            _id: { $ifNull: ['$userEmail', '$userSku'] },
+            userSku: { $first: '$userSku' },
+            userEmail: { $first: '$userEmail' },
+            orderCount: { $sum: 1 },
+            totalQuantity: { $sum: { $ifNull: ['$quantity', 1] } },
+            totalProductionCost: {
+              $sum: { $multiply: [{ $ifNull: ['$baseCost', 0] }, { $ifNull: ['$quantity', 1] }] },
+            },
+            totalShippingCost: {
+              $sum: { $multiply: [{ $ifNull: ['$shipCost', 0] }, { $ifNull: ['$quantity', 1] }] },
+            },
+          },
+        },
+        { $sort: { orderCount: -1 } },
+      ]),
+      this.listFactoryOptions(),
     ]);
 
     const totals = totalsAgg[0]
@@ -2481,36 +2609,6 @@ export class OrderService implements OnModuleInit {
           cancelledOrders,
           heldOrders,
         };
-
-    // Per-type aggregation: group, collect raw rows to post-process size/mockup
-    const byTypeAgg = await this.orderModel.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: { $ifNull: ['$type', 'Không xác định'] },
-          quantity: { $sum: { $ifNull: ['$quantity', 1] } },
-          orderCount: { $sum: 1 },
-          minCost: { $min: '$baseCost' },
-          maxCost: { $max: '$baseCost' },
-          productionCost: {
-            $sum: { $multiply: [{ $ifNull: ['$baseCost', 0] }, { $ifNull: ['$quantity', 1] }] },
-          },
-          shippingCost: {
-            $sum: { $multiply: [{ $ifNull: ['$shipCost', 0] }, { $ifNull: ['$quantity', 1] }] },
-          },
-          // Push minimal fields needed for post-processing
-          rows: {
-            $push: {
-              size: '$size',
-              quantity: { $ifNull: ['$quantity', 1] },
-              mockupUrl: '$mockupUrl',
-              mockupOriginalUrl: '$mockupOriginalUrl',
-            },
-          },
-        },
-      },
-      { $sort: { quantity: -1 } },
-    ]);
 
     const byType: TypeSummary[] = byTypeAgg.map((t) => {
       const sizeMap = new Map<string, number>();
@@ -2558,44 +2656,6 @@ export class OrderService implements OnModuleInit {
         duplicateMockups,
       };
     });
-
-    // Factory breakdown with nested machine-type breakdown
-    const byFactoryAgg = await this.orderModel.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: { factoryId: '$factoryId', machineTypeId: '$machineTypeId' },
-          quantity: { $sum: { $ifNull: ['$quantity', 1] } },
-        },
-      },
-      {
-        $lookup: {
-          from: 'factories',
-          localField: '_id.factoryId',
-          foreignField: '_id',
-          as: 'factory',
-        },
-      },
-      {
-        $lookup: {
-          from: 'machineTypes',
-          localField: '_id.machineTypeId',
-          foreignField: '_id',
-          as: 'machineType',
-        },
-      },
-      {
-        $project: {
-          factoryId: '$_id.factoryId',
-          machineTypeId: '$_id.machineTypeId',
-          factoryName: { $arrayElemAt: ['$factory.name', 0] },
-          factoryShortName: { $arrayElemAt: ['$factory.shortName', 0] },
-          machineTypeName: { $arrayElemAt: ['$machineType.name', 0] },
-          machineTypeShortName: { $arrayElemAt: ['$machineType.shortName', 0] },
-          quantity: 1,
-        },
-      },
-    ]);
 
     // Group flat (factory, machineType) tuples into nested structure
     const factoryMap = new Map<
@@ -2667,39 +2727,6 @@ export class OrderService implements OnModuleInit {
       })
       .sort((a, b) => b.quantity - a.quantity);
 
-    // Size matrix — quantity per (factory, type, size). FE pivot type × size,
-    // lọc theo xưởng. Group nhỏ gọn (chỉ sum quantity) + lookup tên xưởng.
-    const sizeMatrixAgg = await this.orderModel.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: {
-            factoryId: '$factoryId',
-            type: { $ifNull: ['$type', 'Không xác định'] },
-            size: { $ifNull: ['$size', '—'] },
-          },
-          count: { $sum: { $ifNull: ['$quantity', 1] } },
-        },
-      },
-      {
-        $lookup: {
-          from: 'factories',
-          localField: '_id.factoryId',
-          foreignField: '_id',
-          as: 'factory',
-        },
-      },
-      {
-        $project: {
-          factoryId: '$_id.factoryId',
-          factoryName: { $arrayElemAt: ['$factory.name', 0] },
-          type: '$_id.type',
-          size: '$_id.size',
-          count: 1,
-        },
-      },
-    ]);
-
     // Gom (factory, type) → sizes[]. Key gộp cả factory + type.
     const sizeMatrixMap = new Map<
       string,
@@ -2728,28 +2755,6 @@ export class OrderService implements OnModuleInit {
         .sort((a, b) => compareSize(a.size, b.size)),
     }));
 
-    // User breakdown — grouped by userEmail (primary identifier), falling back
-    // to userSku when email is missing. Sorted by orderCount desc.
-    const byUserAgg = await this.orderModel.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: { $ifNull: ['$userEmail', '$userSku'] },
-          userSku: { $first: '$userSku' },
-          userEmail: { $first: '$userEmail' },
-          orderCount: { $sum: 1 },
-          totalQuantity: { $sum: { $ifNull: ['$quantity', 1] } },
-          totalProductionCost: {
-            $sum: { $multiply: [{ $ifNull: ['$baseCost', 0] }, { $ifNull: ['$quantity', 1] }] },
-          },
-          totalShippingCost: {
-            $sum: { $multiply: [{ $ifNull: ['$shipCost', 0] }, { $ifNull: ['$quantity', 1] }] },
-          },
-        },
-      },
-      { $sort: { orderCount: -1 } },
-    ]);
-
     const byUser: UserBreakdown[] = byUserAgg
       .filter((u) => u._id) // skip orders with neither email nor sku
       .map((u) => ({
@@ -2771,7 +2776,7 @@ export class OrderService implements OnModuleInit {
         sizeMatrix,
         // Dropdown xưởng của bảng size matrix — ĐỦ xưởng đang bật, không phụ
         // thuộc kỳ lọc (xưởng 0 đơn vẫn chọn được, ra bảng rỗng).
-        factoryOptions: await this.listFactoryOptions(),
+        factoryOptions,
         byUser,
         filter: {
           startDate: dto.startDate,
@@ -7035,15 +7040,25 @@ export class OrderService implements OnModuleInit {
     remaining: number;
   }> {
     const excludedFactoryId = getExcludedFactoryIdSync(this.orderModel.db);
+    // Xưởng bật "bỏ qua soát tool" (`FactoryEntity.skipToolCheck` —
+    // FulfillmentWorkflow.md §2.2d) KHÔNG vào hàng đợi soát tool tự động.
+    // Phải chặn ở đây chứ không thể trông vào stamp 'ok' lúc import: stamp chỉ
+    // áp đơn MỚI ($setOnInsert) và chỉ set `toolResultNote`, còn queue này lọc
+    // theo `toolResult` rỗng — không chặn thì đơn của xưởng (nhất là đơn CŨ
+    // import trước khi bật cờ) vẫn bị tool soát lại + ghi đè kết quả.
+    const blockedFactoryIds = [
+      ...(excludedFactoryId ? [excludedFactoryId] : []),
+      ...listSkipToolCheckFactoryIdsSync(this.orderModel.db),
+    ];
     const baseFilter: Record<string, unknown> = {
       deletedAt: { $exists: false },
       cancelledAt: { $exists: false },
       heldAt: { $exists: false },
       toolResult: { $in: [null, ''] },
       designerStatus: DesignerStatus.Unassigned,
-      // Đơn xưởng US (ngoài luồng sản xuất) KHÔNG vào hàng đợi soát tool —
-      // $ne vẫn cho đơn chưa map xưởng (factoryId null) vào queue như cũ.
-      ...(excludedFactoryId ? { factoryId: { $ne: excludedFactoryId } } : {}),
+      // Đơn xưởng US (ngoài luồng sản xuất) + xưởng bỏ-soát-tool KHÔNG vào hàng
+      // đợi — $nin vẫn cho đơn chưa map xưởng (factoryId null) vào queue như cũ.
+      ...(blockedFactoryIds.length ? { factoryId: { $nin: blockedFactoryIds } } : {}),
     };
     if (dto?.from || dto?.to) {
       const range: Record<string, Date> = {};
@@ -7200,10 +7215,20 @@ export class OrderService implements OnModuleInit {
 
     const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const order = await this.orderModel
-      .findOne({ productionId: { $regex: `^${escaped}$`, $options: 'i' } }, { _id: 1 })
+      .findOne({ productionId: { $regex: `^${escaped}$`, $options: 'i' } }, { _id: 1, factoryId: 1 })
       .lean();
     if (!order) throw new NotFoundException('Không tìm thấy đơn với mã này.');
     const id = String((order as { _id: string })._id);
+
+    // Xưởng bật "bỏ qua soát tool" → tool ngoài KHÔNG được ghi kết quả soát
+    // (hàng đợi đã loại các đơn này, guard này chặn nốt đường `pid` tra thẳng
+    // + claim còn treo từ trước). Muốn sửa kết quả thì nhân viên sửa tay ở
+    // Danh sách đơn như thường.
+    if (getFactorySkipToolCheckSync(this.orderModel.db, (order as { factoryId?: string }).factoryId)) {
+      throw new BadRequestException(
+        'Xưởng của đơn này đang bật "Bỏ qua soát tool" — không ghi kết quả soát tự động.',
+      );
+    }
 
     let result = await this.updateField(id, { field: 'toolResult', value: input.toolResult }, RoleType.SuperAdmin, ctx);
 

@@ -18,6 +18,7 @@ import designerAutoAssignEn from './locales/en/designerAutoAssign.json';
 import designerTaskWorkflowEn from './locales/en/designerTaskWorkflow.json';
 import dtfGuideEn from './locales/en/dtfGuide.json';
 import fulfillmentWorkflowEn from './locales/en/fulfillmentWorkflow.json';
+import inventoryEn from './locales/en/inventory.json';
 import landingEn from './locales/en/landing.json';
 import layoutEn from './locales/en/layout.json';
 import orderGuideEn from './locales/en/orderGuide.json';
@@ -52,6 +53,7 @@ import designerAutoAssignVi from './locales/vi/designerAutoAssign.json';
 import designerTaskWorkflowVi from './locales/vi/designerTaskWorkflow.json';
 import dtfGuideVi from './locales/vi/dtfGuide.json';
 import fulfillmentWorkflowVi from './locales/vi/fulfillmentWorkflow.json';
+import inventoryVi from './locales/vi/inventory.json';
 import landingVi from './locales/vi/landing.json';
 import layoutVi from './locales/vi/layout.json';
 import orderGuideVi from './locales/vi/orderGuide.json';
@@ -104,6 +106,7 @@ export const resources = {
     stageErrorCatalog: stageErrorCatalogVi,
     designerTaskWorkflow: designerTaskWorkflowVi,
     fulfillmentWorkflow: fulfillmentWorkflowVi,
+    inventory: inventoryVi,
     toolCheckWorkflow: toolCheckWorkflowVi,
     products: productsVi,
     promotion: promotionVi,
@@ -140,6 +143,7 @@ export const resources = {
     stageErrorCatalog: stageErrorCatalogEn,
     designerTaskWorkflow: designerTaskWorkflowEn,
     fulfillmentWorkflow: fulfillmentWorkflowEn,
+    inventory: inventoryEn,
     toolCheckWorkflow: toolCheckWorkflowEn,
     products: productsEn,
     promotion: promotionEn,

@@ -593,6 +593,10 @@ OrderSchema.index({ 'designerRejections.fromUserId': 1 });
 // Đồng bộ giữ đơn theo OnosPod (Orders.md §9d) — mỗi lượt nạp đơn đang mang cờ.
 OrderSchema.index({ 'onospodHold.onHoldAt': 1 }, { sparse: true });
 
+// Sort mặc định của Danh sách đơn (getOrders: `{priority: -1, inProductionAt: -1}`)
+// — thiếu compound index này Mongo phải in-memory sort toàn tập kết quả mỗi request.
+OrderSchema.index({ priority: -1, inProductionAt: -1 });
+
 OrderSchema.virtual('factory', {
   ref: 'FactoryEntity',
   localField: 'factoryId',
