@@ -159,7 +159,8 @@
         "pressComplete": "DTF (done after Press)"
       },
       "autoPackBadge": "Auto-pack",
-      "skipToolCheckBadge": "Skips tool check"
+      "skipToolCheckBadge": "Skips tool check",
+      "autoStockOutBadge": "Auto stock-out"
     },
     "form": {
       "nameShortNameRequired": "Name and short name are required",
@@ -191,6 +192,10 @@
       "skipToolCheck": {
         "label": "Skip tool check",
         "hint": "On: NEW orders imported/pushed into this factory are stamped tool-checked \"ok\" at creation and go straight to the Print stage — no Support review, no designer auto-assign. New orders only; in-flight orders are untouched."
+      },
+      "autoStockOut": {
+        "label": "Auto stock-out after label print",
+        "hint": "On: at the scan station, after printing an order's shipping label the system automatically deducts inventory (blanks) for that order — no ACT-STOCK-OUT confirmation scan needed. Repeat deductions are harmless: each order is deducted once unless a rework deduction is made deliberately."
       }
     },
     "factory": {

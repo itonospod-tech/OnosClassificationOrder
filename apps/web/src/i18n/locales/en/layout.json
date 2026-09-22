@@ -44,7 +44,8 @@
       "title": "Work",
       "myTasks": "My tasks",
       "fulfillmentTasks": "Fulfillment tasks",
-      "handover": "Package handover"
+      "handover": "Package handover",
+      "inventory": "Inventory"
     },
     "products": "Products",
     "promotions": "Promotions",

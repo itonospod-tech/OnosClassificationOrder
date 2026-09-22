@@ -22,13 +22,16 @@ export const SCAN_ACTION_PREFIX = 'ACT-';
  * Lệnh điều khiển popup qua barcode `ACT-*`. `print-design` đã đặt chỗ trong
  * thiết kế (lấy file in tại trạm) nhưng CHƯA triển khai — chưa in ra sheet.
  */
-export type ScanActionCommand = 'cancel' | 'print-tem' | 'print-label' | 'report-error';
+export type ScanActionCommand = 'cancel' | 'print-tem' | 'print-label' | 'report-error' | 'stock-out';
 
 const ACTION_COMMAND_BY_CODE: Record<string, ScanActionCommand> = {
   CANCEL: 'cancel',
   'PRINT-TEM': 'print-tem',
   'PRINT-LABEL': 'print-label',
   ERROR: 'report-error',
+  // Trừ tồn kho theo đơn đang mở (Inventory-FactoryStock plan): quét lần 1 mở
+  // khối xác nhận, quét `OK` chốt trừ; đơn đã trừ thì quét lặp = trừ rework.
+  'STOCK-OUT': 'stock-out',
 };
 
 export type ScanAction =
@@ -66,6 +69,7 @@ export const ACTION_SHEET_CODES: { payload: string; labelKey: string }[] = [
   { payload: `${SCAN_ACTION_PREFIX}CANCEL`, labelKey: 'cancel' },
   { payload: `${SCAN_ACTION_PREFIX}PRINT-TEM`, labelKey: 'printTem' },
   { payload: `${SCAN_ACTION_PREFIX}PRINT-LABEL`, labelKey: 'printLabel' },
+  { payload: `${SCAN_ACTION_PREFIX}STOCK-OUT`, labelKey: 'stockOut' },
   { payload: `${SCAN_ACTION_PREFIX}ERROR`, labelKey: 'reportError' },
 ];
 

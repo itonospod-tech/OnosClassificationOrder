@@ -78,6 +78,7 @@ Mỗi đơn hàng gồm:
 | `content-visibility: auto` | Browser skip render row ngoài viewport |
 | `MAX_VISIBLE_DESIGNS = 6` | Giới hạn DOM size cho đơn nhiều design |
 | Service Worker cache | Cache ảnh lần 2 → instant load |
+| Compound index `{priority: -1, inProductionAt: -1}` (BE, `order.entity.ts`) | Khớp sort mặc định của `getOrders` — trước đây chỉ có index đơn lẻ nên Mongo in-memory sort toàn tập kết quả mỗi request (~1.2s trên data production) |
 
 ---
 
@@ -1877,6 +1878,7 @@ cancelledAt không tồn tại   // đơn hủy loại khỏi mọi công đoạ
 heldAt      không tồn tại   // đơn đang giữ không đưa cho tool ngoài xử lý
 toolResult  rỗng/null   // chưa có Kết quả Tool
 designerStatus  = 'unassigned'
+factoryId   $nin [xưởng US, ...xưởng bật skipToolCheck]   // xưởng ngoài luồng + xưởng "bỏ qua soát tool" (FulfillmentWorkflow.md §2.2d) không vào hàng đợi; đơn chưa map xưởng vẫn vào như cũ
 designReviewClaimedAt  không tồn tại HOẶC quá hạn lease (§18.2)
 inProductionAt  trong [vnDayStart(dto.from), vnDayEnd(dto.to)]  // CHỈ áp khi dto.from hoặc dto.to có giá trị
 ```

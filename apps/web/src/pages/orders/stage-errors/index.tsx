@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactBarcode from 'react-barcode';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import type { TFunction } from 'i18next';
@@ -41,6 +42,42 @@ function targetOptionsFor(stage: FulfillmentStageT): StageErrorReworkTarget[] {
 // Kích thước trang nhãn A8 (52×74mm) — mỗi lỗi 1 trang trong PDF xuất ra.
 const A8_MM = { w: 52, h: 74 };
 const PX_PER_MM = 20; // vẽ label ở ~508dpi cho barcode nét
+
+/** Id khối in tem lỗi — CSS in bên dưới nhận diện qua đúng id này. */
+const LABEL_PRINT_ID = 'stage-error-label-print';
+
+/**
+ * Nút "In" ra tem decal **60×40mm** (CÙNG khổ tem nhỏ dán sản phẩm — máy in tem
+ * ở trạm in được luôn, không cần máy A4), mỗi lỗi 1 tem + tem `OK` đầu tiên.
+ * Cơ chế in mirror `BarcodeLabelPrint`: portal thẳng ra `document.body` +
+ * `display: none` mọi anh chị em lúc in — tem trắng thừa là tem hỏng trên giấy
+ * decal (KHÔNG dùng visibility trick: phần tử ẩn vẫn chiếm chỗ → lòi trang trắng).
+ * Bề rộng module barcode cùng lý luận với khổ 60×40 của tem sản phẩm
+ * (`BarcodeLabelPrint`): payload lỗi `E-se-<stage>-<n>` ≤ ~15 ký tự → 0.9px;
+ * payload ngắn (`OK`) nới 2px cho vạch to dễ quét.
+ */
+const labelPrintCss = `
+#${LABEL_PRINT_ID} { display: none; }
+@media print {
+  @page { size: 60mm 40mm; margin: 0; }
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+  body > *:not(#${LABEL_PRINT_ID}) { display: none !important; }
+  #${LABEL_PRINT_ID} { display: block !important; }
+  .se-label-page {
+    width: 60mm; height: 40mm; box-sizing: border-box; padding: 2mm;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    overflow: hidden; background: #fff; color: #000;
+    break-after: page; page-break-after: always;
+  }
+  .se-label-page:last-child { break-after: auto; page-break-after: auto; }
+  .se-label-name {
+    font-weight: 700; font-size: 9pt; line-height: 1.15; text-align: center;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .se-label-sub { font-size: 6.5pt; line-height: 1.2; text-align: center; color: #000; }
+  .se-label-code { font-family: ui-monospace, monospace; }
+}
+`;
 
 function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const words = text.split(/\s+/).filter(Boolean);
@@ -84,7 +121,7 @@ function StageErrorsContent() {
   const [name, setName] = useState('');
   const [target, setTarget] = useState<StageErrorReworkTarget | null>(null);
 
-  // Chọn lỗi để In / Xuất PDF (A8 mỗi lỗi 1 trang).
+  // Chọn lỗi để In (tem 60×40, mỗi lỗi 1 tem) / Xuất PDF (A8 mỗi lỗi 1 trang).
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
 
@@ -409,39 +446,30 @@ function StageErrorsContent() {
         ))}
       </div>
 
-      {/* Sheet in barcode — chỉ hiện khi print (visibility trick + off-screen trên màn hình) */}
-      <style>{`@media print {
-        body * { visibility: hidden !important; }
-        #stage-barcode-sheet, #stage-barcode-sheet * { visibility: visible !important; }
-        #stage-barcode-sheet { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; }
-      }`}</style>
-      <div id="stage-barcode-sheet" className="fixed top-0 -left-[200vw] w-[190mm] bg-white text-black">
-        <div className="p-6">
-          <h2 className="text-lg font-bold mb-1">{t('printSheetTitle', { stage: getStageLabel(t, stage) })}</h2>
-          <p className="text-xs mb-4">{t('printSheetDesc', { ok: SCAN_OK_CODE })}</p>
-          {/* 2 cột (không phải 3 như QR cũ) — barcode 1D cần bề ngang rộng để module đủ lớn cho máy quét. */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="border-2 border-black rounded-lg p-3 flex flex-col items-center gap-2 break-inside-avoid">
-              <ReactBarcode value={SCAN_OK_CODE} format="CODE128" width={2} height={70} displayValue={false} margin={0} />
-              <div className="text-base font-bold text-center">{t('okLabelTitle')}</div>
-              <div className="text-[10px] text-center">{t('okLabelSubtitle')}</div>
+      {/* In tem lỗi 60×40mm — mỗi lỗi 1 tem, tem OK đầu tiên (xem comment `labelPrintCss`). */}
+      {createPortal(
+        <div id={LABEL_PRINT_ID}>
+          <style>{labelPrintCss}</style>
+          <div className="se-label-page">
+            <div className="se-label-name">{t('okLabelTitle')}</div>
+            <ReactBarcode value={SCAN_OK_CODE} format="CODE128" width={2} height={48} displayValue={false} margin={0} />
+            <div className="se-label-sub">
+              {t('okLabelSubtitle')} · <span className="se-label-code">{SCAN_OK_CODE}</span>
             </div>
-            {selectedRows.map((row) => (
-              <div
-                key={row._id}
-                className="border border-black rounded-lg p-3 flex flex-col items-center gap-2 break-inside-avoid"
-              >
-                <ReactBarcode value={errorScanPayload(row)} format="CODE128" width={1.4} height={70} displayValue={false} margin={0} />
-                <div className="text-sm font-bold text-center leading-tight">{row.name}</div>
-                <div className="text-[10px] text-center">
-                  {t('printCardPushTo', { target: targetLabel(row.reworkTarget as StageErrorReworkTarget, t) })}{' '}
-                  <span className="font-mono">{errorScanPayload(row)}</span>
-                </div>
-              </div>
-            ))}
           </div>
-        </div>
-      </div>
+          {selectedRows.map((row) => (
+            <div key={row._id} className="se-label-page">
+              <div className="se-label-name">{row.name}</div>
+              <ReactBarcode value={errorScanPayload(row)} format="CODE128" width={0.9} height={48} displayValue={false} margin={0} />
+              <div className="se-label-sub">
+                {t('printCardPushTo', { target: targetLabel(row.reworkTarget as StageErrorReworkTarget, t) })}{' '}
+                <span className="se-label-code">{errorScanPayload(row)}</span>
+              </div>
+            </div>
+          ))}
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

@@ -35,6 +35,9 @@ const EXPECTED_DOCUMENTED_TABLES = [
   'machineTypes',
   'workshopConfigs',
   'customer_notifications',
+  'inventory_items',
+  'inventory_transactions',
+  'inventory_receipts',
 ];
 
 const allFields = () =>

@@ -9,6 +9,11 @@ import {
 } from './catalog.registry';
 import { customersRegistry } from './customers.registry';
 import type { AgentTableSpec } from './field-policy';
+import {
+  inventoryItemsRegistry,
+  inventoryReceiptsRegistry,
+  inventoryTransactionsRegistry,
+} from './inventory.registry';
 import { orderLogsRegistry } from './order-logs.registry';
 import { ordersRegistry } from './orders.registry';
 import { productConfigsRegistry } from './product-configs.registry';
@@ -38,6 +43,9 @@ export const AGENT_TABLE_REGISTRY: Record<string, AgentTableSpec> = {
   machineTypes: machineTypesRegistry,
   workshopConfigs: workshopConfigsRegistry,
   customer_notifications: customerNotificationsRegistry,
+  inventory_items: inventoryItemsRegistry,
+  inventory_transactions: inventoryTransactionsRegistry,
+  inventory_receipts: inventoryReceiptsRegistry,
 };
 
 /** Bảng CÓ MÔ TẢ. Không phải "bảng đọc được" — sau `API-19` mọi bảng đều đọc được. */

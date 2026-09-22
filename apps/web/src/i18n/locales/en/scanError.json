@@ -175,6 +175,21 @@
     "labelNotFound": "Could not load shipping label data for this order.",
     "labelNoAddress": "Order {{productionId}} has no shipping address — cannot print shipping label."
   },
+  "stockOut": {
+    "btn": "Stock out",
+    "confirmTitle": "Deduct inventory for order {{productionId}}",
+    "sku": "SKU",
+    "qty": "Deduct",
+    "current": "On hand: {{qty}}",
+    "currentNew": "SKU not in inventory yet — will be created (goes negative)",
+    "unresolved": "Could not resolve an inventory SKU from this order — deduct manually on the Inventory page.",
+    "alreadyDeducted": "Already deducted {{times}} time(s) (last {{at}}). Confirm again = deduction #{{next}} for a REWORK.",
+    "confirmHint": "Scan OK (or scan ACT-STOCK-OUT again) to confirm, ACT-CANCEL to abort.",
+    "done": "Deducted {{qty}} × {{sku}} — {{after}} left.",
+    "doneRework": "REWORK deduction {{qty}} × {{sku}} — {{after}} left.",
+    "duplicated": "This order was already deducted — nothing changed.",
+    "autoDone": "Auto-deducted {{qty}} × {{sku}} (factory auto stock-out after label print)."
+  },
   "actionSheet": {
     "printBtn": "Print action codes sheet",
     "title": "Action barcode sheet — stick next to the scan station",
@@ -196,6 +211,10 @@
       "printLabel": {
         "title": "Print shipping label",
         "desc": "4×6 inch carrier-style label — for the shipping carrier"
+      },
+      "stockOut": {
+        "title": "Stock out",
+        "desc": "Deduct blank inventory for the open order — scan OK to confirm"
       },
       "reportError": {
         "title": "Report error",

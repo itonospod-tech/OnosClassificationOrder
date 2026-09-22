@@ -8,6 +8,7 @@ import {
   Barcode,
   Bell,
   BookOpen,
+  Boxes,
   Briefcase,
   Building2,
   ChevronDown,
@@ -412,6 +413,15 @@ function buildProductionItems(t: TFunction<'layout'>, factoryId?: string, keyPre
           to: to(PATHS.HANDOVER),
           icon: <Truck size={14} />,
           perm: 'page.fulfillment_my_tasks',
+        },
+        {
+          // Tồn kho theo xưởng (Inventory-FactoryStock plan) — thủ kho nhập
+          // phiếu + xem tồn; trừ kho làm ở trạm quét (ACT-STOCK-OUT).
+          key: k(PATHS.INVENTORY),
+          label: t('sidebar.work.inventory'),
+          to: to(PATHS.INVENTORY),
+          icon: <Boxes size={14} />,
+          perm: 'page.inventory',
         },
       ],
     },
