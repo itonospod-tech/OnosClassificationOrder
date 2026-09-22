@@ -167,12 +167,19 @@ Entry sidebar "Chat Zalo" nằm cạnh "Nhóm Zalo", **`onlyForRoles: [SuperAdmi
   changelog ở https://zalo.autonow.vn (hoặc `curl -s https://zalo.autonow.vn/api/version`) → đổi digest trong
   compose → `docker compose pull && up -d`. **Sao lưu DB engine trước khi nâng cấp**:
   `docker exec onos-zalo-engine-db pg_dump -U zalo zalo_engine | gzip > ~/zalo-engine-backup-$(date +%F).sql.gz`.
-  Bản đang chạy: `20260909-dd6c38a` / gói `1.44.1` (09/09/2026). Giữ `ZALO_MULTI_ENCRYPTION_KEY` và volume DB thì
-  phiên Zalo sống qua lần nâng cấp — đo lần này: 6 phiên khôi phục đủ, listener nối lại trong ~10 giây.
+  Bản đang chạy: `20260922-c2ec259` / gói `1.47.1` (22/09/2026). Giữ `ZALO_MULTI_ENCRYPTION_KEY` và volume DB thì
+  phiên Zalo sống qua lần nâng cấp — đo lần 09/09: 6 phiên khôi phục đủ, listener nối lại trong ~10 giây.
+- ⚠️ **Gói `zalo-ui` từ 1.47.1 phá build Tailwind v3.** `theme.css` bọc phần màu chữ trong `@layer base { … }`
+  theo kiểu Tailwind v4 (ở đó `@layer` là tầng của chính Tailwind). Vite đưa TỪNG tệp CSS qua postcss riêng lẻ,
+  nên tệp của nhà cung cấp không có `@tailwind base` đi kèm và Tailwind v3 dừng build:
+  `` `@layer base` is used but no matching `@tailwind base` directive is present ``. Vá ở
+  `apps/web/postcss.config.js` — plugin `go-vo-layer-zalo-ui` GỠ VỎ `@layer` (giữ nguyên khai báo bên trong)
+  trước khi Tailwind chạy, chỉ áp cho đúng đường dẫn tệp đó. Nhà cung cấp bỏ `@layer` thì xoá plugin đi là xong.
+  KHÔNG sửa tệp trong `node_modules`: lần cài sau là mất.
 - **Máy dev cũng chạy một engine riêng** (`docker/zalo-engine` trên máy hub, cùng cổng 4001) — nâng cấp thì làm
   cả hai, không thì dev với prod lệch bản và lỗi chỉ hiện ở một bên.
 
-## 5b. Khu Telegram (09/09/2026 — engine `20260909-dd6c38a`, gói `1.44.1`)
+## 5b. Khu Telegram (09/09/2026 — engine `20260909-dd6c38a`, gói `1.44.1`; nay chạy `20260922-c2ec259` / `1.47.1`)
 
 Nhà cung cấp thêm khu Telegram vào CÙNG engine: quản lý bot, đọc và trả lời chat/nhóm/topic, phân quyền theo cùng cơ chế của khu Zalo.
 
