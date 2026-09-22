@@ -12,7 +12,7 @@
 # Chạy:  cd docker/zalo-engine && docker compose up -d     (cần ./.env, xem .env.example)
 services:
   zalo-engine:
-    image: ghcr.io/zero-126/zalo-engine@sha256:50b445c25cf282cce5248e5f9f34cf19b3c83bc0dbe94fc138e215e1f321f312
+    image: ghcr.io/zero-126/zalo-engine@sha256:031ac8efb397c39d960b2aa03625ce992508f031b7364726c6559d9a887b4eb6
     container_name: onos-zalo-engine
     restart: unless-stopped
     environment:
