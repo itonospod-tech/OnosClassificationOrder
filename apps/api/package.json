@@ -69,7 +69,7 @@
     "@nestjs/throttler": "^6.5.0",
     "@payos/node": "^1.0.10",
     "@ts-rest/nest": "^3.37.0",
-    "@zero-126/zalo-sdk": "^1.44.1",
+    "@zero-126/zalo-sdk": "^1.47.1",
     "axios": "^1.4.0",
     "axios-cookiejar-support": "^5.0.2",
     "big.js": "^6.2.1",
