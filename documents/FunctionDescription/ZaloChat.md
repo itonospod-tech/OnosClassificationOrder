@@ -209,6 +209,11 @@ cho máy đó, và block nginx ở §2. Phiên nick KHÔNG chuyển được gi�
 `docker/zalo-engine/.env` (KHÔNG commit — xem `.env.example`): `ENGINE_PORT`, `PG_PW`, `ZALO_ENGINE_SECRET`,
 `ZALO_ENCRYPTION_KEY` (đổi = mất hết phiên, phải quét QR lại), `ZALO_LICENSE_KEY` (**mỗi server một khoá**).
 
+`ZALO_PUBLIC_URL` (mặc định `https://onosfactory.com` trong `docker-compose.yml`) là tên miền engine dùng để
+tự ghép `mcpUrl` khi cấp khoá API. Thiếu nó thì `POST /api/zalo-multi/public/keys` trả `mcp: null` + `mcpUrl: null`
+và bên gọi phải tự ghép URL. Chỉ là chuỗi engine in ra — **không mở thêm cổng nào**; đường ra Internet của MCP
+vẫn là block nginx `^~ /api/zalo-multi/public/mcp` ở §2.
+
 Gói npm nằm ở registry riêng: `.npmrc` ở gốc repo trỏ `@zero-126` sang `npm.pkg.github.com`, token đọc từ biến
 môi trường `GHCR_TOKEN` — **máy nào chạy `pnpm install` (kể cả server production lúc `deploy.sh`) phải có biến này**.
 
