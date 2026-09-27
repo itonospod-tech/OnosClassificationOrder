@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, PlayCircle, X } from 'lucide-react';
+import { CheckCircle2, PlayCircle } from 'lucide-react';
 import type { FulfillmentTransitionDto, ProductionOrder } from 'shared';
 import { FulfillmentStage, FulfillmentStageStatus, FulfillmentTransitionAction } from 'shared';
 import { toast } from 'sonner';
@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/authStore';
 import { RepositoryRemote } from '@/services';
 
 import { PipelineDailyOverview } from '@/components/common/PipelineDailyOverview';
+import { BulkEditToolbar } from '@/components/orders/BulkEditToolbar';
 import { OrderRowActionsMenu } from '@/components/orders/OrderRowActionsMenu';
 import type { WorkshopOrderRow } from '@/components/orders/workshopTableConfig';
 import { Button } from '@/components/ui/button';
@@ -34,8 +35,10 @@ const printStatusOf = (row: WorkshopOrderRow): string | undefined => row.fulfill
 
 /**
  * Trang "Task của tôi" cho user In (Fulfillment stage=print). Bảng phẳng
- * `PrintOrderTable` + cột action đẩy In→Ép + bulk chuyển trạng thái (Bắt đầu /
- * Hoàn thành) với popup xác nhận khi chọn lẫn trạng thái.
+ * `PrintOrderTable` + cột action đẩy In→Ép + thanh bulk = `BulkEditToolbar`
+ * đầy đủ (Bulk update Máy/Trạng thái in theo quyền, in tem, label...) nhét
+ * thêm 2 nút chuyển trạng thái (Bắt đầu / Hoàn thành) qua `extraActions`,
+ * popup xác nhận khi chọn lẫn trạng thái.
  * Xem documents/Plans/PrintStage-AdminTableView.md.
  */
 export default function PrintWorkshopView() {
@@ -65,10 +68,10 @@ export default function PrintWorkshopView() {
   const canPrint = (row: WorkshopOrderRow) =>
     row.toolResultNote === 'ok' && !!myFactoryId && String(row.factoryId ?? '') === String(myFactoryId);
 
-  // Tick được: `canPrint` + chưa in xong (print.status !== done). Gồm cả đơn
-  // chưa init stage (status undefined) → Bắt đầu được.
-  const isRowSelectable = (row: WorkshopOrderRow) =>
-    canPrint(row) && printStatusOf(row) !== FulfillmentStageStatus.Done;
+  // Tick được: mọi đơn `canPrint` — GỒM CẢ đơn đã in xong, để bulk update
+  // Máy/Trạng thái in cho chúng qua BulkEditToolbar. Nút Bắt đầu/Hoàn thành
+  // trên thanh bulk tự lọc lại theo trạng thái nên đơn done không bị đụng.
+  const isRowSelectable = (row: WorkshopOrderRow) => canPrint(row);
 
   const doTransition = async (
     orderId: string,
@@ -164,34 +167,39 @@ export default function PrintWorkshopView() {
     );
   };
 
+  // Thanh bulk = BulkEditToolbar đầy đủ (Bulk update Máy/Trạng thái in... theo
+  // quyền + in tem/label/export) + 2 nút chuyển trạng thái công đoạn nhét qua
+  // `extraActions`. Chỉ đơn đúng trạng thái mới vào startable/completable —
+  // đơn đã in xong tick để bulk update thì 2 nút này tự bỏ qua.
   const renderBulkBar = (selectedRows: WorkshopOrderRow[], clear: () => void) => {
     const startable = selectedRows.filter((r) => {
       const s = printStatusOf(r);
-      return s === FulfillmentStageStatus.Waiting || s === FulfillmentStageStatus.Rework;
+      return s === undefined || s === FulfillmentStageStatus.Waiting || s === FulfillmentStageStatus.Rework;
     });
     const completable = selectedRows.filter((r) => printStatusOf(r) === FulfillmentStageStatus.InProgress);
     return (
-      <div className="sticky bottom-3 z-30 flex justify-center px-4 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-card shadow-lg px-4 py-2 flex-wrap">
-          <CheckCircle2 size={14} className="text-primary" />
-          <span className="text-sm">
-            {t('kanban.selection.selected')} <span className="font-semibold">{selectedRows.length}</span>
-          </span>
-          {startable.length > 0 && (
-            <Button size="sm" onClick={() => onBulkClick('start', startable, completable.length, clear)}>
-              <PlayCircle size={14} /> {t('actions.start')} ({startable.length})
-            </Button>
-          )}
-          {completable.length > 0 && (
-            <Button size="sm" onClick={() => onBulkClick('complete', completable, startable.length, clear)}>
-              <CheckCircle2 size={14} /> {t('actions.complete')} ({completable.length})
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={clear}>
-            <X size={13} />
-          </Button>
-        </div>
-      </div>
+      <BulkEditToolbar
+        selectedIds={selectedRows.map((r) => r._id)}
+        onClear={clear}
+        onApplied={() => {
+          clear();
+          refresh();
+        }}
+        extraActions={
+          <>
+            {startable.length > 0 && (
+              <Button size="sm" onClick={() => onBulkClick('start', startable, completable.length, clear)}>
+                <PlayCircle size={14} /> {t('actions.start')} ({startable.length})
+              </Button>
+            )}
+            {completable.length > 0 && (
+              <Button size="sm" onClick={() => onBulkClick('complete', completable, startable.length, clear)}>
+                <CheckCircle2 size={14} /> {t('actions.complete')} ({completable.length})
+              </Button>
+            )}
+          </>
+        }
+      />
     );
   };
 

@@ -1280,6 +1280,7 @@ Ví dụ: `/ffm/orders/workshop?pid=GO-63713-02355`.
 
 - Cột checkbox đầu mỗi row + select-all header + shift+click range select.
 - Khi chọn ít nhất 1 row → toolbar nổi sticky bottom: "Đã chọn N · Bulk update · **Gán design** (Leader/Admin) · Bỏ chọn".
+- Prop **`extraActions?: React.ReactNode`** (26/09/2026): nút bổ sung chèn ngay sau số đơn đã chọn — bảng In của tài khoản Fulfillment (`PrintWorkshopView`, `FulfillmentWorkflow.md §4.5`) dùng để nhét 2 nút chuyển trạng thái công đoạn "Bắt đầu"/"Hoàn thành" vào cùng thanh. Container toolbar có `flex-wrap` để không tràn ngang khi nhiều nút.
 - **"Bulk update" dialog**: chọn field (chỉ field user có `edit` perm, EXCEPT `assignee` — bị BLACKLIST khỏi dropdown vì đã có dialog "Gán design" riêng) + giá trị → `PATCH /v1/orders/bulk-field`. Toast "Đã update X/Y đơn".
 - **"Gán design" button** (`AssignDesignerDialog`): chỉ hiện khi `canEditField('assignee')`. Pre-flight `POST /bulk-assign-designer-preview` → dialog hiển thị KPI status + alreadyAssigned + `blockedCount`/`reworkHeldCount`/`okCount`/`noToolCount`/`eligibleCount`/`eligibleWithToolCount` + designer dropdown. **Đơn `toolResultNote='ok'` KHÔNG gán được** (banner đỏ). **Đơn CHƯA soát → banner vàng + 2 nút "Gán tất cả" / "Chỉ gán đơn đã soát"** (`skipUnreviewed`). **Đơn `rework` đang có người ôm → banner + skip** (chỉ gán được đơn rework chưa ai ôm); `in-progress/done` → skip. Conflict đa-người → ghi đè. Submit `POST /bulk-assign-designer { ids, userId, reassignOthers, skipUnreviewed }` → skip + report. Xem `DesignerTaskWorkflow.md §2.2`.
 
