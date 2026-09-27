@@ -97,9 +97,15 @@ interface Props {
   selectedIds: string[];
   onClear: () => void;
   onApplied: () => void;
+  /**
+   * Nút bổ sung chèn NGAY SAU số đơn đang chọn (trước nút "Bulk update") —
+   * bảng In của tài khoản Fulfillment nhét 2 nút chuyển trạng thái công đoạn
+   * "Bắt đầu"/"Hoàn thành" vào đây (PrintWorkshopView).
+   */
+  extraActions?: React.ReactNode;
 }
 
-export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
+export function BulkEditToolbar({ selectedIds, onClear, onApplied, extraActions }: Props) {
   const { t } = useTranslation('orders');
   const { canEditField, roleName } = usePermission();
   const byCategory = useWorkshopConfigStore((s) => s.byCategory);
@@ -385,7 +391,7 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
   return (
     <>
       <div className="sticky bottom-3 z-30 flex justify-center px-4 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-border bg-card shadow-lg px-4 py-2">
+        <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-3 rounded-full border border-border bg-card shadow-lg px-4 py-2">
           <CheckCircle2 size={16} className="text-primary" />
           <span className="text-sm">
             <Trans
@@ -395,6 +401,7 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied }: Props) {
               components={{ strong: <span className="font-semibold" /> }}
             />
           </span>
+          {extraActions}
           <Button size="sm" onClick={() => setOpen(true)} disabled={editableFields.length === 0}>
             {t('bulkEdit.bulkUpdateBtn')}
           </Button>
