@@ -7522,9 +7522,18 @@ export class OrderService implements OnModuleInit {
         let productLine: ProductLine | undefined = row.productLine;
 
         if (row.type?.trim()) {
-          const pc = await this.productConfigRepository.findOne({
-            fullName: { $regex: '^' + escapeRegex(row.type.trim()) + '$', $options: 'i' },
-          });
+          // limit 2 cùng thứ tự tự nhiên như findOne → vẫn lấy đúng bản findOne
+          // sẽ lấy, chỉ thêm khả năng thấy bản trùng tên để cảnh báo.
+          const [pc, dup] = await this.productConfigRepository.findAll(
+            { fullName: { $regex: '^' + escapeRegex(row.type.trim()) + '$', $options: 'i' } },
+            { paging: { limit: 2, skip: 0 } },
+          );
+          if (dup) {
+            // .info + [WARN]: logger prod không có level warn (xem import-rework).
+            this.logger.info({
+              message: `[import][WARN] type "${row.type.trim()}" khớp nhiều ProductConfig (${pc._id}, ${dup._id}, ...) — đang dùng ${pc._id} (factory ${pc.factoryId})`,
+            });
+          }
           if (pc) {
             isMapped = true;
             productConfigId = pc._id;
