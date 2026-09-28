@@ -67,7 +67,11 @@ function OverdueAlertBanner() {
       }
     };
     fetchAlert();
-    const id = setInterval(fetchAlert, OVERDUE_POLL_MS);
+    // Chỉ poll khi tab đang hiển thị — như Sidebar; tab nền bỏ quên từng là
+    // nguồn 85% lỗi 403 sau mỗi lần phiên bị vô hiệu.
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchAlert();
+    }, OVERDUE_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);
