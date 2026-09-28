@@ -8,7 +8,7 @@ import {
 } from 'shared';
 
 import type { UserDocument } from '../user/user.entity';
-import { FulfillmentTaskService } from './fulfillment-task.service';
+import { autoBacklogStages, FulfillmentTaskService } from './fulfillment-task.service';
 
 /**
  * Luồng rút gọn theo xưởng (`FactoryEntity.flowType`): `merged` (xưởng gỗ —
@@ -456,5 +456,45 @@ describe('ReworkBack trên xưởng luồng rút gọn — redirect đích', () 
       flowType: FactoryFlowType.Standard,
     });
     expect(plan.patch.$set.currentFulfillmentStage).toBe(FulfillmentStage.Press);
+  });
+});
+
+/**
+ * Đơn TỒN đứng sẵn ở auto-stage trước khi xưởng đổi flowType (514 đơn DTF Thái
+ * Nguyên kẹt QC sau ép, 24/09/2026) — nút dọn Complete stage đang đứng, vòng
+ * while phải đưa đơn tới hoàn thành.
+ */
+describe('Dọn đơn tồn ở auto-stage', () => {
+  it('press-complete: Complete từ QC sau ép → May + Đóng hàng tự Done, đơn hoàn thành', () => {
+    const plan = resolve({
+      stage: FulfillmentStage.QCPostPress,
+      action: FulfillmentTransitionAction.Complete,
+      currentStatus: FulfillmentStageStatus.InProgress,
+      stageState: inProgress(new Date()),
+      stages: {} as FulfillmentStages,
+      user: worker,
+      flowType: FactoryFlowType.PressComplete,
+    });
+    const set = plan.patch.$set;
+    for (const stg of ['qc-post-press', 'sew-in', 'sew-out', 'pack']) {
+      expect(set[`fulfillmentStages.${stg}.status`]).toBe(FulfillmentStageStatus.Done);
+    }
+    expect(set.currentFulfillmentStage).toBeNull();
+    expect(set.fulfillmentCompletedAt).toBeInstanceOf(Date);
+  });
+
+  it('autoBacklogStages: tập công đoạn nút dọn quét theo flow — luôn gồm Đóng hàng', () => {
+    expect(autoBacklogStages(FactoryFlowType.PressComplete, false)).toEqual([
+      FulfillmentStage.QCPostPress,
+      FulfillmentStage.SewIn,
+      FulfillmentStage.SewOut,
+      FulfillmentStage.Pack,
+    ]);
+    expect(autoBacklogStages(FactoryFlowType.Standard, false)).toEqual([FulfillmentStage.Pack]);
+    expect(autoBacklogStages(FactoryFlowType.Merged, true)).toEqual([
+      FulfillmentStage.Press,
+      FulfillmentStage.SewOut,
+      FulfillmentStage.Pack,
+    ]);
   });
 });

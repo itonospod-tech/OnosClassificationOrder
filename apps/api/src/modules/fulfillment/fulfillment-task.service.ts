@@ -32,7 +32,7 @@ import {
 } from 'shared';
 
 import { productionFactoryClause } from '../../utils/excluded-factory';
-import { getFactoryAutoPackSync, getFactoryFlowTypeSync } from '../../utils/merged-flow-factory';
+import { getFactoryAutoPackSync, getFactoryFlowTypeSync, loadFactoryFlowTypes } from '../../utils/merged-flow-factory';
 import { CustomerOrderEventService } from '../customer-event/customer-order-event.service';
 import { OrderDocument, OrderEntity } from '../order/order.entity';
 import { OrderService } from '../order/order.service';
@@ -46,6 +46,15 @@ import { UserDocument, UserEntity } from '../user/user.entity';
  * worker chỉ transition task của (factory, stage) đúng của mình.
  */
 const OVERRIDE_ROLES: RoleType[] = [RoleType.SuperAdmin, RoleType.Admin, RoleType.Manager, RoleType.SupportManager];
+
+/**
+ * Công đoạn mà đơn KHÔNG được phép đứng theo cấu hình xưởng = tập auto-stage
+ * của flow (+ Đóng hàng khi bật `autoCompletePack`). Luôn gồm Đóng hàng để nút
+ * dọn giữ hành vi cũ (dọn Đóng hàng kể cả khi toggle chưa lưu).
+ */
+export function autoBacklogStages(flow: FactoryFlowType, autoPack: boolean): FulfillmentStage[] {
+  return FULFILLMENT_STAGES.filter((s) => s === FulfillmentStage.Pack || isAutoStage(flow, s, autoPack));
+}
 
 /** Match `order.service.ts:vnDayStart/End` — local VN ngày 00:00 / 23:59. */
 function vnDayStart(yyyymmdd: string): Date {
@@ -344,36 +353,68 @@ export class FulfillmentTaskService {
   }
 
   /**
-   * Hoàn thành TOÀN BỘ đơn đang tồn ở công đoạn ĐÓNG HÀNG của 1 xưởng — nút
-   * "Hoàn thành đơn tồn" đi kèm toggle `autoCompletePack` (toggle chỉ áp đơn
-   * MỚI chảy tới; đơn tồn cũ dọn 1 lần bằng nút này). Đi qua `bulkTransition`
-   * → `transition()` từng đơn nên giữ đủ hook (timeline, guard đơn giữ/hủy —
-   * đơn held fail riêng nó với message rõ, không chặn cả lô).
+   * Dọn đơn TỒN ở các công đoạn tự hoàn thành của 1 xưởng (`autoBacklogStages`)
+   * — auto-stage chỉ chạy trong `resolveTransition` lúc có người bấm Complete,
+   * nên đơn đã đứng sẵn ở đó TRƯỚC khi xưởng đổi flowType/bật autoCompletePack
+   * sẽ kẹt vĩnh viễn (vd 514 đơn DTF Thái Nguyên kẹt QC sau ép, 24/09/2026).
+   * Complete stage đang đứng → vòng while tự Done các auto-stage phía sau.
+   * Đi qua `bulkTransition` → `transition()` từng đơn nên giữ đủ hook (timeline,
+   * kiện hàng, webhook `production_completed`, guard đơn giữ — đơn held fail
+   * riêng nó). `dryRun` (mặc định BẬT ở DTO) chỉ đếm, không ghi gì.
    */
   async completePackBacklog(
     user: UserDocument,
     factoryId: string,
+    dryRun: boolean,
     ctx: AuditContext,
-  ): Promise<{ total: number; ok: number; fail: number; failures: { orderId: string; message: string }[] }> {
+  ): Promise<{
+    dryRun: boolean;
+    total: number;
+    byStage: Record<string, number>;
+    ok: number;
+    fail: number;
+    failures: { orderId: string; message: string }[];
+  }> {
+    // Đọc cấu hình mới nhất thay vì cache TTL 60s — admin vừa đổi flow là bấm dọn ngay.
+    await loadFactoryFlowTypes(this.orderModel.db);
+    const stages = autoBacklogStages(
+      getFactoryFlowTypeSync(this.orderModel.db, factoryId),
+      getFactoryAutoPackSync(this.orderModel.db, factoryId),
+    );
+    const openStatuses = [
+      FulfillmentStageStatus.Waiting,
+      FulfillmentStageStatus.Rework,
+      FulfillmentStageStatus.InProgress,
+    ];
     const docs = await this.orderModel
       .find({
         factoryId,
         cancelledAt: null,
-        currentFulfillmentStage: FulfillmentStage.Pack,
-        'fulfillmentStages.pack.status': {
-          $in: [FulfillmentStageStatus.Waiting, FulfillmentStageStatus.Rework, FulfillmentStageStatus.InProgress],
-        },
+        $or: stages.map((stg) => ({
+          currentFulfillmentStage: stg,
+          [`fulfillmentStages.${stg}.status`]: { $in: openStatuses },
+        })),
       })
-      .select('_id')
+      .select('_id currentFulfillmentStage')
       .lean();
-    const ids = docs.map((d) => String(d._id));
-    if (ids.length === 0) return { total: 0, ok: 0, fail: 0, failures: [] };
-    const result = await this.bulkTransition(
-      user,
-      { stage: FulfillmentStage.Pack, action: 'start-complete', orderIds: ids },
-      ctx,
-    );
-    return { total: ids.length, ...result };
+
+    const idsByStage = new Map<FulfillmentStage, string[]>();
+    for (const d of docs) {
+      const stg = d.currentFulfillmentStage as FulfillmentStage;
+      idsByStage.set(stg, [...(idsByStage.get(stg) ?? []), String(d._id)]);
+    }
+    const byStage = Object.fromEntries([...idsByStage].map(([stg, ids]) => [stg, ids.length]));
+    const failures: { orderId: string; message: string }[] = [];
+    const result = { dryRun, total: docs.length, byStage, ok: 0, fail: 0, failures };
+    if (dryRun || docs.length === 0) return result;
+
+    for (const [stage, orderIds] of idsByStage) {
+      const r = await this.bulkTransition(user, { stage, action: 'start-complete', orderIds }, ctx);
+      result.ok += r.ok;
+      result.fail += r.fail;
+      result.failures.push(...r.failures);
+    }
+    return result;
   }
 
   /**

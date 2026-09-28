@@ -1950,17 +1950,23 @@ export const BulkFulfillmentTransitionResZod = ResZod.extend({
 export class BulkFulfillmentTransitionResDto extends createZodDto(extendApi(BulkFulfillmentTransitionResZod)) {}
 
 /**
- * POST `/v1/fulfillment/complete-pack-backlog` — nút "Hoàn thành đơn tồn" đi
- * kèm toggle `FactoryEntity.autoCompletePack` (toggle chỉ áp đơn MỚI chảy tới
- * Đóng hàng; đơn tồn cũ dọn 1 lần bằng nút này). CHỈ Admin/SuperAdmin.
+ * POST `/v1/fulfillment/complete-pack-backlog` — nút "Hoàn thành đơn tồn":
+ * dọn đơn đang đứng ở công đoạn TỰ HOÀN THÀNH của xưởng (auto-stage theo
+ * `flowType` + Đóng hàng) — flowType/`autoCompletePack` chỉ áp đơn MỚI chảy
+ * tới, đơn tồn cũ dọn 1 lần bằng nút này. CHỈ Admin/SuperAdmin.
+ * `dryRun` MẶC ĐỊNH true = chỉ đếm; phải gửi `false` tường minh mới chạy thật
+ * (bắn webhook `production_completed` thật cho khách).
  */
-export const CompletePackBacklogZod = z.object({ factoryId: IDZod });
+export const CompletePackBacklogZod = z.object({ factoryId: IDZod, dryRun: z.boolean().default(true) });
 export class CompletePackBacklogDto extends createZodDto(extendApi(CompletePackBacklogZod)) {}
 
 export const CompletePackBacklogResZod = ResZod.extend({
   data: z.object({
-    /** Số đơn đang tồn ở Đóng hàng lúc bấm. */
+    dryRun: z.boolean(),
+    /** Số đơn tồn ở các công đoạn tự hoàn thành lúc bấm. */
     total: z.number(),
+    /** Số đơn theo công đoạn đang đứng (key = FulfillmentStage). */
+    byStage: z.record(z.string(), z.number()),
     ok: z.number(),
     fail: z.number(),
     failures: z.array(z.object({ orderId: z.string(), message: z.string() })),

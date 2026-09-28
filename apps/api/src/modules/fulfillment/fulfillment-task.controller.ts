@@ -125,7 +125,7 @@ export class FulfillmentTaskController {
   @Auth([RoleType.SuperAdmin, RoleType.Admin])
   @ApiOperation({
     summary:
-      'Hoàn thành TOÀN BỘ đơn đang tồn ở Đóng hàng của 1 xưởng — nút đi kèm toggle autoCompletePack (toggle chỉ áp đơn mới chảy tới).',
+      'Dọn đơn tồn ở các công đoạn tự hoàn thành của 1 xưởng (auto-stage theo flowType + Đóng hàng). dryRun mặc định true = chỉ đếm.',
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: CompletePackBacklogResDto })
@@ -141,9 +141,10 @@ export class FulfillmentTaskController {
         url: '/fulfillment/complete-pack-backlog',
         userId: user._id,
         factoryId: dto.factoryId,
+        dryRun: dto.dryRun,
       }),
     });
-    const data = await this.taskService.completePackBacklog(user, dto.factoryId, { user, ip, userAgent });
+    const data = await this.taskService.completePackBacklog(user, dto.factoryId, dto.dryRun, { user, ip, userAgent });
     return { success: true, data };
   }
 

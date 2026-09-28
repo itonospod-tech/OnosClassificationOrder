@@ -183,11 +183,12 @@
       "autoPack": {
         "label": "Tự hoàn thành Đóng hàng",
         "hint": "Bật: đơn chảy tới công đoạn Đóng hàng sẽ TỰ hoàn thành luôn (đơn xong sản xuất, bắn thông báo/webhook như đóng tay). Chỉ áp dụng đơn MỚI chảy tới — đơn đang tồn dùng nút bên dưới.",
-        "sweepBtn": "Hoàn thành đơn tồn ở Đóng hàng",
-        "sweepConfirm": "Hoàn thành TOÀN BỘ đơn đang chờ ở công đoạn Đóng hàng của xưởng {{name}}?",
-        "sweepEmpty": "Không có đơn nào đang tồn ở Đóng hàng.",
-        "sweepDone": "Đã hoàn thành {{ok}} đơn ở Đóng hàng.",
-        "sweepPartial": "Hoàn thành {{ok}} đơn, {{fail}} đơn lỗi (đơn đang giữ / trạng thái không hợp lệ)."
+        "sweepBtn": "Hoàn thành đơn tồn",
+        "sweepConfirm": "Hoàn thành {{total}} đơn đang tồn ở công đoạn tự hoàn thành của xưởng {{name}}?",
+        "sweepEmpty": "Không có đơn nào đang tồn ở công đoạn tự hoàn thành.",
+        "sweepDone": "Đã hoàn thành {{ok}} đơn tồn.",
+        "sweepPartial": "Hoàn thành {{ok}} đơn, {{fail}} đơn lỗi (đơn đang giữ / trạng thái không hợp lệ).",
+        "sweepWarning": "Mỗi đơn sẽ được đánh dấu hoàn thành sản xuất NGAY LÚC BẤM, tạo kiện hàng và gửi thông báo/webhook cho khách. Không hoàn tác được."
       },
       "skipToolCheck": {
         "label": "Bỏ qua soát tool",
