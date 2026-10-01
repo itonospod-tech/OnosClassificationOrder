@@ -196,6 +196,8 @@ export const CustomerStagingOrderZod = z.object({
   createdAt: z.coerce.date().optional(),
   cancelledAt: z.coerce.date().optional(),
   cancelReason: z.string().optional(),
+  /** Set only in the hub Trashed view (trashed orders never reach any other list). */
+  trashedAt: z.coerce.date().optional(),
 });
 export type CustomerStagingOrder = z.infer<typeof CustomerStagingOrderZod>;
 
@@ -232,6 +234,8 @@ export const CustomerOrderCountsZod = z.object({
   /** Badge counts (chồng lên các tab, không phải tab). */
   held: z.number(),
   rework: z.number(),
+  /** Hub only: orders in the Trashed tab (excluded from every other number). */
+  trashed: z.number().optional(),
   /** Số đơn theo dòng sản phẩm (đơn có ≥1 item thuộc dòng; một đơn có thể đếm ở nhiều dòng). */
   byProductLine: z.record(z.enum(PRODUCT_LINES), z.number()).optional(),
 });
@@ -706,11 +710,25 @@ export const GetAdminCustomerOrdersZod = GetCustomerStagingOrdersZod.merge(Admin
   customerId: IDZod.optional(),
   /** Chặng sản xuất hiện tại (`WORKSHOP_STAGE_FILTER_KEYS`) — đơn có ≥1 item đang ở chặng này (Operations `/hub/operations`). */
   stage: z.enum(WORKSHOP_STAGE_FILTER_KEYS).optional(),
+  /** `true` → the Trashed tab: ONLY trashed orders (status filter ignored). Default: trashed orders excluded. */
+  trashed: BooleanFlagZod,
 });
 export class GetAdminCustomerOrdersDto extends createZodDto(extendApi(GetAdminCustomerOrdersZod)) {}
 
 export const GetAdminCustomerOrdersResZod = PageResZod.extend({ data: AdminCustomerStagingOrderZod.array() });
 export class GetAdminCustomerOrdersResDto extends createZodDto(extendApi(GetAdminCustomerOrdersResZod)) {}
+
+/** Hub: move never-pushed orders to the Trashed tab, or restore them. */
+export const TrashCustomerOrdersZod = z.object({ ids: IDZod.array().min(1).max(200) });
+export class TrashCustomerOrdersDto extends createZodDto(extendApi(TrashCustomerOrdersZod)) {}
+export const TrashCustomerOrdersResZod = ResZod.extend({
+  data: z.object({
+    ok: z.number(),
+    /** Ids not changed: already pushed / being pushed / already in that state / not found. */
+    skipped: z.array(z.string()),
+  }),
+});
+export class TrashCustomerOrdersResDto extends createZodDto(extendApi(TrashCustomerOrdersResZod)) {}
 
 export const GetAdminCustomerOrderCountsZod = AdminOrderDateRangeZod.merge(AdminOrderItemScopeZod).extend({ customerId: IDZod.optional(), productLine: z.enum(PRODUCT_LINES).optional() });
 export class GetAdminCustomerOrderCountsDto extends createZodDto(extendApi(GetAdminCustomerOrderCountsZod)) {}

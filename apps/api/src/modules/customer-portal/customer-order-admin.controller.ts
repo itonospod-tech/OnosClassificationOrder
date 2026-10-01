@@ -1,6 +1,7 @@
 import { ZodValidationPipe } from '@anatine/zod-nestjs';
-import { Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post, Query, UsePipes } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, NotFoundException, Param, Post, Query, UsePipes } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthUser } from 'core';
 import { RoleType } from 'shared';
 import {
   AdminPlaceOrderForDto,
@@ -21,12 +22,16 @@ import {
   PresignDesignUploadResDto,
   PushCustomerOrdersDto,
   PushCustomerOrdersResDto,
+  TrashCustomerOrdersDto,
+  TrashCustomerOrdersResDto,
 } from 'shared';
+import { Logger } from 'winston';
 
 import { Auth } from '@/decorators';
 
 import { CustomerService } from '../customer/customer.service';
 import { DesignStorageService } from '../design-storage/design-storage.service';
+import { UserDocument } from '../user/user.entity';
 import { CustomerCatalogService } from './customer-catalog.service';
 import { CustomerOrderService } from './customer-order.service';
 
@@ -48,6 +53,7 @@ export class CustomerOrderAdminController {
     private readonly customerService: CustomerService,
     private readonly customerCatalogService: CustomerCatalogService,
     private readonly designStorageService: DesignStorageService,
+    @Inject('winston') private readonly logger: Logger,
   ) {}
 
   /** Nạp seller đích; khách đã xoá mềm/khoá thì không cho đặt hộ. */
@@ -101,6 +107,26 @@ export class CustomerOrderAdminController {
   @ApiOkResponse({ type: GetAdminCustomerOrdersResDto })
   list(@Query() dto: GetAdminCustomerOrdersDto): Promise<GetAdminCustomerOrdersResDto> {
     return this.customerOrderService.listOrdersAdmin(dto);
+  }
+
+  @Post('trash')
+  @Auth([RoleType.Admin])
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đưa đơn CHƯA đẩy sản xuất vào thùng rác (tab Trashed) — đơn đã đẩy/đang đẩy bị bỏ qua' })
+  @ApiOkResponse({ type: TrashCustomerOrdersResDto })
+  trash(@Body() dto: TrashCustomerOrdersDto, @AuthUser() user: UserDocument): Promise<TrashCustomerOrdersResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/admin/customer-orders/trash', userId: user._id, ids: dto.ids }) });
+    return this.customerOrderService.trashOrdersAdmin(dto.ids, String(user._id));
+  }
+
+  @Post('restore')
+  @Auth([RoleType.Admin])
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Khôi phục đơn từ thùng rác về đúng trạng thái trước đó' })
+  @ApiOkResponse({ type: TrashCustomerOrdersResDto })
+  restore(@Body() dto: TrashCustomerOrdersDto, @AuthUser() user: UserDocument): Promise<TrashCustomerOrdersResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/admin/customer-orders/restore', userId: user._id, ids: dto.ids }) });
+    return this.customerOrderService.restoreOrdersAdmin(dto.ids);
   }
 
   @Get('counts')
