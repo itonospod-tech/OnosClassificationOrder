@@ -32,13 +32,13 @@
     "orders": {
       "title": "Order management",
       "list": "Order list",
-      "classic": "Orders",
+      "classic": "Order list (flat table)",
       "errorLog": "Error correction log",
-      "scanError": "Scan code",
+      "scanError": "Scan station",
       "stageErrors": "Stage error catalog",
       "unmapped": "Unmapped factory",
       "shipments": "Shipments",
-      "import": "Import order",
+      "import": "Import orders",
       "cuttingFiles": "Import cutting files"
     },
     "work": {
@@ -82,13 +82,14 @@
     "nav": {
       "reports": {
         "title": "Reports",
-        "production": "Production",
+        "production": "By factory",
         "stock": "Stock"
       },
       "production": {
         "title": "Production",
         "all": "All orders",
-        "operations": "Operations"
+        "orders": "Orders",
+        "station": "At the station"
       },
       "lines": {
         "3d": "3D",
@@ -100,9 +101,7 @@
       },
       "tool": {
         "title": "Tool",
-        "overview": "Tool check — overview",
-        "3d": "Tool 3D",
-        "2d": "Tool 2D – DTF"
+        "overview": "All"
       },
       "ship": {
         "title": "Ship"
