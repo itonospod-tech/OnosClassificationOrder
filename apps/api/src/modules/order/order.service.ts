@@ -8916,38 +8916,62 @@ export class OrderService implements OnModuleInit {
   }
 
   /**
-   * Sidebar badge of the six "Production" entries: open orders per product line.
+   * Sidebar badge of the six "Production" entries: open orders per product line, in
+   * total and per factory (for the header factory scope, `?factoryId=`).
    *
    * Must equal the row count the user gets when clicking an entry, so it is built
    * from the SAME `buildOrderListFilter` the product-line page goes through
    * (`GET /orders?productLine=X&workshopStage=__open__&createdFrom=<today-6>&createdTo=<today>`,
-   * VN calendar days, same role scope) and only groups by `productLine` instead of
+   * VN calendar days, same role scope) and groups by `productLine` instead of
    * filtering on it. `deletedAt` is added because the page count goes through the
    * repository, which excludes soft-deleted rows; `buildOrderListFilter` does not.
+   *
+   * Per factory: an explicit `factoryId` on the page REPLACES the default factory
+   * clause, so a page scoped to the US factory does list US orders. The per-factory
+   * branch therefore runs on the filter built with `includeExcludedFactory` (only the
+   * US exclusion lifted), while the total keeps the default filter — one aggregate,
+   * two `$facet` branches. Only factories with visible orders appear, so a worker
+   * never receives the list of other factories.
    */
   async countOpenOrdersByProductLine(
     roleName?: RoleType,
     assigneeCode?: string,
     fulfillmentFactoryId?: string,
     fulfillmentStage?: string,
-  ): Promise<ProductLineCounts> {
+  ): Promise<{ total: ProductLineCounts; byFactory: Record<string, ProductLineCounts> }> {
     const vnDaysAgo = (days: number) => new Date(Date.now() + 7 * 3600_000 - days * 86_400_000).toISOString().slice(0, 10);
     const dto = {
       createdFrom: vnDaysAgo(PRODUCT_LINE_WINDOW_DAYS - 1),
       createdTo: vnDaysAgo(0),
       workshopStage: WORKSHOP_STAGE_OPEN,
     } as GetProductionOrdersDto;
-    const filter = this.buildOrderListFilter(dto, roleName, assigneeCode, fulfillmentFactoryId, fulfillmentStage);
-    const rows = await this.orderModel.aggregate<{ _id: string | null; n: number }>([
-      { $match: { ...filter, deletedAt: { $exists: false } } },
-      { $group: { _id: '$productLine', n: { $sum: 1 } } },
+    const scope = [roleName, assigneeCode, fulfillmentFactoryId, fulfillmentStage] as const;
+    const totalFilter = this.buildOrderListFilter(dto, ...scope);
+    const perFactoryFilter = this.buildOrderListFilter({ ...dto, includeExcludedFactory: true }, ...scope);
+    const [res] = await this.orderModel.aggregate<{
+      total: Array<{ _id: string | null; n: number }>;
+      byFactory: Array<{ _id: { line: string | null; factoryId: string | null }; n: number }>;
+    }>([
+      // perFactoryFilter ⊇ totalFilter (it only lifts the US exclusion), so one $match feeds both.
+      { $match: { ...perFactoryFilter, deletedAt: { $exists: false } } },
+      {
+        $facet: {
+          total: [{ $match: totalFilter }, { $group: { _id: '$productLine', n: { $sum: 1 } } }],
+          byFactory: [{ $group: { _id: { line: '$productLine', factoryId: '$factoryId' }, n: { $sum: 1 } } }],
+        },
+      },
     ]);
-    const counts = Object.fromEntries([...PRODUCT_LINES, '__none__'].map((k) => [k, 0])) as ProductLineCounts;
-    for (const r of rows) {
-      const key = r._id && (PRODUCT_LINES as string[]).includes(r._id) ? (r._id as ProductLine) : '__none__';
-      counts[key] += r.n;
+    const empty = () => Object.fromEntries([...PRODUCT_LINES, '__none__'].map((k) => [k, 0])) as ProductLineCounts;
+    const keyOf = (line: string | null) =>
+      line && (PRODUCT_LINES as string[]).includes(line) ? (line as ProductLine) : '__none__';
+    const total = empty();
+    for (const r of res?.total ?? []) total[keyOf(r._id)] += r.n;
+    const byFactory: Record<string, ProductLineCounts> = {};
+    for (const r of res?.byFactory ?? []) {
+      if (!r._id.factoryId) continue;
+      (byFactory[r._id.factoryId] ||= empty())[keyOf(r._id.line)] += r.n;
     }
-    return counts;
+    return { total, byFactory };
   }
 
   /**
