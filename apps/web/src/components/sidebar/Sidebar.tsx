@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Contact,
   Crown,
-  ExternalLink,
   Factory,
   FileDown,
   FileSearch,
@@ -175,8 +174,15 @@ interface NavChild {
   matchPrefix?: boolean;
   /** Small section caption rendered RIGHT ABOVE this entry (splits children within one group). */
   sectionBefore?: string;
-  /** `to` is an absolute URL into another app (Seller Portal) — opens a new tab, bypasses the Router. */
-  external?: boolean;
+  /**
+   * Query the menu adds when OPENING the page (its most useful default view, MenuRestructure-CEO.md
+   * §8.1) — NOT part of the entry's identity: active highlighting and the "click again to clear
+   * filters" signal compare `to` only. Needed when the page's "filter off" state is the param being
+   * absent (e.g. `activeOnly`): put in `to`, unticking the filter would un-highlight the menu while
+   * the user is still on the page. Only ever list ON values here — `z.coerce.boolean` reads the
+   * string "false" as true, so a filter is turned off by omitting its param, never by `=false`.
+   */
+  defaultQuery?: string;
 }
 
 interface NavItem {
@@ -202,9 +208,6 @@ interface NavGroup {
 }
 
 const ADMIN_ROLES: string[] = [RoleType.SuperAdmin, RoleType.Admin];
-
-/** Seller Portal (`apps/seller`) — currently the only place with a wallet admin page (`/hub/wallets`). */
-const SELLER_URL = ((import.meta.env.VITE_SELLER_URL as string | undefined) ?? '').replace(/\/+$/, '');
 
 /**
  * URL params matched BOTH WAYS in `isLinkActive` (every other param only needs
@@ -473,21 +476,20 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
       key: 'nav-wallet',
       label: t('sidebar.nav.wallet.title'),
       icon: <Wallet size={17} />,
-      // There is NO staff-side wallet in this app yet — temporarily open the seller wallet admin page in
-      // the Seller Portal (`/hub/wallets`, also Admin/SuperAdmin only). Without `VITE_SELLER_URL` the
-      // group is hidden entirely rather than pointing at a dead link. Real page: phase 2C.
-      children: SELLER_URL
-        ? [
-            {
-              key: 'wallet-sellers',
-              label: t('sidebar.nav.wallet.sellers'),
-              to: `${SELLER_URL}/hub/wallets`,
-              icon: <Wallet size={14} />,
-              onlyForRoles: ADMIN_ROLES,
-              external: true,
-            },
-          ]
-        : [],
+      children: [
+        {
+          // Staff wallet page (SellerWallet.md). Opens on wallets with money or activity — the full
+          // list of every seller, empty wallets included, is the raw list §8.1 says not to open on.
+          // Role-locked like the CEO dashboard: no `page.*` code, the page redirects non-admins and
+          // the BE `admin/customer-wallets*` endpoints are `@Auth([Admin])` (Auth.md).
+          key: 'wallet-sellers',
+          label: t('sidebar.nav.wallet.sellers'),
+          to: PATHS.WALLETS,
+          defaultQuery: 'activeOnly=true',
+          icon: <Wallet size={14} />,
+          onlyForRoles: ADMIN_ROLES,
+        },
+      ],
     },
     {
       key: 'nav-hr',
@@ -717,6 +719,11 @@ function isLinkActive(linkPath: string, currentPath: string, currentSearch: stri
   return true;
 }
 
+/** Where clicking a menu entry navigates: its path plus the entry's default view, if any. */
+function hrefOf(item: Pick<NavChild, 'to' | 'defaultQuery'>): string {
+  return item.defaultQuery ? withQuery(item.to, item.defaultQuery) : item.to;
+}
+
 /**
  * Path used for the "click the active menu again → clear the page's filters" signal.
  * Strips the scope params (`SCOPE_PARAMS`) because pages register the signal with the
@@ -747,28 +754,9 @@ function SidebarLeaf({
   const active = isLinkActive(item.to, location.pathname, location.search, item.matchPrefix);
   const requestReset = useSidebarResetStore((s) => s.requestReset);
   const hasBadges = !!badges?.length;
-  if (item.external) {
-    return (
-      <a
-        href={item.to}
-        target="_blank"
-        rel="noopener noreferrer"
-        title={collapsed ? item.label : undefined}
-        className={cn(
-          'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-          collapsed && 'justify-center',
-          !collapsed && level > 0 && 'ml-5 py-1.5 text-[13px]',
-        )}
-      >
-        <span>{item.icon}</span>
-        {!collapsed && <span className="truncate flex-1">{item.label}</span>}
-        {!collapsed && <ExternalLink size={12} className="shrink-0 opacity-60" />}
-      </a>
-    );
-  }
   return (
     <Link
-      to={item.to}
+      to={hrefOf(item)}
       // Clicking the ALREADY active menu → the Router treats it as a no-op (no navigation),
       // so emit a separate signal for the page to clear its own filters (see `useSidebarResetSignal`).
       onClick={() => {
@@ -829,14 +817,10 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
   );
 
   if (collapsed) {
-    // The first child links into another app (Wallet → Seller Portal) — `Link` cannot open an absolute URL.
-    if (item.children![0].external) {
-      return <SidebarLeaf item={{ ...item.children![0], label: item.label, icon: item.icon }} collapsed />;
-    }
     // Collapsed: show parent icon only; clicking still navigates to first child
     return (
       <Link
-        to={item.children![0].to}
+        to={hrefOf(item.children![0])}
         title={item.label}
         className={cn(
           'flex items-center justify-center px-3 py-2 rounded-md text-sm transition-colors relative',
