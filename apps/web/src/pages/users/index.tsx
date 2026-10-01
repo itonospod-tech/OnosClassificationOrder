@@ -75,6 +75,11 @@ export default function UsersPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [factories, setFactories] = useState<FactoryRow[]>([]);
   const [loading, setLoading] = useState(false);
+  // Server total, to tell the user when the 200-row page does not cover everyone.
+  const [serverTotal, setServerTotal] = useState(0);
+  // Default view = active staff: deactivated accounts are noise for daily HR work (MenuRestructure-CEO.md §8.1).
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [roleFilter, setRoleFilter] = useState('');
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<UserRow | null>(null);
@@ -97,6 +102,7 @@ export default function UsersPage() {
         RepositoryRemote.factory.getFactories('?page=1&limit=200'),
       ]);
       setItems((uRes.data?.data || []) as UserRow[]);
+      setServerTotal(Number(uRes.data?.total ?? 0));
       setRoles((rRes.data?.data || []) as Role[]);
       setFactories((fRes.data?.data || []) as FactoryRow[]);
     } catch (err) {
@@ -109,6 +115,21 @@ export default function UsersPage() {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const counts = useMemo(() => {
+    const active = items.filter((i) => i.status === Status.Active).length;
+    return { active, inactive: items.length - active, all: items.length };
+  }, [items]);
+
+  const displayed = useMemo(
+    () =>
+      items.filter((i) => {
+        if (statusFilter === 'active' && i.status !== Status.Active) return false;
+        if (statusFilter === 'inactive' && i.status === Status.Active) return false;
+        return !roleFilter || i.roleId === roleFilter;
+      }),
+    [items, statusFilter, roleFilter],
+  );
 
   const openCreate = () => {
     setShowPassword(false);
@@ -227,7 +248,41 @@ export default function UsersPage() {
 
       <div className="rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <p className="text-xs text-muted-foreground">{t('users.userCount', { count: items.length })}</p>
+          <p className="text-xs text-muted-foreground">{t('users.userCount', { count: displayed.length })}</p>
+          <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+            {(['active', 'inactive', 'all'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setStatusFilter(k)}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  statusFilter === k
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t(`users.statusFilters.${k}`)} ({counts[k]})
+              </button>
+            ))}
+          </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            aria-label={t('users.table.role')}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          >
+            <option value="">{t('users.allRoles')}</option>
+            {roles.map((r) => (
+              <option key={r._id} value={r._id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+          {serverTotal > items.length && (
+            <span className="text-xs text-amber-600">
+              {t('users.truncated', { shown: items.length, total: serverTotal })}
+            </span>
+          )}
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={fetchAll} disabled={loading}>
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
@@ -257,14 +312,14 @@ export default function UsersPage() {
                 </TableCell>
               </TableRow>
             )}
-            {!loading && items.length === 0 && (
+            {!loading && displayed.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8 text-sm text-muted-foreground">
                   {t('users.noUsers')}
                 </TableCell>
               </TableRow>
             )}
-            {items.map((it) => {
+            {displayed.map((it) => {
               const role = it.role || roleMap[it.roleId || ''];
               const factory = it.factoryId ? factoryMap[it.factoryId] : undefined;
               return (

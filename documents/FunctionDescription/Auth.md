@@ -212,7 +212,7 @@ interface AuthStore {
 | Login | `pages/login/index.tsx` | Form login + logo + tagline |
 | Register | `pages/register/index.tsx` | (Demo, có thể tắt) |
 | Account | `pages/account/index.tsx` | Profile + đổi password |
-| Users | `pages/users/` | Admin quản lý user |
+| Users | `pages/users/` | Admin quản lý user — mặc định lọc "Đang hoạt động" + chip Đã khóa/Tất cả kèm số đếm + lọc theo vai trò (FE, tải limit=200; cảnh báo khi `total` > 200) |
 | Roles | `pages/roles/` | Hiển thị role mặc định + permission |
 | Custom Roles | `pages/custom-roles/` | CRUD custom role |
 | Departments | `pages/departments/` | CRUD department |
