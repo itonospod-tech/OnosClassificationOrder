@@ -101,6 +101,53 @@ describe('3. Fulfillment factory scope is never dropped or widened', () => {
   });
 });
 
+describe('3b. explicit ?factoryId can only NARROW a Fulfillment factory lock', () => {
+  const OWN = 'FACTORY_OWN00001';
+  const OTHER = 'FACTORY_OTHER001';
+  const build = (q: Record<string, unknown>, ...scope: unknown[]) =>
+    svc.buildOrderListFilter(GetProductionOrdersZod.parse({ page: 1, limit: 20, ...q }), ...(scope as []));
+  const ands = (f: Record<string, unknown>) => (f.$and as unknown[]) ?? [];
+
+  it('print-stage worker (lock = factoryId equality): other factory is ANDed, lock kept', () => {
+    const f = build({ factoryId: OTHER }, RoleType.Fulfillment, 'u1', OWN, FulfillmentStage.Print);
+    expect(f.factoryId).toBe(OWN); // used to become OTHER — the leak
+    expect(ands(f)).toContainEqual({ factoryId: OTHER }); // OWN AND OTHER → empty
+  });
+
+  it('other-stage worker (lock = $or): scope $or kept, other factory ANDed', () => {
+    const f = build({ factoryId: OTHER }, RoleType.Fulfillment, 'u1', OWN, FulfillmentStage.Press);
+    expect(f.$or).toEqual([{ factoryId: OWN }, { originalFactoryId: OWN }]);
+    expect(ands(f)).toContainEqual({ factoryId: OTHER });
+  });
+
+  it.each([FulfillmentStage.Print, FulfillmentStage.Press])(
+    'worker without a factory (%s): __no_factory__ lock is kept',
+    (stage) => {
+      const f = build({ factoryId: OTHER }, RoleType.Fulfillment, 'u1', undefined, stage);
+      expect(f.factoryId).toBe('__no_factory__');
+      expect(ands(f)).toContainEqual({ factoryId: OTHER });
+    },
+  );
+
+  it('worker picking their OWN factory still sees it (narrowing, not blocking)', () => {
+    const f = build({ factoryId: OWN }, RoleType.Fulfillment, 'u1', OWN, FulfillmentStage.Print);
+    expect(f.factoryId).toBe(OWN);
+    expect(ands(f)).toContainEqual({ factoryId: OWN });
+  });
+
+  it('Designer (not factory-locked): explicit factory replaces the default clause, own-task lock kept', () => {
+    const f = build({ factoryId: OTHER }, RoleType.Designer, 'u1');
+    expect(f.factoryId).toBe(OTHER);
+    expect(f.assignee).toBe('u1');
+  });
+
+  it('Admin: explicit factory replaces the default clause (keeps US viewable, Orders.md §21)', () => {
+    const f = build({ factoryId: OTHER }, RoleType.Admin);
+    expect(f.factoryId).toBe(OTHER);
+    expect(ands(f)).not.toContainEqual({ factoryId: OTHER });
+  });
+});
+
 describe('4. andWith (also used by the facet "none" counts)', () => {
   it('appends to an existing $and and keeps $or', () => {
     const base = { $or: SCOPE, $and: [{ a: 1 }] };

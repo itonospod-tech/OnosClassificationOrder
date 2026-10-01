@@ -1487,6 +1487,25 @@ export class OrderService implements OnModuleInit {
     }
   }
 
+  /**
+   * Apply an explicit `factoryId` (header factory scope / factory menu) to a filter that
+   * already carries the role's visibility scope.
+   *
+   * Fulfillment is locked to its own factory by `buildVisibilityFilter` — as `factoryId`
+   * equality (print stage, or `__no_factory__` when the user has no factory) or as an
+   * `$or` with `originalFactoryId`. An explicit factory may only NARROW that scope, so it
+   * is ANDed: picking another factory in the header returns nothing instead of that
+   * factory's orders. Assigning it used to replace the lock, and `GET /factories/options`
+   * hands every staff member the full factory list, so one click leaked another factory.
+   *
+   * Other roles are not factory-locked: the explicit factory replaces the default factory
+   * clause on purpose, which is what lets the US factory be viewed when chosen (Orders.md §21).
+   */
+  private applyExplicitFactory(filter: Record<string, unknown>, factoryId: string, roleName?: RoleType): void {
+    if (roleName === RoleType.Fulfillment) andWith(filter, { factoryId });
+    else filter.factoryId = factoryId;
+  }
+
   /** Compose the Mongo filter for getOrders + getOrdersGroupedByType. */
   private buildOrderListFilter(
     dto: GetProductionOrdersDto,
@@ -1539,7 +1558,7 @@ export class OrderService implements OnModuleInit {
     // hủy khỏi list + mọi facet. Đơn hủy chỉ xem qua toggle "Đã hủy" (hoặc dialog
     // "Đơn đã hủy" riêng). Áp cho mọi caller của buildOrderListFilter.
     filter.cancelledAt = { $exists: dto.cancelled === true };
-    if (dto.factoryId) filter.factoryId = dto.factoryId;
+    if (dto.factoryId) this.applyExplicitFactory(filter, dto.factoryId, roleName);
     if (dto.machineTypeId) filter.machineTypeId = dto.machineTypeId;
     if (dto.status) filter.status = dto.status;
     if (dto.printStatus) filter.printStatus = { $in: dto.printStatus.split(',').filter(Boolean) };
@@ -2826,7 +2845,7 @@ export class OrderService implements OnModuleInit {
     } else if (dto.hasError === true) {
       baseMatch.productionError = { $exists: true, $nin: [null, ''] };
     }
-    if (dto.factoryId) baseMatch.factoryId = dto.factoryId;
+    if (dto.factoryId) this.applyExplicitFactory(baseMatch, dto.factoryId, roleName);
     if (dto.machineTypeId) baseMatch.machineTypeId = dto.machineTypeId;
     if (typeof dto.readyForFulfill === 'boolean') baseMatch.readyForFulfill = dto.readyForFulfill;
     if (dto.search) {
@@ -4226,14 +4245,10 @@ export class OrderService implements OnModuleInit {
     // filters EXCEPT its own field, so the user can switch values within that
     // facet while other facets reflect the narrowed subset. Cards + flow
     // totals stay unscoped (global view).
-    const scopeMatch: Record<string, unknown> =
-      dto.unmapped === true
-        ? {
-            ...match,
-            $or: [{ factoryId: { $exists: false } }, { factoryId: null }],
-          }
-        : { ...matchMapped };
-    if (dto.factoryId && dto.unmapped !== true) scopeMatch.factoryId = dto.factoryId;
+    const scopeMatch: Record<string, unknown> = dto.unmapped === true ? { ...match } : { ...matchMapped };
+    // AND, never `$or =`: `match.$or` may hold the Fulfillment factory scope.
+    if (dto.unmapped === true) andWith(scopeMatch, { $or: [{ factoryId: { $exists: false } }, { factoryId: null }] });
+    if (dto.factoryId && dto.unmapped !== true) this.applyExplicitFactory(scopeMatch, dto.factoryId, roleName);
     if (dto.printStage === 'printed') {
       scopeMatch.printStatus = { $in: PRINTED_MACHINE_CODES };
     } else if (dto.printStage === 'printing') {
