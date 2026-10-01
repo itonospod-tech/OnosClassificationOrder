@@ -812,7 +812,13 @@ function SidebarLeaf({
       )}
     >
       <span className={active ? 'text-white' : 'text-nav-text'}>{item.icon}</span>
-      {!collapsed && <span className={cn('truncate', hasBadges && 'flex-1')}>{item.label}</span>}
+      {!collapsed && (
+        // Child labels wrap to two lines instead of being cut: Vietnamese labels run long
+        // ("Danh sách đơn (bảng phẳng)") and a truncated entry hides what it opens.
+        <span className={cn(level > 0 ? 'line-clamp-2 leading-snug' : 'truncate', hasBadges && 'flex-1')}>
+          {item.label}
+        </span>
+      )}
       {!collapsed && hasBadges && (
         <span className="flex items-center gap-1 shrink-0">
           {badges!.map((b) => (
@@ -898,20 +904,33 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         )}
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
-      {open && (
-        <div className="space-y-0.5 mt-0.5">
-          {item.children!.map((c) => (
-            <React.Fragment key={c.key}>
-              {c.sectionBefore && (
-                <p className="ml-5 px-3 pt-2 pb-0.5 text-[11px] font-medium uppercase tracking-[.14px] text-nav-group">
-                  {c.sectionBefore}
-                </p>
-              )}
-              <SidebarLeaf item={c} collapsed={false} level={1} badges={badgeMap[c.key]} />
-            </React.Fragment>
-          ))}
+      {/* Slide open/closed like the legacy menu: animate grid rows 0fr→1fr (no fixed height).
+          Closed children stay mounted for the animation, so they are `inert` (out of tab order
+          and the accessibility tree); reduced-motion users get the instant toggle. */}
+      <div
+        className={cn(
+          'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+        )}
+        {...(open ? {} : { inert: '' })}
+      >
+        {/* Bleed 8px past the row on each side and pad it back, so the active pill's glow is not
+            clipped by the overflow the slide animation needs. */}
+        <div className="-mx-2 min-h-0 overflow-hidden">
+          <div className="space-y-0.5 px-2 py-1">
+            {item.children!.map((c) => (
+              <React.Fragment key={c.key}>
+                {c.sectionBefore && (
+                  <p className="ml-5 px-3 pt-2 pb-0.5 text-[11px] font-medium uppercase tracking-[.14px] text-nav-group">
+                    {c.sectionBefore}
+                  </p>
+                )}
+                <SidebarLeaf item={c} collapsed={false} level={1} badges={badgeMap[c.key]} />
+              </React.Fragment>
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
