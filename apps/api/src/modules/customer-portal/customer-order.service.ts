@@ -62,6 +62,7 @@ import {
   hasProductionOrderTracking,
   LIFECYCLE_STAGE_KEYS,
   normalizeProductionOrderTracking,
+  ORDER_PRIORITIES,
   PRODUCT_LINES,
   PRODUCT_PRINT_AREA_LABEL_MAP,
   RoleType,
@@ -1259,6 +1260,21 @@ export class CustomerOrderService implements OnModuleInit {
    * Nhiều điều kiện → giao tập. Trả null khi không có điều kiện áp dụng được hoặc tập quá lớn
    * (completed/cancelled/refunded → đường đầy đủ).
    */
+  /**
+   * Hub item-level scope (`factoryId` / `priority`, `AdminOrderItemScopeZod`) as a document
+   * stage: the order matches iff one of its `items.productionId` is a non-cancelled production
+   * order in scope. That is EXACT (necessary and sufficient), so unlike `loadCandidatePids` it
+   * has no size cap: falling back to "no filter" past a cap would silently list every factory.
+   */
+  private async adminItemScopeStages(dto: { factoryId?: string; priority?: boolean }): Promise<Record<string, unknown>[]> {
+    if (!dto.factoryId && dto.priority !== true) return [];
+    const q: Record<string, unknown> = { cancelledAt: null, productionId: { $ne: null } };
+    if (dto.factoryId) q.factoryId = dto.factoryId;
+    if (dto.priority === true) q.priority = { $in: ORDER_PRIORITIES };
+    const pids = (await this.customerOrderModel.db.collection('orders').distinct('productionId', q)) as string[];
+    return [{ $match: { 'items.productionId': { $in: pids } } }];
+  }
+
   private async loadCandidatePids(opts: { stage?: string; status?: CustomerOrderStatus; held: boolean; cutoff: Date }): Promise<string[] | null> {
     const col = this.customerOrderModel.db.collection('orders');
     const sets: Array<Set<string>> = [];
@@ -1535,6 +1551,7 @@ export class CustomerOrderService implements OnModuleInit {
           },
         ]
       : [];
+    preStages.push(...(await this.adminItemScopeStages(dto)));
     const candidatePids = await this.loadCandidatePids({ stage: dto.stage, status: dto.status, held: !!dto.held, cutoff });
     const pipeline = this.buildPagedListPipeline({
       customerId: dto.customerId ?? null,
@@ -1565,7 +1582,10 @@ export class CustomerOrderService implements OnModuleInit {
 
   private async computeCountsAdmin(dto: GetAdminCustomerOrderCountsDto): Promise<GetCustomerOrderCountsResDto> {
     const cutoff = await this.getCompletedCutoff();
-    const [byStatus, byLine] = this.countsPipelines(dto.customerId ?? null, cutoff, dto.productLine, CustomerOrderService.dateRangeStages(dto.dateFrom, dto.dateTo));
+    const [byStatus, byLine] = this.countsPipelines(dto.customerId ?? null, cutoff, dto.productLine, [
+      ...CustomerOrderService.dateRangeStages(dto.dateFrom, dto.dateTo),
+      ...(await this.adminItemScopeStages(dto)),
+    ]);
     const [rows, lineRows] = await Promise.all([
       this.customerOrderModel.aggregate<{ _id: string; count: number; held: number; rework: number }>(byStatus as never[]),
       this.customerOrderModel.aggregate<{ _id: ProductLine; count: number }>(byLine as never[]),

@@ -4,7 +4,7 @@ import { CustomerOrderStatus, PRODUCT_LINES } from '@shared/enums';
 import { PageResZod, ResZod } from '@shared/types';
 import { z } from 'zod';
 
-import { IDZod } from '..';
+import { BooleanFlagZod, IDZod } from '..';
 import {
   CUSTOMER_SHIP_METHODS,
   type CustomerImportOrder,
@@ -688,7 +688,20 @@ export const AdminOrderDateRangeZod = z.object({
   dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
-export const GetAdminCustomerOrdersZod = GetCustomerStagingOrdersZod.merge(AdminOrderDateRangeZod).extend({
+/**
+ * Item-level scope of the hub order list (legacy `manufacture` select + `Priority` checkbox).
+ * Factory and priority live on the production orders (items), not on the customer order, so
+ * an order matches when AT LEAST ONE non-cancelled item matches. Applied to the list AND to
+ * the counts so pill numbers stay equal to the rows. Orders not pushed yet have no item in a
+ * factory and therefore never match a factory filter.
+ */
+export const AdminOrderItemScopeZod = z.object({
+  factoryId: IDZod.optional(),
+  /** `true` → only orders with at least one item marked priority (1..3). */
+  priority: BooleanFlagZod,
+});
+
+export const GetAdminCustomerOrdersZod = GetCustomerStagingOrdersZod.merge(AdminOrderDateRangeZod).merge(AdminOrderItemScopeZod).extend({
   /** Lọc theo 1 seller; bỏ trống = mọi seller. */
   customerId: IDZod.optional(),
   /** Chặng sản xuất hiện tại (`WORKSHOP_STAGE_FILTER_KEYS`) — đơn có ≥1 item đang ở chặng này (Operations `/hub/operations`). */
@@ -699,7 +712,7 @@ export class GetAdminCustomerOrdersDto extends createZodDto(extendApi(GetAdminCu
 export const GetAdminCustomerOrdersResZod = PageResZod.extend({ data: AdminCustomerStagingOrderZod.array() });
 export class GetAdminCustomerOrdersResDto extends createZodDto(extendApi(GetAdminCustomerOrdersResZod)) {}
 
-export const GetAdminCustomerOrderCountsZod = AdminOrderDateRangeZod.extend({ customerId: IDZod.optional(), productLine: z.enum(PRODUCT_LINES).optional() });
+export const GetAdminCustomerOrderCountsZod = AdminOrderDateRangeZod.merge(AdminOrderItemScopeZod).extend({ customerId: IDZod.optional(), productLine: z.enum(PRODUCT_LINES).optional() });
 export class GetAdminCustomerOrderCountsDto extends createZodDto(extendApi(GetAdminCustomerOrderCountsZod)) {}
 
 export const AdminSellerStatZod = z.object({

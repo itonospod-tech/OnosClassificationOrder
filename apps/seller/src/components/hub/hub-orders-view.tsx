@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image as ImageIcon, Loader2, PauseCircle, Plus, RefreshCw, Send, Truck, Wrench } from 'lucide-react';
-import type { AdminCustomerStagingOrder, CustomerOrderCounts } from 'shared';
+import type { AdminCustomerStagingOrder, CustomerOrderCounts, FactoryOptionItem } from 'shared';
 import { InternalStatus } from '@/components/hub/internal-status';
 import { buyInputFrom, buyLabel, canBuyLabel, canBuyLabelNow, ShipmentCell } from '@/components/hub/shipment-cell';
 import { SellerFilterPicker } from '@/components/hub/seller-filter-picker';
@@ -47,7 +47,7 @@ const STICKY_TD = 'sticky left-8 z-[5] bg-card group-hover:bg-card-hover border-
  */
 export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {}) {
   const { t } = useTranslation(['hub', 'customerPortal', 'track']);
-  const [state, setState] = useUrlState({ page: '1', limit: '20', status: '', held: '', q: '', line: '', seller: '', from: '', to: '' });
+  const [state, setState] = useUrlState({ page: '1', limit: '20', status: '', held: '', q: '', line: '', seller: '', from: '', to: '', factory: '', prio: '' });
   const page = Math.max(1, Number(state.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(state.limit) || 20));
   const status = state.status || null;
@@ -65,8 +65,11 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
     if (state.seller) p.set('customerId', state.seller);
     if (state.from) p.set('dateFrom', state.from);
     if (state.to) p.set('dateTo', state.to);
+    // Item-level scope (legacy manufacture + Priority): goes to the list AND both counts.
+    if (state.factory) p.set('factoryId', state.factory);
+    if (state.prio === '1') p.set('priority', 'true');
     return p;
-  }, [state.seller, state.from, state.to]);
+  }, [state.seller, state.from, state.to, state.factory, state.prio]);
   const listQuery = useMemo(() => {
     const p = new URLSearchParams(base);
     p.set('page', String(page));
@@ -107,6 +110,7 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
       setPushingId(null);
     }
   };
+  const { data: factoryRes } = useApi<ApiRes<FactoryOptionItem[]>>('/api/hub/v1/factories/options');
   const { data: lineCountsRes } = useApi<ApiRes<CustomerOrderCounts>>(`/api/hub/v1/admin/customer-orders/counts${lineCountsQuery ? `?${lineCountsQuery}` : ''}`);
   const { data: countsRes } = useApi<ApiRes<CustomerOrderCounts>>(`/api/hub/v1/admin/customer-orders/counts${pillCountsQuery ? `?${pillCountsQuery}` : ''}`);
   const orders = listRes?.data ?? [];
@@ -193,6 +197,19 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
         <SearchInput value={searchInput} onChange={setSearchInput} placeholder={t('hub:orders.searchPlaceholder')} className="w-full sm:w-56" />
         <SellerFilterPicker value={state.seller} onChange={(id) => setState({ seller: id, page: '1' })} />
         <DateRangeFilter value={dateRange} onChange={(r) => setState({ from: r.dateFrom ?? '', to: r.dateTo ?? '', page: '1' })} />
+        <select
+          value={state.factory}
+          onChange={(e) => setState({ factory: e.target.value, page: '1' })}
+          aria-label={t('hub:orders.factoryFilter')}
+          className="px-2.5 py-1 rounded-full border border-border1 bg-card text-[11px] font-semibold text-text-secondary outline-none focus:border-accent"
+        >
+          <option value="">{t('hub:orders.factoryAll')}</option>
+          {(factoryRes?.data ?? []).map((f) => <option key={f._id} value={f._id}>{f.name}</option>)}
+        </select>
+        <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border1 bg-card text-[11px] font-semibold text-text-secondary cursor-pointer select-none">
+          <input type="checkbox" checked={state.prio === '1'} onChange={() => setState({ prio: state.prio === '1' ? '' : '1', page: '1' })} className="accent-[var(--color-accent)]" />
+          {t('hub:orders.priorityOnly')}
+        </label>
         <div className="ml-auto text-[10px] text-text-muted tabular-nums whitespace-nowrap">{t('hub:orders.totalOrders', { count: total })}</div>
       </div>
       </div>

@@ -105,6 +105,9 @@
       "note": "Ghi chú",
       "date": "Ngày"
     },
+    "factoryFilter": "Xưởng",
+    "factoryAll": "Mọi xưởng",
+    "priorityOnly": "Ưu tiên",
     "openAsSeller": "Mở như seller",
     "subtitleOms": "Đơn khách của mọi seller · 6 dịch vụ · lên đơn, đẩy sản xuất, mua vận đơn",
     "refresh": "Làm mới",

@@ -105,6 +105,9 @@
       "note": "Note",
       "date": "Date"
     },
+    "factoryFilter": "Factory",
+    "factoryAll": "All factories",
+    "priorityOnly": "Priority",
     "openAsSeller": "Open as seller",
     "subtitleOms": "Customer orders across all sellers · 6 services · create, push, buy labels",
     "refresh": "Refresh",
