@@ -87,8 +87,7 @@
       "production": {
         "title": "Sản xuất",
         "all": "Tất cả đơn",
-        "operations": "Vận hành",
-        "guide": "Hướng dẫn"
+        "operations": "Vận hành"
       },
       "lines": {
         "3d": "3D",
