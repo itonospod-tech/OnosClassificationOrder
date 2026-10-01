@@ -105,7 +105,7 @@ export class PublicTrackService {
     const [order, staging] = await Promise.all([
       this.orderModel.findOne({ productionId: rx }).select(PUBLIC_ORDER_FIELDS).lean<PublicOrderDoc>(),
       this.customerOrderModel
-        .findOne({ 'items.productionId': rx })
+        .findOne({ 'items.productionId': rx, trashedAt: null }) // trashed (hub) = no such order
         .select('orderId identifier orderName items pushedAt status cancelledAt refundedAt createdAt shippingAddress')
         .lean(),
     ]);

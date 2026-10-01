@@ -123,6 +123,17 @@ Chi tiết cách giữ chỗ:
 | _(badge)_ On Hold | ≥1 item `heldAt` set |
 | _(badge)_ Rework | ≥1 item `designerStatus='rework'` hoặc (`productionErrorSource='tool-check'` && `toolResultNote`∉{'', 'ok'}) |
 
+### 2.4 Thùng rác (Trashed) — chỉ hub, 01/10/2026
+
+Clone tab `Trashed` hệ cũ, định nghĩa đã duyệt (onos-49):
+- **Chỉ đơn CHƯA đẩy sản xuất** (`pushedAt` rỗng, không đang đẩy) bỏ thùng rác được — Pending hoặc Cancelled trước khi đẩy. Đơn đã đẩy đã có `OrderEntity` ở xưởng → muốn bỏ thì Hủy.
+- Trường `trashedAt` (+ `trashedBy`) trên `customer_orders`, **KHÔNG** dùng `deletedAt` (repository ẩn `deletedAt` ở mọi truy vấn → tab Thùng rác không đếm nổi chính nó).
+- Đơn trong thùng rác **biến khỏi mọi nơi**: danh sách + số đếm seller và hub, thống kê hub, Public Order API (`getOrderByRefForApi`), tra cứu công khai `/track`; sửa/hủy (`getPendingStagingOrder`) trả "không tìm thấy"; đẩy sản xuất bị chặn (`claimPush` đòi `trashedAt: null`). Điểm chặn chung: đầu `buildDerivePipeline` + `docMatch` của `buildPagedListPipeline` (đường nhanh derive SAU khi cắt trang nên phải lọc ở mức document) qua `trashMatch()`.
+- Không chạy đua với đẩy sản xuất: bỏ thùng rác là `updateOne` có điều kiện `pushedAt: null` + `pushingAt` rỗng, từng id một (≤ 200) nên kết quả báo đúng từng đơn. Đã kiểm trên Mongo thật: 50 cặp đẩy/bỏ thùng rác bắn đồng thời → 0 lần cả hai cùng thắng.
+- Có khôi phục (về đúng trạng thái cũ, không gì khác đổi trong lúc nằm thùng rác). Seller KHÔNG tự bỏ thùng rác (đã có Hủy) — chỉ Admin/SuperAdmin ở hub.
+- API: `POST admin/customer-orders/trash` · `POST admin/customer-orders/restore` (`{ ids }`, trả `{ ok, skipped }`), `GET admin/customer-orders?trashed=true` (bỏ qua lọc trạng thái/held), `counts.trashed`. Xoá cache số liệu admin ngay sau mỗi lần đổi. Test `trash-orders.spec.ts`.
+- Lưu ý: seller import lại CSV có `orderKey` trùng đơn đang nằm thùng rác → unique index `(customerId, orderKey)` báo trùng mà seller không thấy đơn đó; khôi phục là cách gỡ.
+
 ## 3. API / Schema
 
 ### 3.1 Endpoints (`customer-order.controller.ts`, tất cả `@Auth([RoleType.Customer])`)

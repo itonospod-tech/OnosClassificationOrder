@@ -41,6 +41,7 @@ import type {
   PushCustomerOrdersResDto,
   ResolveImportSkusDto,
   ResolveImportSkusResDto,
+  TrashCustomerOrdersResDto,
   UpdateCustomerOrderDto,
   UpdateCustomerOrderResDto,
   UpdateCustomerStagingOrderDto,
@@ -62,6 +63,7 @@ import {
   hasProductionOrderTracking,
   LIFECYCLE_STAGE_KEYS,
   normalizeProductionOrderTracking,
+  ORDER_PRIORITIES,
   PRODUCT_LINES,
   PRODUCT_PRINT_AREA_LABEL_MAP,
   RoleType,
@@ -598,7 +600,7 @@ export class CustomerOrderService implements OnModuleInit {
    * đổi 1 nơi nhớ đổi nơi kia.
    */
   /** `customerId = null` → không scope theo khách (khu quản trị `/hub` đọc MỌI seller — chỉ Admin gọi). */
-  private buildDerivePipeline(customerId: string | null, completedCutoff: Date): Record<string, unknown>[] {
+  private buildDerivePipeline(customerId: string | null, completedCutoff: Date, trash = false): Record<string, unknown>[] {
     const progressExpr = {
       $switch: {
         branches: [
@@ -623,7 +625,8 @@ export class CustomerOrderService implements OnModuleInit {
       ],
     };
     return [
-      ...(customerId ? [{ $match: { customerId } }] : []),
+      // Trashed orders (hub Trashed tab) are out of every number unless `trash` asks for them.
+      { $match: { ...(customerId ? { customerId } : {}), ...CustomerOrderService.trashMatch(trash) } },
       {
         // Nối bằng localField/foreignField để DÙNG ĐƯỢC index `productionId_1`.
         // Bản cũ lọc bằng `$expr: { $in: ['$productionId', '$$pids'] }` — `$expr`
@@ -859,6 +862,7 @@ export class CustomerOrderService implements OnModuleInit {
       createdAt: doc.createdAt as Date | undefined,
       cancelledAt: (doc.cancelledAt as Date | null) ?? undefined,
       cancelReason: doc.cancelReason as string | undefined,
+      trashedAt: (doc.trashedAt as Date | null) ?? undefined,
     };
   }
 
@@ -1259,6 +1263,57 @@ export class CustomerOrderService implements OnModuleInit {
    * Nhiều điều kiện → giao tập. Trả null khi không có điều kiện áp dụng được hoặc tập quá lớn
    * (completed/cancelled/refunded → đường đầy đủ).
    */
+  /** Document condition for the hub Trashed tab: only trashed, or (default) none of them. */
+  private static trashMatch(trash: boolean): Record<string, unknown> {
+    return { trashedAt: trash ? { $ne: null } : null };
+  }
+
+  /**
+   * Hub: move orders to the Trashed tab. ONE conditional update, so it cannot race a push:
+   * `claimPush` only claims `trashedAt: null` and this only trashes `pushedAt: null` +
+   * `pushingAt: null` — whichever lands first wins, the other matches nothing. A stale
+   * `pushingAt` (crashed push) blocks trashing until the push claim is released or retried.
+   */
+  async trashOrdersAdmin(ids: string[], by: string): Promise<TrashCustomerOrdersResDto> {
+    const notPushed = { trashedAt: null, pushedAt: null, $or: [{ pushingAt: null }, { pushingAt: { $exists: false } }] };
+    return this.applyPerId(ids, (_id) => this.customerOrderModel.updateOne({ _id, ...notPushed }, { $set: { trashedAt: new Date(), trashedBy: by } }));
+  }
+
+  /** Hub: bring trashed orders back to where they were (pending / cancelled — nothing else changed while trashed). */
+  async restoreOrdersAdmin(ids: string[]): Promise<TrashCustomerOrdersResDto> {
+    return this.applyPerId(ids, (_id) =>
+      this.customerOrderModel.updateOne({ _id, trashedAt: { $ne: null } }, { $set: { trashedAt: null }, $unset: { trashedBy: 1 } }),
+    );
+  }
+
+  /** One conditional update per id (≤ 200): the reported result is exactly what changed, even under a concurrent push. */
+  private async applyPerId(ids: string[], update: (id: string) => Promise<{ modifiedCount: number }>): Promise<TrashCustomerOrdersResDto> {
+    const changed: string[] = [];
+    for (const id of new Set(ids)) if ((await update(id)).modifiedCount > 0) changed.push(id);
+    return this.trashResult([...new Set(ids)], changed);
+  }
+
+  private trashResult(ids: string[], changed: string[]): TrashCustomerOrdersResDto {
+    this.adminCache.clear(); // counts/stats are cached 60 s; the tab numbers must move now
+    const done = new Set(changed);
+    return { success: true, data: { ok: changed.length, skipped: ids.filter((id) => !done.has(id)) } };
+  }
+
+  /**
+   * Hub item-level scope (`factoryId` / `priority`, `AdminOrderItemScopeZod`) as a document
+   * stage: the order matches iff one of its `items.productionId` is a non-cancelled production
+   * order in scope. That is EXACT (necessary and sufficient), so unlike `loadCandidatePids` it
+   * has no size cap: falling back to "no filter" past a cap would silently list every factory.
+   */
+  private async adminItemScopeStages(dto: { factoryId?: string; priority?: boolean }): Promise<Record<string, unknown>[]> {
+    if (!dto.factoryId && dto.priority !== true) return [];
+    const q: Record<string, unknown> = { cancelledAt: null, productionId: { $ne: null } };
+    if (dto.factoryId) q.factoryId = dto.factoryId;
+    if (dto.priority === true) q.priority = { $in: ORDER_PRIORITIES };
+    const pids = (await this.customerOrderModel.db.collection('orders').distinct('productionId', q)) as string[];
+    return [{ $match: { 'items.productionId': { $in: pids } } }];
+  }
+
   private async loadCandidatePids(opts: { stage?: string; status?: CustomerOrderStatus; held: boolean; cutoff: Date }): Promise<string[] | null> {
     const col = this.customerOrderModel.db.collection('orders');
     const sets: Array<Set<string>> = [];
@@ -1304,16 +1359,18 @@ export class CustomerOrderService implements OnModuleInit {
     pageTail?: Record<string, unknown>[];
     /** Tập `productionId` ứng viên (từ `loadCandidatePids`) — thu hẹp Ở MỨC DOCUMENT trước khi derive. null = không thu hẹp. */
     candidatePids?: string[] | null;
+    /** Hub Trashed tab: only trashed orders. Default excludes them (the fast path derives after paging, so this must be a document match). */
+    trash?: boolean;
     skip: number;
     limit: number;
   }): Record<string, unknown>[] {
     const docMatch: Record<string, unknown>[] = [
-      ...(opts.customerId ? [{ $match: { customerId: opts.customerId } }] : []),
+      { $match: { ...(opts.customerId ? { customerId: opts.customerId } : {}), ...CustomerOrderService.trashMatch(!!opts.trash) } },
       ...opts.preStages,
       ...(opts.productLine ? [{ $match: { 'items.productLine': opts.productLine } }] : []),
     ];
     const sortStages = [{ $addFields: { sortAt: { $ifNull: ['$pushedAt', '$createdAt'] } } }, { $sort: { sortAt: -1, _id: -1 } }];
-    const derive = this.buildDerivePipeline(null, opts.cutoff);
+    const derive = this.buildDerivePipeline(null, opts.cutoff, !!opts.trash);
     // `pending` suy được ở mức document (mirror `statusDerived`: chưa hủy, chưa hoàn tiền, chưa push) → đường nhanh.
     if (opts.status === CustomerOrderStatus.Pending) {
       docMatch.push({ $match: { status: { $ne: 'cancelled' }, refundedAt: null, pushedAt: null } });
@@ -1535,15 +1592,21 @@ export class CustomerOrderService implements OnModuleInit {
           },
         ]
       : [];
-    const candidatePids = await this.loadCandidatePids({ stage: dto.stage, status: dto.status, held: !!dto.held, cutoff });
+    preStages.push(...(await this.adminItemScopeStages(dto)));
+    // The Trashed tab is its own view: status/held filters do not apply to it.
+    const trash = dto.trashed === true;
+    const status = trash ? undefined : dto.status;
+    const held = !trash && !!dto.held;
+    const candidatePids = await this.loadCandidatePids({ stage: dto.stage, status, held, cutoff });
     const pipeline = this.buildPagedListPipeline({
       customerId: dto.customerId ?? null,
       candidatePids,
       cutoff,
       preStages,
       productLine: dto.productLine,
-      status: dto.status,
-      held: !!dto.held,
+      status,
+      held,
+      trash,
       postDeriveStages: stageStage,
       pageTail: CustomerOrderService.CUSTOMER_LOOKUP,
       skip: (dto.page - 1) * dto.limit,
@@ -1565,12 +1628,20 @@ export class CustomerOrderService implements OnModuleInit {
 
   private async computeCountsAdmin(dto: GetAdminCustomerOrderCountsDto): Promise<GetCustomerOrderCountsResDto> {
     const cutoff = await this.getCompletedCutoff();
-    const [byStatus, byLine] = this.countsPipelines(dto.customerId ?? null, cutoff, dto.productLine, CustomerOrderService.dateRangeStages(dto.dateFrom, dto.dateTo));
-    const [rows, lineRows] = await Promise.all([
+    const docStages = [...CustomerOrderService.dateRangeStages(dto.dateFrom, dto.dateTo), ...(await this.adminItemScopeStages(dto))];
+    const [byStatus, byLine] = this.countsPipelines(dto.customerId ?? null, cutoff, dto.productLine, docStages);
+    const trashedPipeline = [
+      { $match: { ...(dto.customerId ? { customerId: dto.customerId } : {}), ...CustomerOrderService.trashMatch(true) } },
+      ...docStages,
+      ...(dto.productLine ? [{ $match: { 'items.productLine': dto.productLine } }] : []),
+      { $count: 'n' },
+    ];
+    const [rows, lineRows, trashedRows] = await Promise.all([
       this.customerOrderModel.aggregate<{ _id: string; count: number; held: number; rework: number }>(byStatus as never[]),
       this.customerOrderModel.aggregate<{ _id: ProductLine; count: number }>(byLine as never[]),
+      this.customerOrderModel.aggregate<{ n: number }>(trashedPipeline as never[]),
     ]);
-    return { success: true, data: this.assembleCounts(rows, lineRows) };
+    return { success: true, data: { ...this.assembleCounts(rows, lineRows), trashed: trashedRows[0]?.n ?? 0 } };
   }
 
   async getStatsAdmin(): Promise<GetAdminCustomerOrderStatsResDto> {
@@ -1726,7 +1797,8 @@ export class CustomerOrderService implements OnModuleInit {
   // -------------------------------------------------------------------------
 
   private async getPendingStagingOrder(customer: CustomerDocument, id: string) {
-    const doc = await this.customerOrderModel.findOne({ _id: id, customerId: String(customer._id) });
+    // Trashed = gone for the seller: same answer as a missing order.
+    const doc = await this.customerOrderModel.findOne({ _id: id, customerId: String(customer._id), trashedAt: null });
     if (!doc) throw new NotFoundException(customerMessage('orderNotFoundDot'));
     if (doc.status === 'cancelled') throw new BadRequestException(customerMessage('orderCancelled'));
     if (doc.pushedAt) throw new BadRequestException(customerMessage('orderPushedEditLimited'));
@@ -1977,6 +2049,7 @@ export class CustomerOrderService implements OnModuleInit {
         _id: stagingId,
         customerId,
         pushedAt: null,
+        trashedAt: null, // a trashed order can never be pushed (trash requires pushingAt null: see trashOrdersAdmin)
         $or: [{ pushingAt: null }, { pushingAt: { $exists: false } }, { pushingAt: { $lt: new Date(now - PUSH_CLAIM_STALE_MS) } }],
       },
       { $set: { pushingAt: new Date(now) } },
