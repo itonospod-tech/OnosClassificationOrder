@@ -128,7 +128,8 @@
       "title": "Chọn xưởng — Dashboard, Đơn hàng, Công việc sẽ lọc theo xưởng này",
       "badgeError": "Lỗi cần xử lý",
       "badgeTool": "Soát tool tồn (cần làm lại / chưa soát)",
-      "lockedTitle": "Tài khoản gắn cố định với xưởng này"
+      "lockedTitle": "Tài khoản gắn cố định với xưởng này",
+      "noFactory": "Chưa gán xưởng"
     }
   },
   "overdueAlert": {
