@@ -2348,6 +2348,7 @@ Cố ý KHÔNG dùng store toàn cục: phạm vi ẩn trong store thì link g�
   - Badge theo xưởng **KHÔNG** áp `productionFactoryClause` (bộ loại xưởng US): cụm menu xưởng US là lọc tường minh, badge phải khớp số trang đó mở ra chứ không phải luôn 0 (§21).
 - Tiêu đề cụm xưởng in đậm hơn tiêu đề nhóm thường (`NavGroup.id === FACTORY_GROUP_ID`) — tên xưởng là thứ duy nhất phân biệt các cụm trùng hình dạng nhau.
 - `resetPathOf()` cắt `factoryId` trước khi bắn tín hiệu reset filter (§20) — trang đăng ký tín hiệu bằng `to` gốc.
+- **Menu 6 nhóm (01/10/2026, `documents/Plans/MenuRestructure-CEO.md`)**: `buildProductionItems` + `PRODUCTION_GROUP_ID` đã thay bằng `buildMainItems(t, factoryId)` (Báo cáo · Sản xuất · Tool · Ship · Ví · HR). Các param so khớp HAI CHIỀU ở `isLinkActive` và bị `resetPathOf()` cắt gom vào `SCOPE_PARAMS = ['factoryId', 'productLine', 'view']` — mục "3D" (`?productLine=3d`) không sáng cùng "Tất cả đơn", và bấm lại mục "3D" vẫn bắn đúng tín hiệu `PATHS.ORDERS_WORKSHOP` (§20).
 - **`isLinkActive` so khớp `factoryId` HAI CHIỀU** (khác mọi param khác chỉ kiểm "link ⊆ URL"): cụm chung và cụm từng xưởng dùng CHUNG đường dẫn, chỉ khác param này. Kiểm một chiều thì mục ở cụm chung luôn sáng kể cả khi đang xem 1 xưởng — 2 mục sáng cùng lúc và bấm mục chung trông như không có tác dụng.
 
 ### 25.3 Trang nào hiểu `factoryId`

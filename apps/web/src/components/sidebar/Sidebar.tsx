@@ -8,23 +8,27 @@ import {
   Barcode,
   Bell,
   BookOpen,
+  Box,
   Boxes,
-  Briefcase,
   Building2,
   ChevronDown,
   ChevronRight,
   Contact,
   Crown,
+  ExternalLink,
   Factory,
   FileDown,
   FileSearch,
-  LayoutGrid,
+  Frame,
+  Lightbulb,
   List,
+  ListChecks,
   LogOut,
   MapPin,
   MessageSquare,
   MessagesSquare,
   Package,
+  PackageCheck,
   Palette,
   PanelLeft,
   PanelLeftClose,
@@ -35,12 +39,15 @@ import {
   Settings,
   ShieldCheck,
   ShieldHalf,
-  ShoppingCart,
+  Shirt,
+  Spline,
   Tag,
+  TreePine,
   Truck,
   User,
   UserCog,
   Users,
+  Wallet,
   Workflow,
 } from 'lucide-react';
 import { RoleType } from 'shared';
@@ -168,6 +175,10 @@ interface NavChild {
   onlyForRoles?: string[];
   /** Active cả khi đang ở route con của `to` (vd `/adm/settings/<section>`). */
   matchPrefix?: boolean;
+  /** Nhãn mục nhỏ hiện NGAY TRÊN mục này (chia các mục con trong cùng một nhóm). */
+  sectionBefore?: string;
+  /** `to` là URL tuyệt đối sang app khác (Seller Portal) — mở tab mới, không qua Router. */
+  external?: boolean;
 }
 
 interface NavItem {
@@ -190,16 +201,21 @@ interface NavItem {
 interface NavGroup {
   title: string;
   items: NavItem[];
-  /**
-   * Đánh dấu nhóm "cụm sản xuất" (Dashboard + Quản lý đơn + Công việc) để chèn
-   * các cụm-theo-xưởng ngay sau nó. Không dò theo vị trí trong mảng: nhóm nào
-   * cũng có thể bị lọc mất vì quyền, index sẽ trượt.
-   */
-  id?: string;
 }
 
-/** `NavGroup.id` của cụm sản xuất chung (toàn bộ xưởng). */
-const PRODUCTION_GROUP_ID = 'production';
+const ADMIN_ROLES: string[] = [RoleType.SuperAdmin, RoleType.Admin];
+
+/** Seller Portal (`apps/seller`) — nơi duy nhất hiện có trang quản lý ví (`/hub/wallets`). */
+const SELLER_URL = ((import.meta.env.VITE_SELLER_URL as string | undefined) ?? '').replace(/\/+$/, '');
+
+/**
+ * Tham số URL so khớp HAI CHIỀU ở `isLinkActive` (khác mọi param khác, chỉ cần
+ * link ⊆ URL): các mục cùng đường dẫn chỉ khác nhau ở param này — "Tất cả đơn"
+ * vs "3D", cụm chung vs một xưởng. Kiểm một chiều thì mục KHÔNG có param luôn
+ * sáng cùng lúc với mục có param. Cũng là các param bị cắt khỏi tín hiệu
+ * "bấm lại để xóa filter" (`resetPathOf`) vì trang đăng ký bằng đường dẫn gốc.
+ */
+const SCOPE_PARAMS = ['factoryId', 'productLine', 'view'];
 
 /**
  * AUTH-7 — bảng tra "đường dẫn trang → mã quyền", dựng TỪ CHÍNH cây menu ở dưới.
@@ -223,280 +239,354 @@ export function buildPagePermissionMap(t: TFunction<'layout'>): Map<string, stri
     // Những mục đó khai `pagePerm` riêng (caller đã ưu tiên), còn mục nào KHÔNG
     // có mã trang nào thì để route mở như trước — mặc định cho vào.
     if (!perm.startsWith('page.')) return;
-    // Mục con của Dashboard trỏ tới cùng một trang kèm `?tab=...` — route chỉ
-    // biết phần đường dẫn, nên cắt query đi. Giữ mục ĐẦU TIÊN gặp: cùng một
+    // Nhiều mục trỏ tới cùng một trang kèm `?tab=...`/`?productLine=...` — route
+    // chỉ biết phần đường dẫn, nên cắt query đi. Giữ mục ĐẦU TIÊN gặp: cùng một
     // trang mà nhiều mục con khai perm khác nhau (vd Dashboard) thì lấy perm
-    // của chính trang đó, không lấy perm hẹp hơn của một tab bên trong.
+    // của mục đứng đầu (Báo cáo › Sản xuất = `page.dashboard`), không lấy perm
+    // hẹp hơn của một tab bên trong.
     const path = to.split('?')[0];
     if (!map.has(path)) map.set(path, perm);
   };
   for (const group of buildNavGroups(t)) {
     for (const item of group.items) {
       put(item.to ?? item.key, item.pagePerm ?? item.perm);
-      for (const child of item.children ?? []) put(child.to, child.pagePerm ?? child.perm ?? item.pagePerm ?? item.perm);
+      for (const child of item.children ?? [])
+        put(child.to, child.pagePerm ?? child.perm ?? item.pagePerm ?? item.perm);
     }
   }
   return map;
 }
 
 /**
- * Gắn `?factoryId=` vào link của "cụm menu theo xưởng". Link gốc có thể đã có
- * sẵn query (`?tab=factory`) nên phải chọn đúng dấu nối.
+ * Gắn `?factoryId=` vào link sản xuất. Link gốc có thể đã có sẵn query
+ * (`?tab=factory`) nên phải chọn đúng dấu nối.
  */
 function withFactory(to: string, factoryId?: string): string {
   if (!factoryId) return to;
   return `${to}${to.includes('?') ? '&' : '?'}factoryId=${encodeURIComponent(factoryId)}`;
 }
 
+/** Nối thêm query vào một đường dẫn có thể đã có `?`. */
+function withQuery(to: string, query: string): string {
+  return `${to}${to.includes('?') ? '&' : '?'}${query}`;
+}
+
 /**
- * Cụm sản xuất: Dashboard + Quản lý đơn + Công việc. Dùng 2 lần —
- *  - `factoryId` rỗng: cụm CHUNG ở đầu sidebar (toàn bộ xưởng, như trước);
- *  - có `factoryId`: 1 cụm riêng cho mỗi xưởng, mọi link kèm `?factoryId=` nên
- *    trang mở ra đã lọc sẵn xưởng đó (`useFactoryScope`).
+ * Menu 6 nhóm cấp một theo đề xuất CEO 01/10/2026 (`documents/Plans/MenuRestructure-CEO.md`):
+ * Báo cáo · Sản xuất · Tool · Ship · Ví · HR. Đợt 1B CHỈ là khung — nhiều mục còn
+ * trỏ tạm vào trang cũ (vd 6 dòng sản phẩm mở Danh sách đơn kèm `?productLine=`,
+ * trang chưa lọc theo param này cho tới đợt 2A).
  *
- * `keyPrefix` để key menu không đụng nhau giữa các cụm (React key + badgeMap).
- * Cụm xưởng KHÔNG gắn badge: số badge là số toàn hệ thống, treo lên cụm xưởng
- * sẽ đọc nhầm thành số của riêng xưởng đó.
+ * KEY của 3 mục mang badge (`orders-error-log`, `dash-designer`, `dash-tool-check`)
+ * PHẢI giữ nguyên — `badgeMap` gắn số theo key (SidebarBadges.md).
+ *
+ * Link khu sản xuất mang theo `?factoryId=` đang chọn ở bộ chọn xưởng trên
+ * header (`FactoryScopeSwitch`, Orders.md §25) để đổi trang không mất phạm vi.
  */
-function buildProductionItems(t: TFunction<'layout'>, factoryId?: string, keyPrefix = '', scopeOnly = false): NavItem[] {
-  const k = (key: string) => `${keyPrefix}${key}`;
+function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
   const to = (path: string) => withFactory(path, factoryId);
-  const items: NavItem[] = [
+  const lines = [
+    { code: '3d', icon: <Box size={14} /> },
+    { code: '2d', icon: <Shirt size={14} /> },
+    { code: 'embroidery', icon: <Spline size={14} /> },
+    { code: 'led', icon: <Lightbulb size={14} /> },
+    { code: 'canvas', icon: <Frame size={14} /> },
+    { code: 'wood', icon: <TreePine size={14} /> },
+  ];
+  const toolLines = [
+    { code: '3d', icon: <Box size={14} /> },
+    { code: '2d', icon: <Shirt size={14} /> },
+  ];
+
+  return [
     {
-      key: k(PATHS.HOME),
-      label: t('sidebar.dashboard.title'),
-      icon: <LayoutGrid size={17} />,
-      perm: 'page.dashboard',
+      key: 'nav-reports',
+      label: t('sidebar.nav.reports.title'),
+      icon: <BarChart3 size={17} />,
       children: [
         {
-          key: k('dash-factory'),
-          label: t('sidebar.dashboard.factory'),
+          key: 'dash-factory',
+          label: t('sidebar.nav.reports.production'),
           to: to(`${PATHS.HOME}?tab=factory`),
           icon: <Factory size={14} />,
+          perm: 'page.dashboard',
         },
         {
-          key: k('dash-stats'),
+          key: 'dash-stats',
           label: t('sidebar.dashboard.stats'),
           to: to(`${PATHS.HOME}?tab=stats`),
           icon: <BarChart3 size={14} />,
+          perm: 'page.dashboard',
         },
-        // Entry "Tình trạng đơn hàng" TẠM ẨN (2026-07, không cần nữa) —
-        // bật lại: bỏ comment + import lại ClipboardList từ lucide-react,
-        // đồng bộ với tab "status" đang comment ở pages/home/index.tsx.
-        // {
-        //   key: k('dash-status'),
-        //   label: t('sidebar.dashboard.status'),
-        //   to: to(`${PATHS.HOME}?tab=status`),
-        //   icon: <ClipboardList size={14} />,
-        // },
         {
-          key: k('dash-lifecycle'),
+          key: 'dash-lifecycle',
           label: t('sidebar.dashboard.lifecycle'),
           to: to(`${PATHS.HOME}?tab=lifecycle`),
           icon: <Workflow size={14} />,
+          perm: 'page.dashboard',
         },
         {
-          key: k('dash-tool-check'),
-          label: t('sidebar.dashboard.toolCheck'),
-          to: to(`${PATHS.HOME}?tab=tool-check`),
-          icon: <FileSearch size={14} />,
-          perm: 'page.tool_check',
-        },
-        // Entry "Lỗi theo người" TẠM ẨN (2026-07, không cần nữa) — đồng bộ
-        // với tab "person-error" đang comment ở pages/home/index.tsx.
-        // {
-        //   key: k('dash-person-error'),
-        //   label: t('sidebar.dashboard.personError'),
-        //   to: to(`${PATHS.HOME}?tab=person-error`),
-        //   icon: <AlertTriangle size={14} />,
-        //   anyPerm: ['page.designer_stats', 'page.tool_check'],
-        // },
-        {
-          key: k('dash-designer'),
+          key: 'dash-designer',
           label: t('sidebar.dashboard.designer'),
           to: to(`${PATHS.HOME}?tab=designer`),
           icon: <Palette size={14} />,
           perm: 'page.designer_stats',
         },
+        {
+          // Tạm trỏ trang Vận đơn (có sẵn dashboard chi phí) — báo cáo ship thật làm ở đợt 2B.
+          key: 'reports-ship',
+          label: t('sidebar.nav.reports.ship'),
+          to: withQuery(PATHS.SHIPMENTS, 'view=report'),
+          icon: <Truck size={14} />,
+          onlyForRoles: ADMIN_ROLES,
+          // Route Vận đơn trước đây gác `page.orders` (thừa kế từ mục cha "Quản lý đơn") — giữ nguyên.
+          pagePerm: 'page.orders',
+        },
+        {
+          // Tồn kho theo xưởng (Inventory.md) — thủ kho nhập phiếu + xem tồn; trừ kho ở trạm quét.
+          key: PATHS.INVENTORY,
+          label: t('sidebar.nav.reports.stock'),
+          to: to(PATHS.INVENTORY),
+          icon: <Boxes size={14} />,
+          perm: 'page.inventory',
+        },
+        {
+          // Bảng điều hành — CHỈ SuperAdmin/Admin (không mã quyền: khóa cứng theo vai). Trang tự chặn vai khác.
+          key: PATHS.CEO_DASHBOARD,
+          label: t('sidebar.ceoDashboard'),
+          to: PATHS.CEO_DASHBOARD,
+          icon: <Crown size={14} />,
+          onlyForRoles: ADMIN_ROLES,
+        },
       ],
     },
     {
-      key: k(PATHS.ORDERS),
-      label: t('sidebar.orders.title'),
-      icon: <ShoppingCart size={17} />,
-      perm: 'page.orders',
+      // Key = `/ffm/orders` + `pagePerm`: giữ route trang Orders cũ được gác `page.orders` như khi
+      // nó còn là mục cha "Quản lý đơn" (AUTH-7 dựng bảng quyền từ key mục cha). Không gác hiển thị nhóm.
+      key: PATHS.ORDERS,
+      label: t('sidebar.nav.production.title'),
+      icon: <Factory size={17} />,
+      pagePerm: 'page.orders',
       children: [
-        // "List Order" (tab cũ) đang tạm tắt (xem pages/orders/ListOrderTab.tsx)
-        // — thay bằng "Danh sách đơn", đúng trang default thật hiện tại.
         {
-          key: k('orders-workshop'),
-          label: t('sidebar.orders.list'),
+          key: 'orders-workshop',
+          label: t('sidebar.nav.production.all'),
           to: to(PATHS.ORDERS_WORKSHOP),
           icon: <List size={14} />,
+          perm: 'page.orders',
         },
+        ...lines.map(({ code, icon }) => ({
+          key: `line-${code}`,
+          label: t(`sidebar.nav.lines.${code}`),
+          to: to(withQuery(PATHS.ORDERS_WORKSHOP, `productLine=${code}`)),
+          icon,
+          perm: 'page.orders',
+        })),
         {
-          key: k('orders-error-log'),
+          key: 'orders-error-log',
           label: t('sidebar.orders.errorLog'),
           to: to(PATHS.ORDERS_ERROR_LOG),
           icon: <AlertTriangle size={14} />,
+          perm: 'page.orders',
           hideForRoles: ['Support'],
+          sectionBefore: t('sidebar.nav.production.operations'),
         },
         {
-          key: k('orders-scan-error'),
-          label: t('sidebar.orders.scanError'),
-          to: to(PATHS.ORDERS_SCAN_ERROR),
-          icon: <ScanLine size={14} />,
-          perm: 'page.scan_error',
-        },
-        {
-          key: k('orders-stage-errors'),
-          label: t('sidebar.orders.stageErrors'),
-          to: to(PATHS.ORDERS_STAGE_ERRORS),
-          icon: <Barcode size={14} />,
-          perm: 'page.stage_errors',
-        },
-        {
-          key: k('orders-unmapped'),
-          label: t('sidebar.orders.unmapped'),
-          to: to(PATHS.ORDERS_UNMAPPED),
-          icon: <MapPin size={14} />,
-          perm: 'page.unmapped_factory',
-        },
-        {
-          key: k('orders-shipments'),
-          label: t('sidebar.orders.shipments'),
-          to: to(PATHS.SHIPMENTS),
-          icon: <Truck size={14} />,
-          // Toàn bộ bề mặt VNP shipping chỉ Admin/SuperAdmin (VnpShipping.md §7).
-          onlyForRoles: [RoleType.SuperAdmin, RoleType.Admin],
-        },
-        {
-          key: k('orders-import'),
-          label: t('sidebar.orders.import'),
-          to: to(PATHS.ORDERS_IMPORT),
-          icon: <FileDown size={14} />,
-          perm: 'order.import',
-        },
-        {
-          key: k('orders-cutting-files'),
-          label: t('sidebar.orders.cuttingFiles'),
-          to: to(PATHS.ORDERS_CUTTING_FILES),
-          icon: <Scissors size={14} />,
-          perm: 'order.import',
-        },
-      ],
-    },
-    {
-      key: k('work'),
-      label: t('sidebar.work.title'),
-      icon: <Briefcase size={17} />,
-      children: [
-        {
-          key: k(PATHS.MY_TASKS),
+          key: PATHS.MY_TASKS,
           label: t('sidebar.work.myTasks'),
           to: to(PATHS.MY_TASKS),
-          icon: <List size={14} />,
+          icon: <ListChecks size={14} />,
           perm: 'page.my_tasks',
         },
         {
-          key: k(PATHS.FULFILLMENT_MY_TASKS),
+          key: PATHS.FULFILLMENT_MY_TASKS,
           label: t('sidebar.work.fulfillmentTasks'),
           to: to(PATHS.FULFILLMENT_MY_TASKS),
           icon: <Factory size={14} />,
           perm: 'page.fulfillment_my_tasks',
         },
         {
-          // Cùng quyền với Task Fulfillment: người bàn giao cho hãng chính là
-          // nhân sự kho của xưởng, không cần quyền riêng.
-          key: k(PATHS.HANDOVER),
-          label: t('sidebar.work.handover'),
-          to: to(PATHS.HANDOVER),
-          icon: <Truck size={14} />,
-          perm: 'page.fulfillment_my_tasks',
+          key: 'orders-scan-error',
+          label: t('sidebar.orders.scanError'),
+          to: to(PATHS.ORDERS_SCAN_ERROR),
+          icon: <ScanLine size={14} />,
+          perm: 'page.scan_error',
         },
         {
-          // Tồn kho theo xưởng (Inventory-FactoryStock plan) — thủ kho nhập
-          // phiếu + xem tồn; trừ kho làm ở trạm quét (ACT-STOCK-OUT).
-          key: k(PATHS.INVENTORY),
-          label: t('sidebar.work.inventory'),
-          to: to(PATHS.INVENTORY),
-          icon: <Boxes size={14} />,
-          perm: 'page.inventory',
+          key: 'orders-stage-errors',
+          label: t('sidebar.orders.stageErrors'),
+          to: to(PATHS.ORDERS_STAGE_ERRORS),
+          icon: <Barcode size={14} />,
+          perm: 'page.stage_errors',
+        },
+        {
+          key: 'orders-unmapped',
+          label: t('sidebar.orders.unmapped'),
+          to: to(PATHS.ORDERS_UNMAPPED),
+          icon: <MapPin size={14} />,
+          perm: 'page.unmapped_factory',
+        },
+        {
+          // Bảng phẳng, phân trang THẬT, KHÔNG gộp theo sản phẩm (OrderTableClassic.tsx).
+          key: PATHS.ORDERS_CLASSIC,
+          label: t('sidebar.orders.classic'),
+          to: PATHS.ORDERS_CLASSIC,
+          icon: <Rows3 size={14} />,
+          perm: 'page.orders',
+        },
+        {
+          key: 'orders-import',
+          label: t('sidebar.orders.import'),
+          to: to(PATHS.ORDERS_IMPORT),
+          icon: <FileDown size={14} />,
+          perm: 'order.import',
+          sectionBefore: t('sidebar.nav.production.data'),
+        },
+        {
+          key: 'orders-cutting-files',
+          label: t('sidebar.orders.cuttingFiles'),
+          to: to(PATHS.ORDERS_CUTTING_FILES),
+          icon: <Scissors size={14} />,
+          perm: 'order.import',
+        },
+        {
+          // Hướng dẫn quy trình DTF theo vai (DtfRoleGuide.md) — trang tĩnh.
+          key: PATHS.DTF_GUIDE,
+          label: t('sidebar.guideDtf'),
+          to: to(PATHS.DTF_GUIDE),
+          icon: <BookOpen size={14} />,
+          perm: 'page.guide_dtf',
+          sectionBefore: t('sidebar.nav.production.guide'),
         },
       ],
     },
     {
-      // Hướng dẫn quy trình DTF theo vai (DtfRoleGuide.md) — trang tĩnh, nội dung không phụ thuộc xưởng; link vẫn
-      // mang `?factoryId=` như cả cụm để quay lại trang khác không mất phạm vi xưởng đang chọn.
-      key: k(PATHS.DTF_GUIDE),
-      label: t('sidebar.guideDtf'),
-      to: to(PATHS.DTF_GUIDE),
-      icon: <BookOpen size={17} />,
-      perm: 'page.guide_dtf',
+      key: 'nav-tool',
+      label: t('sidebar.nav.tool.title'),
+      icon: <FileSearch size={17} />,
+      children: [
+        {
+          key: 'dash-tool-check',
+          label: t('sidebar.nav.tool.overview'),
+          to: to(`${PATHS.HOME}?tab=tool-check`),
+          icon: <FileSearch size={14} />,
+          perm: 'page.tool_check',
+        },
+        ...toolLines.map(({ code, icon }) => ({
+          key: `tool-${code}`,
+          label: t(`sidebar.nav.tool.${code}`),
+          to: to(`${PATHS.HOME}?tab=tool-check&productLine=${code}`),
+          icon,
+          perm: 'page.tool_check',
+        })),
+      ],
+    },
+    {
+      key: 'nav-ship',
+      label: t('sidebar.nav.ship.title'),
+      icon: <Truck size={17} />,
+      children: [
+        {
+          // Toàn bộ bề mặt VNP shipping chỉ Admin/SuperAdmin (VnpShipping.md §7).
+          key: 'orders-shipments',
+          label: t('sidebar.orders.shipments'),
+          to: PATHS.SHIPMENTS,
+          icon: <Truck size={14} />,
+          onlyForRoles: ADMIN_ROLES,
+          pagePerm: 'page.orders',
+        },
+        {
+          // Cùng quyền với Task Fulfillment: người bàn giao cho hãng là nhân sự kho của xưởng.
+          key: PATHS.HANDOVER,
+          label: t('sidebar.work.handover'),
+          to: to(PATHS.HANDOVER),
+          icon: <PackageCheck size={14} />,
+          perm: 'page.fulfillment_my_tasks',
+        },
+      ],
+    },
+    {
+      key: 'nav-wallet',
+      label: t('sidebar.nav.wallet.title'),
+      icon: <Wallet size={17} />,
+      // Ví phía nhân viên CHƯA CÓ trong app này — tạm mở trang quản lý ví seller ở
+      // Seller Portal (`/hub/wallets`, cũng chỉ Admin/SuperAdmin). Không cấu hình
+      // `VITE_SELLER_URL` thì ẩn hẳn thay vì trỏ vào link chết. Trang thật: đợt 2C.
+      children: SELLER_URL
+        ? [
+            {
+              key: 'wallet-sellers',
+              label: t('sidebar.nav.wallet.sellers'),
+              to: `${SELLER_URL}/hub/wallets`,
+              icon: <Wallet size={14} />,
+              onlyForRoles: ADMIN_ROLES,
+              external: true,
+            },
+          ]
+        : [],
+    },
+    {
+      key: 'nav-hr',
+      label: t('sidebar.nav.hr.title'),
+      icon: <Users size={17} />,
+      children: [
+        {
+          key: PATHS.USERS,
+          label: t('sidebar.users'),
+          to: PATHS.USERS,
+          icon: <User size={14} />,
+          perm: 'user.manage',
+          pagePerm: 'page.users',
+        },
+        {
+          key: PATHS.DEPARTMENTS,
+          label: t('sidebar.departments'),
+          to: PATHS.DEPARTMENTS,
+          icon: <Building2 size={14} />,
+          perm: 'user.manage',
+          pagePerm: 'page.users',
+        },
+        {
+          key: PATHS.DESIGNER_TEAM,
+          label: t('sidebar.designerTeam'),
+          to: PATHS.DESIGNER_TEAM,
+          icon: <Palette size={14} />,
+          perm: 'page.designer_team',
+        },
+        {
+          key: PATHS.ROLES,
+          label: t('sidebar.roles'),
+          to: PATHS.ROLES,
+          icon: <ShieldCheck size={14} />,
+          perm: 'role.manage',
+          pagePerm: 'page.roles',
+        },
+        {
+          key: PATHS.CUSTOM_ROLES,
+          label: t('sidebar.customRoles'),
+          to: PATHS.CUSTOM_ROLES,
+          icon: <ShieldHalf size={14} />,
+          perm: 'role.manage',
+          pagePerm: 'page.roles',
+        },
+        {
+          key: PATHS.IMPERSONATE,
+          label: t('sidebar.impersonate'),
+          to: PATHS.IMPERSONATE,
+          icon: <UserCog size={14} />,
+          onlyForRoles: [RoleType.SuperAdmin],
+        },
+      ],
     },
   ];
-  // `scopeOnly` (07/09/2026): cụm sản xuất CHUNG chỉ MANG THEO `?factoryId=` đang chọn ở bộ chọn
-  // xưởng trên header (để đổi trang không mất phạm vi), KHÔNG ẩn/đổi nhãn như cụm riêng từng xưởng cũ.
-  if (!factoryId || scopeOnly) return items;
-
-  // Trong cụm của 1 xưởng, các mục này KHÔNG thuộc phạm vi xưởng nào cả: danh
-  // mục lỗi công đoạn là danh mục dùng chung, "Không xác định xưởng" theo định
-  // nghĩa là đơn CHƯA có xưởng, import đơn / import file cắt là thao tác nạp dữ
-  // liệu toàn hệ thống, quét mã là thao tác tại trạm (máy quét đã ở đúng xưởng
-  // rồi), còn Designer không thuộc xưởng nào (liên kết designer↔xưởng chỉ tồn
-  // tại trong cấu hình auto-gán).
-  const hidden = new Set([
-    k('dash-designer'),
-    k('orders-scan-error'),
-    k('orders-stage-errors'),
-    k('orders-unmapped'),
-    k('orders-import'),
-    k('orders-cutting-files'),
-  ]);
-  // Tiêu đề cụm đã là tên xưởng rồi, nên nhãn bên trong bỏ phần lặp lại
-  // ("Đơn hàng theo xưởng" → "Tổng quan xưởng", "Quản lý đơn" → "Đơn hàng").
-  const relabel: Record<string, string> = {
-    [k(PATHS.HOME)]: t('sidebar.factoryScope.dashboard'),
-    [k('dash-factory')]: t('sidebar.factoryScope.overview'),
-    [k(PATHS.ORDERS)]: t('sidebar.factoryScope.orders'),
-  };
-  return items
-    .map((it) => ({
-      ...it,
-      label: relabel[it.key] ?? it.label,
-      children: it.children
-        ?.filter((c) => !hidden.has(c.key))
-        .map((c) => ({ ...c, label: relabel[c.key] ?? c.label })),
-    }))
-    .filter((it) => !it.children || it.children.length > 0);
 }
 
 function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEmail?: string): NavGroup[] {
   return [
+    { title: '', items: buildMainItems(t, factoryScopeId) },
     {
-      id: PRODUCTION_GROUP_ID,
-      title: '',
-      // Link mang theo xưởng đang chọn ở header (`FactoryScopeSwitch`) — xem Orders.md §25.
-      items: buildProductionItems(t, factoryScopeId, '', true),
-    },
-    {
-      // Nhóm menu RIÊNG cho "Đơn hàng" (bảng phẳng, phân trang THẬT, KHÔNG gộp
-      // theo sản phẩm — khác "Danh sách đơn" ở nhóm trên dùng getOrdersGrouped).
-      // Cùng cột/filter/bulk với Workshop, chỉ khác cách hiển thị + KHÔNG có
-      // Designer Summary. Xem OrderTableClassic.tsx.
-      title: t('sidebar.groups.orders'),
-      items: [
-        {
-          key: PATHS.ORDERS_CLASSIC,
-          label: t('sidebar.orders.classic'),
-          to: PATHS.ORDERS_CLASSIC,
-          icon: <Rows3 size={17} />,
-          perm: 'page.orders',
-        },
-      ],
-    },
-    {
-      title: t('sidebar.groups.catalog'),
+      // Các mục CHƯA thuộc 6 nhóm CEO — giữ nguyên chờ chốt chỗ (MenuRestructure-CEO.md), không xóa.
+      title: t('sidebar.groups.system'),
       items: [
         {
           key: PATHS.PRODUCTS,
@@ -521,90 +611,6 @@ function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEma
           // DesignerLeader CÓ `page.workshop_config` nhưng KHÔNG có `workshop.manage`:
           // menu vẫn ẩn như trước, còn route thì mở — đúng quyền vào trang của họ.
           pagePerm: 'page.workshop_config',
-        },
-      ],
-    },
-    {
-      title: t('sidebar.groups.personal'),
-      items: [
-        {
-          key: PATHS.NOTIFICATIONS,
-          label: t('sidebar.notifications'),
-          to: PATHS.NOTIFICATIONS,
-          icon: <Bell size={17} />,
-        },
-        { key: PATHS.ACCOUNT, label: t('sidebar.account'), to: PATHS.ACCOUNT, icon: <User size={17} /> },
-      ],
-    },
-    {
-      // Bảng điều hành cho lãnh đạo — CHỈ SuperAdmin/Admin (không mã quyền: khóa cứng theo vai,
-      // cùng cách với Chat Zalo). Trang cũng tự chặn vai khác (pages/ceo/index.tsx).
-      title: t('sidebar.groups.ceo'),
-      items: [
-        {
-          key: PATHS.CEO_DASHBOARD,
-          label: t('sidebar.ceoDashboard'),
-          to: PATHS.CEO_DASHBOARD,
-          icon: <Crown size={17} />,
-          onlyForRoles: [RoleType.SuperAdmin, RoleType.Admin],
-        },
-      ],
-    },
-    {
-      title: t('sidebar.groups.admin'),
-      items: [
-        {
-          key: 'admin-people',
-          label: t('sidebar.peoplePermissions'),
-          icon: <Users size={17} />,
-          children: [
-            {
-              key: PATHS.DESIGNER_TEAM,
-              label: t('sidebar.designerTeam'),
-              to: PATHS.DESIGNER_TEAM,
-              icon: <Palette size={14} />,
-              perm: 'page.designer_team',
-            },
-            {
-              key: PATHS.USERS,
-              label: t('sidebar.users'),
-              to: PATHS.USERS,
-              icon: <User size={14} />,
-              perm: 'user.manage',
-              pagePerm: 'page.users',
-            },
-            {
-              key: PATHS.DEPARTMENTS,
-              label: t('sidebar.departments'),
-              to: PATHS.DEPARTMENTS,
-              icon: <Building2 size={14} />,
-              perm: 'user.manage',
-              pagePerm: 'page.users',
-            },
-            {
-              key: PATHS.ROLES,
-              label: t('sidebar.roles'),
-              to: PATHS.ROLES,
-              icon: <ShieldCheck size={14} />,
-              perm: 'role.manage',
-              pagePerm: 'page.roles',
-            },
-            {
-              key: PATHS.CUSTOM_ROLES,
-              label: t('sidebar.customRoles'),
-              to: PATHS.CUSTOM_ROLES,
-              icon: <ShieldHalf size={14} />,
-              perm: 'role.manage',
-              pagePerm: 'page.roles',
-            },
-            {
-              key: PATHS.IMPERSONATE,
-              label: t('sidebar.impersonate'),
-              to: PATHS.IMPERSONATE,
-              icon: <UserCog size={14} />,
-              onlyForRoles: [RoleType.SuperAdmin],
-            },
-          ],
         },
         {
           key: PATHS.CUSTOMERS,
@@ -653,6 +659,18 @@ function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEma
         },
       ],
     },
+    {
+      title: t('sidebar.groups.personal'),
+      items: [
+        {
+          key: PATHS.NOTIFICATIONS,
+          label: t('sidebar.notifications'),
+          to: PATHS.NOTIFICATIONS,
+          icon: <Bell size={17} />,
+        },
+        { key: PATHS.ACCOUNT, label: t('sidebar.account'), to: PATHS.ACCOUNT, icon: <User size={17} /> },
+      ],
+    },
   ];
 }
 
@@ -676,7 +694,8 @@ function filterMenuByPermissions(
     return !perm || codes.has(perm);
   };
   const visibleForRole = (c: Pick<NavChild, 'hideForRoles' | 'onlyForRoles'>) =>
-    !(roleName && c.hideForRoles?.includes(roleName)) && (!c.onlyForRoles || (!!roleName && c.onlyForRoles.includes(roleName)));
+    !(roleName && c.hideForRoles?.includes(roleName)) &&
+    (!c.onlyForRoles || (!!roleName && c.onlyForRoles.includes(roleName)));
   return groups
     .map((g) => ({
       ...g,
@@ -709,12 +728,8 @@ function isLinkActive(linkPath: string, currentPath: string, currentSearch: stri
   if (!pathMatches) return false;
   const linkParams = new URLSearchParams(queryPart || '');
   const currentParams = new URLSearchParams(currentSearch);
-  // `factoryId` so khớp HAI CHIỀU, khác mọi param khác: cụm chung và cụm từng
-  // xưởng dùng CHUNG đường dẫn, chỉ khác param này. Nếu chỉ kiểm "link ⊆ URL"
-  // như bên dưới thì mục ở cụm chung (không có `factoryId`) luôn active kể cả
-  // khi đang xem một xưởng — sáng cùng lúc 2 mục, và bấm mục chung trông như
-  // không có tác dụng gì.
-  if ((linkParams.get('factoryId') || '') !== (currentParams.get('factoryId') || '')) return false;
+  // Param phạm vi so khớp HAI CHIỀU — xem `SCOPE_PARAMS`.
+  if (SCOPE_PARAMS.some((p) => (linkParams.get(p) || '') !== (currentParams.get(p) || ''))) return false;
   if (!queryPart) return true;
   // exact query param subset check
   for (const [k, v] of linkParams.entries()) {
@@ -725,15 +740,15 @@ function isLinkActive(linkPath: string, currentPath: string, currentSearch: stri
 
 /**
  * Đường dẫn dùng cho tín hiệu "click lại menu đang active → xóa filter trang".
- * Cắt `factoryId` đi vì trang đăng ký tín hiệu bằng `to` GỐC (không có phạm vi
- * xưởng) — giữ nguyên thì mục trong cụm xưởng không bao giờ khớp, bấm lại
+ * Cắt các param phạm vi (`SCOPE_PARAMS`) vì trang đăng ký tín hiệu bằng `to`
+ * GỐC — giữ nguyên thì mục "3D" hay mục mang xưởng không bao giờ khớp, bấm lại
  * không xóa được filter.
  */
 function resetPathOf(to: string): string {
   const [path, query] = to.split('?');
   if (!query) return to;
   const sp = new URLSearchParams(query);
-  sp.delete('factoryId');
+  for (const p of SCOPE_PARAMS) sp.delete(p);
   const rest = sp.toString();
   return rest ? `${path}?${rest}` : path;
 }
@@ -753,6 +768,25 @@ function SidebarLeaf({
   const active = isLinkActive(item.to, location.pathname, location.search, item.matchPrefix);
   const requestReset = useSidebarResetStore((s) => s.requestReset);
   const hasBadges = !!badges?.length;
+  if (item.external) {
+    return (
+      <a
+        href={item.to}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={collapsed ? item.label : undefined}
+        className={cn(
+          'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+          collapsed && 'justify-center',
+          !collapsed && level > 0 && 'ml-5 py-1.5 text-[13px]',
+        )}
+      >
+        <span>{item.icon}</span>
+        {!collapsed && <span className="truncate flex-1">{item.label}</span>}
+        {!collapsed && <ExternalLink size={12} className="shrink-0 opacity-60" />}
+      </a>
+    );
+  }
   return (
     <Link
       to={item.to}
@@ -816,6 +850,10 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
   );
 
   if (collapsed) {
+    // Mục con đầu là link sang app khác (Ví → Seller Portal) — `Link` không mở được URL tuyệt đối.
+    if (item.children![0].external) {
+      return <SidebarLeaf item={{ ...item.children![0], label: item.label, icon: item.icon }} collapsed />;
+    }
     // Collapsed: show parent icon only; clicking still navigates to first child
     return (
       <Link
@@ -860,7 +898,14 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
       {open && (
         <div className="space-y-0.5 mt-0.5">
           {item.children!.map((c) => (
-            <SidebarLeaf key={c.key} item={c} collapsed={false} level={1} badges={badgeMap[c.key]} />
+            <React.Fragment key={c.key}>
+              {c.sectionBefore && (
+                <p className="ml-5 px-3 pt-2 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                  {c.sectionBefore}
+                </p>
+              )}
+              <SidebarLeaf item={c} collapsed={false} level={1} badges={badgeMap[c.key]} />
+            </React.Fragment>
           ))}
         </div>
       )}
@@ -961,7 +1006,10 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
     <TooltipProvider delayDuration={150}>
       <div className="flex flex-col h-full bg-background">
         <div
-          className={cn('flex items-center gap-2 h-14 border-b border-border', showLabels ? 'px-3' : 'justify-center px-1')}
+          className={cn(
+            'flex items-center gap-2 h-14 border-b border-border',
+            showLabels ? 'px-3' : 'justify-center px-1',
+          )}
         >
           {showLabels && <img src={logoUrl} alt="Logo" className="h-7 w-auto min-w-0 object-contain" />}
           {/* Nút thu gọn/mở rộng — chỉ desktop (mobile dùng Sheet có nút đóng riêng). */}
@@ -985,9 +1033,7 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
           {navGroups.map((group, idx) => (
             <div key={group.title || `group-${idx}`}>
               {showLabels && group.title && (
-                <p
-                  className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
-                >
+                <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.title}
                 </p>
               )}

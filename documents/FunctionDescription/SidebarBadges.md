@@ -11,9 +11,11 @@
 
 | Entry (key sidebar)                   | Badge vàng (`amber`)                       | Badge đỏ (`red`)                              |
 | ------------------------------------- | ------------------------------------------ | --------------------------------------------- |
-| Nhật ký bù lỗi (`orders-error-log`)   | —                                          | `errorLogTodo` — đơn lỗi tab "Cần xử lý" theo góc nhìn chặng của viewer |
-| Dashboard → Designer (`dash-designer`) | `designerUnassigned` — đơn chưa gán (7 ngày) | `designerBacklog` — tổng tồn thiết kế 7 ngày (Designer thường: tồn của chính họ) |
-| Dashboard → Soát tool (`dash-tool-check`) | `toolCheckRework` — đơn In trả về cần làm lại | `toolCheckUnreviewed` — đơn chưa soát (7 ngày) |
+| Sản xuất → Nhật ký bù lỗi (`orders-error-log`)   | —                                          | `errorLogTodo` — đơn lỗi tab "Cần xử lý" theo góc nhìn chặng của viewer |
+| Báo cáo → Designer (`dash-designer`) | `designerUnassigned` — đơn chưa gán (7 ngày) | `designerBacklog` — tổng tồn thiết kế 7 ngày (Designer thường: tồn của chính họ) |
+| Tool → Soát tool — tổng quan (`dash-tool-check`) | `toolCheckRework` — đơn In trả về cần làm lại | `toolCheckUnreviewed` — đơn chưa soát (7 ngày) |
+
+> Menu 6 nhóm (01/10/2026, `documents/Plans/MenuRestructure-CEO.md`) dời 3 entry sang nhóm mới nhưng GIỮ NGUYÊN key — `badgeMap` gắn số theo key, đổi key là mất badge.
 
 Badge = 0 hoặc `null` (ngoài quyền role) → ẩn. Parent đang đóng (chevron) → hiện pill gộp theo màu; sidebar thu gọn → chấm màu góc icon (đỏ ưu tiên hơn vàng), tooltip liệt kê từng số.
 

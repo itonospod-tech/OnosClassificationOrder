@@ -183,11 +183,12 @@
       "autoPack": {
         "label": "Auto-complete Packing",
         "hint": "On: orders reaching the Packing stage complete automatically (production finished, notifications/webhooks fire as with manual packing). Only applies to NEW arrivals — use the button below for the current backlog.",
-        "sweepBtn": "Complete Packing backlog",
-        "sweepConfirm": "Complete ALL orders currently waiting at the Packing stage of factory {{name}}?",
-        "sweepEmpty": "No orders waiting at Packing.",
-        "sweepDone": "Completed {{ok}} orders at Packing.",
-        "sweepPartial": "Completed {{ok}} orders, {{fail}} failed (held orders / invalid state)."
+        "sweepBtn": "Complete backlog",
+        "sweepConfirm": "Complete {{total}} orders stuck at auto-complete stages of factory {{name}}?",
+        "sweepEmpty": "No orders stuck at auto-complete stages.",
+        "sweepDone": "Completed {{ok}} backlog orders.",
+        "sweepPartial": "Completed {{ok}} orders, {{fail}} failed (held orders / invalid state).",
+        "sweepWarning": "Each order is marked production-completed AT CLICK TIME, a package is created and the customer is notified (webhook). This cannot be undone."
       },
       "skipToolCheck": {
         "label": "Skip tool check",

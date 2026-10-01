@@ -19,6 +19,32 @@ import type { UserDocument } from '../modules/user/user.entity';
  */
 const CUSTOMER_ALLOWED_PREFIXES = ['/customer/'];
 
+/**
+ * Guard trả `false` → Nest ném `ForbiddenException('Forbidden resource')` và
+ * log chỉ còn stack nội bộ Nest, không biết route/role/nhánh nào chặn. Ghi 1
+ * dòng JSON có `reason` để phân biệt "bấm vào chỗ không có quyền" (`role`) với
+ * phiên đã bị thay/đăng xuất (`session`) hay token khách đi lạc (`customer-prefix`).
+ */
+function deny(
+  reason: 'customer-prefix' | 'session' | 'no-role' | 'role',
+  request: { method?: string; url?: string; routeOptions?: { url?: string } },
+  user: UserDocument | undefined,
+  roles?: RoleType[],
+): false {
+  console.warn(
+    JSON.stringify({
+      tag: 'roles-guard-deny',
+      reason,
+      method: request.method,
+      route: request.routeOptions?.url ?? (request.url ?? '').split('?')[0],
+      role: user?.role?.name ?? null,
+      userId: user?._id ? String(user._id) : null,
+      allowed: roles,
+    }),
+  );
+  return false;
+}
+
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
@@ -40,7 +66,7 @@ export class RolesGuard implements CanActivate {
       // Chỉ deny-sớm route ngoài whitelist; route hợp lệ vẫn đi tiếp flow
       // kiểm tra session Redis + roles bên dưới như mọi token khác.
       if (!CUSTOMER_ALLOWED_PREFIXES.some((prefix) => url.includes(prefix))) {
-        return false;
+        return deny('customer-prefix', request, user);
       }
     }
 
@@ -71,7 +97,7 @@ export class RolesGuard implements CanActivate {
     const cachedToken = await this.redisCacheService.getHash(cachedKey, 'accessToken');
 
     if (cachedToken !== accessToken) {
-      return false;
+      return deny('session', request, user, roles);
     }
 
     if (user.role?.name === RoleType.SuperAdmin) {
@@ -83,9 +109,9 @@ export class RolesGuard implements CanActivate {
     }
 
     if (!user.role) {
-      return false;
+      return deny('no-role', request, user, roles);
     }
 
-    return roles.includes(user.role.name);
+    return roles.includes(user.role.name) || deny('role', request, user, roles);
   }
 }

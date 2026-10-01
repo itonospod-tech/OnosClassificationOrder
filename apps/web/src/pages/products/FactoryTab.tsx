@@ -99,7 +99,7 @@ const DEFAULT_FORM: FormState = {
 };
 
 export function FactoryTab() {
-  const { t } = useTranslation(['products', 'common']);
+  const { t } = useTranslation(['products', 'common', 'fulfillmentWorkflow']);
   const { confirm, confirmDialog } = useConfirm();
   // AUTH-6 - vai chi doc (Support) xem duoc, khong tao/sua/xoa duoc.
   const { canManageProducts } = useProductWriteAccess();
@@ -254,16 +254,31 @@ export function FactoryTab() {
       },
     });
 
-  // Nút "Hoàn thành đơn tồn" — dọn 1 lần mọi đơn đang chờ ở Đóng hàng của
-  // xưởng (toggle autoCompletePack chỉ áp đơn MỚI chảy tới, không đụng đơn tồn).
+  // Nút "Hoàn thành đơn tồn" — dọn 1 lần đơn đang đứng ở công đoạn TỰ HOÀN
+  // THÀNH của xưởng (flowType/toggle autoCompletePack chỉ áp đơn MỚI chảy tới).
+  // Luôn chạy thử (dryRun) trước để người bấm thấy số theo công đoạn rồi mới chạy thật.
   const [packBacklogBusy, setPackBacklogBusy] = useState(false);
   const handleCompletePackBacklog = async () => {
     const { _id, name } = form.data;
     if (!_id) return;
-    if (!(await confirm({ title: t('factoryTab.form.autoPack.sweepConfirm', { name }) }))) return;
     try {
       setPackBacklogBusy(true);
-      const res = await RepositoryRemote.fulfillment.completePackBacklog({ factoryId: _id });
+      const preview = (await RepositoryRemote.fulfillment.completePackBacklog({ factoryId: _id, dryRun: true })).data
+        ?.data as { total: number; byStage: Record<string, number> };
+      if (preview.total === 0) {
+        toast.info(t('factoryTab.form.autoPack.sweepEmpty'));
+        return;
+      }
+      const lines = Object.entries(preview.byStage)
+        .map(([stage, n]) => `• ${t(`fulfillmentWorkflow:stageLabels.${stage}`)}: ${n}`)
+        .join('\n');
+      const ok = await confirm({
+        title: t('factoryTab.form.autoPack.sweepConfirm', { name, total: preview.total }),
+        message: `${lines}\n\n${t('factoryTab.form.autoPack.sweepWarning')}`,
+        destructive: true,
+      });
+      if (!ok) return;
+      const res = await RepositoryRemote.fulfillment.completePackBacklog({ factoryId: _id, dryRun: false });
       const data = res.data?.data as { total: number; ok: number; fail: number };
       if (data.total === 0) toast.info(t('factoryTab.form.autoPack.sweepEmpty'));
       else if (data.fail > 0) toast.warning(t('factoryTab.form.autoPack.sweepPartial', { ok: data.ok, fail: data.fail }));
