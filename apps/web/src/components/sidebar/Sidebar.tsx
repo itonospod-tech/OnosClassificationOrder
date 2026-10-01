@@ -68,7 +68,7 @@ import { useSidebarBadgeStore } from '../../store/sidebarBadgeStore';
 import { useSidebarResetStore } from '../../store/sidebarResetStore';
 import { handleAxiosError } from '../../utils';
 
-/** Badge số đếm trên 1 entry sidebar (đỏ = cần xử lý gấp, vàng = chờ gán/làm lại). */
+/** Count badge on one sidebar entry (red = urgent, amber = waiting to be assigned/reworked). */
 interface SidebarBadge {
   count: number;
   tone: 'red' | 'amber';
@@ -78,7 +78,7 @@ interface SidebarBadge {
 type BadgeMap = Record<string, SidebarBadge[]>;
 
 const SIDEBAR_BADGE_POLL_MS = 60_000;
-// Mutation bump store → đợi ngắn cho các call liên tiếp (bulk) gộp 1 lần fetch.
+// A mutation bumps the store → wait briefly so back-to-back calls (bulk) collapse into one fetch.
 const SIDEBAR_BADGE_DEBOUNCE_MS = 1_200;
 
 async function fetchSidebarCounts(): Promise<void> {
@@ -86,7 +86,7 @@ async function fetchSidebarCounts(): Promise<void> {
     const res = await RepositoryRemote.designer.sidebarCounts();
     useSidebarBadgeStore.getState().setCounts(res.data?.data ?? null);
   } catch {
-    // Poll nền — lỗi tạm thời thì giữ số cũ, không toast spam.
+    // Background poll — on a transient error keep the old numbers, no toast spam.
   }
 }
 
@@ -110,7 +110,7 @@ function BadgePill({ badge }: { badge: SidebarBadge }) {
   );
 }
 
-/** Chấm màu góc icon khi sidebar thu gọn / parent thu gọn — tooltip liệt kê từng số. */
+/** Colored dot on the icon corner when the sidebar / parent is collapsed — tooltip lists each count. */
 function BadgeDot({ badges }: { badges: SidebarBadge[] }) {
   return (
     <Tooltip>
@@ -133,7 +133,7 @@ function BadgeDot({ badges }: { badges: SidebarBadge[] }) {
   );
 }
 
-/** Gộp badge của các entry con về 2 pill (đỏ/vàng) cho hàng parent đang đóng. */
+/** Fold the children's badges into 2 pills (red/amber) for a collapsed parent row. */
 function aggregateBadges(badges: SidebarBadge[]): SidebarBadge[] {
   const byTone = new Map<SidebarBadge['tone'], { count: number; titles: string[] }>();
   for (const b of badges) {
@@ -158,26 +158,26 @@ interface NavChild {
   /** Permission code from PERMISSION_CATALOG. Empty = always visible. */
   perm?: string;
   /**
-   * AUTH-7 — mã `page.*` của trang này, khai RIÊNG khi `perm` là mã HÀNH ĐỘNG.
-   * Menu vẫn ẩn/hiện theo `perm` như cũ (không đổi một mục nào); route thì gác
-   * theo `pagePerm` vì quyền VÀO TRANG rộng hơn quyền THAO TÁC trên trang.
+   * AUTH-7 — this page's `page.*` code, declared SEPARATELY when `perm` is an ACTION code.
+   * The menu still shows/hides by `perm` as before (no entry changes); the route is
+   * gated by `pagePerm` because the right to ENTER a page is broader than the right to ACT on it.
    */
   pagePerm?: string;
-  /** Hiện khi user có BẤT KỲ perm nào trong danh sách (điều kiện OR, thay cho `perm`). */
+  /** Shown when the user has ANY of these perms (OR condition, instead of `perm`). */
   anyPerm?: string[];
-  /** Role names to hide this entry from (bổ sung cho check `perm`). */
+  /** Role names to hide this entry from (on top of the `perm` check). */
   hideForRoles?: string[];
   /**
-   * CHỈ hiện cho đúng các role này. Khác `perm`: nhánh tắt `isAdmin` trong
-   * `allow()` cho Admin lẫn SuperAdmin qua hết, nên `perm` KHÔNG thu hẹp được
-   * xuống riêng SuperAdmin. Dùng cho mục Mạo danh (AUTH-1 BR-1).
+   * Shown ONLY to exactly these roles. Unlike `perm`: the `isAdmin` shortcut in
+   * `allow()` lets both Admin and SuperAdmin through, so `perm` CANNOT narrow an
+   * entry down to SuperAdmin alone. Used for Impersonate (AUTH-1 BR-1).
    */
   onlyForRoles?: string[];
-  /** Active cả khi đang ở route con của `to` (vd `/adm/settings/<section>`). */
+  /** Also active on child routes of `to` (e.g. `/adm/settings/<section>`). */
   matchPrefix?: boolean;
-  /** Nhãn mục nhỏ hiện NGAY TRÊN mục này (chia các mục con trong cùng một nhóm). */
+  /** Small section caption rendered RIGHT ABOVE this entry (splits children within one group). */
   sectionBefore?: string;
-  /** `to` là URL tuyệt đối sang app khác (Seller Portal) — mở tab mới, không qua Router. */
+  /** `to` is an absolute URL into another app (Seller Portal) — opens a new tab, bypasses the Router. */
   external?: boolean;
 }
 
@@ -188,13 +188,13 @@ interface NavItem {
   icon: React.ReactNode;
   children?: NavChild[];
   perm?: string;
-  /** CHỈ hiện cho đúng các role này — xem `NavChild.onlyForRoles`. */
+  /** Shown ONLY to exactly these roles — see `NavChild.onlyForRoles`. */
   onlyForRoles?: string[];
-  /** Ẩn với các role này — xem `NavChild.hideForRoles`. */
+  /** Hidden from these roles — see `NavChild.hideForRoles`. */
   hideForRoles?: string[];
   /** AUTH-7 — xem `NavChild.pagePerm`. */
   pagePerm?: string;
-  /** Active cả khi đang ở route con của `to` (vd `/adm/settings/<section>`). */
+  /** Also active on child routes of `to` (e.g. `/adm/settings/<section>`). */
   matchPrefix?: boolean;
 }
 
@@ -205,45 +205,44 @@ interface NavGroup {
 
 const ADMIN_ROLES: string[] = [RoleType.SuperAdmin, RoleType.Admin];
 
-/** Seller Portal (`apps/seller`) — nơi duy nhất hiện có trang quản lý ví (`/hub/wallets`). */
+/** Seller Portal (`apps/seller`) — currently the only place with a wallet admin page (`/hub/wallets`). */
 const SELLER_URL = ((import.meta.env.VITE_SELLER_URL as string | undefined) ?? '').replace(/\/+$/, '');
 
 /**
- * Tham số URL so khớp HAI CHIỀU ở `isLinkActive` (khác mọi param khác, chỉ cần
- * link ⊆ URL): các mục cùng đường dẫn chỉ khác nhau ở param này — "Tất cả đơn"
- * vs "3D", cụm chung vs một xưởng. Kiểm một chiều thì mục KHÔNG có param luôn
- * sáng cùng lúc với mục có param. Cũng là các param bị cắt khỏi tín hiệu
- * "bấm lại để xóa filter" (`resetPathOf`) vì trang đăng ký bằng đường dẫn gốc.
+ * URL params matched BOTH WAYS in `isLinkActive` (every other param only needs
+ * link ⊆ URL): entries sharing a path differ only by these — "All orders" vs
+ * "3D", the shared cluster vs one factory. A one-way check would light the entry
+ * WITHOUT the param together with the entry that has it. These are also the params
+ * stripped from the "click again to clear filters" signal (`resetPathOf`), since pages register with the bare path.
  */
 const SCOPE_PARAMS = ['factoryId', 'productLine', 'view'];
 
 /**
- * AUTH-7 — bảng tra "đường dẫn trang → mã quyền", dựng TỪ CHÍNH cây menu ở dưới.
+ * AUTH-7 — lookup table "page path → permission code", built FROM the menu tree below.
  *
- * Cố ý KHÔNG viết một bảng ánh xạ thứ hai bằng tay: menu và route được duy trì
- * tách rời nhau chính là thứ đẻ ra lỗi AUTH-7 (menu đã ẩn mục nhưng gõ thẳng URL
- * vẫn vào được). Thêm một bảng nữa là thêm một chỗ nữa để quên đồng bộ.
+ * Deliberately NOT a second hand-written mapping: keeping menu and routes in sync
+ * separately is exactly what produced the AUTH-7 bug (the menu hid an entry but typing
+ * the URL still got in). One more table is one more place to forget to sync.
  *
- * Đường dẫn KHÔNG có trong bảng ⇒ trang đó không khai mã quyền ⇒ CHO VÀO (giữ
- * nguyên hành vi cũ). Mặc định mở là có chủ ý: chặn nhầm thì khoá nhân viên ra
- * khỏi trang họ dùng hằng ngày, còn lọt một trang thì API vẫn tự từ chối.
+ * A path NOT in the table ⇒ that page declares no permission ⇒ LET IN (keeps the old
+ * behaviour). Defaulting to open is deliberate: a wrong block locks staff out of a page
+ * they use every day, while a leaked page is still refused by the API itself.
  */
 export function buildPagePermissionMap(t: TFunction<'layout'>): Map<string, string> {
   const map = new Map<string, string>();
   const put = (to: string | undefined, perm: string | undefined) => {
     if (!to || !perm) return;
-    // CHỈ nhận mã `page.*`. Vài mục menu gác bằng mã HÀNH ĐỘNG (`workshop.manage`,
-    // `user.manage`, `role.manage`, `order.import`) — chúng chặt hơn quyền VÀO
-    // TRANG: DesignerLeader có `page.workshop_config` nhưng không có
-    // `workshop.manage`, lấy mã đó gác route là khoá mất trang họ được vào.
-    // Những mục đó khai `pagePerm` riêng (caller đã ưu tiên), còn mục nào KHÔNG
-    // có mã trang nào thì để route mở như trước — mặc định cho vào.
+    // ONLY accept `page.*` codes. Some menu entries are gated by ACTION codes (`workshop.manage`,
+    // `user.manage`, `role.manage`, `order.import`) — those are stricter than the right to
+    // ENTER the page: DesignerLeader has `page.workshop_config` but not `workshop.manage`, so
+    // gating the route by that code would lock them out of a page they may enter.
+    // Those entries declare their own `pagePerm` (the caller prefers it); an entry with no
+    // page code at all leaves the route open as before — default is let in.
     if (!perm.startsWith('page.')) return;
-    // Nhiều mục trỏ tới cùng một trang kèm `?tab=...`/`?productLine=...` — route
-    // chỉ biết phần đường dẫn, nên cắt query đi. Giữ mục ĐẦU TIÊN gặp: cùng một
-    // trang mà nhiều mục con khai perm khác nhau (vd Dashboard) thì lấy perm
-    // của mục đứng đầu (Báo cáo › Sản xuất = `page.dashboard`), không lấy perm
-    // hẹp hơn của một tab bên trong.
+    // Several entries point at the same page with `?tab=...`/`?productLine=...` — the route
+    // only knows the path, so strip the query. Keep the FIRST entry seen: when entries on
+    // the same page declare different perms (e.g. Dashboard), take the perm of the leading
+    // entry (Reports › Production = `page.dashboard`), not the narrower perm of a tab inside it.
     const path = to.split('?')[0];
     if (!map.has(path)) map.set(path, perm);
   };
@@ -258,30 +257,30 @@ export function buildPagePermissionMap(t: TFunction<'layout'>): Map<string, stri
 }
 
 /**
- * Gắn `?factoryId=` vào link sản xuất. Link gốc có thể đã có sẵn query
- * (`?tab=factory`) nên phải chọn đúng dấu nối.
+ * Append `?factoryId=` to a production link. The base link may already carry a
+ * query (`?tab=factory`), so pick the right separator.
  */
 function withFactory(to: string, factoryId?: string): string {
   if (!factoryId) return to;
   return `${to}${to.includes('?') ? '&' : '?'}factoryId=${encodeURIComponent(factoryId)}`;
 }
 
-/** Nối thêm query vào một đường dẫn có thể đã có `?`. */
+/** Append a query to a path that may already contain `?`. */
 function withQuery(to: string, query: string): string {
   return `${to}${to.includes('?') ? '&' : '?'}${query}`;
 }
 
 /**
- * Menu 6 nhóm cấp một theo đề xuất CEO 01/10/2026 (`documents/Plans/MenuRestructure-CEO.md`):
- * Báo cáo · Sản xuất · Tool · Ship · Ví · HR. Đợt 1B CHỈ là khung — nhiều mục còn
- * trỏ tạm vào trang cũ (vd 6 dòng sản phẩm mở Danh sách đơn kèm `?productLine=`,
- * trang chưa lọc theo param này cho tới đợt 2A).
+ * The 6 top-level groups from the CEO proposal of 01/10/2026 (`documents/Plans/MenuRestructure-CEO.md`):
+ * Reports · Production · Tool · Ship · Wallet · HR. Phase 1B is ONLY the skeleton — many entries
+ * still point at existing pages for now (e.g. the 6 product lines open the order list with
+ * `?productLine=`, which the page does not filter on until phase 2A).
  *
- * KEY của 3 mục mang badge (`orders-error-log`, `dash-designer`, `dash-tool-check`)
- * PHẢI giữ nguyên — `badgeMap` gắn số theo key (SidebarBadges.md).
+ * The KEYS of the 3 badge-carrying entries (`orders-error-log`, `dash-designer`, `dash-tool-check`)
+ * MUST stay unchanged — `badgeMap` attaches counts by key (SidebarBadges.md).
  *
- * Link khu sản xuất mang theo `?factoryId=` đang chọn ở bộ chọn xưởng trên
- * header (`FactoryScopeSwitch`, Orders.md §25) để đổi trang không mất phạm vi.
+ * Production-area links carry the `?factoryId=` chosen in the header factory picker
+ * (`FactoryScopeSwitch`, Orders.md §25) so switching pages keeps the scope.
  */
 function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
   const to = (path: string) => withFactory(path, factoryId);
@@ -333,17 +332,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           perm: 'page.designer_stats',
         },
         {
-          // Tạm trỏ trang Vận đơn (có sẵn dashboard chi phí) — báo cáo ship thật làm ở đợt 2B.
-          key: 'reports-ship',
-          label: t('sidebar.nav.reports.ship'),
-          to: withQuery(PATHS.SHIPMENTS, 'view=report'),
-          icon: <Truck size={14} />,
-          onlyForRoles: ADMIN_ROLES,
-          // Route Vận đơn trước đây gác `page.orders` (thừa kế từ mục cha "Quản lý đơn") — giữ nguyên.
-          pagePerm: 'page.orders',
-        },
-        {
-          // Tồn kho theo xưởng (Inventory.md) — thủ kho nhập phiếu + xem tồn; trừ kho ở trạm quét.
+          // Per-factory stock (Inventory.md) — storekeepers enter receipts + view stock; stock-out happens at the scan station.
           key: PATHS.INVENTORY,
           label: t('sidebar.nav.reports.stock'),
           to: to(PATHS.INVENTORY),
@@ -351,7 +340,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           perm: 'page.inventory',
         },
         {
-          // Bảng điều hành — CHỈ SuperAdmin/Admin (không mã quyền: khóa cứng theo vai). Trang tự chặn vai khác.
+          // Executive board — SuperAdmin/Admin ONLY (no permission code: hard-locked by role). The page also blocks other roles.
           key: PATHS.CEO_DASHBOARD,
           label: t('sidebar.ceoDashboard'),
           to: PATHS.CEO_DASHBOARD,
@@ -361,8 +350,8 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
       ],
     },
     {
-      // Key = `/ffm/orders` + `pagePerm`: giữ route trang Orders cũ được gác `page.orders` như khi
-      // nó còn là mục cha "Quản lý đơn" (AUTH-7 dựng bảng quyền từ key mục cha). Không gác hiển thị nhóm.
+      // Key = `/ffm/orders` + `pagePerm`: keeps the old Orders page route gated by `page.orders` as when it
+      // was the "Orders" parent (AUTH-7 builds the permission map from parent keys). Does not gate group visibility.
       key: PATHS.ORDERS,
       label: t('sidebar.nav.production.title'),
       icon: <Factory size={17} />,
@@ -420,37 +409,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           perm: 'page.stage_errors',
         },
         {
-          key: 'orders-unmapped',
-          label: t('sidebar.orders.unmapped'),
-          to: to(PATHS.ORDERS_UNMAPPED),
-          icon: <MapPin size={14} />,
-          perm: 'page.unmapped_factory',
-        },
-        {
-          // Bảng phẳng, phân trang THẬT, KHÔNG gộp theo sản phẩm (OrderTableClassic.tsx).
-          key: PATHS.ORDERS_CLASSIC,
-          label: t('sidebar.orders.classic'),
-          to: PATHS.ORDERS_CLASSIC,
-          icon: <Rows3 size={14} />,
-          perm: 'page.orders',
-        },
-        {
-          key: 'orders-import',
-          label: t('sidebar.orders.import'),
-          to: to(PATHS.ORDERS_IMPORT),
-          icon: <FileDown size={14} />,
-          perm: 'order.import',
-          sectionBefore: t('sidebar.nav.production.data'),
-        },
-        {
-          key: 'orders-cutting-files',
-          label: t('sidebar.orders.cuttingFiles'),
-          to: to(PATHS.ORDERS_CUTTING_FILES),
-          icon: <Scissors size={14} />,
-          perm: 'order.import',
-        },
-        {
-          // Hướng dẫn quy trình DTF theo vai (DtfRoleGuide.md) — trang tĩnh.
+          // DTF process guide by role (DtfRoleGuide.md) — static page.
           key: PATHS.DTF_GUIDE,
           label: t('sidebar.guideDtf'),
           to: to(PATHS.DTF_GUIDE),
@@ -487,7 +446,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
       icon: <Truck size={17} />,
       children: [
         {
-          // Toàn bộ bề mặt VNP shipping chỉ Admin/SuperAdmin (VnpShipping.md §7).
+          // The whole VNP shipping surface is Admin/SuperAdmin only (VnpShipping.md §7).
           key: 'orders-shipments',
           label: t('sidebar.orders.shipments'),
           to: PATHS.SHIPMENTS,
@@ -496,7 +455,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           pagePerm: 'page.orders',
         },
         {
-          // Cùng quyền với Task Fulfillment: người bàn giao cho hãng là nhân sự kho của xưởng.
+          // Same permission as Fulfillment Tasks: whoever hands parcels to the carrier is the factory's warehouse staff.
           key: PATHS.HANDOVER,
           label: t('sidebar.work.handover'),
           to: to(PATHS.HANDOVER),
@@ -509,9 +468,9 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
       key: 'nav-wallet',
       label: t('sidebar.nav.wallet.title'),
       icon: <Wallet size={17} />,
-      // Ví phía nhân viên CHƯA CÓ trong app này — tạm mở trang quản lý ví seller ở
-      // Seller Portal (`/hub/wallets`, cũng chỉ Admin/SuperAdmin). Không cấu hình
-      // `VITE_SELLER_URL` thì ẩn hẳn thay vì trỏ vào link chết. Trang thật: đợt 2C.
+      // There is NO staff-side wallet in this app yet — temporarily open the seller wallet admin page in
+      // the Seller Portal (`/hub/wallets`, also Admin/SuperAdmin only). Without `VITE_SELLER_URL` the
+      // group is hidden entirely rather than pointing at a dead link. Real page: phase 2C.
       children: SELLER_URL
         ? [
             {
@@ -585,9 +544,40 @@ function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEma
   return [
     { title: '', items: buildMainItems(t, factoryScopeId) },
     {
-      // Các mục CHƯA thuộc 6 nhóm CEO — giữ nguyên chờ chốt chỗ (MenuRestructure-CEO.md), không xóa.
+      // Group 7 "System" (MenuRestructure-CEO.md §8.2 #1/#3/#5): admin and data-intake work that the
+      // legacy app also kept in a separate flat admin area. Each entry keeps its own permission, so
+      // Support still sees Import Order / Unmapped here — the group is not hard-locked to Admin.
       title: t('sidebar.groups.system'),
       items: [
+        {
+          // Flat table, REAL pagination, NOT grouped by product (OrderTableClassic.tsx).
+          key: PATHS.ORDERS_CLASSIC,
+          label: t('sidebar.orders.classic'),
+          to: PATHS.ORDERS_CLASSIC,
+          icon: <Rows3 size={17} />,
+          perm: 'page.orders',
+        },
+        {
+          key: 'orders-import',
+          label: t('sidebar.orders.import'),
+          to: withFactory(PATHS.ORDERS_IMPORT, factoryScopeId),
+          icon: <FileDown size={17} />,
+          perm: 'order.import',
+        },
+        {
+          key: 'orders-cutting-files',
+          label: t('sidebar.orders.cuttingFiles'),
+          to: withFactory(PATHS.ORDERS_CUTTING_FILES, factoryScopeId),
+          icon: <Scissors size={17} />,
+          perm: 'order.import',
+        },
+        {
+          key: 'orders-unmapped',
+          label: t('sidebar.orders.unmapped'),
+          to: withFactory(PATHS.ORDERS_UNMAPPED, factoryScopeId),
+          icon: <MapPin size={17} />,
+          perm: 'page.unmapped_factory',
+        },
         {
           key: PATHS.PRODUCTS,
           label: t('sidebar.products'),
@@ -608,8 +598,8 @@ function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEma
           to: PATHS.WORKSHOP_CONFIG,
           icon: <Building2 size={17} />,
           perm: 'workshop.manage',
-          // DesignerLeader CÓ `page.workshop_config` nhưng KHÔNG có `workshop.manage`:
-          // menu vẫn ẩn như trước, còn route thì mở — đúng quyền vào trang của họ.
+          // DesignerLeader HAS `page.workshop_config` but NOT `workshop.manage`:
+          // the menu stays hidden as before, while the route opens — matching their right to enter the page.
           pagePerm: 'page.workshop_config',
         },
         {
@@ -619,9 +609,9 @@ function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEma
           icon: <Contact size={17} />,
           perm: 'page.customers',
         },
-        // Ba mục Zalo/Telegram chỉ hiện cho tài khoản trong danh sách trắng
-        // (`constants/zaloAccess.ts`). Chốt THẬT nằm ở backend — đây là lớp hiển
-        // thị để người không có quyền khỏi bấm vào rồi nhận 403.
+        // The three Zalo/Telegram entries only show for accounts on the allowlist
+        // (`constants/zaloAccess.ts`). The REAL gate is in the backend — this is the display
+        // layer so people without access don't click in and get a 403.
         ...(duocTruyCapZalo(userEmail)
           ? [
               {
@@ -632,16 +622,16 @@ function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEma
                 perm: 'page.zalo_groups',
               },
               {
-                // Màn chat Zalo nhúng (module của nhà cung cấp). Phân quyền chi
-                // tiết vẫn ở dialog "Phân quyền" của engine; danh sách trắng này
-                // đứng trước, quyết ai được cấp phiên.
+                // Embedded Zalo chat (vendor module). Fine-grained permissions still live
+                // in the engine's "Permissions" dialog; this allowlist comes first and
+                // decides who is granted a session.
                 key: PATHS.ZALO_CHAT,
                 label: t('sidebar.zaloChat'),
                 to: PATHS.ZALO_CHAT,
                 icon: <MessagesSquare size={17} />,
               },
               {
-                // Cùng engine, cùng phiên với màn Zalo — nên cùng chốt.
+                // Same engine, same session as the Zalo screen — so the same gate.
                 key: PATHS.TELEGRAM,
                 label: t('sidebar.telegram'),
                 to: PATHS.TELEGRAM,
@@ -715,7 +705,7 @@ interface SidebarProps {
   collapsed: boolean;
   mobileOpen: boolean;
   onMobileClose: () => void;
-  /** Thu gọn/mở rộng (desktop) — nút nằm cạnh logo, dời từ header sang 07/09/2026. */
+  /** Collapse/expand (desktop) — the button sits next to the logo, moved from the header on 07/09/2026. */
   onToggleCollapse?: () => void;
 }
 
@@ -728,7 +718,7 @@ function isLinkActive(linkPath: string, currentPath: string, currentSearch: stri
   if (!pathMatches) return false;
   const linkParams = new URLSearchParams(queryPart || '');
   const currentParams = new URLSearchParams(currentSearch);
-  // Param phạm vi so khớp HAI CHIỀU — xem `SCOPE_PARAMS`.
+  // Scope params are matched BOTH WAYS — see `SCOPE_PARAMS`.
   if (SCOPE_PARAMS.some((p) => (linkParams.get(p) || '') !== (currentParams.get(p) || ''))) return false;
   if (!queryPart) return true;
   // exact query param subset check
@@ -739,10 +729,10 @@ function isLinkActive(linkPath: string, currentPath: string, currentSearch: stri
 }
 
 /**
- * Đường dẫn dùng cho tín hiệu "click lại menu đang active → xóa filter trang".
- * Cắt các param phạm vi (`SCOPE_PARAMS`) vì trang đăng ký tín hiệu bằng `to`
- * GỐC — giữ nguyên thì mục "3D" hay mục mang xưởng không bao giờ khớp, bấm lại
- * không xóa được filter.
+ * Path used for the "click the active menu again → clear the page's filters" signal.
+ * Strips the scope params (`SCOPE_PARAMS`) because pages register the signal with the
+ * BARE `to` — kept as-is, the "3D" entry or a factory-scoped entry would never match
+ * and clicking again would not clear the filters.
  */
 function resetPathOf(to: string): string {
   const [path, query] = to.split('?');
@@ -790,8 +780,8 @@ function SidebarLeaf({
   return (
     <Link
       to={item.to}
-      // Click lại menu ĐANG active → Router coi là no-op (không điều hướng),
-      // nên phát tín hiệu riêng để trang tự xóa filter (xem `useSidebarResetSignal`).
+      // Clicking the ALREADY active menu → the Router treats it as a no-op (no navigation),
+      // so emit a separate signal for the page to clear its own filters (see `useSidebarResetSignal`).
       onClick={() => {
         if (active) requestReset(resetPathOf(item.to));
       }}
@@ -850,7 +840,7 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
   );
 
   if (collapsed) {
-    // Mục con đầu là link sang app khác (Ví → Seller Portal) — `Link` không mở được URL tuyệt đối.
+    // The first child links into another app (Wallet → Seller Portal) — `Link` cannot open an absolute URL.
     if (item.children![0].external) {
       return <SidebarLeaf item={{ ...item.children![0], label: item.label, icon: item.icon }} collapsed />;
     }
@@ -921,15 +911,15 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
 
   const roleName = profile?.role?.name as string | undefined;
   const isAdmin = roleName === 'Admin' || roleName === 'SuperAdmin';
-  // Quyền xem dữ liệu Zalo đi theo TÀI KHOẢN, không theo role — xem `constants/zaloAccess.ts`.
+  // Access to Zalo data follows the ACCOUNT, not the role — see `constants/zaloAccess.ts`.
   const userEmail = profile?.email as string | undefined;
   const permissionCodes = useMemo(
     () => new Set<string>(profile?.role?.permissionCodes || []),
     [profile?.role?.permissionCodes],
   );
-  // Phạm vi xưởng đang chọn (URL `factoryId`, đặt từ bộ chọn ở header) — link cụm sản
-  // xuất mang theo để đổi trang không mất phạm vi. 5 cụm menu riêng từng xưởng đã GỠ
-  // (07/09/2026) — thay bằng `FactoryScopeSwitch` trên header (Orders.md §25).
+  // Currently selected factory scope (URL `factoryId`, set from the header picker) — production
+  // links carry it so switching pages keeps the scope. The 5 per-factory menu clusters were
+  // REMOVED (07/09/2026) — replaced by `FactoryScopeSwitch` in the header (Orders.md §25).
   const [searchParams] = useSearchParams();
   const factoryScopeId = searchParams.get('factoryId') || undefined;
   const navGroups = useMemo(
@@ -941,7 +931,7 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
   const refreshRequestedAt = useSidebarBadgeStore((s) => s.refreshRequestedAt);
   const profileId = profile?._id;
 
-  // Polling nhẹ 60s (chỉ khi tab đang hiển thị) — endpoint count-only, vài chục ms.
+  // Light 60s polling (only while the tab is visible) — count-only endpoint, tens of ms.
   useEffect(() => {
     if (!profileId) return;
     fetchSidebarCounts();
@@ -951,8 +941,8 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
     return () => clearInterval(id);
   }, [profileId]);
 
-  // Mutation liên quan vừa thành công (bump từ axios interceptor) → refetch ngay
-  // sau debounce ngắn để số giảm liền khi chính user làm xong task.
+  // A relevant mutation just succeeded (bumped by the axios interceptor) → refetch right
+  // after a short debounce so the count drops as soon as the user finishes a task.
   useEffect(() => {
     if (!profileId || !refreshRequestedAt) return;
     const timer = setTimeout(fetchSidebarCounts, SIDEBAR_BADGE_DEBOUNCE_MS);
@@ -966,8 +956,8 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
       if (typeof count !== 'number' || count <= 0) return;
       (map[key] ||= []).push({ count, tone, title });
     };
-    // Nhật ký bù lỗi: số theo góc nhìn chặng của viewer (Fulfillment/Designer =
-    // việc của mình; Admin/Manager = toàn hệ thống) — title đổi theo cho đúng nghĩa.
+    // Error log: count from the viewer's stage perspective (Fulfillment/Designer =
+    // their own work; Admin/Manager = whole system) — the title changes to match.
     const personalErrorView = roleName === 'Fulfillment' || roleName === 'Designer' || roleName === 'DesignerLeader';
     add(
       'orders-error-log',
@@ -1001,8 +991,8 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
   const showLabels = !collapsed || isMobile;
 
   const renderContent = () => (
-    // TooltipProvider cho tooltip badge (BadgePill/BadgeDot) — delay ngắn để
-    // hover là thấy ngay con số nghĩa là gì.
+    // TooltipProvider for the badge tooltips (BadgePill/BadgeDot) — short delay so
+    // hovering shows right away what the number means.
     <TooltipProvider delayDuration={150}>
       <div className="flex flex-col h-full bg-background">
         <div
@@ -1012,7 +1002,7 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
           )}
         >
           {showLabels && <img src={logoUrl} alt="Logo" className="h-7 w-auto min-w-0 object-contain" />}
-          {/* Nút thu gọn/mở rộng — chỉ desktop (mobile dùng Sheet có nút đóng riêng). */}
+          {/* Collapse/expand button — desktop only (mobile uses a Sheet with its own close button). */}
           {!isMobile && onToggleCollapse && (
             <button
               type="button"
@@ -1081,8 +1071,8 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
   return (
     <aside
       className={cn(
-        // Cao đúng màn hình + không tràn: chỉ danh sách menu bên trong cuộn, logo trên
-        // và khối tài khoản dưới ghim cố định (khung cố định — MainLayout).
+        // Exactly screen height, no overflow: only the menu list scrolls inside, with the logo on
+        // top and the account block at the bottom pinned (fixed frame — MainLayout).
         'h-screen shrink-0 overflow-hidden border-r border-border bg-background transition-[width] duration-200',
         collapsed ? 'w-[72px]' : 'w-[240px]',
       )}

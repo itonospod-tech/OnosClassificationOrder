@@ -713,7 +713,9 @@
   "workshopPage": {
     "noPermission": "Bạn không có quyền xem trang này.",
     "title": "Danh sách đơn",
-    "subtitle": "Quản lý production orders"
+    "subtitle": "Quản lý production orders",
+    "lineTitle": "Sản xuất · {{line}}",
+    "lineSubtitle": "Mặc định: đơn vào sản xuất {{days}} ngày gần nhất"
   },
   "classicPage": {
     "title": "Đơn hàng",

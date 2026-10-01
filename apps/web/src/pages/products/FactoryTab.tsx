@@ -254,9 +254,10 @@ export function FactoryTab() {
       },
     });
 
-  // Nút "Hoàn thành đơn tồn" — dọn 1 lần đơn đang đứng ở công đoạn TỰ HOÀN
-  // THÀNH của xưởng (flowType/toggle autoCompletePack chỉ áp đơn MỚI chảy tới).
-  // Luôn chạy thử (dryRun) trước để người bấm thấy số theo công đoạn rồi mới chạy thật.
+  // "Complete backlog" button — one-off sweep of orders sitting at the factory's
+  // AUTO-COMPLETE stages (flowType / the autoCompletePack toggle only apply to
+  // orders that flow in NEW). Always dry-runs first so whoever clicks sees the
+  // per-stage counts before the real run.
   const [packBacklogBusy, setPackBacklogBusy] = useState(false);
   const handleCompletePackBacklog = async () => {
     const { _id, name } = form.data;

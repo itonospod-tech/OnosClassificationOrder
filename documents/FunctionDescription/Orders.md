@@ -1262,6 +1262,7 @@ Filter gửi qua query string `?printStatus=code&fabricType=code&designerStatus=
 | `wstage` | `''` | `workshopStage` — ô phễu chặng (§10.2c) |
 | `wprio` | `''` | `priority=__any__` — pill Ưu tiên (§10.2c) |
 | `wtype` | `''` | `type` (append) — rail loại sản phẩm bản 3 (§10.2c) |
+| `productLine` | `''` | `productLine` — dòng sản phẩm, do menu Sản xuất › 3D/2D/… đặt (MenuRestructure-CEO.md 2A). Trang CHỈ ĐỌC, không tự ghi/xóa (giống `factoryId`). Có param → ngày mặc định = **7 ngày gần nhất** (`PRODUCT_LINE_DEFAULT_DAYS`, khớp cohort SLA báo cáo Telegram + `report?tab=last7day` hệ cũ) thay vì hôm nay; đổi dòng từ sidebar (trang không remount) → `clearAllFilters()` về mặc định của dòng mới; header hiện "Sản xuất · <dòng>". |
 | `wassign` | `[]` | CSV `assignee` codes |
 | `werror` | `[]` | CSV `productionError` codes (Phase 8) |
 | `wpage` | `1` | trang |

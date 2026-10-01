@@ -20,10 +20,11 @@ import type { UserDocument } from '../modules/user/user.entity';
 const CUSTOMER_ALLOWED_PREFIXES = ['/customer/'];
 
 /**
- * Guard trả `false` → Nest ném `ForbiddenException('Forbidden resource')` và
- * log chỉ còn stack nội bộ Nest, không biết route/role/nhánh nào chặn. Ghi 1
- * dòng JSON có `reason` để phân biệt "bấm vào chỗ không có quyền" (`role`) với
- * phiên đã bị thay/đăng xuất (`session`) hay token khách đi lạc (`customer-prefix`).
+ * A guard returning `false` makes Nest throw `ForbiddenException('Forbidden resource')`,
+ * and the log then only holds Nest's internal stack — no route, role, or which
+ * branch denied. Write one JSON line with a `reason` so we can tell "clicked
+ * something they have no permission for" (`role`) apart from a session that was
+ * replaced/logged out (`session`) or a customer token that wandered off (`customer-prefix`).
  */
 function deny(
   reason: 'customer-prefix' | 'session' | 'no-role' | 'role',

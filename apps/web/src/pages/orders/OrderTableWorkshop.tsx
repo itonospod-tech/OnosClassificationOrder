@@ -79,6 +79,30 @@ function todayISO(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * Product-line views (sidebar "Production" › 3D, 2D…) open on the last N days
+ * instead of today only — the legacy OnosPod menu opened every list on its most
+ * useful view, and for a line that is "what is running now", not one day's intake.
+ * 7 days matches the SLA cohort of the daily Telegram report (`SLA_DAY_COUNT`) and
+ * the legacy `report?tab=last7day`; older still-open orders are data debt the
+ * CEO dashboard tracks separately (`staleOpen`), not daily work.
+ */
+export const PRODUCT_LINE_DEFAULT_DAYS = 7;
+
+function daysAgoISO(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Default `createdFrom` for the current view: today, or the line window on a product-line view. */
+function defaultFromFor(productLine: string): string {
+  return productLine ? daysAgoISO(PRODUCT_LINE_DEFAULT_DAYS - 1) : todayISO();
+}
+
 // Combo = (size + loại vải + mockup). Dùng để đếm ×N + highlight combo trùng.
 const comboKeyOf = (r: OrderRow) => `${r.size || ''}|${r.fabricType || ''}|${r.mockupOriginalUrl || r.mockupUrl || ''}`;
 
@@ -246,6 +270,10 @@ export function OrderTableWorkshop() {
   // mỗi facet sau khi chuyển sang SelectFilter — multi-value support removed.
   const [searchParams, setSearchParams] = useSearchParams();
   const factoryScope = useFactoryScope();
+  // Product line from the sidebar link (`?productLine=3d`). Read straight from the URL like
+  // `factoryId`: it is a scope chosen by the menu, not a filter this page owns, so the
+  // state→URL sync below never writes or strips it.
+  const productLine = searchParams.get('productLine') || '';
 
   const [items, setItems] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -270,7 +298,9 @@ export function OrderTableWorkshop() {
   // `pid` lúc mount (tìm chính xác 1 đơn, không giới hạn ngày — đơn có thể
   // KHÔNG thuộc "hôm nay"). User vẫn có thể chọn range khác hoặc clear hẳn
   // qua DateRangePicker.
-  const [createdFrom, setCreatedFrom] = useState(() => searchParams.get('wfrom') || (pid ? '' : todayISO()));
+  const [createdFrom, setCreatedFrom] = useState(
+    () => searchParams.get('wfrom') || (pid ? '' : defaultFromFor(productLine)),
+  );
   const [createdTo, setCreatedTo] = useState(() => searchParams.get('wto') || (pid ? '' : todayISO()));
   const [search, setSearch] = useState(() => searchParams.get('wsearch') || '');
   const debouncedSearch = useDebounce(search, 300);
@@ -435,6 +465,7 @@ export function OrderTableWorkshop() {
     // Phạm vi xưởng từ "cụm menu theo xưởng" ở sidebar. Lọc TƯỜNG MINH nên đơn
     // xưởng ngoài luồng sản xuất (US) cũng xem được ở cụm của chính nó.
     if (factoryScope) params.set('factoryId', factoryScope);
+    if (productLine) params.set('productLine', productLine);
     return params;
   };
 
@@ -503,6 +534,7 @@ export function OrderTableWorkshop() {
     createdFrom,
     createdTo,
     factoryScope,
+    productLine,
   ]);
 
   /**
@@ -950,7 +982,7 @@ export function OrderTableWorkshop() {
     setPid('');
     setBulkIds([]);
     setFilterHeld(false);
-    setCreatedFrom(todayISO());
+    setCreatedFrom(defaultFromFor(productLine));
     setCreatedTo(todayISO());
     setFilterFabricType('');
     setFilterMachineNumber('');
@@ -971,6 +1003,18 @@ export function OrderTableWorkshop() {
   // Click lại menu "Danh sách đơn" ở sidebar khi đang đứng đúng trang này →
   // xóa hết filter (xem `useSidebarResetSignal`).
   useSidebarResetSignal(PATHS.ORDERS_WORKSHOP, clearAllFilters);
+
+  // Switching line from the sidebar (3D → 2D, or All → 3D) keeps this page mounted, so the
+  // initial-state defaults above would not re-apply and filters from the previous line (a
+  // product type that does not exist in the new line, an old page number) would carry over
+  // and show an empty list. Reset to the new view's defaults, like opening it fresh.
+  const prevProductLine = useRef(productLine);
+  useEffect(() => {
+    if (prevProductLine.current === productLine) return;
+    prevProductLine.current = productLine;
+    clearAllFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productLine]);
 
   /**
    * Click cell trong summary panel → set filter list. userId='__none__' tương
