@@ -174,7 +174,8 @@ import { DriveFileNameService } from './drive-file-name.service';
 import { planForceComplete } from './force-complete-plan';
 import { shouldNotifyCustomerOnManualUnhold } from './onospod-hold-sync.plan';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
-import { OrderDocument, OrderEntity } from './order.entity';
+import { ORDER_PRODUCT_LINE_INDEX, OrderDocument, OrderEntity } from './order.entity';
+import { productLineCondition } from './product-line-filter';
 import { OrderRepository } from './order.repository';
 import { parseTypeFilter, TYPE_NONE_TOKEN } from './parse-type-filter';
 import { resolveShippingLabelInfo } from './shipping-label';
@@ -529,6 +530,15 @@ export class OrderService implements OnModuleInit {
     await loadExcludedFactoryId(this.orderModel.db).catch(() => undefined);
     // Cache xưởng luồng rút gọn (flowType='merged') — transition/rework đọc sync.
     await loadFactoryFlowTypes(this.orderModel.db).catch(() => undefined);
+    // Không await: build index không được chặn boot. Lỗi phải hiện ra log
+    // (autoIndex nuốt lỗi — cùng khuôn shipping-vnp.service.ts onModuleInit).
+    void this.orderModel.collection
+      .createIndex(ORDER_PRODUCT_LINE_INDEX.keys, { name: ORDER_PRODUCT_LINE_INDEX.name })
+      .catch((err: Error) =>
+        this.logger.error({
+          message: JSON.stringify({ action: 'orderProductLineIndexBuildFail', error: err.message?.slice(0, 1000) }),
+        }),
+      );
 
     const result = await this.orderModel.updateMany(
       { originalFactoryId: { $exists: false }, factoryId: { $exists: true, $ne: null } },
@@ -1583,6 +1593,8 @@ export class OrderService implements OnModuleInit {
       filter.userEmail = { $regex: `^${escapeRegex(dto.userEmail.trim())}$`, $options: 'i' };
     }
     if (dto.fabricType) filter.fabricType = { $in: dto.fabricType.split(',').filter(Boolean) };
+    const productLine = productLineCondition(dto.productLine);
+    if (productLine) filter.productLine = productLine;
     if (dto.toolResult) {
       // Token đặc biệt __none__ ↔ "Chưa xác định" (chưa soát toolResult) — mirror
       // logic toolResultNote/assignee ở trên.
@@ -7522,9 +7534,18 @@ export class OrderService implements OnModuleInit {
         let productLine: ProductLine | undefined = row.productLine;
 
         if (row.type?.trim()) {
-          const pc = await this.productConfigRepository.findOne({
-            fullName: { $regex: '^' + escapeRegex(row.type.trim()) + '$', $options: 'i' },
-          });
+          // limit 2 cùng thứ tự tự nhiên như findOne → vẫn lấy đúng bản findOne
+          // sẽ lấy, chỉ thêm khả năng thấy bản trùng tên để cảnh báo.
+          const [pc, dup] = await this.productConfigRepository.findAll(
+            { fullName: { $regex: '^' + escapeRegex(row.type.trim()) + '$', $options: 'i' } },
+            { paging: { limit: 2, skip: 0 } },
+          );
+          if (dup) {
+            // .info + [WARN]: logger prod không có level warn (xem import-rework).
+            this.logger.info({
+              message: `[import][WARN] type "${row.type.trim()}" khớp nhiều ProductConfig (${pc._id}, ${dup._id}, ...) — đang dùng ${pc._id} (factory ${pc.factoryId})`,
+            });
+          }
           if (pc) {
             isMapped = true;
             productConfigId = pc._id;

@@ -472,6 +472,18 @@ export const GetProductionOrdersZod = PageQueryZod.extend({
   userSku: z.string().optional(),
   /** Exact match (case-insensitive) — cặp với userSku cho drill-down "Đơn hàng của khách" (/adm/customers). */
   userEmail: z.string().optional(),
+  /**
+   * CSV dòng sản phẩm (`ProductLine`: 3d|2d|wood|embroidery|led|canvas) — nhóm
+   * "Sản xuất" của menu mới (MenuRestructure-CEO.md 1A). Token `__none__` = đơn
+   * CHƯA có `productLine` (đơn cũ trước PRD-8 / không map được config). Giá trị
+   * lạ → 400, không âm thầm bỏ qua.
+   */
+  productLine: z
+    .string()
+    .refine((s) => s.split(',').every((v) => !v || v === '__none__' || (PRODUCT_LINES as string[]).includes(v)), {
+      message: `productLine phải thuộc ${PRODUCT_LINES.join('|')}|__none__`,
+    })
+    .optional(),
   /** Comma-separated workshop_config codes for fabric_type. */
   fabricType: z.string().optional(),
   /** Comma-separated workshop_config codes for tool_result. */
