@@ -169,15 +169,16 @@ import { ShipmentIngestService } from '../shipping-vnp/shipment-ingest.service';
 import { SystemConfigService } from '../system-config/system-config.service';
 import { UserEntity } from '../user/user.entity';
 import { WorkshopConfigRepository } from '../workshop-config/workshop-config.repository';
+import { andWith } from './and-with';
 import { resolveBarcodeSkuBase } from './barcode-label';
 import { DriveFileNameService } from './drive-file-name.service';
 import { planForceComplete } from './force-complete-plan';
 import { shouldNotifyCustomerOnManualUnhold } from './onospod-hold-sync.plan';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
 import { ORDER_PRODUCT_LINE_INDEX, OrderDocument, OrderEntity } from './order.entity';
-import { productLineCondition } from './product-line-filter';
 import { OrderRepository } from './order.repository';
 import { parseTypeFilter, TYPE_NONE_TOKEN } from './parse-type-filter';
+import { productLineCondition } from './product-line-filter';
 import { resolveShippingLabelInfo } from './shipping-label';
 
 const FIELD_CONFIG_CATEGORY: Record<OrderWorkshopField, WorkshopConfigCategory | null> = {
@@ -1500,7 +1501,7 @@ export class OrderService implements OnModuleInit {
     );
     if (dto.search) {
       const searchOr = buildSearchOr(dto.search);
-      if (searchOr.length) filter.$or = searchOr;
+      if (searchOr.length) andWith(filter, { $or: searchOr });
     }
     if (dto.productionIds) {
       const ids = dto.productionIds
@@ -1552,11 +1553,7 @@ export class OrderService implements OnModuleInit {
       } else if (hasNone && real.length === 0) {
         filter.toolResultNote = { $in: [null, ''] };
       } else if (hasNone) {
-        filter.$or = [
-          ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-          { toolResultNote: { $in: [null, ''] } },
-          { toolResultNote: { $in: real } },
-        ];
+        andWith(filter, { $or: [{ toolResultNote: { $in: [null, ''] } }, { toolResultNote: { $in: real } }] });
       } else {
         filter.toolResultNote = { $in: real };
       }
@@ -1577,11 +1574,7 @@ export class OrderService implements OnModuleInit {
       if (hasNone && names.length === 0) {
         filter.type = { $in: [null, ''] };
       } else if (hasNone) {
-        filter.$or = [
-          ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-          { type: { $in: [null, ''] } },
-          { type: { $in: names } },
-        ];
+        andWith(filter, { $or: [{ type: { $in: [null, ''] } }, { type: { $in: names } }] });
       } else if (names.length > 0) {
         filter.type = { $in: names };
       }
@@ -1604,11 +1597,7 @@ export class OrderService implements OnModuleInit {
       if (hasNone && real.length === 0) {
         filter.toolResult = { $in: [null, ''] };
       } else if (hasNone) {
-        filter.$or = [
-          ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-          { toolResult: { $in: [null, ''] } },
-          { toolResult: { $in: real } },
-        ];
+        andWith(filter, { $or: [{ toolResult: { $in: [null, ''] } }, { toolResult: { $in: real } }] });
       } else {
         filter.toolResult = { $in: real };
       }
@@ -1645,11 +1634,7 @@ export class OrderService implements OnModuleInit {
         if (hasNone && real.length === 0) {
           filter.designerStatus = { $exists: false };
         } else if (hasNone) {
-          filter.$or = [
-            ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-            { designerStatus: { $exists: false } },
-            { designerStatus: { $in: real } },
-          ];
+          andWith(filter, { $or: [{ designerStatus: { $exists: false } }, { designerStatus: { $in: real } }] });
         } else {
           filter.designerStatus = { $in: real };
         }
@@ -1678,11 +1663,7 @@ export class OrderService implements OnModuleInit {
       } else if (hasNone && real.length === 0) {
         filter.assignee = { $in: [null, ''] };
       } else if (hasNone) {
-        filter.$or = [
-          ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-          { assignee: { $in: [null, ''] } },
-          { assignee: { $in: real } },
-        ];
+        andWith(filter, { $or: [{ assignee: { $in: [null, ''] } }, { assignee: { $in: real } }] });
       } else {
         filter.assignee = { $in: real };
       }
@@ -1690,14 +1671,7 @@ export class OrderService implements OnModuleInit {
     if (dto.unmapped === true) {
       // Đơn chưa map xưởng — factoryId null hoặc không tồn tại.
       const unmappedClause = [{ factoryId: { $exists: false } }, { factoryId: null }];
-      if (filter.$or) {
-        // Đã có $or từ filter khác (vd printStage=not-printed) — chuyển sang $and
-        // để cả hai điều kiện cùng phải đúng.
-        filter.$and = [{ $or: filter.$or }, { $or: unmappedClause }];
-        delete filter.$or;
-      } else {
-        filter.$or = unmappedClause;
-      }
+      andWith(filter, { $or: unmappedClause });
     }
     if (dto.productionError) {
       filter.productionError = { $in: dto.productionError.split(',').filter(Boolean) };
@@ -1837,7 +1811,7 @@ export class OrderService implements OnModuleInit {
       } else if (dto.printStage === 'printing') {
         filter.printStatus = { $exists: true, $nin: [null, '', ...PRINTED_MACHINE_CODES] };
       } else if (dto.printStage === 'not-printed') {
-        filter.$or = [{ printStatus: { $exists: false } }, { printStatus: { $in: [null, ''] } }];
+        andWith(filter, { $or: [{ printStatus: { $exists: false } }, { printStatus: { $in: [null, ''] } }] });
       }
     }
     return filter;
@@ -2851,7 +2825,7 @@ export class OrderService implements OnModuleInit {
     if (typeof dto.readyForFulfill === 'boolean') baseMatch.readyForFulfill = dto.readyForFulfill;
     if (dto.search) {
       const searchOr = buildSearchOr(dto.search);
-      if (searchOr.length) baseMatch.$or = searchOr;
+      if (searchOr.length) andWith(baseMatch, { $or: searchOr });
     }
 
     const startOfToday = vnTodayStart();
@@ -4569,16 +4543,10 @@ export class OrderService implements OnModuleInit {
       const sanitizedDto = { ...dto, toolResultNote: undefined } as GetProductionOrdersDto;
       const baseFilter = this.buildOrderListFilter(sanitizedDto, roleName, assigneeCode);
       const noneClauses = [{ toolResultNote: { $exists: false } }, { toolResultNote: null }, { toolResultNote: '' }];
-      let noneMatch: Record<string, unknown>;
-      if (Array.isArray(baseFilter.$or)) {
-        // Đã có $or từ filter khác — chuyển sang $and để giữ semantics AND.
-        const { $or: existingOr, ...rest } = baseFilter as Record<string, unknown> & {
-          $or: unknown[];
-        };
-        noneMatch = { ...rest, ...excludeCancelled, $and: [{ $or: existingOr }, { $or: noneClauses }] };
-      } else {
-        noneMatch = { ...baseFilter, ...excludeCancelled, $or: noneClauses };
-      }
+      // AND the "none" clauses in via `$and`, keeping every existing `$and` and the
+      // Fulfillment scope `$or` (andWith copies the array, so baseFilter is untouched).
+      const noneMatch: Record<string, unknown> = { ...baseFilter, ...excludeCancelled };
+      andWith(noneMatch, { $or: noneClauses });
       return this.orderModel.countDocuments(noneMatch);
     })();
 
@@ -4588,15 +4556,10 @@ export class OrderService implements OnModuleInit {
       const sanitizedDto = { ...dto, toolResult: undefined } as GetProductionOrdersDto;
       const baseFilter = this.buildOrderListFilter(sanitizedDto, roleName, assigneeCode);
       const noneClauses = [{ toolResult: { $exists: false } }, { toolResult: null }, { toolResult: '' }];
-      let noneMatch: Record<string, unknown>;
-      if (Array.isArray(baseFilter.$or)) {
-        const { $or: existingOr, ...rest } = baseFilter as Record<string, unknown> & {
-          $or: unknown[];
-        };
-        noneMatch = { ...rest, ...excludeCancelled, $and: [{ $or: existingOr }, { $or: noneClauses }] };
-      } else {
-        noneMatch = { ...baseFilter, ...excludeCancelled, $or: noneClauses };
-      }
+      // AND the "none" clauses in via `$and`, keeping every existing `$and` and the
+      // Fulfillment scope `$or` (andWith copies the array, so baseFilter is untouched).
+      const noneMatch: Record<string, unknown> = { ...baseFilter, ...excludeCancelled };
+      andWith(noneMatch, { $or: noneClauses });
       return this.orderModel.countDocuments(noneMatch);
     })();
 
@@ -4608,15 +4571,10 @@ export class OrderService implements OnModuleInit {
       const sanitizedDto = { ...dto, type: undefined } as GetProductionOrdersDto;
       const baseFilter = this.buildOrderListFilter(sanitizedDto, roleName, assigneeCode);
       const noneClauses = [{ type: { $exists: false } }, { type: null }, { type: '' }];
-      let noneMatch: Record<string, unknown>;
-      if (Array.isArray(baseFilter.$or)) {
-        const { $or: existingOr, ...rest } = baseFilter as Record<string, unknown> & {
-          $or: unknown[];
-        };
-        noneMatch = { ...rest, ...excludeCancelled, $and: [{ $or: existingOr }, { $or: noneClauses }] };
-      } else {
-        noneMatch = { ...baseFilter, ...excludeCancelled, $or: noneClauses };
-      }
+      // AND the "none" clauses in via `$and`, keeping every existing `$and` and the
+      // Fulfillment scope `$or` (andWith copies the array, so baseFilter is untouched).
+      const noneMatch: Record<string, unknown> = { ...baseFilter, ...excludeCancelled };
+      andWith(noneMatch, { $or: noneClauses });
       return this.orderModel.countDocuments(noneMatch);
     })();
 

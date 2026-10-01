@@ -68,6 +68,7 @@ describe('buildOrderListFilter + productLine — KEEPS the standard exclusions',
   it('combined with search: productLine does NOT leak into the search $or', () => {
     const f = build({ productLine: '3d', search: 'abc' });
     expect(f.productLine).toEqual({ $in: ['3d'] });
-    expect(JSON.stringify(f.$or)).not.toContain('productLine');
+    expect(f.$and).toEqual([{ $or: expect.any(Array) }]);
+    expect(JSON.stringify(f.$and)).not.toContain('productLine');
   });
 });
