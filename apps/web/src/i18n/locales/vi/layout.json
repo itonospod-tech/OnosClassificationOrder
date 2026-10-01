@@ -11,7 +11,8 @@
       "catalog": "Danh mục",
       "personal": "Cá nhân",
       "admin": "Quản trị",
-      "ceo": "Điều hành"
+      "ceo": "Điều hành",
+      "system": "Hệ thống"
     },
     "dashboard": {
       "title": "Dashboard",
@@ -76,7 +77,46 @@
     "zaloChat": "Chat Zalo",
     "ceoDashboard": "CEO Dashboard",
     "telegram": "Telegram",
-    "guideDtf": "Hướng dẫn DTF"
+    "guideDtf": "Hướng dẫn DTF",
+    "nav": {
+      "reports": {
+        "title": "Báo cáo",
+        "production": "Sản xuất",
+        "ship": "Ship",
+        "stock": "Kho"
+      },
+      "production": {
+        "title": "Sản xuất",
+        "all": "Tất cả đơn",
+        "operations": "Vận hành",
+        "data": "Nhập dữ liệu",
+        "guide": "Hướng dẫn"
+      },
+      "lines": {
+        "3d": "3D",
+        "2d": "2D (DTG/DTF)",
+        "embroidery": "Thêu",
+        "led": "LED",
+        "canvas": "Canvas",
+        "wood": "Gỗ"
+      },
+      "tool": {
+        "title": "Tool",
+        "overview": "Soát tool — tổng quan",
+        "3d": "Tool 3D",
+        "2d": "Tool 2D – DTF"
+      },
+      "ship": {
+        "title": "Ship"
+      },
+      "wallet": {
+        "title": "Ví",
+        "sellers": "Ví seller"
+      },
+      "hr": {
+        "title": "HR"
+      }
+    }
   },
   "header": {
     "toggleSidebar": "Đóng/mở sidebar",

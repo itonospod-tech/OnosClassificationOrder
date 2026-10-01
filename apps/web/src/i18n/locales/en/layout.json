@@ -11,7 +11,8 @@
       "catalog": "Catalog",
       "personal": "Personal",
       "admin": "Admin",
-      "ceo": "Executive"
+      "ceo": "Executive",
+      "system": "System"
     },
     "dashboard": {
       "title": "Dashboard",
@@ -76,7 +77,46 @@
     "zaloChat": "Zalo chat",
     "ceoDashboard": "CEO Dashboard",
     "telegram": "Telegram",
-    "guideDtf": "DTF guide"
+    "guideDtf": "DTF guide",
+    "nav": {
+      "reports": {
+        "title": "Reports",
+        "production": "Production",
+        "ship": "Shipping",
+        "stock": "Stock"
+      },
+      "production": {
+        "title": "Production",
+        "all": "All orders",
+        "operations": "Operations",
+        "data": "Data import",
+        "guide": "Guides"
+      },
+      "lines": {
+        "3d": "3D",
+        "2d": "2D (DTG/DTF)",
+        "embroidery": "Embroidery",
+        "led": "LED",
+        "canvas": "Canvas",
+        "wood": "Wood"
+      },
+      "tool": {
+        "title": "Tool",
+        "overview": "Tool check — overview",
+        "3d": "Tool 3D",
+        "2d": "Tool 2D – DTF"
+      },
+      "ship": {
+        "title": "Ship"
+      },
+      "wallet": {
+        "title": "Wallet",
+        "sellers": "Seller wallets"
+      },
+      "hr": {
+        "title": "HR"
+      }
+    }
   },
   "header": {
     "toggleSidebar": "Toggle sidebar",
