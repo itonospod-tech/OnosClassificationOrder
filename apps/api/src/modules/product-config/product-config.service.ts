@@ -726,7 +726,22 @@ export class ProductConfigService implements OnModuleInit {
     return { filePath, mimetype };
   }
 
+  /**
+   * Chặn tạo/đổi tên trùng `fullName` — so khớp CÙNG phép với `importOrders`
+   * (trim, `^…$`, không phân biệt hoa thường). Trùng tên là `importOrders` lấy
+   * bản đầu còn `remapUnmappedOrders` lấy bản cuối → hai đường gán xưởng lệch nhau.
+   */
+  private async assertFullNameFree(fullName: string, exceptId?: string) {
+    const name = fullName.trim();
+    const clash = await this.productConfigRepository.findOne({
+      fullName: { $regex: '^' + escapeRegex(name) + '$', $options: 'i' },
+      ...(exceptId ? { _id: { $ne: exceptId } } : {}),
+    });
+    if (clash) throw new BadRequestException(`Sản phẩm "${name}" đã tồn tại.`);
+  }
+
   async createProductConfig(dto: CreateProductConfigDto) {
+    await this.assertFullNameFree(dto.fullName);
     // factoryId optional — sản phẩm có thể tạo mà chưa gán xưởng, bổ sung sau
     // ở trang Products (đơn import khớp sản phẩm này sẽ rơi vào "Không xác
     // định xưởng", cùng cách xử lý đơn chưa map product config — Orders.md §19).
@@ -758,6 +773,7 @@ export class ProductConfigService implements OnModuleInit {
   }
 
   async updateProductConfig(id: string, dto: UpdateProductConfigDto) {
+    if (dto.fullName) await this.assertFullNameFree(dto.fullName, id);
     // Validate ref khi client đổi Xưởng / Phòng / Danh mục (throw 404 nếu id không tồn tại).
     if (dto.factoryId) await this.factoryService.getFactory(dto.factoryId);
     if (dto.machineTypeId) await this.machineTypeService.getMachineType(dto.machineTypeId);
