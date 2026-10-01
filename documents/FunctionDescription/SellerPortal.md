@@ -204,6 +204,24 @@ Thao tác (gán designer, đổi xưởng, báo lỗi) vẫn ở app xưởng: n
 
 **Dữ liệu hub luôn mới (07/09/2026):** staging `customer_orders` được bồi tăng dần từ `orders` cho mọi khách (cron 5' + trước mỗi lần admin đọc — `CustomerOrderIntake.md`), nên lọc "Hôm nay" ở `/hub/orders*` có đơn xưởng vừa import, không cần khách mở portal.
 
+### 9.2b Số đếm hub khi lọc xưởng chậm (~6,8 s lúc chưa cache) — chẩn đoán, CHƯA sửa (01/10/2026)
+
+Quan sát: `GET admin/customer-orders/counts?factoryId=<TN>` lần đầu 6,8 s (cache 60 s sau đó); danh sách cùng lọc chỉ 0,3 s. Đo tách từng bước trên DB dev (50.845 đơn staging, TN 24.291):
+
+| Bước | Thời gian |
+|---|---:|
+| `distinct productionId` đơn xưởng TN chưa hủy (24.291 mã) | 101 ms |
+| `$match items.productionId $in` 24.291 mã (có index `items.productionId`) | 92 ms |
+| `$lookup` sang `orders` cho TOÀN BỘ 50.845 đơn (≈ số đếm không lọc) | 3.343 ms |
+| `$lookup` cho 24.291 đơn TN | 1.362 ms |
+
+**Kết luận: mảng `$in` KHÔNG phải nút thắt (~0,2 s).** Chi phí nằm ở derive trạng thái (`$lookup` + `$switch` trong `buildDerivePipeline`), và `computeCountsAdmin` chạy derive **HAI lần** — `countsPipelines` trả 2 pipeline riêng (`byStatus`, `byLine`), mỗi cái derive lại từ đầu. Số đếm không lọc vốn đã ~5 s cùng lý do (comment `cachedAdmin`). Lần đo 6,8 s còn trùng lúc API dev vừa khởi động lại (8 s trước) nên có phần khởi động lạnh.
+
+Hướng sửa, theo thứ tự lời/công:
+1. **Gộp `byStatus` + `byLine` thành MỘT pipeline với `$facet` sau một lần derive** → ước giảm ~½ thời gian mọi số đếm hub (có lọc hay không). Không đụng mô hình dữ liệu.
+2. `byLine` có cần derive không: nếu chỉ đếm theo `items.productLine` + loại đơn hủy thì đếm thẳng mức document, không `$lookup`.
+3. Lưu sẵn `factoryId` lên `customer_orders.items[]` lúc đẩy (đề xuất ban đầu) — chỉ bỏ được ~0,2 s của `distinct`+`$in`, phải backfill + giữ đồng bộ khi chuyển xưởng → KHÔNG đáng, trừ khi đổi luôn cách derive.
+
 ### 9.5 Ops lên đơn HỘ seller `/hub/orders/create` (08/09/2026)
 
 Trước đó chỉ seller tự đặt được đơn thủ công; ops muốn lên đơn hộ phải mạo danh. Khuôn lấy từ wizard của thghub (`components/oms/order-create-wizard.tsx`, cùng một component chạy `mode="seller"` ở `/portal/orders/create` và `mode="staff"` ở `/oms/create`, khác đúng bước "Select Seller").
