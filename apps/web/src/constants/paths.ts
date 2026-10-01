@@ -46,6 +46,9 @@ export const PATHS = {
   PRODUCT_DETAIL: '/adm/products/:id',
   PROMOTIONS: '/adm/promotions',
   CUSTOMERS: '/adm/customers',
+  // Menu links should carry `?activeOnly=true` (MenuRestructure-CEO.md §8.1). To turn the filter off, DROP the
+  // param — never write `activeOnly=false`: the DTO uses z.coerce.boolean, which reads the string "false" as true.
+  WALLETS: '/adm/wallets',
   ZALO_GROUPS: '/adm/zalo-groups',
   ZALO_CHAT: '/adm/zalo',
   ZALO_CHAT_SETTINGS: '/adm/zalo/settings',
