@@ -44,6 +44,7 @@ import { Logger } from 'winston';
 
 import { Auth } from '@/decorators';
 
+import { ORDER_VIEW_ROLES } from '../order/order.controller';
 import { OrderService } from '../order/order.service';
 import { UserDocument } from '../user/user.entity';
 import { DesignerStatsService } from './designer-stats.service';
@@ -136,7 +137,15 @@ export class DesignerStatsController {
       !roleName || !LEADER_ROLES.includes(roleName) ? 'none' : roleName === RoleType.Designer ? 'self' : 'all';
     const includeToolCheck = !!roleName && TOOL_CHECK_ROLES.includes(roleName);
     const wantErrorLog = roleName !== RoleType.Support;
-    const [counts, errorLogTodo, errorLogByFactory, toolCheckByFactory] = await Promise.all([
+    // Same gate as the order list itself: the route roles of `GET /orders` plus the
+    // `page.orders` page permission (Admin/SuperAdmin bypass, mirroring usePermission).
+    const canSeeOrders =
+      !!roleName &&
+      ORDER_VIEW_ROLES.includes(roleName) &&
+      (roleName === RoleType.Admin ||
+        roleName === RoleType.SuperAdmin ||
+        !!user?.role?.permissionCodes?.includes('page.orders'));
+    const [counts, errorLogTodo, errorLogByFactory, toolCheckByFactory, productLineCounts] = await Promise.all([
       this.statsService.getSidebarCounts({
         designerScope,
         includeToolCheck,
@@ -164,6 +173,14 @@ export class DesignerStatsController {
       includeToolCheck
         ? this.statsService.getSidebarCountsByFactory()
         : Promise.resolve<Record<string, { toolCheckRework: number; toolCheckUnreviewed: number }>>({}),
+      canSeeOrders
+        ? this.orderService.countOpenOrdersByProductLine(
+            roleName,
+            user?._id ? String(user._id) : undefined,
+            user?.factoryId,
+            user?.fulfillmentStage,
+          )
+        : Promise.resolve(null),
     ]);
 
     const byFactory: Record<
@@ -179,7 +196,7 @@ export class DesignerStatsController {
       target.toolCheckUnreviewed = c.toolCheckUnreviewed;
     }
 
-    return { success: true, data: { errorLogTodo, ...counts, byFactory } };
+    return { success: true, data: { errorLogTodo, ...counts, productLineCounts, byFactory } };
   }
 
   @Get('designer/overdue-alert')

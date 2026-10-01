@@ -409,6 +409,19 @@ export const WORKSHOP_STAGE_FILTER_KEYS = [
   'done',
 ] as const;
 export type WorkshopStageFilterKey = (typeof WORKSHOP_STAGE_FILTER_KEYS)[number];
+/**
+ * `workshopStage` token for every stage EXCEPT `done` (not packed yet) — the default
+ * "open orders" view of the product-line pages, and exactly what the sidebar
+ * `productLineCounts` badge counts. Kept OUT of `WORKSHOP_STAGE_FILTER_KEYS` because
+ * that list is the set of funnel cells, and this is not a cell.
+ */
+export const WORKSHOP_STAGE_OPEN = '__open__' as const;
+export type WorkshopStageFilter = WorkshopStageFilterKey | typeof WORKSHOP_STAGE_OPEN;
+/**
+ * Day window of the product-line pages and of their sidebar badge (VN calendar days,
+ * today included). One constant for both sides so the badge and the list cannot drift.
+ */
+export const PRODUCT_LINE_WINDOW_DAYS = 7;
 
 /**
  * CSV product-line filter (`ProductLine` codes, `__none__` = orders with no line yet).
@@ -643,7 +656,7 @@ export const GetProductionOrdersZod = PageQueryZod.extend({
    * Chặng suy ra trong Mongo bằng ĐÚNG luật `computeCurrentStage()` (customer-order.service.ts)
    * / `getOrderStatusInfo()` (FE) — xem `OrderService.workshopStageExpr()`. `done` = đã đóng hàng.
    */
-  workshopStage: z.enum(WORKSHOP_STAGE_FILTER_KEYS).optional(),
+  workshopStage: z.enum([...WORKSHOP_STAGE_FILTER_KEYS, WORKSHOP_STAGE_OPEN]).optional(),
 
   // Date range on `orderAt` — thời gian khách lên đơn (yyyy-mm-dd). Tên giữ
   // là `createdFrom/createdTo` để URL/bookmark cũ không vỡ. Designer/Fulfillment

@@ -44,6 +44,7 @@ SidebarCountsZod = {
   toolCheckUnreviewed: number | null;
   // CÙNG các số trên nhưng TÁCH THEO XƯỞNG — badge cho cụm menu riêng từng xưởng
   // (`Orders.md §25`). Xưởng không có đơn thì VẮNG key (FE coi như 0, không hiện badge).
+  productLineCounts: { '3d' | '2d' | wood | embroidery | led | canvas | __none__: number } | null;
   byFactory: Record<factoryId, { errorLogTodo: number; toolCheckRework: number; toolCheckUnreviewed: number }>;
 }
 // GetSidebarCountsResDto = ResZod + { data: SidebarCountsZod }
@@ -63,6 +64,7 @@ Nguyên tắc: **mọi con số MIRROR đúng công thức của trang tương �
 - `designerUnassigned` — `countDocuments` mirror match `getAssignBacklog` (cửa sổ 7 ngày VN, `toolResultNote ∉ [null,'','ok']`, designerStatus unassigned/rejected/rework-chưa-ôm, `productionFactoryClause`).
 - `designerBacklog` — scope `'all'` (Admin/Manager/DesignerLeader): aggregate `$expr` = `designerFlowConds().backlogCond` — CÙNG object điều kiện với hàng "Tồn" (`columnTotals.backlog`) của `getDailyOverview` (đã refactor các cond dùng chung vào `designerFlowConds()`); scope `'self'` (Designer): `countDocuments` `assignee=userId` + status ∈ {assigned, in-progress, rework} (mirror `backlogByDesigner`).
 - `toolCheckRework` / `toolCheckUnreviewed` — `countDocuments` mirror `reworkMatch` / `unreviewedMatch` của `getToolCheckOverview` (7 ngày, `alive` = không xóa/hủy + `productionFactoryClause`).
+- `productLineCounts` — badge 6 mục nhóm "Sản xuất": `OrderService.countOpenOrdersByProductLine()` dựng filter bằng CHÍNH `buildOrderListFilter` mà trang dòng sản phẩm gọi (`productLine=X&workshopStage=__open__`, `createdFrom/To` = `PRODUCT_LINE_WINDOW_DAYS` (7) ngày lịch VN tính cả hôm nay, cùng phạm vi role) + `deletedAt` (trang đếm qua repository), rồi `$group` theo `productLine` thay vì lọc — nên số badge = số dòng khi bấm vào. Luôn đủ 6 key + `__none__` (dòng không có đơn = 0, vẫn hiện). `null` khi role ngoài `ORDER_VIEW_ROLES` hoặc thiếu `page.orders` (Admin/SuperAdmin bỏ qua, như `usePermission`). Không áp phạm vi xưởng ở header (`?factoryId=`). Khoá bằng `product-line-counts.spec.ts` (so cấu trúc filter badge ≡ filter trang cho 4 kiểu role); đã đo trên DB dev 06/09: khớp 7/7 dòng cho Admin và công nhân Ép TN.
 - `byFactory` — `OrderService.countErrorLogTodoByFactory()` (lại dùng CHUNG `buildErrorLogBaseFilter` rồi `$group` theo `factoryId`) + `DesignerStatsService.getSidebarCountsByFactory()` (2 `$group` cho rework/unreviewed). Mỗi con số MỘT lượt `$group`, không phải mỗi xưởng một lượt đếm. **Khác các số tổng ở chỗ KHÔNG áp `productionFactoryClause`**: cụm menu xưởng US là lọc tường minh nên badge phải khớp số trang đó mở ra, không phải luôn 0 (`Orders.md §21`). Phạm vi theo role thì giữ nguyên như số tổng (Support vẫn không có `errorLogTodo`, role ngoài `TOOL_CHECK_ROLES` không có số soát tool).
 - `DesignerModule` import `OrderModule` (lấy `OrderService.countErrorLogTodo`; không vòng lặp — OrderModule không import DesignerModule).
 
