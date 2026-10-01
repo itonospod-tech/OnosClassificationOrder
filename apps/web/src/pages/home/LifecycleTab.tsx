@@ -45,6 +45,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
 
+import { useFactoryScope } from '@/hooks/useFactoryScope';
 import { usePermission } from '@/hooks/usePermission';
 
 import { useAuthStore } from '../../store/authStore';
@@ -406,15 +407,17 @@ export default function LifecycleTab() {
   const [endDate, setEndDate] = useState<string>(() => searchParams.get('lto') || todayISO());
   // `lfactory` = select xưởng của chính tab. Chưa chọn thì rơi về `factoryId` —
   // param chung của "cụm menu theo xưởng" ở sidebar.
+  // Header factory scope goes through `useFactoryScope` (Orders.md §25) — reading `?factoryId=`
+  // directly would skip the Fulfillment lock and send whatever factory a shared link carries.
+  const factoryScopeParam = useFactoryScope() || '';
   const [selectedFactory, setSelectedFactory] = useState<string>(
-    () => searchParams.get('lfactory') || searchParams.get('factoryId') || '',
+    () => searchParams.get('lfactory') || factoryScopeParam,
   );
 
   const effectiveFactory = lockedFactoryId ?? selectedFactory;
 
   // Đổi cụm xưởng ở sidebar chỉ đổi `factoryId` trên URL; select của tab đã seed
   // từ lần mount đầu nên phải kéo theo, nếu không bấm menu sẽ như không có gì xảy ra.
-  const factoryScopeParam = searchParams.get('factoryId') || '';
   useEffect(() => {
     setSelectedFactory((prev) => (prev === factoryScopeParam ? prev : factoryScopeParam));
   }, [factoryScopeParam]);

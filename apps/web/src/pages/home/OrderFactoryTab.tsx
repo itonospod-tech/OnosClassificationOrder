@@ -36,6 +36,7 @@ import { cn } from '@/utils/cn';
 import { isCancelled } from '@/utils/orderActions';
 
 import { useDebounce } from '@/hooks/useDebounce';
+import { useFactoryScope } from '@/hooks/useFactoryScope';
 import { NO_TOOL_ROW_CLASS, useIsNoTool } from '@/hooks/useIsNoTool';
 import { usePermission } from '@/hooks/usePermission';
 
@@ -86,17 +87,17 @@ const DEFAULT_PAGE_SIZE = 20;
 // URL params dùng prefix `f` (factory) để không clash với param của status tab.
 // Ví dụ URL khôi phục đầy đủ:
 //   /dashboard?tab=factory&ffrom=2026-06-18&fto=2026-06-18&ffactory=<id>&fstage=printed&ftype=Tee
-function parseFilterModeFromURL(sp: URLSearchParams): FilterMode {
+function parseFilterModeFromURL(sp: URLSearchParams, factoryScope: string): FilterMode {
   const mode = sp.get('fmode');
   const stage = sp.get('fstage') as PrintStage | null;
   if (mode === 'error-all') return { kind: 'error-all' };
   if (mode === 'print-all' && (stage === 'printed' || stage === 'printing' || stage === 'not-printed')) {
     return { kind: 'print-all', stage };
   }
-  // `ffactory` = chip xưởng user tự bấm trong tab. Không có thì rơi về
-  // `factoryId` — param chung của "cụm menu theo xưởng" ở sidebar, để vào tab
-  // là đã lọc sẵn đúng xưởng của cụm vừa bấm.
-  const fid = sp.get('ffactory') || sp.get('factoryId');
+  // `ffactory` = the tab's own factory chip (a separate choice, kept). Without it, fall back to
+  // the header factory scope — passed in from `useFactoryScope` (Orders.md §25), never read
+  // from `?factoryId=` here, which would skip the Fulfillment lock.
+  const fid = sp.get('ffactory') || factoryScope;
   if (!fid) return { kind: 'all' };
   if (stage === 'printed' || stage === 'printing' || stage === 'not-printed') {
     return { kind: 'print', factoryId: fid, stage };
@@ -142,7 +143,8 @@ export default function OrderFactoryTab() {
     const v = searchParams.get('fview');
     return v === 'total' && isAdmin ? 'total' : 'by-factory';
   });
-  const [filterMode, setFilterMode] = useState<FilterMode>(() => parseFilterModeFromURL(searchParams));
+  const factoryScopeParam = useFactoryScope() || '';
+  const [filterMode, setFilterMode] = useState<FilterMode>(() => parseFilterModeFromURL(searchParams, factoryScopeParam));
   const [selectFilters, setSelectFilters] = useState<SelectFilters>(() => ({
     type: searchParams.get('ftype') || '',
     fabric: searchParams.get('ffabric') || '',
@@ -172,7 +174,6 @@ export default function OrderFactoryTab() {
   // state của tab thì đã seed từ lần mount đầu, không tự đổi theo. Không có
   // effect này thì effect đồng bộ URL bên dưới ghi ngược giá trị cũ trở lại và
   // người dùng thấy "bấm menu mà không có gì xảy ra".
-  const factoryScopeParam = searchParams.get('factoryId') || '';
   useEffect(() => {
     setFilterMode((prev) => {
       const current = 'factoryId' in prev ? prev.factoryId : '';
