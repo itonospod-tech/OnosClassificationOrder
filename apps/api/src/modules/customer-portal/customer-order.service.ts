@@ -1212,9 +1212,15 @@ export class CustomerOrderService implements OnModuleInit {
   ): [Record<string, unknown>[], Record<string, unknown>[]] {
     // Cùng luật với listing: chỉ `items.productLine` (đã stamp/backfill) — không fallback `prodOrders`, kẻo tab đếm lệch danh sách.
     const lineMatch: Record<string, unknown>[] = [...extraStages, ...(productLine ? [{ $match: { 'items.productLine': productLine } }] : [])];
+    // Every stage in `lineMatch` reads only the order document (dates, items.productLine,
+    // items.productionId), never a derived field, so it runs BEFORE the `$lookup`: derive then
+    // touches only the orders in scope instead of all of them. `derive[0]` is its own
+    // customer + trash `$match`; the rest is `$lookup` + `$addFields`, which drop no document.
+    const derive = this.buildDerivePipeline(customerId, cutoff);
     const byStatus = [
-      ...this.buildDerivePipeline(customerId, cutoff),
+      derive[0],
       ...lineMatch,
+      ...derive.slice(1),
       {
         $group: {
           _id: '$statusDerived',
@@ -1224,8 +1230,10 @@ export class CustomerOrderService implements OnModuleInit {
         },
       },
     ];
+    // Line counts read `items.productLine` only, so they need no derive at all (it used to run
+    // the full `$lookup` a second time; hub counts were ~5 s, see SellerPortal.md §9.2b).
     const byLine = [
-      ...this.buildDerivePipeline(customerId, cutoff),
+      derive[0],
       ...lineMatch,
       { $project: { lines: { $setUnion: [{ $ifNull: ['$items.productLine', []] }, []] } } },
       { $unwind: '$lines' },
