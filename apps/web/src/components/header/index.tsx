@@ -50,7 +50,9 @@ function Header({ changeCollapsed, isMobile }: HeaderProps) {
   };
 
   return (
-    <header className="px-4 h-14 bg-background/80 backdrop-blur border-b border-border sticky top-0 z-10 flex items-center justify-between">
+    // `env(safe-area-inset-top)`: with `viewport-fit=cover` (index.html) the bar clears the iPhone
+    // status bar / notch instead of sliding under it; 0 everywhere else.
+    <header className="sticky top-0 z-10 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center justify-between gap-2 border-b border-border bg-background/80 px-3 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-4">
       {/* Desktop: nút thu gọn đã dời VÀO sidebar (cạnh logo) — header bên trái dành cho
           tiêu đề trang (`usePageHeader`). Mobile vẫn giữ nút mở menu. */}
       <div className="flex min-w-0 items-center gap-2">
@@ -62,23 +64,25 @@ function Header({ changeCollapsed, isMobile }: HeaderProps) {
         {pageTitle && (
           <div className="min-w-0 leading-tight">
             <h1 className="truncate text-sm font-semibold text-foreground">{pageTitle}</h1>
-            {pageSubtitle && <p className="truncate text-[11px] text-muted-foreground">{pageSubtitle}</p>}
+            {pageSubtitle && <p className="hidden truncate text-[11px] text-muted-foreground sm:block">{pageSubtitle}</p>}
           </div>
         )}
         {/* Bộ chọn xưởng toàn cục — chỉ hiện ở /ffm/* (thay 5 cụm menu xưởng ở sidebar). */}
         <FactoryScopeSwitch />
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
         {/* Lối vào nhanh mạo danh (AUTH-2) — tự ẩn với vai không phải SuperAdmin. */}
         <ImpersonateQuickSwitch />
 
+        {/* Phones: language + theme live in the account menu below — the bar has room for the
+            menu button, the factory picker and the account, nothing more (390px). */}
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleLanguage}
           title={t('language.switch', { ns: 'common' })}
-          className="gap-1 w-auto px-2"
+          className="hidden w-auto gap-1 px-2 sm:inline-flex"
         >
           <Languages size={16} />
           <span className="text-xs font-medium uppercase">{language}</span>
@@ -89,6 +93,7 @@ function Header({ changeCollapsed, isMobile }: HeaderProps) {
           size="icon"
           onClick={toggleMode}
           title={mode === 'dark' ? t('header.lightMode') : t('header.darkMode')}
+          className="hidden sm:inline-flex"
         >
           {mode === 'dark' ? <Sun size={16} className="text-amber-400" /> : <Moon size={16} />}
         </Button>
@@ -117,6 +122,15 @@ function Header({ changeCollapsed, isMobile }: HeaderProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={toggleLanguage} className="sm:hidden">
+              <Languages size={14} />
+              {t('language.switch', { ns: 'common' })}
+              <span className="ml-auto text-xs font-medium uppercase text-muted-foreground">{language}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={toggleMode} className="sm:hidden">
+              {mode === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+              {mode === 'dark' ? t('header.lightMode') : t('header.darkMode')}
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link to={PATHS.ACCOUNT}>
                 <User size={14} />

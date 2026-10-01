@@ -109,8 +109,9 @@ export function FactoryScopeSwitch() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" title={t('header.factoryScope.title')}>
           <Factory size={14} className="text-muted-foreground" />
-          <span className="text-muted-foreground">{t('header.factoryScope.label')}:</span>
-          <span className={cn('max-w-[220px] truncate font-medium', currentId && 'text-indigo-700 dark:text-indigo-300')}>{label(current)}</span>
+          {/* Phones drop the "Factory:" prefix and cap the name so the bar never overflows (390px). */}
+          <span className="hidden text-muted-foreground sm:inline">{t('header.factoryScope.label')}:</span>
+          <span className={cn('max-w-[110px] truncate font-medium sm:max-w-[220px]', currentId && 'text-indigo-700 dark:text-indigo-300')}>{label(current)}</span>
           <ChevronDown size={12} className="text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>

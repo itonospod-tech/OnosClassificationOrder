@@ -142,5 +142,13 @@
   "factoryScopeChip": {
     "label": "Đang lọc xưởng: {{name}}",
     "clear": "Bỏ lọc xưởng"
+  },
+  "tabBar": {
+    "label": "Điều hướng nhanh",
+    "tasks": "Việc",
+    "scan": "Quét mã",
+    "errors": "Lỗi",
+    "orders": "Đơn",
+    "more": "Thêm"
   }
 }

@@ -33,6 +33,28 @@
     --ring: 222.2 84% 4.9%;
 
     --radius: 0.5rem;
+
+    /* Sidebar navigation (DesignSystem-LegacyParity.md §9): keeps the legacy violet's ROLE — it
+       marks where you are — in a calmer form (tinted fill + indicator bar, no gradient or glow),
+       plus the legacy soft rail shadow. Tailwind reads them as nav-* tokens (tailwind.config.js). */
+    --nav-accent: 245 58% 56%;
+    --nav-text: 0 0% 38%;
+    --nav-group: 0 0% 60%;
+    --nav-open: 0 0% 96%;
+    --nav-rail-shadow: 0 0 15px 0 rgb(0 0 0 / 0.05);
+
+    /* Staff app page + surfaces (documents/Plans/DesignSystem-LegacyParity.md §1/§3): light grey
+       page, white surfaces lifted by a wide soft shadow instead of an outline. */
+    --page: 0 0% 97.3%;
+    --surface-shadow: 0 4px 25px 0 rgb(0 0 0 / 0.1);
+
+    /* Status by MEANING, kept from the legacy app (DesignSystem-LegacyParity.md §9): violet = where
+       you are / info, green = done, orange = running / waiting, red = error. Calmer than the Vuexy
+       originals. Pattern: bg-tone-x/10 + text-tone-x for chips, solid bg-tone-x + white for emphasis. */
+    --tone-info: 245 58% 56%;
+    --tone-success: 152 56% 34%;
+    --tone-warning: 28 92% 42%;
+    --tone-danger: 0 68% 50%;
   }
 
   .dark {
@@ -63,6 +85,23 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    /* Dark: a lighter violet so accent text and the indicator keep contrast on the dark surface. */
+    --nav-accent: 245 85% 76%;
+    --nav-text: 215 20% 72%;
+    --nav-group: 215 16% 52%;
+    --nav-open: 217.2 32.6% 13%;
+    --nav-rail-shadow: none;
+
+    /* Shadows vanish on a dark page, so dark mode keeps the plain page and the borders. */
+    --page: 222.2 84% 4.9%;
+    --surface-shadow: none;
+
+    /* Lighter on dark so tinted chips keep readable text. */
+    --tone-info: 245 85% 76%;
+    --tone-success: 152 52% 56%;
+    --tone-warning: 35 92% 60%;
+    --tone-danger: 0 82% 68%;
   }
 }
 
@@ -74,6 +113,20 @@
     @apply bg-background text-foreground font-sans;
     font-feature-settings: 'rlig' 1, 'calt' 1;
   }
+}
+
+/* Legacy parity (DesignSystem-LegacyParity.md §3): inside the staff app <main> a card floats on the
+   grey page by a soft shadow, not an outline. Cards are hand-built (`rounded-lg border bg-card`) in
+   ~80 files, so this is one scoped rule rather than 200 edits. Only large radii count as cards —
+   small `rounded-md` controls keep their border. A surface nested in a card keeps its border: a
+   shadow inside a shadowed card reads as clutter. Dark mode is untouched (borders stay). */
+:root:not(.dark) .app-page :is(.rounded-lg, .rounded-xl, .rounded-2xl).border.bg-card {
+  border-color: transparent;
+  box-shadow: var(--surface-shadow);
+}
+:root:not(.dark) .app-page :is(.rounded-lg, .rounded-xl, .rounded-2xl).border.bg-card :is(.rounded-lg, .rounded-xl, .rounded-2xl).border.bg-card {
+  border-color: hsl(var(--border));
+  box-shadow: none;
 }
 
 /* Custom scrollbar */

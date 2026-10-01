@@ -65,6 +65,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useSidebarBadgeStore } from '../../store/sidebarBadgeStore';
 import { useSidebarResetStore } from '../../store/sidebarResetStore';
 import { handleAxiosError } from '../../utils';
+import { TAB_BAR_ROLES } from './MobileTabBar';
 
 /**
  * Count badge on one sidebar entry: red = urgent, amber = waiting to be assigned/reworked,
@@ -223,8 +224,8 @@ interface NavGroup {
 
 const ADMIN_ROLES: string[] = [RoleType.SuperAdmin, RoleType.Admin];
 
-/** Roles that own a task board (designer kanban / fulfillment kanban) — see `buildMainItems`. */
-const TASK_BOARD_ROLES: string[] = [RoleType.Designer, RoleType.DesignerLeader, RoleType.Fulfillment];
+/** Roles that own a task board (designer / fulfillment kanban) — same set as the phone tab bar. */
+const TASK_BOARD_ROLES = TAB_BAR_ROLES;
 
 /**
  * URL params matched BOTH WAYS in `isLinkActive` (every other param only needs
@@ -804,16 +805,24 @@ function SidebarLeaf({
       }}
       title={collapsed ? item.label : undefined}
       className={cn(
-        'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors',
+        'relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
+        // Active entry keeps the legacy violet's ROLE (where you are) without its 2018 gradient +
+        // glow: tinted fill, accent text and a thin indicator bar (DesignSystem-LegacyParity.md §9).
         active
-          ? 'bg-accent text-accent-foreground font-medium'
-          : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-        collapsed && 'justify-center relative',
+          ? 'bg-nav-accent/10 font-medium text-nav-accent before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-nav-accent'
+          : 'text-nav-text hover:bg-nav-open hover:text-foreground',
+        collapsed && 'justify-center',
         !collapsed && level > 0 && 'ml-5 py-1.5 text-[13px]',
       )}
     >
-      <span className={active ? 'text-foreground' : 'text-muted-foreground'}>{item.icon}</span>
-      {!collapsed && <span className={cn('truncate', hasBadges && 'flex-1')}>{item.label}</span>}
+      <span className={active ? 'text-nav-accent' : 'text-nav-text'}>{item.icon}</span>
+      {!collapsed && (
+        // Child labels wrap to two lines instead of being cut: Vietnamese labels run long
+        // ("Danh sách đơn (bảng phẳng)") and a truncated entry hides what it opens.
+        <span className={cn(level > 0 ? 'line-clamp-2 leading-snug' : 'truncate', hasBadges && 'flex-1')}>
+          {item.label}
+        </span>
+      )}
       {!collapsed && hasBadges && (
         <span className="flex items-center gap-1 shrink-0">
           {badges!.map((b) => (
@@ -863,13 +872,11 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         to={hrefOf(item.children![0])}
         title={item.label}
         className={cn(
-          'flex items-center justify-center px-3 py-2 rounded-md text-sm transition-colors relative',
-          anyChildActive
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+          'flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-colors relative',
+          anyChildActive ? 'bg-nav-accent/10 text-nav-accent' : 'text-nav-text hover:bg-nav-open hover:text-foreground',
         )}
       >
-        <span className={anyChildActive ? 'text-foreground' : 'text-muted-foreground'}>{item.icon}</span>
+        <span className={anyChildActive ? 'text-nav-accent' : 'text-nav-text'}>{item.icon}</span>
         {urgentOnly(childBadges).length > 0 && <BadgeDot badges={urgentOnly(childBadges)} />}
       </Link>
     );
@@ -881,13 +888,14 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-left bg-transparent border-none cursor-pointer',
-          anyChildActive
-            ? 'text-foreground font-medium'
-            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+          'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left border-none cursor-pointer',
+          // An open group sits on a very light grey row with regular text, as in the legacy app —
+          // the violet is reserved for the one active entry so it stays the single eye-catcher.
+          open ? 'bg-nav-open text-foreground' : 'bg-transparent text-nav-text hover:bg-nav-open hover:text-foreground',
+          anyChildActive && 'font-medium',
         )}
       >
-        <span className={anyChildActive ? 'text-foreground' : 'text-muted-foreground'}>{item.icon}</span>
+        <span className={open || anyChildActive ? 'text-foreground' : 'text-nav-text'}>{item.icon}</span>
         <span className="truncate flex-1">{item.label}</span>
         {!open && childBadges.length > 0 && (
           <span className="flex items-center gap-1 shrink-0">
@@ -898,20 +906,31 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         )}
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
-      {open && (
-        <div className="space-y-0.5 mt-0.5">
-          {item.children!.map((c) => (
-            <React.Fragment key={c.key}>
-              {c.sectionBefore && (
-                <p className="ml-5 px-3 pt-2 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-                  {c.sectionBefore}
-                </p>
-              )}
-              <SidebarLeaf item={c} collapsed={false} level={1} badges={badgeMap[c.key]} />
-            </React.Fragment>
-          ))}
+      {/* Slide open/closed like the legacy menu: animate grid rows 0fr→1fr (no fixed height).
+          Closed children stay mounted for the animation, so they are `inert` (out of tab order
+          and the accessibility tree); reduced-motion users get the instant toggle. */}
+      <div
+        className={cn(
+          'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+        )}
+        {...(open ? {} : { inert: '' })}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="space-y-0.5 py-1">
+            {item.children!.map((c) => (
+              <React.Fragment key={c.key}>
+                {c.sectionBefore && (
+                  <p className="ml-5 px-3 pt-2 pb-0.5 text-[11px] font-medium uppercase tracking-[.14px] text-nav-group">
+                    {c.sectionBefore}
+                  </p>
+                )}
+                <SidebarLeaf item={c} collapsed={false} level={1} badges={badgeMap[c.key]} />
+              </React.Fragment>
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1061,7 +1080,7 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
           {navGroups.map((group, idx) => (
             <div key={group.title || `group-${idx}`}>
               {showLabels && group.title && (
-                <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="px-3 mb-1.5 text-[12.6px] font-medium uppercase tracking-[.14px] text-nav-group">
                   {group.title}
                 </p>
               )}
@@ -1111,7 +1130,9 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
       className={cn(
         // Exactly screen height, no overflow: only the menu list scrolls inside, with the logo on
         // top and the account block at the bottom pinned (fixed frame — MainLayout).
-        'h-screen shrink-0 overflow-hidden border-r border-border bg-background transition-[width] duration-200',
+        // Legacy look: no border, a soft shadow on the right. Dark mode has no visible shadow, so the
+        // border returns there (--nav-rail-shadow is `none` in .dark).
+        'relative z-10 h-screen shrink-0 overflow-hidden bg-background shadow-nav-rail transition-[width] duration-200 dark:border-r dark:border-border',
         collapsed ? 'w-[72px]' : 'w-[240px]',
       )}
     >

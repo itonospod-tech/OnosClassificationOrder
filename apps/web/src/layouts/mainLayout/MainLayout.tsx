@@ -9,9 +9,12 @@ import { RepositoryRemote } from '@/services';
 import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
 import OverdueAlertBanner from '@/components/common/OverdueAlertBanner';
 
+import { cn } from '@/utils/cn';
+
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
 import Header from '../../components/header';
+import { MobileTabBar, TAB_BAR_ROLES } from '../../components/sidebar/MobileTabBar';
 import Sidebar from '../../components/sidebar/Sidebar';
 
 function MainLayout() {
@@ -19,6 +22,8 @@ function MainLayout() {
   const outlet = useOutlet();
   const isMobile = useIsMobile();
   const setProfile = useAuthStore((s) => s.setProfile);
+  const roleName = useAuthStore((s) => s.profile?.role?.name);
+  const showTabBar = isMobile && !!roleName && TAB_BAR_ROLES.includes(roleName);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -46,14 +51,16 @@ function MainLayout() {
     // Khung CỐ ĐỊNH (07/09/2026): root cao đúng màn hình và không cuộn — sidebar +
     // header đứng yên, CHỈ <main> cuộn. Trước đây `min-h-screen` để sidebar dài hơn
     // màn hình (nhiều cụm menu theo xưởng) kéo cả trang cuộn, header trôi mất.
-    <div className="flex h-screen overflow-hidden bg-background">
+    // `100dvh`, not `100vh`: on iOS Safari 100vh is taller than the visible area (toolbars), which
+    // pushed the bottom of every page — and the tab bar — under the browser chrome.
+    <div className="flex h-[100dvh] overflow-hidden bg-background">
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
         onToggleCollapse={() => setCollapsed((v) => !v)}
       />
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0 h-screen">
+      <div className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden">
         {/* Dải cảnh báo mạo danh — trên CÙNG cột nội dung, ĐẨY header xuống chứ
             không phủ đè, để không thể cuộn trôi qua (AUTH-1 BR-7/AC-04). */}
         <ImpersonationBanner source="staff" />
@@ -67,7 +74,13 @@ function MainLayout() {
         <OverdueAlertBanner />
         {/* `flex flex-col`: trang nào muốn CHIẾM ĐỦ chiều cao (bảng tự cuộn, chân bảng đứng yên) chỉ cần
             `flex-1 min-h-0` trên root của nó; trang thường vẫn cao theo nội dung và <main> cuộn như cũ. */}
-        <main className="flex flex-1 flex-col overflow-auto p-4 md:p-6">
+        <main
+          className={cn(
+            'app-page flex flex-1 flex-col overflow-auto bg-page p-4 md:p-6',
+            // Keep the last row of every page above the fixed tab bar + home indicator.
+            showTabBar && 'pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
+          )}
+        >
           {/*
             KHÔNG dùng `exit` animation (trước đây có, đã bỏ) — với
             `AnimatePresence`, khai báo `exit` khiến trang CŨ tiếp tục ở lại
@@ -95,6 +108,7 @@ function MainLayout() {
           </AnimatePresence>
         </main>
       </div>
+      {showTabBar && <MobileTabBar roleName={roleName} onMore={() => setMobileOpen(true)} />}
     </div>
   );
 }

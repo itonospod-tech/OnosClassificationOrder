@@ -37,6 +37,23 @@ export default {
           800: '#2b2739',
           900: '#211e2d',
         },
+        // Sidebar navigation (legacy OnosPod look) — values live in theme/globals.css (--nav-*),
+        // light and dark, so the sidebar never carries raw colors.
+        nav: {
+          accent: 'hsl(var(--nav-accent) / <alpha-value>)',
+          text: 'hsl(var(--nav-text) / <alpha-value>)',
+          group: 'hsl(var(--nav-group) / <alpha-value>)',
+          open: 'hsl(var(--nav-open) / <alpha-value>)',
+        },
+        // Status colors by meaning (theme/globals.css --tone-*), light + dark.
+        tone: {
+          info: 'hsl(var(--tone-info) / <alpha-value>)',
+          success: 'hsl(var(--tone-success) / <alpha-value>)',
+          warning: 'hsl(var(--tone-warning) / <alpha-value>)',
+          danger: 'hsl(var(--tone-danger) / <alpha-value>)',
+        },
+        // Staff app page background (grey in light mode, see theme/globals.css --page).
+        page: 'hsl(var(--page) / <alpha-value>)',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -70,6 +87,9 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+      },
+      boxShadow: {
+        'nav-rail': 'var(--nav-rail-shadow)',
       },
       fontFamily: {
         // Font tiêu đề của trang public — khớp identity onosglobal.com.
