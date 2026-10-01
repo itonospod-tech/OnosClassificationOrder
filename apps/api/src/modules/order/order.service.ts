@@ -4562,7 +4562,13 @@ export class OrderService implements OnModuleInit {
     // toolResultNote filter (cùng pattern faceted với aggregateFacet).
     const toolResultNoteNoneCount = await (async () => {
       const sanitizedDto = { ...dto, toolResultNote: undefined } as GetProductionOrdersDto;
-      const baseFilter = this.buildOrderListFilter(sanitizedDto, roleName, assigneeCode);
+      const baseFilter = this.buildOrderListFilter(
+        sanitizedDto,
+        roleName,
+        assigneeCode,
+        fulfillmentFactoryId,
+        fulfillmentStage,
+      );
       const noneClauses = [{ toolResultNote: { $exists: false } }, { toolResultNote: null }, { toolResultNote: '' }];
       // AND the "none" clauses in via `$and`, keeping every existing `$and` and the
       // Fulfillment scope `$or` (andWith copies the array, so baseFilter is untouched).
@@ -4575,7 +4581,13 @@ export class OrderService implements OnModuleInit {
     // null / empty string) — mirror toolResultNoteNoneCount ở trên.
     const toolResultNoneCount = await (async () => {
       const sanitizedDto = { ...dto, toolResult: undefined } as GetProductionOrdersDto;
-      const baseFilter = this.buildOrderListFilter(sanitizedDto, roleName, assigneeCode);
+      const baseFilter = this.buildOrderListFilter(
+        sanitizedDto,
+        roleName,
+        assigneeCode,
+        fulfillmentFactoryId,
+        fulfillmentStage,
+      );
       const noneClauses = [{ toolResult: { $exists: false } }, { toolResult: null }, { toolResult: '' }];
       // AND the "none" clauses in via `$and`, keeping every existing `$and` and the
       // Fulfillment scope `$or` (andWith copies the array, so baseFilter is untouched).
@@ -4590,7 +4602,13 @@ export class OrderService implements OnModuleInit {
     // $ifNull nên VẪN hiện nhóm "đơn không tên" → 2 trang lệch (ORD-1 AC-05/AC-08).
     const typeNoneCount = await (async () => {
       const sanitizedDto = { ...dto, type: undefined } as GetProductionOrdersDto;
-      const baseFilter = this.buildOrderListFilter(sanitizedDto, roleName, assigneeCode);
+      const baseFilter = this.buildOrderListFilter(
+        sanitizedDto,
+        roleName,
+        assigneeCode,
+        fulfillmentFactoryId,
+        fulfillmentStage,
+      );
       const noneClauses = [{ type: { $exists: false } }, { type: null }, { type: '' }];
       // AND the "none" clauses in via `$and`, keeping every existing `$and` and the
       // Fulfillment scope `$or` (andWith copies the array, so baseFilter is untouched).
