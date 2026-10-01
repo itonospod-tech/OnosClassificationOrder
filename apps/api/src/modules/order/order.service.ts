@@ -530,8 +530,8 @@ export class OrderService implements OnModuleInit {
     await loadExcludedFactoryId(this.orderModel.db).catch(() => undefined);
     // Cache xưởng luồng rút gọn (flowType='merged') — transition/rework đọc sync.
     await loadFactoryFlowTypes(this.orderModel.db).catch(() => undefined);
-    // Không await: build index không được chặn boot. Lỗi phải hiện ra log
-    // (autoIndex nuốt lỗi — cùng khuôn shipping-vnp.service.ts onModuleInit).
+    // Not awaited: an index build must not block boot. Failures must reach the log
+    // (autoIndex swallows them — same pattern as shipping-vnp.service.ts onModuleInit).
     void this.orderModel.collection
       .createIndex(ORDER_PRODUCT_LINE_INDEX.keys, { name: ORDER_PRODUCT_LINE_INDEX.name })
       .catch((err: Error) =>
@@ -7534,16 +7534,17 @@ export class OrderService implements OnModuleInit {
         let productLine: ProductLine | undefined = row.productLine;
 
         if (row.type?.trim()) {
-          // limit 2 cùng thứ tự tự nhiên như findOne → vẫn lấy đúng bản findOne
-          // sẽ lấy, chỉ thêm khả năng thấy bản trùng tên để cảnh báo.
+          // limit 2 in the same natural order as findOne → still picks exactly the
+          // record findOne would pick; it only adds the ability to see a same-name
+          // duplicate so we can warn about it.
           const [pc, dup] = await this.productConfigRepository.findAll(
             { fullName: { $regex: '^' + escapeRegex(row.type.trim()) + '$', $options: 'i' } },
             { paging: { limit: 2, skip: 0 } },
           );
           if (dup) {
-            // .info + [WARN]: logger prod không có level warn (xem import-rework).
+            // .info + [WARN]: the prod logger has no warn level (see import-rework).
             this.logger.info({
-              message: `[import][WARN] type "${row.type.trim()}" khớp nhiều ProductConfig (${pc._id}, ${dup._id}, ...) — đang dùng ${pc._id} (factory ${pc.factoryId})`,
+              message: `[import][WARN] type "${row.type.trim()}" matches multiple ProductConfigs (${pc._id}, ${dup._id}, ...) — using ${pc._id} (factory ${pc.factoryId})`,
             });
           }
           if (pc) {
