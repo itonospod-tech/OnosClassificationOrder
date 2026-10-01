@@ -111,7 +111,7 @@ import type {
   ProductPrintArea,
   ProductVariation,
 } from 'shared';
-import type { WorkshopStageFilterKey } from 'shared';
+import type { ProductLineCounts, WorkshopStageFilter } from 'shared';
 import {
   customerMatchKey,
   DESIGNER_ACTIVE_STATUSES,
@@ -132,11 +132,14 @@ import {
   normalizeProductionOrderTracking,
   normalizeVariationText,
   parseProductionIdFromCuttingFilename,
+  PRODUCT_LINE_WINDOW_DAYS,
+  PRODUCT_LINES,
   PRODUCT_PRINT_AREA_LABEL_MAP,
   redirectAutoTarget,
   resolveVariationSizeLabel,
   RoleType,
   Status,
+  WORKSHOP_STAGE_OPEN,
   WorkshopConfigCategory,
 } from 'shared';
 import { Logger } from 'winston';
@@ -1449,13 +1452,16 @@ export class OrderService implements OnModuleInit {
    * (biểu thức chỉ dùng được trong aggregate). Hai hàm phải cho cùng kết quả: tổng khi
    * lọc `workshopStage=X` phải bằng đúng số ô X của phễu. Đổi một hàm thì đổi cả hai.
    */
-  private workshopStageMatch(stage: WorkshopStageFilterKey): Record<string, unknown> {
+  private workshopStageMatch(stage: WorkshopStageFilter): Record<string, unknown> {
     const notCompleted = { fulfillmentCompletedAt: { $in: [null] } }; // missing hoặc null
     const noStage = { currentFulfillmentStage: { $in: [null, ''] } };
     const unassigned = { designerStatus: { $in: [null, '', DesignerStatus.Unassigned] } };
     switch (stage) {
       case 'done':
         return { fulfillmentCompletedAt: { $exists: true, $ne: null } };
+      case WORKSHOP_STAGE_OPEN:
+        // Exact complement of `done`: every order not packed yet, whatever its stage.
+        return notCompleted;
       case 'print':
         // Đang ở chặng In, HOẶC designer đã xong nhưng chưa vào công đoạn nào.
         return {
@@ -8907,6 +8913,41 @@ export class OrderService implements OnModuleInit {
       filter.updatedAt = { $gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) };
     }
     return filter;
+  }
+
+  /**
+   * Sidebar badge of the six "Production" entries: open orders per product line.
+   *
+   * Must equal the row count the user gets when clicking an entry, so it is built
+   * from the SAME `buildOrderListFilter` the product-line page goes through
+   * (`GET /orders?productLine=X&workshopStage=__open__&createdFrom=<today-6>&createdTo=<today>`,
+   * VN calendar days, same role scope) and only groups by `productLine` instead of
+   * filtering on it. `deletedAt` is added because the page count goes through the
+   * repository, which excludes soft-deleted rows; `buildOrderListFilter` does not.
+   */
+  async countOpenOrdersByProductLine(
+    roleName?: RoleType,
+    assigneeCode?: string,
+    fulfillmentFactoryId?: string,
+    fulfillmentStage?: string,
+  ): Promise<ProductLineCounts> {
+    const vnDaysAgo = (days: number) => new Date(Date.now() + 7 * 3600_000 - days * 86_400_000).toISOString().slice(0, 10);
+    const dto = {
+      createdFrom: vnDaysAgo(PRODUCT_LINE_WINDOW_DAYS - 1),
+      createdTo: vnDaysAgo(0),
+      workshopStage: WORKSHOP_STAGE_OPEN,
+    } as GetProductionOrdersDto;
+    const filter = this.buildOrderListFilter(dto, roleName, assigneeCode, fulfillmentFactoryId, fulfillmentStage);
+    const rows = await this.orderModel.aggregate<{ _id: string | null; n: number }>([
+      { $match: { ...filter, deletedAt: { $exists: false } } },
+      { $group: { _id: '$productLine', n: { $sum: 1 } } },
+    ]);
+    const counts = Object.fromEntries([...PRODUCT_LINES, '__none__'].map((k) => [k, 0])) as ProductLineCounts;
+    for (const r of rows) {
+      const key = r._id && (PRODUCT_LINES as string[]).includes(r._id) ? (r._id as ProductLine) : '__none__';
+      counts[key] += r.n;
+    }
+    return counts;
   }
 
   /**

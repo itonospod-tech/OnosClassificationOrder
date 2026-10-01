@@ -102,7 +102,7 @@ import { OnospodImportService } from './onospod-import.service';
 import { OrderService } from './order.service';
 import { ShippingLabelPdfService } from './shipping-label-pdf.service';
 
-const ORDER_VIEW_ROLES = [
+export const ORDER_VIEW_ROLES = [
   RoleType.SuperAdmin,
   RoleType.Admin,
   RoleType.Manager,
