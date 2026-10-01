@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { TFunction } from 'i18next';
 import {
   AlertTriangle,
@@ -58,6 +58,7 @@ import logoUrl from '@/assets/images/logo.png';
 
 import { PATHS } from '../../constants/paths';
 import { duocTruyCapZalo } from '../../constants/zaloAccess';
+import { useFactoryScope } from '../../hooks/useFactoryScope';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { RepositoryRemote } from '../../services';
 import { useAuthStore } from '../../store/authStore';
@@ -932,8 +933,9 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
   // Currently selected factory scope (URL `factoryId`, set from the header picker) — production
   // links carry it so switching pages keeps the scope. The 5 per-factory menu clusters were
   // REMOVED (07/09/2026) — replaced by `FactoryScopeSwitch` in the header (Orders.md §25).
-  const [searchParams] = useSearchParams();
-  const factoryScopeId = searchParams.get('factoryId') || undefined;
+  // Through `useFactoryScope` (Orders.md §25): a Fulfillment account is always on its own factory,
+  // even when a shared link carries another `?factoryId=` — the BE splits its badges only for that.
+  const factoryScopeId = useFactoryScope();
   const navGroups = useMemo(
     () =>
       filterMenuByPermissions(

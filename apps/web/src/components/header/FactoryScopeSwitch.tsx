@@ -19,6 +19,8 @@ import {
 
 import { cn } from '@/utils/cn';
 
+import { useFactoryScope } from '@/hooks/useFactoryScope';
+
 /**
  * Bộ chọn XƯỞNG toàn cục trên header (07/09/2026) — thay 5 cụm menu riêng từng xưởng
  * ở sidebar (Orders.md §25). Chọn xưởng = ghi `?factoryId=` lên URL hiện tại
@@ -31,7 +33,8 @@ import { cn } from '@/utils/cn';
 export function FactoryScopeSwitch() {
   const { t } = useTranslation('layout');
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
+  const scope = useFactoryScope();
   const profile = useAuthStore((s) => s.profile);
   const factories = useFactoryOptionsStore((s) => s.factories);
   const load = useFactoryOptionsStore((s) => s.load);
@@ -49,7 +52,7 @@ export function FactoryScopeSwitch() {
   // get a picker inviting it to browse every factory (it sees nothing until assigned).
   const isLocked = profile.role?.name === 'Fulfillment';
   const locked = isLocked ? profile.factoryId || undefined : undefined;
-  const currentId = locked || (isLocked ? '' : searchParams.get('factoryId') || '');
+  const currentId = scope || '';
   const current = factories.find((f) => f._id === currentId);
   const label = (f?: { shortName?: string; name: string }) =>
     f ? (f.shortName ? `${f.shortName} · ${f.name}` : f.name) : t('header.factoryScope.all');
