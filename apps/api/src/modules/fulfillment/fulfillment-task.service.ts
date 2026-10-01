@@ -48,9 +48,10 @@ import { UserDocument, UserEntity } from '../user/user.entity';
 const OVERRIDE_ROLES: RoleType[] = [RoleType.SuperAdmin, RoleType.Admin, RoleType.Manager, RoleType.SupportManager];
 
 /**
- * Công đoạn mà đơn KHÔNG được phép đứng theo cấu hình xưởng = tập auto-stage
- * của flow (+ Đóng hàng khi bật `autoCompletePack`). Luôn gồm Đóng hàng để nút
- * dọn giữ hành vi cũ (dọn Đóng hàng kể cả khi toggle chưa lưu).
+ * Stages an order must NOT sit at under the factory config = the flow's
+ * auto-stage set (+ Pack when `autoCompletePack` is on). Pack is always
+ * included so the sweep button keeps its old behaviour (it swept Pack even
+ * when the toggle had not been saved yet).
  */
 export function autoBacklogStages(flow: FactoryFlowType, autoPack: boolean): FulfillmentStage[] {
   return FULFILLMENT_STAGES.filter((s) => s === FulfillmentStage.Pack || isAutoStage(flow, s, autoPack));
@@ -353,14 +354,16 @@ export class FulfillmentTaskService {
   }
 
   /**
-   * Dọn đơn TỒN ở các công đoạn tự hoàn thành của 1 xưởng (`autoBacklogStages`)
-   * — auto-stage chỉ chạy trong `resolveTransition` lúc có người bấm Complete,
-   * nên đơn đã đứng sẵn ở đó TRƯỚC khi xưởng đổi flowType/bật autoCompletePack
-   * sẽ kẹt vĩnh viễn (vd 514 đơn DTF Thái Nguyên kẹt QC sau ép, 24/09/2026).
-   * Complete stage đang đứng → vòng while tự Done các auto-stage phía sau.
-   * Đi qua `bulkTransition` → `transition()` từng đơn nên giữ đủ hook (timeline,
-   * kiện hàng, webhook `production_completed`, guard đơn giữ — đơn held fail
-   * riêng nó). `dryRun` (mặc định BẬT ở DTO) chỉ đếm, không ghi gì.
+   * Sweep BACKLOG orders sitting at a factory's auto-complete stages
+   * (`autoBacklogStages`). Auto-stages only run inside `resolveTransition` when
+   * someone clicks Complete, so an order already sitting there BEFORE the
+   * factory changed flowType / turned on autoCompletePack is stuck forever
+   * (e.g. 514 DTF Thai Nguyen orders stuck at QC after press, 24/09/2026).
+   * Completing the stage it sits at lets the while loop auto-Done the
+   * auto-stages after it. Goes through `bulkTransition` → `transition()` per
+   * order so every hook still fires (timeline, packages, `production_completed`
+   * webhook, the held-order guard — a held order fails on its own). `dryRun`
+   * (ON by default in the DTO) only counts and writes nothing.
    */
   async completePackBacklog(
     user: UserDocument,
@@ -375,7 +378,7 @@ export class FulfillmentTaskService {
     fail: number;
     failures: { orderId: string; message: string }[];
   }> {
-    // Đọc cấu hình mới nhất thay vì cache TTL 60s — admin vừa đổi flow là bấm dọn ngay.
+    // Read the latest config instead of the 60s TTL cache — admins sweep right after changing the flow.
     await loadFactoryFlowTypes(this.orderModel.db);
     const stages = autoBacklogStages(
       getFactoryFlowTypeSync(this.orderModel.db, factoryId),

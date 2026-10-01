@@ -125,7 +125,7 @@ export class FulfillmentTaskController {
   @Auth([RoleType.SuperAdmin, RoleType.Admin])
   @ApiOperation({
     summary:
-      'Dọn đơn tồn ở các công đoạn tự hoàn thành của 1 xưởng (auto-stage theo flowType + Đóng hàng). dryRun mặc định true = chỉ đếm.',
+      'Sweep backlog orders stuck at the auto-complete stages of a factory (auto-stages of its flowType + Pack). dryRun defaults to true = count only.',
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: CompletePackBacklogResDto })

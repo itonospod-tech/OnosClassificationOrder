@@ -67,8 +67,8 @@ function OverdueAlertBanner() {
       }
     };
     fetchAlert();
-    // Chỉ poll khi tab đang hiển thị — như Sidebar; tab nền bỏ quên từng là
-    // nguồn 85% lỗi 403 sau mỗi lần phiên bị vô hiệu.
+    // Poll only while the tab is visible — like the Sidebar. Forgotten background
+    // tabs were the source of 85% of the 403s after every session invalidation.
     const id = setInterval(() => {
       if (document.visibilityState === 'visible') fetchAlert();
     }, OVERDUE_POLL_MS);

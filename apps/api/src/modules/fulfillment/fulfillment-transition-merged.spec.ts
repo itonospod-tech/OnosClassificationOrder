@@ -460,12 +460,13 @@ describe('ReworkBack trên xưởng luồng rút gọn — redirect đích', () 
 });
 
 /**
- * Đơn TỒN đứng sẵn ở auto-stage trước khi xưởng đổi flowType (514 đơn DTF Thái
- * Nguyên kẹt QC sau ép, 24/09/2026) — nút dọn Complete stage đang đứng, vòng
- * while phải đưa đơn tới hoàn thành.
+ * BACKLOG orders already sitting at an auto-stage before the factory changed
+ * flowType (514 DTF Thai Nguyen orders stuck at QC after press, 24/09/2026) —
+ * the sweep completes the stage they sit at, and the while loop must carry the
+ * order through to completion.
  */
-describe('Dọn đơn tồn ở auto-stage', () => {
-  it('press-complete: Complete từ QC sau ép → May + Đóng hàng tự Done, đơn hoàn thành', () => {
+describe('Sweeping backlog at auto-stages', () => {
+  it('press-complete: Complete from QC after press → sew + pack auto-Done, order completed', () => {
     const plan = resolve({
       stage: FulfillmentStage.QCPostPress,
       action: FulfillmentTransitionAction.Complete,
@@ -483,7 +484,7 @@ describe('Dọn đơn tồn ở auto-stage', () => {
     expect(set.fulfillmentCompletedAt).toBeInstanceOf(Date);
   });
 
-  it('autoBacklogStages: tập công đoạn nút dọn quét theo flow — luôn gồm Đóng hàng', () => {
+  it('autoBacklogStages: stages the sweep scans per flow — always includes pack', () => {
     expect(autoBacklogStages(FactoryFlowType.PressComplete, false)).toEqual([
       FulfillmentStage.QCPostPress,
       FulfillmentStage.SewIn,
