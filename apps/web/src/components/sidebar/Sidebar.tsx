@@ -222,6 +222,9 @@ interface NavGroup {
 
 const ADMIN_ROLES: string[] = [RoleType.SuperAdmin, RoleType.Admin];
 
+/** Roles that own a task board (designer kanban / fulfillment kanban) — see `buildMainItems`. */
+const TASK_BOARD_ROLES: string[] = [RoleType.Designer, RoleType.DesignerLeader, RoleType.Fulfillment];
+
 /**
  * URL params matched BOTH WAYS in `isLinkActive` (every other param only needs
  * link ⊆ URL): entries sharing a path differ only by these — "All orders" vs
@@ -312,7 +315,7 @@ function withQuery(to: string, query: string): string {
  * Production-area links carry the `?factoryId=` chosen in the header factory picker
  * (`FactoryScopeSwitch`, Orders.md §25) so switching pages keeps the scope.
  */
-function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
+function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: string): NavItem[] {
   const to = (path: string) => withFactory(path, factoryId);
   const lines = [
     { code: '3d', icon: <Box size={14} /> },
@@ -326,6 +329,84 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
     { code: '3d', icon: <Box size={14} /> },
     { code: '2d', icon: <Shirt size={14} /> },
   ];
+
+  // Each role's own task board comes FIRST for the roles that own one (Designer, DesignerLeader,
+  // Fulfillment): 77% of production users (26 Fulfillment + 15 Designer of 53) open it all day,
+  // and each sees only the board of their own role. Other roles (Admin, Manager, Support) have no
+  // board of their own — "My tasks" would open an empty kanban for them — so the order lists lead,
+  // which is also where clicking the group icon goes when the sidebar is collapsed (first child).
+  const tasksFirst = !!roleName && TASK_BOARD_ROLES.includes(roleName);
+  const taskBlock: NavChild[] = [
+    {
+      key: PATHS.MY_TASKS,
+      label: t('sidebar.work.myTasks'),
+      to: to(PATHS.MY_TASKS),
+      icon: <ListChecks size={14} />,
+      perm: 'page.my_tasks',
+    },
+    {
+      key: PATHS.FULFILLMENT_MY_TASKS,
+      label: t('sidebar.work.fulfillmentTasks'),
+      to: to(PATHS.FULFILLMENT_MY_TASKS),
+      icon: <Factory size={14} />,
+      perm: 'page.fulfillment_my_tasks',
+    },
+    {
+      key: 'orders-error-log',
+      label: t('sidebar.orders.errorLog'),
+      to: to(PATHS.ORDERS_ERROR_LOG),
+      icon: <AlertTriangle size={14} />,
+      perm: 'page.orders',
+      hideForRoles: ['Support'],
+    },
+  ];
+  if (!tasksFirst) taskBlock[0] = { ...taskBlock[0], sectionBefore: t('sidebar.work.title') };
+  const orderBlock: NavChild[] = [
+    {
+      key: 'orders-workshop',
+      label: t('sidebar.nav.production.all'),
+      to: to(PATHS.ORDERS_WORKSHOP),
+      icon: <List size={14} />,
+      perm: 'page.orders',
+      sectionBefore: t('sidebar.nav.production.orders'),
+    },
+    {
+      // Flat table, REAL pagination, NOT grouped by product (OrderTableClassic.tsx). Daily work
+      // (hundreds of visits a day on production), so it sits with the order lists, not under System.
+      key: PATHS.ORDERS_CLASSIC,
+      label: t('sidebar.orders.classic'),
+      to: PATHS.ORDERS_CLASSIC,
+      icon: <Rows3 size={14} />,
+      perm: 'page.orders',
+    },
+    ...lines.map(({ code, icon }) => ({
+      key: `line-${code}`,
+      label: t(`sidebar.nav.lines.${code}`),
+      to: to(withQuery(PATHS.ORDERS_WORKSHOP, `productLine=${code}`)),
+      icon,
+      perm: 'page.orders',
+    })),
+  ];
+  const stationBlock: NavChild[] = [
+    {
+      key: 'orders-scan-error',
+      label: t('sidebar.orders.scanError'),
+      to: to(PATHS.ORDERS_SCAN_ERROR),
+      icon: <ScanLine size={14} />,
+      perm: 'page.scan_error',
+      sectionBefore: t('sidebar.nav.production.station'),
+    },
+    {
+      key: 'orders-stage-errors',
+      label: t('sidebar.orders.stageErrors'),
+      to: to(PATHS.ORDERS_STAGE_ERRORS),
+      icon: <Barcode size={14} />,
+      perm: 'page.stage_errors',
+    },
+  ];
+  const productionChildren = tasksFirst
+    ? [...taskBlock, ...orderBlock, ...stationBlock]
+    : [...orderBlock, ...taskBlock, ...stationBlock];
 
   return [
     {
@@ -386,71 +467,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
       label: t('sidebar.nav.production.title'),
       icon: <Factory size={17} />,
       pagePerm: 'page.orders',
-      children: [
-        // Each role's own task board comes FIRST: 77% of production users (26 Fulfillment +
-        // 15 Designer of 53) open it all day, and each sees only the board of their own role.
-        {
-          key: PATHS.MY_TASKS,
-          label: t('sidebar.work.myTasks'),
-          to: to(PATHS.MY_TASKS),
-          icon: <ListChecks size={14} />,
-          perm: 'page.my_tasks',
-        },
-        {
-          key: PATHS.FULFILLMENT_MY_TASKS,
-          label: t('sidebar.work.fulfillmentTasks'),
-          to: to(PATHS.FULFILLMENT_MY_TASKS),
-          icon: <Factory size={14} />,
-          perm: 'page.fulfillment_my_tasks',
-        },
-        {
-          key: 'orders-error-log',
-          label: t('sidebar.orders.errorLog'),
-          to: to(PATHS.ORDERS_ERROR_LOG),
-          icon: <AlertTriangle size={14} />,
-          perm: 'page.orders',
-          hideForRoles: ['Support'],
-        },
-        {
-          key: 'orders-workshop',
-          label: t('sidebar.nav.production.all'),
-          to: to(PATHS.ORDERS_WORKSHOP),
-          icon: <List size={14} />,
-          perm: 'page.orders',
-          sectionBefore: t('sidebar.nav.production.orders'),
-        },
-        {
-          // Flat table, REAL pagination, NOT grouped by product (OrderTableClassic.tsx). Daily work
-          // (hundreds of visits a day on production), so it sits with the order lists, not under System.
-          key: PATHS.ORDERS_CLASSIC,
-          label: t('sidebar.orders.classic'),
-          to: PATHS.ORDERS_CLASSIC,
-          icon: <Rows3 size={14} />,
-          perm: 'page.orders',
-        },
-        ...lines.map(({ code, icon }) => ({
-          key: `line-${code}`,
-          label: t(`sidebar.nav.lines.${code}`),
-          to: to(withQuery(PATHS.ORDERS_WORKSHOP, `productLine=${code}`)),
-          icon,
-          perm: 'page.orders',
-        })),
-        {
-          key: 'orders-scan-error',
-          label: t('sidebar.orders.scanError'),
-          to: to(PATHS.ORDERS_SCAN_ERROR),
-          icon: <ScanLine size={14} />,
-          perm: 'page.scan_error',
-          sectionBefore: t('sidebar.nav.production.station'),
-        },
-        {
-          key: 'orders-stage-errors',
-          label: t('sidebar.orders.stageErrors'),
-          to: to(PATHS.ORDERS_STAGE_ERRORS),
-          icon: <Barcode size={14} />,
-          perm: 'page.stage_errors',
-        },
-      ],
+      children: [...productionChildren],
     },
     {
       key: 'nav-tool',
@@ -556,9 +573,14 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
   ];
 }
 
-function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEmail?: string): NavGroup[] {
+function buildNavGroups(
+  t: TFunction<'layout'>,
+  factoryScopeId?: string,
+  userEmail?: string,
+  roleName?: string,
+): NavGroup[] {
   return [
-    { title: '', items: buildMainItems(t, factoryScopeId) },
+    { title: '', items: buildMainItems(t, factoryScopeId, roleName) },
     {
       // Group 7 "System" (MenuRestructure-CEO.md §8.2 #1/#3/#5): admin and data-intake work that the
       // legacy app also kept in a separate flat admin area. Each entry keeps its own permission, so
@@ -913,7 +935,13 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
   const [searchParams] = useSearchParams();
   const factoryScopeId = searchParams.get('factoryId') || undefined;
   const navGroups = useMemo(
-    () => filterMenuByPermissions(buildNavGroups(t, factoryScopeId, userEmail), permissionCodes, isAdmin, roleName),
+    () =>
+      filterMenuByPermissions(
+        buildNavGroups(t, factoryScopeId, userEmail, roleName),
+        permissionCodes,
+        isAdmin,
+        roleName,
+      ),
     [t, factoryScopeId, userEmail, permissionCodes, isAdmin, roleName],
   );
 
@@ -967,12 +995,16 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
 
     // Production › 3D/2D/…: open orders of the line, equal to the rows the line page lists on its
     // default view (MenuRestructure-CEO.md 2A). Shown even at 0 so every line is visibly there
-    // (§8.3). Hidden while a factory is picked in the header: the count is system-wide and would
-    // read as that factory's — until the BE splits it per factory (`byFactory`), no badge beats a wrong one.
-    if (counts.productLineCounts && !factoryScopeId) {
+    // (§8.3). With a factory picked in the header, read that factory's split — the line page is
+    // scoped to it too. `null` at the top level = the role cannot open the order list: no badges.
+    // A factory missing from `byFactory` just has no open order the viewer can see: all zeros.
+    if (counts.productLineCounts) {
+      const lineCounts = factoryScopeId
+        ? counts.byFactory?.[factoryScopeId]?.productLineCounts
+        : counts.productLineCounts;
       for (const code of PRODUCT_LINES) {
         (map[`line-${code}`] ||= []).push({
-          count: counts.productLineCounts[code],
+          count: lineCounts?.[code] ?? 0,
           tone: 'neutral',
           title: t('sidebar.badges.productLineOpen', { days: PRODUCT_LINE_WINDOW_DAYS }),
         });

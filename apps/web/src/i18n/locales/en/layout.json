@@ -128,7 +128,8 @@
       "title": "Pick a factory — Dashboard, Orders and Work pages filter by it",
       "badgeError": "Errors to handle",
       "badgeTool": "Tool-check backlog (rework / unreviewed)",
-      "lockedTitle": "This account is bound to this factory"
+      "lockedTitle": "This account is bound to this factory",
+      "noFactory": "No factory assigned"
     }
   },
   "overdueAlert": {

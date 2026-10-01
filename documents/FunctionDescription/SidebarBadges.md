@@ -14,7 +14,7 @@
 | Sản xuất → Nhật ký bù lỗi (`orders-error-log`)   | —                                          | `errorLogTodo` — đơn lỗi tab "Cần xử lý" theo góc nhìn chặng của viewer |
 | Báo cáo → Designer (`dash-designer`) | `designerUnassigned` — đơn chưa gán (7 ngày) | `designerBacklog` — tổng tồn thiết kế 7 ngày (Designer thường: tồn của chính họ) |
 | Tool → Soát tool — tổng quan (`dash-tool-check`) | `toolCheckRework` — đơn In trả về cần làm lại | `toolCheckUnreviewed` — đơn chưa soát (7 ngày) |
-| Sản xuất → 3D/2D/Thêu/LED/Canvas/Gỗ (`line-<code>`) | — (badge **trung tính** xám, KHÔNG phải cảnh báo) | `productLineCounts[code]` — đơn CHƯA xong của dòng, `inProductionAt` trong `PRODUCT_LINE_WINDOW_DAYS` ngày VN; = đúng số dòng trang dòng sản phẩm hiện ở mặc định (`workshopStage=__open__` + cửa sổ đó). Hiện cả khi 0 (MenuRestructure-CEO.md §8.3). Ẩn khi đang chọn xưởng trên header — số là toàn hệ thống, chờ BE tách `byFactory`. Badge trung tính không vào chấm màu/pill gộp của mục cha (chỉ báo việc cần làm). |
+| Sản xuất → 3D/2D/Thêu/LED/Canvas/Gỗ (`line-<code>`) | — (badge **trung tính** xám, KHÔNG phải cảnh báo) | `productLineCounts[code]` — đơn CHƯA xong của dòng, `inProductionAt` trong `PRODUCT_LINE_WINDOW_DAYS` ngày VN; = đúng số dòng trang dòng sản phẩm hiện ở mặc định (`workshopStage=__open__` + cửa sổ đó). Hiện cả khi 0 (MenuRestructure-CEO.md §8.3). Đang chọn xưởng trên header → đọc `byFactory[factoryId].productLineCounts` (khớp trang dòng có `?factoryId=`); xưởng vắng khỏi `byFactory` = 0. Badge trung tính không vào chấm màu/pill gộp của mục cha (chỉ báo việc cần làm). |
 
 > Menu 6 nhóm (01/10/2026, `documents/Plans/MenuRestructure-CEO.md`) dời 3 entry sang nhóm mới nhưng GIỮ NGUYÊN key — `badgeMap` gắn số theo key, đổi key là mất badge.
 
