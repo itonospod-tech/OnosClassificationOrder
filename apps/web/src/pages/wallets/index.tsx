@@ -1,0 +1,230 @@
+import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import dayjs from 'dayjs';
+import { RefreshCw, Search, Wallet } from 'lucide-react';
+import type { AdminWalletRow } from 'shared';
+
+import { PATHS } from '@/constants/paths';
+
+import { RepositoryRemote } from '@/services';
+
+import { PaginationBar } from '@/components/common/PaginationBar';
+import { Spinner } from '@/components/common/Spinner';
+import { TierBadge } from '@/components/common/TierBadge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+import { handleAxiosError } from '@/utils';
+import { cn } from '@/utils/cn';
+
+import { usePermission } from '@/hooks/usePermission';
+
+import { formatUsd, isOverLimit } from './walletFormat';
+import WalletLedgerSheet from './WalletLedgerSheet';
+
+/**
+ * Seller wallets, staff side. Filters live on the URL so a menu link can carry a meaningful default
+ * (MenuRestructure-CEO.md §8.1) — e.g. `?activeOnly=true` — and an open ledger is shareable (`?customer=`).
+ */
+export default function WalletsPage() {
+  const { isAdmin } = usePermission();
+  if (!isAdmin) return <Navigate to={PATHS.HOME} replace />;
+
+  return <WalletsContent />;
+}
+
+function WalletsContent() {
+  const { t } = useTranslation('wallets');
+  const [params, setParams] = useSearchParams();
+  const activeOnly = params.get('activeOnly') === 'true';
+  const search = params.get('search') ?? '';
+  const openCustomerId = params.get('customer');
+
+  const [rows, setRows] = useState<AdminWalletRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [loading, setLoading] = useState(false);
+  const [searchInput, setSearchInput] = useState(search);
+  const [reloadTick, setReloadTick] = useState(0);
+
+  const updateParams = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    setParams(next, { replace: true });
+  };
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, activeOnly]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        // Never send activeOnly=false: the DTO uses z.coerce.boolean, which reads the string "false" as true.
+        const res = await RepositoryRemote.customerWallet.listWallets({
+          search: search.trim() || undefined,
+          activeOnly: activeOnly || undefined,
+          page,
+          limit: pageSize,
+        });
+        if (cancelled) return;
+        setRows((res.data?.data || []) as AdminWalletRow[]);
+        setTotal((res.data?.total as number) || 0);
+      } catch (err) {
+        if (!cancelled) handleAxiosError(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [search, activeOnly, page, pageSize, reloadTick]);
+
+  const openRow = rows.find((r) => r.customerId === openCustomerId) ?? null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-semibold text-slate-800 dark:text-slate-100">
+            <Wallet size={20} /> {t('title')}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">{t('subtitle')}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setReloadTick((n) => n + 1)} disabled={loading}>
+          <RefreshCw size={16} className={cn('mr-1.5', loading && 'animate-spin')} />
+          {t('refresh')}
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <form
+          className="relative w-full max-w-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            updateParams({ search: searchInput.trim() || null });
+          }}
+        >
+          <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onBlur={() => updateParams({ search: searchInput.trim() || null })}
+            placeholder={t('searchPlaceholder')}
+            className="pl-8"
+          />
+        </form>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={activeOnly}
+            onChange={(e) => updateParams({ activeOnly: e.target.checked ? 'true' : null })}
+            className="h-4 w-4 accent-primary-600"
+          />
+          {t('activeOnly')}
+        </label>
+      </div>
+
+      <PaginationBar
+        position="top"
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        loading={loading}
+        onChange={(p, s) => {
+          setPage(p);
+          setPageSize(s);
+        }}
+      />
+
+      <div className="relative overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('columns.seller')}</TableHead>
+              <TableHead>{t('columns.tier')}</TableHead>
+              <TableHead className="text-right">{t('columns.balance')}</TableHead>
+              <TableHead className="text-right">{t('columns.creditLimit')}</TableHead>
+              <TableHead>{t('columns.lastTxn')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow
+                key={row.customerId}
+                className="cursor-pointer"
+                onClick={() => updateParams({ customer: row.customerId })}
+              >
+                <TableCell>
+                  <div className="font-medium text-slate-800 dark:text-slate-100">{row.fullName || row.userSku}</div>
+                  <div className="text-xs text-slate-500">
+                    {row.userSku}
+                    {row.userEmail ? ` · ${row.userEmail}` : ''}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <TierBadge tier={row.tier} />
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <span className={cn('font-semibold', row.balance < 0 ? 'text-red-600' : 'text-slate-800 dark:text-slate-100')}>
+                    {formatUsd(row.balance)}
+                  </span>
+                  {isOverLimit(row.balance, row.creditLimit) && (
+                    <div className="text-xs font-medium text-red-600">{t('overLimit')}</div>
+                  )}
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-slate-600 dark:text-slate-300">
+                  {formatUsd(row.creditLimit)}
+                </TableCell>
+                <TableCell className="text-sm text-slate-600 dark:text-slate-300">
+                  {row.lastTxnAt ? dayjs(row.lastTxnAt).format('DD/MM/YYYY HH:mm') : t('neverUsed')}
+                </TableCell>
+              </TableRow>
+            ))}
+            {!loading && rows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="py-10 text-center text-sm text-slate-500">
+                  {t('empty')}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+        {loading && rows.length === 0 && (
+          <div className="flex justify-center py-10">
+            <Spinner />
+          </div>
+        )}
+      </div>
+
+      <PaginationBar
+        position="bottom"
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        loading={loading}
+        onChange={(p, s) => {
+          setPage(p);
+          setPageSize(s);
+        }}
+      />
+
+      <WalletLedgerSheet
+        customerId={openCustomerId}
+        row={openRow}
+        kind={params.get('kind')}
+        onKindChange={(kind) => updateParams({ kind })}
+        onClose={() => updateParams({ customer: null, kind: null })}
+      />
+    </div>
+  );
+}

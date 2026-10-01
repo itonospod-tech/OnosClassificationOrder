@@ -1,0 +1,41 @@
+{
+  "title": "Seller wallets",
+  "subtitle": "Balance, credit limit and wallet ledger of each seller.",
+  "searchPlaceholder": "Search by account, email, name…",
+  "activeOnly": "Only wallets with money or transactions",
+  "refresh": "Refresh",
+  "columns": {
+    "seller": "Seller",
+    "tier": "Tier",
+    "balance": "Balance",
+    "creditLimit": "Credit limit",
+    "lastTxn": "Last transaction"
+  },
+  "overLimit": "Over limit",
+  "neverUsed": "None",
+  "empty": "No sellers match.",
+  "ledger": {
+    "title": "Wallet ledger — {{name}}",
+    "balance": "Current balance",
+    "creditLimit": "Credit limit",
+    "available": "Available",
+    "kindAll": "All types",
+    "empty": "No transactions yet.",
+    "columns": {
+      "time": "Time",
+      "kind": "Type",
+      "amount": "Amount",
+      "balance": "Balance before → after",
+      "note": "Note",
+      "by": "By"
+    },
+    "system": "System"
+  },
+  "kinds": {
+    "topup": "Top-up",
+    "label": "Label purchase",
+    "label_refund": "Label refund",
+    "order": "Order payment",
+    "adjust": "Adjustment"
+  }
+}

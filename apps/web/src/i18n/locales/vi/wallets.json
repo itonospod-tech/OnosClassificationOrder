@@ -1,0 +1,41 @@
+{
+  "title": "Ví seller",
+  "subtitle": "Số dư, hạn mức nợ và sổ cái ví của từng seller.",
+  "searchPlaceholder": "Tìm theo tài khoản, email, tên…",
+  "activeOnly": "Chỉ ví có tiền hoặc đã có giao dịch",
+  "refresh": "Tải lại",
+  "columns": {
+    "seller": "Seller",
+    "tier": "Hạng",
+    "balance": "Số dư",
+    "creditLimit": "Hạn mức nợ",
+    "lastTxn": "Giao dịch cuối"
+  },
+  "overLimit": "Vượt hạn mức",
+  "neverUsed": "Chưa có",
+  "empty": "Không có seller nào khớp.",
+  "ledger": {
+    "title": "Sổ cái ví — {{name}}",
+    "balance": "Số dư hiện tại",
+    "creditLimit": "Hạn mức nợ",
+    "available": "Còn được dùng",
+    "kindAll": "Tất cả loại",
+    "empty": "Chưa có giao dịch nào.",
+    "columns": {
+      "time": "Thời gian",
+      "kind": "Loại",
+      "amount": "Số tiền",
+      "balance": "Số dư trước → sau",
+      "note": "Ghi chú",
+      "by": "Người thao tác"
+    },
+    "system": "Hệ thống"
+  },
+  "kinds": {
+    "topup": "Nạp tiền",
+    "label": "Mua label",
+    "label_refund": "Hoàn tiền label",
+    "order": "Tiền đơn hàng",
+    "adjust": "Điều chỉnh"
+  }
+}

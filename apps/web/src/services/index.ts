@@ -15,6 +15,7 @@ import {
   customerNotificationPortal,
   customerOrder,
 } from './customerPortal';
+import { customerWallet } from './customerWallet';
 import { departments } from './departments';
 import { designer } from './designer';
 import { designerAssignment } from './designerAssignment';
@@ -63,6 +64,7 @@ export const RepositoryRemote = {
   designer,
   designerAssignment,
   customer,
+  customerWallet,
   customerAssignment,
   customerAuth,
   customerOrder,
