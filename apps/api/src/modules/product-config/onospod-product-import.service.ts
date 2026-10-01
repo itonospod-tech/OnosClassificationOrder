@@ -18,6 +18,7 @@ import { ApiConfigService } from '@/shared/services';
 import { CollectionRepository } from '../collection/collection.repository';
 import { ProductCategoryRepository } from '../product-category/product-category.repository';
 import { ProductConfigEntity } from './product-config.entity';
+import { productLineForNew } from './product-line-migration';
 
 // Gateway OnosPod chặn 403 nếu THIẾU header `origin` — xem chú thích cùng tên
 // ở `order/onospod-order-lookup.service.ts` (verify bằng test gọi thật).
@@ -31,7 +32,7 @@ const ONOSPOD_ORIGIN = 'https://app.onospod.com';
  * filter = 178). Phân trang qua HEADER `x-page`/`x-per-page`, tổng ở response
  * header `x-total` — KHÔNG phải biến trong query.
  */
-const PRODUCT_PRESET_QUERY = `query { productPreset (_id:"",identity:"",name:"",provider:"",category:"All",category_id:[],collection:"") {
+const productPresetQuery = (collection: string) => `query { productPreset (_id:"",identity:"",name:"",provider:"",category:"All",category_id:[],collection:"${collection}") {
   _id,sku,slug,identity,name,image,images_thumbnail,description,short_description,template_description,
   attribute_specifics {
     sku,nonship_price,tiktok_final_price,wholesale_price,sale_price,base_price,
@@ -209,7 +210,7 @@ export class OnospodProductImportService {
   ) {}
 
   /** Fetch 1 trang productPreset — trả rows + tổng (header `x-total`). */
-  private async fetchPage(page: number, limit: number): Promise<{ rows: OnospodProduct[]; total: number }> {
+  private async fetchPage(page: number, limit: number, collection = ''): Promise<{ rows: OnospodProduct[]; total: number }> {
     const cfg = this.apiConfigService.onospodApiConfig;
     if (!cfg) {
       throw new BadRequestException(
@@ -219,7 +220,7 @@ export class OnospodProductImportService {
 
     const res = await axios.post<{ data?: { productPreset?: OnospodProduct[] } }>(
       cfg.apiUrl,
-      { query: PRODUCT_PRESET_QUERY },
+      { query: productPresetQuery(collection) },
       {
         timeout: 60_000,
         headers: {
@@ -390,7 +391,7 @@ export class OnospodProductImportService {
    *   lần không kèm `variations`, ghi nhận lỗi để xử lý tay.
    */
   async importFromOnospod(dto: ImportFromOnospodDto): Promise<ImportFromOnospodResDto> {
-    const { rows: rawRows, total } = await this.fetchPage(dto.page, dto.limit);
+    const { rows: rawRows, total } = await this.fetchPage(dto.page, dto.limit, dto.collection);
     // Dedupe theo _id — phân trang OnosPod không ổn định (thứ tự trượt giữa
     // các lần gọi), cùng 1 trang lớn vẫn dedupe phòng hờ. Khuyến nghị FE gọi
     // 1 LẦN limit 500 thay vì nhiều trang nhỏ (xem `ImportFromOnospodZod`).
@@ -425,12 +426,17 @@ export class OnospodProductImportService {
 
         if (!existing) {
           try {
-            await this.productConfigModel.create(mapped);
+            await this.productConfigModel.create({ ...mapped, ...productLineForNew(p.collection) });
           } catch (err) {
             if (!OnospodProductImportService.isDuplicateKeyError(err)) throw err;
             // SKU (sản phẩm hoặc biến thể) đụng unique index của sản phẩm khác
             // → vẫn tạo phần còn lại, bỏ 2 field đụng độ.
-            await this.productConfigModel.create({ ...mapped, sku: undefined, variations: undefined });
+            await this.productConfigModel.create({
+              ...mapped,
+              ...productLineForNew(p.collection),
+              sku: undefined,
+              variations: undefined,
+            });
             errors.push({
               sku: skuRaw ?? '',
               name,

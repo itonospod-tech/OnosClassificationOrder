@@ -528,6 +528,12 @@ export const ImportFromOnospodZod = z.object({
    * 2026-08-05: 9 trang × 20 chỉ thu 167 dòng có trùng lặp, thiếu PAOPPOLO).
    */
   limit: z.coerce.number().int().positive().max(500).default(500),
+  /**
+   * Chỉ lấy 1 collection bên OnosPod (vd `dropship`). Bỏ trống = truy vấn không filter,
+   * nhưng truy vấn đó KHÔNG trả collection `dropship` (verify 01/10/2026: 221 dòng,
+   * `x-total` 232) nên muốn nhập dropship phải gọi tường minh với giá trị này.
+   */
+  collection: z.string().trim().min(1).max(60).regex(/^[\w-]+$/).optional(),
 });
 export class ImportFromOnospodDto extends createZodDto(extendApi(ImportFromOnospodZod)) {}
 
