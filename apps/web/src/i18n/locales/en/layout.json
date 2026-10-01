@@ -82,14 +82,12 @@
       "reports": {
         "title": "Reports",
         "production": "Production",
-        "ship": "Shipping",
         "stock": "Stock"
       },
       "production": {
         "title": "Production",
         "all": "All orders",
         "operations": "Operations",
-        "data": "Data import",
         "guide": "Guides"
       },
       "lines": {

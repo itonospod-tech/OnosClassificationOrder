@@ -82,14 +82,12 @@
       "reports": {
         "title": "Báo cáo",
         "production": "Sản xuất",
-        "ship": "Ship",
         "stock": "Kho"
       },
       "production": {
         "title": "Sản xuất",
         "all": "Tất cả đơn",
         "operations": "Vận hành",
-        "data": "Nhập dữ liệu",
         "guide": "Hướng dẫn"
       },
       "lines": {

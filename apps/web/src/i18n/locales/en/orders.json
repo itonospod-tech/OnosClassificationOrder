@@ -713,7 +713,9 @@
   "workshopPage": {
     "noPermission": "You don't have permission to view this page.",
     "title": "Order list",
-    "subtitle": "Manage production orders"
+    "subtitle": "Manage production orders",
+    "lineTitle": "Production · {{line}}",
+    "lineSubtitle": "Default view: orders that entered production in the last {{days}} days"
   },
   "classicPage": {
     "title": "Orders",

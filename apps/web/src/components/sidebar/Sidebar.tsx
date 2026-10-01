@@ -332,16 +332,6 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           perm: 'page.designer_stats',
         },
         {
-          // Temporarily points at the Shipments page (it already has a cost dashboard) — the real shipping report comes in phase 2B.
-          key: 'reports-ship',
-          label: t('sidebar.nav.reports.ship'),
-          to: withQuery(PATHS.SHIPMENTS, 'view=report'),
-          icon: <Truck size={14} />,
-          onlyForRoles: ADMIN_ROLES,
-          // The Shipments route used to be gated by `page.orders` (inherited from the old "Orders" parent) — keep it.
-          pagePerm: 'page.orders',
-        },
-        {
           // Per-factory stock (Inventory.md) — storekeepers enter receipts + view stock; stock-out happens at the scan station.
           key: PATHS.INVENTORY,
           label: t('sidebar.nav.reports.stock'),
@@ -417,36 +407,6 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           to: to(PATHS.ORDERS_STAGE_ERRORS),
           icon: <Barcode size={14} />,
           perm: 'page.stage_errors',
-        },
-        {
-          key: 'orders-unmapped',
-          label: t('sidebar.orders.unmapped'),
-          to: to(PATHS.ORDERS_UNMAPPED),
-          icon: <MapPin size={14} />,
-          perm: 'page.unmapped_factory',
-        },
-        {
-          // Flat table, REAL pagination, NOT grouped by product (OrderTableClassic.tsx).
-          key: PATHS.ORDERS_CLASSIC,
-          label: t('sidebar.orders.classic'),
-          to: PATHS.ORDERS_CLASSIC,
-          icon: <Rows3 size={14} />,
-          perm: 'page.orders',
-        },
-        {
-          key: 'orders-import',
-          label: t('sidebar.orders.import'),
-          to: to(PATHS.ORDERS_IMPORT),
-          icon: <FileDown size={14} />,
-          perm: 'order.import',
-          sectionBefore: t('sidebar.nav.production.data'),
-        },
-        {
-          key: 'orders-cutting-files',
-          label: t('sidebar.orders.cuttingFiles'),
-          to: to(PATHS.ORDERS_CUTTING_FILES),
-          icon: <Scissors size={14} />,
-          perm: 'order.import',
         },
         {
           // DTF process guide by role (DtfRoleGuide.md) — static page.
@@ -584,9 +544,40 @@ function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEma
   return [
     { title: '', items: buildMainItems(t, factoryScopeId) },
     {
-      // Entries NOT yet in the CEO's 6 groups — kept as-is pending a placement decision (MenuRestructure-CEO.md), never deleted.
+      // Group 7 "System" (MenuRestructure-CEO.md §8.2 #1/#3/#5): admin and data-intake work that the
+      // legacy app also kept in a separate flat admin area. Each entry keeps its own permission, so
+      // Support still sees Import Order / Unmapped here — the group is not hard-locked to Admin.
       title: t('sidebar.groups.system'),
       items: [
+        {
+          // Flat table, REAL pagination, NOT grouped by product (OrderTableClassic.tsx).
+          key: PATHS.ORDERS_CLASSIC,
+          label: t('sidebar.orders.classic'),
+          to: PATHS.ORDERS_CLASSIC,
+          icon: <Rows3 size={17} />,
+          perm: 'page.orders',
+        },
+        {
+          key: 'orders-import',
+          label: t('sidebar.orders.import'),
+          to: withFactory(PATHS.ORDERS_IMPORT, factoryScopeId),
+          icon: <FileDown size={17} />,
+          perm: 'order.import',
+        },
+        {
+          key: 'orders-cutting-files',
+          label: t('sidebar.orders.cuttingFiles'),
+          to: withFactory(PATHS.ORDERS_CUTTING_FILES, factoryScopeId),
+          icon: <Scissors size={17} />,
+          perm: 'order.import',
+        },
+        {
+          key: 'orders-unmapped',
+          label: t('sidebar.orders.unmapped'),
+          to: withFactory(PATHS.ORDERS_UNMAPPED, factoryScopeId),
+          icon: <MapPin size={17} />,
+          perm: 'page.unmapped_factory',
+        },
         {
           key: PATHS.PRODUCTS,
           label: t('sidebar.products'),
