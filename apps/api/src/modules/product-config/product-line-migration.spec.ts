@@ -1,4 +1,4 @@
-import { inferOrderProductLine, inferProductLine } from './product-line-migration';
+import { inferOrderProductLine, inferProductLine, productLineForNew } from './product-line-migration';
 
 describe('inferProductLine (PRD-8)', () => {
   it('collection thắng mọi tín hiệu khác, ưu tiên thêu > gỗ > 2d > 3d', () => {
@@ -20,5 +20,18 @@ describe('inferProductLine (PRD-8)', () => {
     expect(inferProductLine({})).toEqual({ productLine: '3d', source: 'default' });
     expect(inferProductLine({ collections: ['summer-2026'], factoryShortName: 'TN', machineTypeShortName: 'ICL' })).toEqual({ productLine: '3d', source: 'default' });
     expect(inferOrderProductLine({ factoryShortName: 'ML' })).toBe('3d');
+  });
+});
+
+describe('productLineForNew', () => {
+  it('maps named collections', () => {
+    expect(productLineForNew('handmade-wood')).toEqual({ productLine: 'wood', productLineSource: 'collection' });
+    expect(productLineForNew('embroidery')).toMatchObject({ productLine: 'embroidery' });
+    expect(productLineForNew('3D')).toMatchObject({ productLine: '3d' });
+    expect(productLineForNew('2D')).toMatchObject({ productLine: '2d' });
+  });
+  it('leaves unnamed collections unset instead of guessing 3d', () => {
+    expect(productLineForNew('dropship')).toEqual({});
+    expect(productLineForNew(undefined)).toEqual({});
   });
 });

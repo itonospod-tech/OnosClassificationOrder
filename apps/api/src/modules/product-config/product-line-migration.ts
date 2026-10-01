@@ -44,3 +44,14 @@ export function inferProductLine(s: ProductLineSignals): { productLine: ProductL
 export function inferOrderProductLine(s: Omit<ProductLineSignals, 'collections'>): ProductLine {
   return inferProductLine(s).productLine;
 }
+
+/**
+ * Product line for a NEWLY created product, from its OnosPod collection only. Anything the
+ * collection does not name (e.g. `dropship`) is left unset: guessing would silently file the
+ * product under 3d. Never applied to existing products — fill-only stays fill-only.
+ */
+export function productLineForNew(collection: string | null | undefined) {
+  const guess = inferProductLine({ collections: collection ? [collection] : [] });
+  return guess.source === 'collection' ? { productLine: guess.productLine, productLineSource: guess.source } : {};
+}
+
