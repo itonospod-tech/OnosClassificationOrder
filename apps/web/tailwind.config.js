@@ -45,6 +45,8 @@ export default {
           group: 'hsl(var(--nav-group) / <alpha-value>)',
           open: 'hsl(var(--nav-open) / <alpha-value>)',
         },
+        // Staff app page background (grey in light mode, see theme/globals.css --page).
+        page: 'hsl(var(--page) / <alpha-value>)',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

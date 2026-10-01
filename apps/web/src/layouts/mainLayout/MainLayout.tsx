@@ -67,7 +67,7 @@ function MainLayout() {
         <OverdueAlertBanner />
         {/* `flex flex-col`: trang nào muốn CHIẾM ĐỦ chiều cao (bảng tự cuộn, chân bảng đứng yên) chỉ cần
             `flex-1 min-h-0` trên root của nó; trang thường vẫn cao theo nội dung và <main> cuộn như cũ. */}
-        <main className="flex flex-1 flex-col overflow-auto p-4 md:p-6">
+        <main className="app-page flex flex-1 flex-col overflow-auto bg-page p-4 md:p-6">
           {/*
             KHÔNG dùng `exit` animation (trước đây có, đã bỏ) — với
             `AnimatePresence`, khai báo `exit` khiến trang CŨ tiếp tục ở lại
