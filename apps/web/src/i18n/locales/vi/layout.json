@@ -32,14 +32,14 @@
     "orders": {
       "title": "Quản lý đơn",
       "list": "Danh sách đơn",
-      "classic": "Đơn hàng",
+      "classic": "Danh sách đơn (bảng phẳng)",
       "errorLog": "Nhật ký bù lỗi",
-      "scanError": "Quét mã",
+      "scanError": "Trạm quét mã",
       "stageErrors": "Danh mục lỗi công đoạn",
       "unmapped": "Không xác định xưởng",
       "shipments": "Vận đơn",
-      "import": "Import Order",
-      "cuttingFiles": "Import File Cutting"
+      "import": "Nhập đơn",
+      "cuttingFiles": "Nhập file cắt"
     },
     "work": {
       "title": "Công việc",
@@ -82,13 +82,14 @@
     "nav": {
       "reports": {
         "title": "Báo cáo",
-        "production": "Sản xuất",
+        "production": "Theo xưởng",
         "stock": "Kho"
       },
       "production": {
         "title": "Sản xuất",
         "all": "Tất cả đơn",
-        "operations": "Vận hành"
+        "orders": "Đơn hàng",
+        "station": "Tại trạm"
       },
       "lines": {
         "3d": "3D",
@@ -100,9 +101,7 @@
       },
       "tool": {
         "title": "Tool",
-        "overview": "Soát tool — tổng quan",
-        "3d": "Tool 3D",
-        "2d": "Tool 2D – DTF"
+        "overview": "Tất cả"
       },
       "ship": {
         "title": "Ship"

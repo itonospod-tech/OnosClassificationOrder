@@ -387,29 +387,8 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
       icon: <Factory size={17} />,
       pagePerm: 'page.orders',
       children: [
-        {
-          key: 'orders-workshop',
-          label: t('sidebar.nav.production.all'),
-          to: to(PATHS.ORDERS_WORKSHOP),
-          icon: <List size={14} />,
-          perm: 'page.orders',
-        },
-        ...lines.map(({ code, icon }) => ({
-          key: `line-${code}`,
-          label: t(`sidebar.nav.lines.${code}`),
-          to: to(withQuery(PATHS.ORDERS_WORKSHOP, `productLine=${code}`)),
-          icon,
-          perm: 'page.orders',
-        })),
-        {
-          key: 'orders-error-log',
-          label: t('sidebar.orders.errorLog'),
-          to: to(PATHS.ORDERS_ERROR_LOG),
-          icon: <AlertTriangle size={14} />,
-          perm: 'page.orders',
-          hideForRoles: ['Support'],
-          sectionBefore: t('sidebar.nav.production.operations'),
-        },
+        // Each role's own task board comes FIRST: 77% of production users (26 Fulfillment +
+        // 15 Designer of 53) open it all day, and each sees only the board of their own role.
         {
           key: PATHS.MY_TASKS,
           label: t('sidebar.work.myTasks'),
@@ -425,11 +404,44 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           perm: 'page.fulfillment_my_tasks',
         },
         {
+          key: 'orders-error-log',
+          label: t('sidebar.orders.errorLog'),
+          to: to(PATHS.ORDERS_ERROR_LOG),
+          icon: <AlertTriangle size={14} />,
+          perm: 'page.orders',
+          hideForRoles: ['Support'],
+        },
+        {
+          key: 'orders-workshop',
+          label: t('sidebar.nav.production.all'),
+          to: to(PATHS.ORDERS_WORKSHOP),
+          icon: <List size={14} />,
+          perm: 'page.orders',
+          sectionBefore: t('sidebar.nav.production.orders'),
+        },
+        {
+          // Flat table, REAL pagination, NOT grouped by product (OrderTableClassic.tsx). Daily work
+          // (hundreds of visits a day on production), so it sits with the order lists, not under System.
+          key: PATHS.ORDERS_CLASSIC,
+          label: t('sidebar.orders.classic'),
+          to: PATHS.ORDERS_CLASSIC,
+          icon: <Rows3 size={14} />,
+          perm: 'page.orders',
+        },
+        ...lines.map(({ code, icon }) => ({
+          key: `line-${code}`,
+          label: t(`sidebar.nav.lines.${code}`),
+          to: to(withQuery(PATHS.ORDERS_WORKSHOP, `productLine=${code}`)),
+          icon,
+          perm: 'page.orders',
+        })),
+        {
           key: 'orders-scan-error',
           label: t('sidebar.orders.scanError'),
           to: to(PATHS.ORDERS_SCAN_ERROR),
           icon: <ScanLine size={14} />,
           perm: 'page.scan_error',
+          sectionBefore: t('sidebar.nav.production.station'),
         },
         {
           key: 'orders-stage-errors',
@@ -454,7 +466,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
         },
         ...toolLines.map(({ code, icon }) => ({
           key: `tool-${code}`,
-          label: t(`sidebar.nav.tool.${code}`),
+          label: t(`sidebar.nav.lines.${code}`),
           to: to(`${PATHS.HOME}?tab=tool-check&productLine=${code}`),
           icon,
           perm: 'page.tool_check',
@@ -553,14 +565,6 @@ function buildNavGroups(t: TFunction<'layout'>, factoryScopeId?: string, userEma
       // Support still sees Import Order / Unmapped here — the group is not hard-locked to Admin.
       title: t('sidebar.groups.system'),
       items: [
-        {
-          // Flat table, REAL pagination, NOT grouped by product (OrderTableClassic.tsx).
-          key: PATHS.ORDERS_CLASSIC,
-          label: t('sidebar.orders.classic'),
-          to: PATHS.ORDERS_CLASSIC,
-          icon: <Rows3 size={17} />,
-          perm: 'page.orders',
-        },
         {
           key: 'orders-import',
           label: t('sidebar.orders.import'),

@@ -165,6 +165,12 @@ tới danh sách trống hoặc danh sách-tất-cả là làm sai.
 trong `Items` bất kể số lượng. Mục rỗng cho nhân viên biết dòng đó tồn tại.
 Kèm số đếm để thấy ngay dòng nào đang chạy.
 
+### 8.3b Kho — để ở Báo cáo, có đường lui
+
+"Kho" (`/ffm/inventory`) nằm ở Báo cáo theo §2, nhưng thủ kho còn NHẬP phiếu ở
+đó — là thao tác, không chỉ báo cáo. Nếu thủ kho kêu khó tìm thì chỗ đúng của
+Kho là nhóm **Ship, cạnh "Bàn giao kiện"** (cùng người, cùng khu kho).
+
 ### 8.4 Mô hình "Ví" lấy từ `Billing` hệ cũ
 
 `Topup · Transactions · Invoice · Production Transactions · Production Invoice`
