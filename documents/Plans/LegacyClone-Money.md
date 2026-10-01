@@ -1,0 +1,54 @@
+# Clone hệ cũ — vùng Tiền (Billing + Affiliates)
+
+> Khảo sát `app.onospod.com` ngày 01/10/2026, **chỉ đọc**: chỉ mở trang, đọc, lọc; không bấm nút nào
+> đụng tiền (Charge, Retry fetch ship cost, Download, Edit, tick chọn hàng). Một phần của
+> [`LegacyClone-Spec.md`](LegacyClone-Spec.md) §4, vùng `tool`.
+> Ảnh chụp có email/số tiền khách thật nên KHÔNG đưa vào repo.
+
+## 1. Hai điểm SỬA khảo sát cũ (`OnosPodLegacy-BusinessFlows.md`)
+
+| Khảo sát 07/09 nói | Màn hình thật nói | Bằng chứng |
+|---|---|---|
+| Kỳ hoá đơn **10 ngày** (01–10, 11–21, 22–cuối) | Kỳ **theo tuần**: 01–07 · 08–14 · 15–21 · 22–cuối tháng | Hoá đơn đã trả của một seller tháng 07: bốn kỳ `07-01→07-07`, `07-08→07-14`, `07-15→07-21`, `07-22→07-31` |
+| Base cost (Production Transaction) ghi **lúc kiện quét xong** | Ghi **lúc thanh toán đơn**, cùng phút với giao dịch Payment của seller | Đơn `UP-85289-65893`: item `FP-00206-83179` vẫn `To Do` / In Production, nhưng "Payment production FP-00206-83179" $12,09 đã `Paid` từ 33 phút trước, cùng lúc "Payment order" −$18,19 |
+
+## 2. Bảng khoảng trống
+
+| Màn hình hệ cũ (link menu = bộ lọc mặc định) | Hệ cũ có gì | Hệ mới có gì | Kết luận | Việc phải làm | Công sức |
+|---|---|---|---|---|---|
+| **Topup** `/billing/topup` | Form nhân viên nạp tay cho **bất kỳ tài khoản nào**: Account · Amount · **External transaction ID** · **Attachment** (ảnh chứng từ) · Note · nút Charge. Gợi ý nội dung CK "ONOSGROUP topup, ngay dd-mm-yyyy". 9.114 lượt topup tổng | `POST admin/customer-wallets/:id/topup` (amount + note) — UI chỉ ở `/hub/wallets` | **BỔ SUNG** | Thêm `externalTxnId` + `attachmentUrl` vào DTO/`refs`; dialog nạp ở `/adm/wallets` có bước xác nhận hai lần + chặn bấm đúp | S–M |
+| **Transactions** `/billing/history/all?status=All` | **Một sổ cho mọi seller**, 1.022.705 dòng. Tab trạng thái Pending/Paid/Error/Cancelled kèm số; lọc Type (Top-up · Payment · Refund · Active · Commission · Commission Refund), Account, nút ngày Today…Last Month. Cột: ID · Ex.ID · Status · Pay date + Order date · Type · Amount · Note · FFM Order ID · Merchant Order ID · Order Reference · Invoice | `customer_wallet_transactions` (5 kind: topup/label/label_refund/order/adjust), luôn đã ghi (không có trạng thái); `/adm/wallets` chỉ xem **từng seller** | **BỔ SUNG** (danh sách) + **XÂY MỚI** (nguồn tiền) | (a) Endpoint + trang danh sách giao dịch **toàn bộ seller** lọc kind/ngày/seller, cột nối sang đơn (`refs.orderIds` đã có). (b) Các khoản hệ mới **chưa bao giờ trừ**: tiền đơn (Payment), **Import Tax** theo item, **Active** = phí kích hoạt tracking $0,70/tracking (34.540 dòng), **Refund** đơn (18.272 dòng). (b) là động cơ tính tiền — phần lớn nhất | (a) M · (b) L |
+| **Production Transactions** `/billing/production-history/all?status=All` | **Sổ riêng**, 932.447 dòng, mỗi dòng = 1 item sản xuất ("PRODUCTION ID: #…"), Amount = **base cost**, ghi lúc thanh toán (§1). Tab trạng thái như trên; Type chỉ Top-up/Payment/Refund. Không có cột đơn/merchant | Không có. Base cost nằm ở `ProductConfig.variations[].cost`, không snapshot theo item | **XÂY MỚI** | Sổ chi phí sản xuất riêng (không chung sổ ví seller), snapshot base cost theo item lúc đẩy sản xuất | M |
+| **Invoice** `/billing/invoice?status=Pending` | 1 hoá đơn / seller / **kỳ tuần**, **tự sinh** (không có nút tạo ở đâu; có cả hoá đơn $0). Mỗi dòng: Amount (tiền seller đã trả) · Total product cost (số item) · Total estimate ship cost · Total actual ship cost · Total cost · link Transactions · nút Retry fetch ship cost · Download Actual Shipping Cost. 5.907 tổng (Pending 2.688 · Paid 3.215 · Cancelled 4); kỳ Paid mới nhất là tháng 07 | Không có (GAP-18) | **XÂY MỚI** | Cron chốt kỳ tuần, gom sổ ví + sổ sản xuất theo seller, xuất xlsx, trạng thái Pending→Paid do người bấm | M–L |
+| **Production Invoice** `/billing/production-invoice?status=Pending` | 1 hoá đơn / **seller** (KHÔNG phải theo xưởng) / kỳ tuần, Amount = Σ base cost. 5.829 tổng: Pending 5.750 · **Paid 12** · Cancelled 67 | Không có (GAP-19) | **XÂY MỚI, ưu tiên thấp** | Sau khi có sổ sản xuất thì chỉ là một phép gom. Hỏi trước có ai dùng không: gần như không hoá đơn nào từng được chốt | S |
+| **Affiliates** `/affiliates?tab=thismonth` | Nhóm giới thiệu: mã · tài khoản · SKU · số người phụ thuộc · lợi nhuận/đơn vị theo SBTT/COD/ONOSEXPRESS. Link giới thiệu hiện `…/referral/undefined` (hỏng). 20 nhóm, **0 đơn, $0** cả tháng này lẫn tháng trước; giao dịch loại **Commission: 0 dòng từ trước tới nay** | Không có | **KHÔNG LÀM** (chờ CEO xác nhận bỏ) | — | 0 |
+
+## 3. Năm câu hỏi
+
+1. **"Giao dịch" khác "Giao dịch sản xuất"?** **Hai sổ riêng**, không phải hai góc nhìn. Mã giao dịch khác nhau,
+   tổng số dòng khác nhau (1.022.705 so với 932.447), đối tượng khác nhau: sổ thứ nhất là tiền ra vào ví seller
+   (Payment, Import Tax, Active, Topup, Refund); sổ thứ hai là chi phí base cost theo từng item. Sổ hệ mới
+   (`customer_wallet_transactions`) khớp với sổ thứ nhất; sổ thứ hai phải là một collection khác.
+   *Suy luận chưa kiểm:* sổ sản xuất không làm đổi số dư ví seller (số tiền hiện dương, không có cột số dư).
+2. **Hoá đơn sinh thế nào?** **Tự chạy**: không có nút tạo ở đâu, seller nào cũng có hoá đơn mỗi kỳ, kể cả hoá
+   đơn $0. Kỳ **theo tuần** (xem §1). Gồm tiền seller trả, tổng base cost, phí ship ước tính và thực tế,
+   kèm file tải về. "Paid" chậm hàng tháng (kỳ Paid mới nhất là tháng 07), nên nhiều khả năng do người bấm.
+   **Phí ship thực tế bằng $0 ở mọi hoá đơn đã xem** → đường lấy phí ship thật về coi như đã chết.
+3. **Base cost ghi lúc nào?** **Lúc thanh toán đơn**, không phải lúc đóng kiện (§1).
+4. **Affiliates?** Chương trình giới thiệu, có cấu hình hoa hồng theo phương thức ship, nhưng **không được dùng**:
+   0 giao dịch hoa hồng từ trước tới nay, 0 đơn qua nhóm giới thiệu trong hai tháng gần nhất, link giới thiệu hỏng.
+5. **Số dư âm?** `-$807.48` trên header là ví **của chính tài khoản đang đăng nhập** (tài khoản CEO cũng là
+   một user có ví). Danh sách Users có cột BALANCE gắn nhãn CREDIT/DEBIT. Theo khảo sát cũ: CREDIT = trả trước,
+   đơn bị treo "Insufficient account balance"; DEBIT = trả theo kỳ, có `debit_limit`, số dư âm rất sâu.
+   *Hôm nay chưa kiểm lại được chỗ chặn trên màn hình.* Hệ mới đã có `creditLimit` khớp mô hình này
+   (CREDIT = `creditLimit` 0), nhưng **chưa có chỗ nào trừ tiền đơn**, nên chưa có chỗ nào để chặn.
+
+## 4. Thứ tự đề xuất
+
+1. **Động cơ tính tiền đơn** (Payment + Import Tax + Active + Refund) trừ vào sổ ví sẵn có qua
+   `applyTransaction()`, chặn đẩy sản xuất khi vượt `creditLimit`. Đây là nút thắt thật; mọi thứ khác dựa vào nó.
+2. **Sổ base cost theo item** lúc đẩy sản xuất.
+3. **Danh sách giao dịch toàn bộ seller** ở `/adm`.
+4. **Hoá đơn kỳ tuần** (gom 1 + 2).
+5. Topup có chứng từ + Production Invoice, khi có người cần.
+6. Affiliates: không làm, trừ khi CEO nói khác.
