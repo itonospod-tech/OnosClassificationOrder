@@ -16,6 +16,8 @@
 - **42 lô đang `Producting` cùng lúc ở MỘT xưởng** → lô KHÔNG phải thực thể trong ngày; sống nhiều ngày. Con số "~2 lô/ngày" của tài liệu cũ chỉ là tốc độ TẠO, không phải số lô mở.
 - Mã thật là `BV-2610-676`, không phải `BA-…` như tài liệu cũ. **Không chép cứng khuôn mã**; tiền tố/phần giữa chưa rõ nghĩa (không khớp ngày tạo nếu đọc là yymm). Mã lô của hệ mới tự định, cần quyết có giữ dạng cũ để quen tay không.
 - Dòng mẫu: "Created At: 4 hours ago" cạnh "Delay 4 hours". **"Delay" = tuổi lô (now − createdAt), đã xác nhận** trên 3 lô (4h/8h/13h, khớp từng giờ). KHÔNG phải hạn hẹn → không thiết kế SLA/cảnh báo hạn cho lô.
+- 4 nút trên mỗi dòng (nhận ra bằng đường vẽ SVG khớp bộ Feather, chưa bấm): **printer** (primary), **trending-up** (warning, chưa rõ nghĩa — tiến độ hay đẩy ưu tiên), **edit**, **trash-2**. Hai liên kết trên dòng trỏ `/mrp?batch_id=<mã>&source=all` (một có `mrp_status=All`) → **tác dụng chính của lô là lọc danh sách Productions theo lô**.
+- Nút printer: biết là CÓ in theo lô, KHÔNG biết in ra gì (tem barcode lô hay phiếu cắt/may). Tài liệu cũ chỉ có `printBarcodeMrpBatch` + `exportBatchProducts`.
 - Tên lô do người đặt ("1-10 thai nguyen" = ngày-tháng + xưởng).
 
 ## 2. Chưa biết — quyết định BỔ SUNG hay XÂY MỚI
@@ -31,7 +33,9 @@ Cần xác nhận với xưởng / màn hình thật, không suy được từ t
 
 **Điều kiện chuyển mức:** mặc định mức nhẹ (§3). Chuyển sang mức đầy đủ (§4) nếu BẤT KỲ điều nào đúng: xưởng in phiếu cắt/may theo lô; giao việc theo lô; "Delay" là hạn hẹn thật cần cảnh báo/ghi nhận. Chỉ báo "lô cũ chưa xong" (tuổi lô) thì mức nhẹ làm được bằng trường suy ra, không cần đổi mô hình.
 
-Câu 1, 2, 3, 5 chỉ người ở xưởng trả lời được (không tra từ ngoài, và đụng lô thật là đụng dữ liệu production).
+**Cập nhật:** nút printer chứng minh có in theo lô nhưng KHÔNG tự đẩy sang mức đầy đủ — mức nhẹ (§3) đã gồm tem barcode lô. Chỉ in **phiếu sản xuất** mới là bước nhảy. Câu hỏi xưởng còn đúng 3: (a) nút printer in ra cái gì, (b) có giao việc theo lô không, (c) một đơn có bị tách qua nhiều lô không. Thêm: `trending-up` làm gì.
+
+Câu hỏi cũ 1, 2, 3, 5 chỉ người ở xưởng trả lời được (không tra từ ngoài, và đụng lô thật là đụng dữ liệu production).
 
 ## 3. Mức nhẹ — BỔ SUNG (đề xuất mặc định)
 
@@ -45,6 +49,7 @@ Lô là **nhãn gom nhóm + tiến độ suy ra**, KHÔNG phải một bước c
   - `Ready`/`Error`/`Reproduction` của hệ cũ: `Error`/`Reproduction` suy ra từ có đơn đang `rework`; `Ready` bỏ (chưa rõ nghĩa — xem §2).
 - **Vòng đời nhiều ngày:** lô mở nhiều ngày (42 lô cùng lúc/xưởng) nên danh sách lô mặc định lọc theo trạng thái + khoảng ngày như hệ cũ (All Time/Today/Yesterday/Last 7 Days), cần index `{ factoryId: 1, createdAt: -1 }`. Aggregation tiến độ chạy theo TỪNG lô trong trang đang xem (không quét cả 42 lô mỗi lần) — dùng `$lookup`/`$group` theo `batchId` giới hạn bởi trang. Tuổi lô = `now − createdAt` suy ra khi đọc.
 - Barcode lô Code128 `B-<code>` (cùng khuôn `N-`/`E-` ở `scanCodes.ts`); in bằng `BarcodeLabelPrint` khổ sẵn có.
+- Danh sách Productions/đơn của xưởng thêm bộ lọc `batchId` (đây là tác dụng chính của lô ở hệ cũ) — tái dùng `getOrders` filter + link từ dòng lô.
 - Màn hình: tab "Lô" trong trang xưởng: tạo lô từ các đơn đã tick (khuôn `BulkEditToolbar`), danh sách lô + thanh tiến độ theo công đoạn, in tem lô.
 
 ### Vì sao KHÔNG đụng `resolveTransition` / `flowType`
@@ -56,9 +61,16 @@ Lô không phải một công đoạn nên không có cạnh trong đồ thị c
 - Rework-back về công đoạn trước hay về designer không đổi `batchId`. Đơn bị đẩy về designer vẫn nằm trong lô (lô "Producting" đến khi xong) — cần kiểm xem xưởng có muốn tự gỡ khỏi lô không (§2 câu 3).
 - Hold/cancel đơn (`heldAt`/`cancelledAt`) không đổi lô; tiến độ lô loại đơn hủy ra khỏi mẫu số (cùng bộ lọc chuẩn: hủy / chưa map xưởng / xưởng US).
 
-## 4. Mức đầy đủ — XÂY MỚI (chỉ khi §2 câu 1–2 là CÓ)
+## 4. Mức đầy đủ — XÂY MỚI (chỉ khi §2 điều kiện chuyển thoả)
 
-Thêm trên mức nhẹ:
+Hai nhánh con, chọn theo câu (a):
+
+- **4A — nút in = tem barcode lô:** KHÔNG cần mức đầy đủ vì tem đã nằm ở §3 (tái dùng `BarcodeLabelPrint`). Chỉ còn lại việc giao việc theo lô (4C) nếu (b) là có.
+- **4B — nút in = phiếu sản xuất cắt/may theo lô:** nặng. Cần mẫu tài liệu (xưởng đưa mẫu thật), dữ liệu gộp theo lô (loại SP, size, số lượng, file in), dạng xuất (PDF gộp / zip), quyền in. Công sức ước ~1 tuần, phụ thuộc mẫu.
+- **4C — giao việc theo lô:** xem bullet "Giao việc theo lô" dưới.
+
+
+Thêm trên mức nhẹ (4B + 4C):
 
 - Phiếu in theo lô ("Download Print"): tái dùng `cuttingFileUrl` + gom file in theo lô (cần quyết dạng: 1 PDF gộp / zip).
 - Giao việc theo lô: `assignee` ở cấp lô → ảnh hưởng `getMyTasks` của công nhân và quy tắc "1 user / (xưởng, công đoạn)". Đây mới là phần đụng vào thứ đang chạy; chỉ làm sau khi có số liệu thật.
