@@ -33,6 +33,17 @@
     --ring: 222.2 84% 4.9%;
 
     --radius: 0.5rem;
+
+    /* Sidebar navigation — values measured from the legacy OnosPod (Vuexy) sidebar with
+       getComputedStyle: violet #7367F0 accent, #626262 items, #999 group titles, soft right
+       shadow instead of a border. Tailwind reads them as nav-* tokens (tailwind.config.js). */
+    --nav-accent: 244 83% 67%;
+    --nav-text: 0 0% 38%;
+    --nav-group: 0 0% 60%;
+    --nav-open: 0 0% 96%;
+    --nav-active-bg: linear-gradient(118deg, hsl(244 83% 67%), hsl(244 83% 67% / 0.7));
+    --nav-active-glow: 0 0 10px 1px hsl(244 83% 67% / 0.7);
+    --nav-rail-shadow: 0 0 15px 0 rgb(0 0 0 / 0.05);
   }
 
   .dark {
@@ -63,6 +74,16 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    /* The legacy app has no dark mode. On a dark background the full glow and the fade to 70%
+       alpha glare and wash out the white label, so the pill stays nearly solid with a faint glow. */
+    --nav-accent: 244 83% 72%;
+    --nav-text: 215 20% 72%;
+    --nav-group: 215 16% 52%;
+    --nav-open: 217.2 32.6% 13%;
+    --nav-active-bg: linear-gradient(118deg, hsl(244 62% 58%), hsl(244 62% 58% / 0.88));
+    --nav-active-glow: 0 0 6px 0 hsl(244 83% 67% / 0.28);
+    --nav-rail-shadow: none;
   }
 }
 

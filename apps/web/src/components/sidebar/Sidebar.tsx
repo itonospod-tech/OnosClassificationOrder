@@ -804,15 +804,14 @@ function SidebarLeaf({
       }}
       title={collapsed ? item.label : undefined}
       className={cn(
-        'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors',
-        active
-          ? 'bg-accent text-accent-foreground font-medium'
-          : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+        'flex items-center gap-2.5 px-3 py-2 rounded text-sm transition-colors',
+        // Active entry = the legacy violet gradient pill with a soft glow (theme/globals.css --nav-*).
+        active ? 'bg-nav-active shadow-nav-active text-white' : 'text-nav-text hover:bg-nav-open hover:text-foreground',
         collapsed && 'justify-center relative',
         !collapsed && level > 0 && 'ml-5 py-1.5 text-[13px]',
       )}
     >
-      <span className={active ? 'text-foreground' : 'text-muted-foreground'}>{item.icon}</span>
+      <span className={active ? 'text-white' : 'text-nav-text'}>{item.icon}</span>
       {!collapsed && <span className={cn('truncate', hasBadges && 'flex-1')}>{item.label}</span>}
       {!collapsed && hasBadges && (
         <span className="flex items-center gap-1 shrink-0">
@@ -863,13 +862,13 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         to={hrefOf(item.children![0])}
         title={item.label}
         className={cn(
-          'flex items-center justify-center px-3 py-2 rounded-md text-sm transition-colors relative',
+          'flex items-center justify-center px-3 py-2 rounded text-sm transition-colors relative',
           anyChildActive
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+            ? 'bg-nav-active shadow-nav-active text-white'
+            : 'text-nav-text hover:bg-nav-open hover:text-foreground',
         )}
       >
-        <span className={anyChildActive ? 'text-foreground' : 'text-muted-foreground'}>{item.icon}</span>
+        <span className={anyChildActive ? 'text-white' : 'text-nav-text'}>{item.icon}</span>
         {urgentOnly(childBadges).length > 0 && <BadgeDot badges={urgentOnly(childBadges)} />}
       </Link>
     );
@@ -881,13 +880,14 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-left bg-transparent border-none cursor-pointer',
-          anyChildActive
-            ? 'text-foreground font-medium'
-            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+          'w-full flex items-center gap-2.5 px-3 py-2 rounded text-sm transition-colors text-left border-none cursor-pointer',
+          // An open group sits on a very light grey row with regular text, as in the legacy app —
+          // the violet is reserved for the one active entry so it stays the single eye-catcher.
+          open ? 'bg-nav-open text-foreground' : 'bg-transparent text-nav-text hover:bg-nav-open hover:text-foreground',
+          anyChildActive && 'font-medium',
         )}
       >
-        <span className={anyChildActive ? 'text-foreground' : 'text-muted-foreground'}>{item.icon}</span>
+        <span className={open || anyChildActive ? 'text-foreground' : 'text-nav-text'}>{item.icon}</span>
         <span className="truncate flex-1">{item.label}</span>
         {!open && childBadges.length > 0 && (
           <span className="flex items-center gap-1 shrink-0">
@@ -903,7 +903,7 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
           {item.children!.map((c) => (
             <React.Fragment key={c.key}>
               {c.sectionBefore && (
-                <p className="ml-5 px-3 pt-2 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                <p className="ml-5 px-3 pt-2 pb-0.5 text-[11px] font-medium uppercase tracking-[.14px] text-nav-group">
                   {c.sectionBefore}
                 </p>
               )}
@@ -1061,7 +1061,7 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
           {navGroups.map((group, idx) => (
             <div key={group.title || `group-${idx}`}>
               {showLabels && group.title && (
-                <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="px-3 mb-1.5 text-[12.6px] font-medium uppercase tracking-[.14px] text-nav-group">
                   {group.title}
                 </p>
               )}
@@ -1111,7 +1111,9 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
       className={cn(
         // Exactly screen height, no overflow: only the menu list scrolls inside, with the logo on
         // top and the account block at the bottom pinned (fixed frame — MainLayout).
-        'h-screen shrink-0 overflow-hidden border-r border-border bg-background transition-[width] duration-200',
+        // Legacy look: no border, a soft shadow on the right. Dark mode has no visible shadow, so the
+        // border returns there (--nav-rail-shadow is `none` in .dark).
+        'relative z-10 h-screen shrink-0 overflow-hidden bg-background shadow-nav-rail transition-[width] duration-200 dark:border-r dark:border-border',
         collapsed ? 'w-[72px]' : 'w-[240px]',
       )}
     >

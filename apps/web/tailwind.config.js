@@ -37,6 +37,14 @@ export default {
           800: '#2b2739',
           900: '#211e2d',
         },
+        // Sidebar navigation (legacy OnosPod look) — values live in theme/globals.css (--nav-*),
+        // light and dark, so the sidebar never carries raw colors.
+        nav: {
+          accent: 'hsl(var(--nav-accent) / <alpha-value>)',
+          text: 'hsl(var(--nav-text) / <alpha-value>)',
+          group: 'hsl(var(--nav-group) / <alpha-value>)',
+          open: 'hsl(var(--nav-open) / <alpha-value>)',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -70,6 +78,13 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+      },
+      backgroundImage: {
+        'nav-active': 'var(--nav-active-bg)',
+      },
+      boxShadow: {
+        'nav-active': 'var(--nav-active-glow)',
+        'nav-rail': 'var(--nav-rail-shadow)',
       },
       fontFamily: {
         // Font tiêu đề của trang public — khớp identity onosglobal.com.
