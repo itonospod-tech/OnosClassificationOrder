@@ -995,12 +995,16 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
 
     // Production › 3D/2D/…: open orders of the line, equal to the rows the line page lists on its
     // default view (MenuRestructure-CEO.md 2A). Shown even at 0 so every line is visibly there
-    // (§8.3). Hidden while a factory is picked in the header: the count is system-wide and would
-    // read as that factory's — until the BE splits it per factory (`byFactory`), no badge beats a wrong one.
-    if (counts.productLineCounts && !factoryScopeId) {
+    // (§8.3). With a factory picked in the header, read that factory's split — the line page is
+    // scoped to it too. `null` at the top level = the role cannot open the order list: no badges.
+    // A factory missing from `byFactory` just has no open order the viewer can see: all zeros.
+    if (counts.productLineCounts) {
+      const lineCounts = factoryScopeId
+        ? counts.byFactory?.[factoryScopeId]?.productLineCounts
+        : counts.productLineCounts;
       for (const code of PRODUCT_LINES) {
         (map[`line-${code}`] ||= []).push({
-          count: counts.productLineCounts[code],
+          count: lineCounts?.[code] ?? 0,
           tone: 'neutral',
           title: t('sidebar.badges.productLineOpen', { days: PRODUCT_LINE_WINDOW_DAYS }),
         });
