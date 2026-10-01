@@ -1,6 +1,11 @@
-# Hệ thiết kế — bắt kịp diện mạo hệ cũ
+# Hệ thiết kế — tham chiếu hệ cũ, nhưng làm mới
 
-> Anh Tuấn: *"trang hiện tại xấu quá, làm giống hệ cũ cho xịn"*.
+> Anh Tuấn: *"trang hiện tại xấu quá"* → *"tham khảo hệ cũ nhưng nâng cấp cho
+> đẹp, hệ cũ hơn 10 năm rồi; và thiết kế trên điện thoại phải đẹp như native
+> iPhone"*.
+>
+> **Hệ cũ là tham chiếu về CẤU TRÚC và SỰ QUEN TAY, không phải chuẩn thẩm mỹ.**
+> Nó dựng trên template Vuexy — bảng màu và hình khối của khoảng 2018.
 > Mọi giá trị dưới đây **trích bằng `getComputedStyle` từ `app.onospod.com`**
 > ngày 01/10/2026, không phải ước lượng bằng mắt.
 >
@@ -107,3 +112,50 @@ landing trong `tailwind.config.js`.
 Chữ trắng trên `#7367F0` đạt ~4.2:1, chuẩn AA cho chữ thường cần 4.5:1. Hệ cũ
 cũng vậy. Khi áp, kiểm trên màn hình thật; nếu nhạt thì giữ đuôi gradient đậm
 hơn thay vì đổi màu chính.
+
+
+## 9. Lấy gì của hệ cũ, bỏ gì
+
+**LẤY** — những thứ giúp người đang dùng không phải học lại:
+- Cấu trúc màn hình danh sách (§5): thẻ lọc trên, tab trạng thái có số, bảng dưới.
+- **Ý nghĩa** màu: tím = đang chọn, xanh = xong, cam = đang chạy, đỏ = lỗi.
+- Mỗi link menu mang bộ lọc mặc định có nghĩa (§8.1 của `MenuRestructure-CEO.md`).
+- Thẻ nổi trên nền xám nhạt thay vì viền trên nền trắng.
+
+**BỎ** — dấu vết của template 2018:
+- Bảng màu bão hoà cao (`#7367F0` tím chói, `#EA5455` đỏ cam). Giữ **vai trò**,
+  hạ độ bão hoà và chỉnh cho đạt tương phản AA.
+- Gradient + quầng sáng quanh mục đang chọn. Năm 2018 là hiện đại; giờ là cũ.
+  Thay bằng nền đặc + chỉ báo mảnh.
+- Bo góc 4.2px — cứng. Thang hiện đại: 8/12/16.
+- Cỡ chữ 11.2px — quá nhỏ, và nhãn tiếng Việt dài hơn tiếng Anh.
+- Font Montserrat. Inter đang dùng tốt hơn cho giao diện dày đặc dữ liệu.
+
+## 10. Điện thoại — phần quan trọng nhất, hiện gần như chưa làm
+
+**Ai dùng:** 26/53 tài khoản là công nhân Fulfillment, 15 là Designer. Họ đứng
+tại trạm, cầm điện thoại hoặc máy quét, **không ngồi trước màn hình rộng**. Tức
+đa số người dùng thật của hệ thống là người dùng điện thoại.
+
+**Hiện trạng:** `MainLayout` chỉ có `p-4 md:p-6`. Không có ngăn kéo cho sidebar,
+không có thanh điều hướng dưới, bảng ngang tràn màn hình. Component `sheet.tsx`
+đã có sẵn nhưng sidebar chưa dùng.
+
+**Chuẩn nhắm tới — iOS:**
+- **Vùng chạm tối thiểu 44×44pt.** Nút nhỏ hơn là ngón tay trượt.
+- **Tầm với một tay:** việc chính nằm **nửa dưới** màn hình. Thanh điều hướng
+  dưới, không phải menu trên cùng.
+- **Vùng an toàn:** `env(safe-area-inset-bottom)` cho máy có thanh home.
+- **Sheet kéo từ dưới** thay cho hộp thoại giữa màn hình.
+- **Bảng không cuộn ngang.** Trên điện thoại mỗi dòng thành một **thẻ**, hiện
+  3–4 trường quan trọng nhất, chạm để mở chi tiết.
+- **Chuyển cảnh có hướng:** đẩy sang trái khi vào sâu, phải khi quay lại.
+- **Chiều sâu bằng lớp và mờ nền**, không bằng viền.
+
+**Ba màn hình phải đẹp trên điện thoại trước tiên** — đúng thứ công nhân mở:
+1. `/orders/scan-error` — trạm quét mã
+2. `/ffm/fulfillment/my-tasks` — bảng việc của công nhân
+3. `/ffm/my-tasks` — bảng việc của designer
+
+Ba cái này quan trọng hơn Dashboard, vì Dashboard là của quản lý và quản lý
+ngồi máy tính.
