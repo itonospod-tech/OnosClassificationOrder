@@ -10,6 +10,14 @@
 - Tạo bằng `makeMrpBatchProduct(product_ids, params)`; production mang `batch_id`; timeline item ghi "Moved to batch #…".
 - Production hệ cũ có `batch_id` — query import `onospod-import.service.ts:86` ĐÃ kéo trường này nhưng không lưu (grep `batchId` trong `apps/api` = 0 chỗ dùng).
 
+## 1b. Quan sát màn hình thật (onos-49, 01/10/2026, chỉ cấu trúc — Batch Items Thái Nguyên, `status=Producting`)
+
+- Cột: Name · Batch ID · Status · Note · Action (4 nút chỉ có icon, chưa đọc được nhãn). Lọc: ô Batch ID, perpage, select tháng, nút ngày All Time/Today/Yesterday/Last 7 Days.
+- **42 lô đang `Producting` cùng lúc ở MỘT xưởng** → lô KHÔNG phải thực thể trong ngày; sống nhiều ngày. Con số "~2 lô/ngày" của tài liệu cũ chỉ là tốc độ TẠO, không phải số lô mở.
+- Mã thật là `BV-2610-676`, không phải `BA-…` như tài liệu cũ. **Không chép cứng khuôn mã**; tiền tố/phần giữa chưa rõ nghĩa (không khớp ngày tạo nếu đọc là yymm). Mã lô của hệ mới tự định, cần quyết có giữ dạng cũ để quen tay không.
+- Dòng mẫu: "Created At: 4 hours ago" cạnh "Delay 4 hours". Hai số trùng nhau gợi ý "Delay" = **tuổi lô** (now − createdAt) chứ chưa chắc là hạn hẹn. Cần xác nhận: có mốc hẹn riêng không? Đừng thiết kế SLA lô khi chưa chắc.
+- Tên lô do người đặt ("1-10 thai nguyen" = ngày-tháng + xưởng).
+
 ## 2. Chưa biết — quyết định BỔ SUNG hay XÂY MỚI
 
 Cần xác nhận với xưởng / màn hình thật, không suy được từ tài liệu:
@@ -19,7 +27,11 @@ Cần xác nhận với xưởng / màn hình thật, không suy được từ t
 3. Một đơn có thể vào nhiều lô không (tách item)? Item rework có chuyển lô không?
 4. Số lô đang `Producting` cùng lúc / lô có sống qua nhiều ngày không?
 
-Nếu câu 1–2 là KHÔNG → chỉ cần mức nhẹ (§3). Nếu CÓ → mức đầy đủ (§4).
+5. (Từ §1b) "Delay" là tuổi lô hay hạn hẹn? 4 nút icon trên mỗi dòng làm gì (nghi: sửa, in barcode, xuất, xóa)? Ready vs Reproduction khác nhau thế nào?
+
+**Điều kiện chuyển mức:** mặc định mức nhẹ (§3). Chuyển sang mức đầy đủ (§4) nếu BẤT KỲ điều nào đúng: xưởng in phiếu cắt/may theo lô; giao việc theo lô; "Delay" là hạn hẹn thật cần cảnh báo/ghi nhận. Chỉ báo "lô cũ chưa xong" (tuổi lô) thì mức nhẹ làm được bằng trường suy ra, không cần đổi mô hình.
+
+Câu 1, 2, 3, 5 chỉ người ở xưởng trả lời được (không tra từ ngoài, và đụng lô thật là đụng dữ liệu production).
 
 ## 3. Mức nhẹ — BỔ SUNG (đề xuất mặc định)
 
@@ -31,6 +43,7 @@ Lô là **nhãn gom nhóm + tiến độ suy ra**, KHÔNG phải một bước c
 - **Tiến độ và trạng thái là SUY RA khi đọc** (aggregation trên `fulfillmentStages` của các đơn trong lô), không lưu:
   - `Producting` = còn đơn chưa xong; `Completed` = mọi đơn `fulfillmentCompletedAt`; chỉ `On Hold`/`Cancelled` đặt tay.
   - `Ready`/`Error`/`Reproduction` của hệ cũ: `Error`/`Reproduction` suy ra từ có đơn đang `rework`; `Ready` bỏ (chưa rõ nghĩa — xem §2).
+- **Vòng đời nhiều ngày:** lô mở nhiều ngày (42 lô cùng lúc/xưởng) nên danh sách lô mặc định lọc theo trạng thái + khoảng ngày như hệ cũ (All Time/Today/Yesterday/Last 7 Days), cần index `{ factoryId: 1, createdAt: -1 }`. Aggregation tiến độ chạy theo TỪNG lô trong trang đang xem (không quét cả 42 lô mỗi lần) — dùng `$lookup`/`$group` theo `batchId` giới hạn bởi trang. Tuổi lô = `now − createdAt` suy ra khi đọc.
 - Barcode lô Code128 `B-<code>` (cùng khuôn `N-`/`E-` ở `scanCodes.ts`); in bằng `BarcodeLabelPrint` khổ sẵn có.
 - Màn hình: tab "Lô" trong trang xưởng: tạo lô từ các đơn đã tick (khuôn `BulkEditToolbar`), danh sách lô + thanh tiến độ theo công đoạn, in tem lô.
 
