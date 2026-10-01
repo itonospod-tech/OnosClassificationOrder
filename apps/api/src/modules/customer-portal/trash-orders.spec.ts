@@ -14,6 +14,7 @@ interface Surface {
   trashOrdersAdmin(ids: string[], by: string): Promise<{ data: { ok: number; skipped: string[] } }>;
   restoreOrdersAdmin(ids: string[]): Promise<{ data: { ok: number; skipped: string[] } }>;
   claimPush(id: string, customerId: string): Promise<boolean>;
+  validatePushable(doc: Record<string, unknown> | undefined): string | undefined;
   buildPagedListPipeline(opts: Record<string, unknown>): Array<Record<string, unknown>>;
   buildDerivePipeline(customerId: string | null, cutoff: Date, trash?: boolean): Array<Record<string, unknown>>;
 }
@@ -59,6 +60,12 @@ describe('trash / restore', () => {
 });
 
 describe('push vs trash', () => {
+  it('a trashed order is "not found" for push (by id or by external ref), same as a missing one', () => {
+    const { svc } = make();
+    const doc = { status: 'pending', pushedAt: null, items: [{ productionId: 'P1' }] };
+    expect(svc.validatePushable({ ...doc, trashedAt: new Date() })).toBe(svc.validatePushable(undefined));
+  });
+
   it('push claim requires trashedAt: null', async () => {
     const { svc, updates } = make();
     await svc.claimPush('A', 'C1');

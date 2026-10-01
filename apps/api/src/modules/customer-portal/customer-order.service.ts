@@ -1740,7 +1740,7 @@ export class CustomerOrderService implements OnModuleInit {
     if (dto.externalRefs?.length) {
       const keys = dto.externalRefs.map((r) => customerOrderKey(r, undefined));
       const docs = await this.customerOrderModel
-        .find({ customerId: String(customer._id), orderKey: { $in: keys } })
+        .find({ customerId: String(customer._id), orderKey: { $in: keys }, trashedAt: null })
         .select('_id')
         .lean();
       ids.push(...docs.map((d) => String(d._id)));
@@ -2003,7 +2003,16 @@ export class CustomerOrderService implements OnModuleInit {
       } catch (err) {
         if ((err as { code?: number }).code === 11000) {
           duplicated++;
-          results.push({ ...base, status: 'duplicated', error: 'Đơn đã tồn tại — sửa/xóa trên portal rồi import lại' });
+          // The clashing order may be in the hub trash, invisible to the seller: say so, or they
+          // look for an order that is not on their list and conclude the import is broken.
+          const inTrash = await this.customerOrderModel.exists({ customerId: String(customer._id), orderKey, trashedAt: { $ne: null } });
+          results.push({
+            ...base,
+            status: 'duplicated',
+            error: inTrash
+              ? 'Đơn này đã bị quản trị viên đưa vào thùng rác — liên hệ hỗ trợ để khôi phục, hoặc đổi mã đơn'
+              : 'Đơn đã tồn tại — sửa/xóa trên portal rồi import lại',
+          });
         } else {
           failed++;
           results.push({ ...base, status: 'failed', error: (err as Error).message });
@@ -2073,7 +2082,7 @@ export class CustomerOrderService implements OnModuleInit {
   }
 
   private validatePushable(doc: Record<string, unknown> | undefined): string | undefined {
-    if (!doc) return 'Không tìm thấy đơn';
+    if (!doc || doc.trashedAt) return 'Không tìm thấy đơn'; // trashed (hub) = gone for the seller
     if (doc.status === 'cancelled') return 'Đơn đã hủy';
     if (doc.pushedAt) return 'Đơn đã đẩy sản xuất trước đó';
     const items = (doc.items || []) as CustomerOrderItem[];
