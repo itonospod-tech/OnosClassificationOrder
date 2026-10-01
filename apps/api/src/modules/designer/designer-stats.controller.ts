@@ -488,6 +488,7 @@ export class DesignerStatsController {
         url: '/designer/tool-check-overview',
         userId: user._id,
         days: query.days,
+        productLine: query.productLine,
       }),
     });
     const data = await this.statsService.getToolCheckOverview(
@@ -498,6 +499,7 @@ export class DesignerStatsController {
       query.to,
       query.machineNumber,
       query.priority,
+      query.productLine,
     );
     return { success: true, data };
   }

@@ -6,6 +6,7 @@ import { BarChart3 } from 'lucide-react';
 import { usePermission } from '@/hooks/usePermission';
 
 import DesignerStatsTab from './DesignerStatsTab';
+import GettingStartedCard from './GettingStartedCard';
 import LifecycleStrip from './LifecycleStrip';
 import LifecycleTab from './LifecycleTab';
 import OrderFactoryTab from './OrderFactoryTab';
@@ -82,6 +83,9 @@ export default function Home() {
         </div>
         {isAdmin && <SendTelegramReportButton />}
       </div>
+
+      {/* Guides live here instead of the sidebar (MenuRestructure-CEO.md §9.1). */}
+      <GettingStartedCard />
 
       {/* Strip vòng đời đơn — gọn, hiện trên đầu mọi tab, cho mọi tài khoản */}
       <LifecycleStrip />

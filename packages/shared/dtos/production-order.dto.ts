@@ -410,6 +410,18 @@ export const WORKSHOP_STAGE_FILTER_KEYS = [
 ] as const;
 export type WorkshopStageFilterKey = (typeof WORKSHOP_STAGE_FILTER_KEYS)[number];
 
+/**
+ * CSV product-line filter (`ProductLine` codes, `__none__` = orders with no line yet).
+ * Shared by every list that the "Production" / "Tool" menus open per line, so the
+ * accepted values and the 400 on unknown ones stay identical everywhere.
+ */
+export const ProductLineFilterZod = z
+  .string()
+  .refine((s) => s.split(',').every((v) => !v || v === '__none__' || (PRODUCT_LINES as string[]).includes(v)), {
+    message: `productLine phải thuộc ${PRODUCT_LINES.join('|')}|__none__`,
+  })
+  .optional();
+
 export const GetProductionOrdersZod = PageQueryZod.extend({
   /**
    * `true` → chỉ đơn ĐÃ map product config; `false` → chỉ đơn CHƯA map. Bỏ qua
@@ -473,18 +485,14 @@ export const GetProductionOrdersZod = PageQueryZod.extend({
   /** Exact match (case-insensitive) — cặp với userSku cho drill-down "Đơn hàng của khách" (/adm/customers). */
   userEmail: z.string().optional(),
   /**
-   * CSV of product lines (`ProductLine`: 3d|2d|wood|embroidery|led|canvas) — the
-   * "Production" group of the new menu (MenuRestructure-CEO.md 1A). Token `__none__`
-   * = orders WITHOUT a `productLine` (pre-PRD-8 orders / no matching config).
-   * Unknown values → 400 rather than being silently ignored: filtering by the wrong
-   * line returns a wrong list with no error.
+   * CSV product line (`ProductLine`: 3d|2d|wood|embroidery|led|canvas) — the
+   * "Production" group of the new menu (MenuRestructure-CEO.md 1A). The
+   * `__none__` token selects orders that have NO `productLine` yet (imported
+   * before PRD-8, or no config match). An unknown value returns 400 rather than
+   * being silently ignored: filtering by the wrong line would return a wrong
+   * list with no sign that anything went wrong.
    */
-  productLine: z
-    .string()
-    .refine((s) => s.split(',').every((v) => !v || v === '__none__' || (PRODUCT_LINES as string[]).includes(v)), {
-      message: `productLine must be one of ${PRODUCT_LINES.join('|')}|__none__`,
-    })
-    .optional(),
+  productLine: ProductLineFilterZod,
   /** Comma-separated workshop_config codes for fabric_type. */
   fabricType: z.string().optional(),
   /** Comma-separated workshop_config codes for tool_result. */
@@ -2499,6 +2507,8 @@ export const GetToolCheckOverviewZod = z.object({
   machineNumber: z.string().optional(),
   /** Lọc theo mức ưu tiên (`order.priority`) — '1'|'2'|'3'. */
   priority: z.enum(['1', '2', '3']).optional(),
+  /** Product line from the "Tool" menu (Tool 3D / Tool 2D–DTF) — same CSV contract as `GET /orders`. */
+  productLine: ProductLineFilterZod,
 });
 export class GetToolCheckOverviewDto extends createZodDto(extendApi(GetToolCheckOverviewZod)) {}
 

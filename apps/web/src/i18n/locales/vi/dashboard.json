@@ -766,5 +766,27 @@
         "level": "Cột Level chính thức do Admin quyết định — chip \"Gợi ý\" chỉ là máy tính sẵn từ điểm 60 ngày gần nhất."
       }
     }
+  },
+  "gettingStarted": {
+    "title": "Bắt đầu",
+    "subtitle": "Hướng dẫn và trang tra cứu hay dùng",
+    "links": {
+      "dtfGuide": {
+        "title": "Hướng dẫn quy trình DTF",
+        "description": "Từng bước theo vai: Support, Designer, In, Ép, QC, Đóng hàng."
+      },
+      "orderGuide": {
+        "title": "Hướng dẫn seller lên đơn",
+        "description": "Cách seller tạo đơn, import CSV và đẩy sản xuất trên Seller Portal."
+      },
+      "catalog": {
+        "title": "Catalog sản phẩm",
+        "description": "Danh mục sản phẩm và giá niêm yết seller đang thấy."
+      },
+      "track": {
+        "title": "Tra cứu đơn",
+        "description": "Dán mã sản xuất để xem đơn đang ở chặng nào."
+      }
+    }
   }
 }

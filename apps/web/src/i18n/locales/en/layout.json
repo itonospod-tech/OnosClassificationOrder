@@ -87,8 +87,7 @@
       "production": {
         "title": "Production",
         "all": "All orders",
-        "operations": "Operations",
-        "guide": "Guides"
+        "operations": "Operations"
       },
       "lines": {
         "3d": "3D",

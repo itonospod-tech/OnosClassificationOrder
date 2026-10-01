@@ -7,7 +7,6 @@ import {
   BarChart3,
   Barcode,
   Bell,
-  BookOpen,
   Box,
   Boxes,
   Building2,
@@ -218,6 +217,17 @@ const SELLER_URL = ((import.meta.env.VITE_SELLER_URL as string | undefined) ?? '
 const SCOPE_PARAMS = ['factoryId', 'productLine', 'view'];
 
 /**
+ * Pages that have NO sidebar entry but still need their route gated. The menu tree is
+ * also the permission table (see `buildPagePermissionMap`), so removing a menu entry
+ * silently UNGATES its route for every account (MenuRestructure-CEO.md §9.1). A page
+ * that leaves the sidebar must be listed here in the same change.
+ */
+const ROUTE_ONLY_PAGES: { to: string; perm: string }[] = [
+  // DTF role guide — reached from the Dashboard "Getting started" block since 01/10/2026.
+  { to: PATHS.DTF_GUIDE, perm: 'page.guide_dtf' },
+];
+
+/**
  * AUTH-7 — lookup table "page path → permission code", built FROM the menu tree below.
  *
  * Deliberately NOT a second hand-written mapping: keeping menu and routes in sync
@@ -246,6 +256,7 @@ export function buildPagePermissionMap(t: TFunction<'layout'>): Map<string, stri
     const path = to.split('?')[0];
     if (!map.has(path)) map.set(path, perm);
   };
+  for (const page of ROUTE_ONLY_PAGES) put(page.to, page.perm);
   for (const group of buildNavGroups(t)) {
     for (const item of group.items) {
       put(item.to ?? item.key, item.pagePerm ?? item.perm);
@@ -407,15 +418,6 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           to: to(PATHS.ORDERS_STAGE_ERRORS),
           icon: <Barcode size={14} />,
           perm: 'page.stage_errors',
-        },
-        {
-          // DTF process guide by role (DtfRoleGuide.md) — static page.
-          key: PATHS.DTF_GUIDE,
-          label: t('sidebar.guideDtf'),
-          to: to(PATHS.DTF_GUIDE),
-          icon: <BookOpen size={14} />,
-          perm: 'page.guide_dtf',
-          sectionBefore: t('sidebar.nav.production.guide'),
         },
       ],
     },
