@@ -715,7 +715,7 @@
     "title": "Order list",
     "subtitle": "Manage production orders",
     "lineTitle": "Production · {{line}}",
-    "lineSubtitle": "Default view: orders that entered production in the last {{days}} days"
+    "lineSubtitle": "Default view: unfinished orders that entered production in the last {{days}} days"
   },
   "classicPage": {
     "title": "Orders",

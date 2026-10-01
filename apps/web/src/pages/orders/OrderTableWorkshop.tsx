@@ -7,7 +7,8 @@ import {
   ChevronRight,
   History,
 } from 'lucide-react';
-import type { WorkshopAvailableFilters, WorkshopStageFilterKey } from 'shared';
+import type { WorkshopAvailableFilters, WorkshopStageFilter } from 'shared';
+import { PRODUCT_LINE_WINDOW_DAYS, WORKSHOP_STAGE_OPEN } from 'shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 import { PATHS } from '@/constants/paths';
@@ -80,15 +81,14 @@ function todayISO(): string {
 }
 
 /**
- * Product-line views (sidebar "Production" › 3D, 2D…) open on the last N days
- * instead of today only — the legacy OnosPod menu opened every list on its most
- * useful view, and for a line that is "what is running now", not one day's intake.
- * 7 days matches the SLA cohort of the daily Telegram report (`SLA_DAY_COUNT`) and
- * the legacy `report?tab=last7day`; older still-open orders are data debt the
- * CEO dashboard tracks separately (`staleOpen`), not daily work.
+ * Product-line views (sidebar "Production" › 3D, 2D…) open on OPEN orders (not packed yet)
+ * that entered production in the last `PRODUCT_LINE_WINDOW_DAYS` VN days — the legacy
+ * OnosPod menu opened every list on its most useful view, and for a line that is "what is
+ * running now", not one day's intake. This is exactly what the sidebar line badge counts
+ * (`SidebarCounts.productLineCounts`), so the badge equals the row total only while the
+ * page sends this default and nothing else: the window constant comes from `shared`, and
+ * the stage default must be `__open__`, never `''` (which also lists finished orders).
  */
-export const PRODUCT_LINE_DEFAULT_DAYS = 7;
-
 function daysAgoISO(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
@@ -100,7 +100,12 @@ function daysAgoISO(days: number): string {
 
 /** Default `createdFrom` for the current view: today, or the line window on a product-line view. */
 function defaultFromFor(productLine: string): string {
-  return productLine ? daysAgoISO(PRODUCT_LINE_DEFAULT_DAYS - 1) : todayISO();
+  return productLine ? daysAgoISO(PRODUCT_LINE_WINDOW_DAYS - 1) : todayISO();
+}
+
+/** Default stage filter for the current view: open orders on a product-line view, everything otherwise. */
+function defaultStageFor(productLine: string): WorkshopStageFilter | '' {
+  return productLine ? WORKSHOP_STAGE_OPEN : '';
 }
 
 // Combo = (size + loại vải + mockup). Dùng để đếm ×N + highlight combo trùng.
@@ -352,8 +357,8 @@ export function OrderTableWorkshop() {
   // hủy vẫn hiện tô xám trong list nhưng KHÔNG tính vào facet count.
   const [filterCancelled, setFilterCancelled] = useState<boolean>(() => searchParams.get('wcancel') === 'true');
   // Ô phễu chặng (Orders.md §10.2b) — BE `workshopStage`, URL `wstage`.
-  const [filterStage, setFilterStage] = useState<WorkshopStageFilterKey | ''>(
-    () => (searchParams.get('wstage') as WorkshopStageFilterKey | null) || '',
+  const [filterStage, setFilterStage] = useState<WorkshopStageFilter | ''>(
+    () => (searchParams.get('wstage') as WorkshopStageFilter | null) || defaultStageFor(productLine),
   );
   // Pill "Ưu tiên" — BE `priority=__any__` (đơn có đặt ưu tiên), URL `wprio`.
   const [filterPriority, setFilterPriority] = useState<string>(() => searchParams.get('wprio') || '');
@@ -994,7 +999,7 @@ export function OrderTableWorkshop() {
     setFilterDesignerStatus('');
     setFilterProductionError('');
     setFilterUserSku('');
-    setFilterStage('');
+    setFilterStage(defaultStageFor(productLine));
     setFilterPriority('');
     setFilterType('');
     setPage(1);
@@ -1127,7 +1132,9 @@ export function OrderTableWorkshop() {
           filters={workshopFilters}
           activeStage={filterStage}
           onStageChange={(st) => {
-            setFilterStage(st);
+            // Un-clicking a cell returns to the view's default, so a product-line view goes back
+            // to open orders (what its badge counts) instead of silently adding finished ones.
+            setFilterStage(st || defaultStageFor(productLine));
             setPage(1);
           }}
         />
