@@ -37,7 +37,6 @@ import {
   Send,
   Settings,
   ShieldCheck,
-  ShieldHalf,
   Shirt,
   Spline,
   Tag,
@@ -225,6 +224,10 @@ const SCOPE_PARAMS = ['factoryId', 'productLine', 'view'];
 const ROUTE_ONLY_PAGES: { to: string; perm: string }[] = [
   // DTF role guide — reached from the Dashboard "Getting started" block since 01/10/2026.
   { to: PATHS.DTF_GUIDE, perm: 'page.guide_dtf' },
+  // Departments and custom roles are placeholder pages (title + "coming soon", never built);
+  // off the menu since 01/10/2026, routes and BE kept. Same page codes their menu entries used.
+  { to: PATHS.DEPARTMENTS, perm: 'page.users' },
+  { to: PATHS.CUSTOM_ROLES, perm: 'page.roles' },
 ];
 
 /**
@@ -500,21 +503,6 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           pagePerm: 'page.users',
         },
         {
-          key: PATHS.DEPARTMENTS,
-          label: t('sidebar.departments'),
-          to: PATHS.DEPARTMENTS,
-          icon: <Building2 size={14} />,
-          perm: 'user.manage',
-          pagePerm: 'page.users',
-        },
-        {
-          key: PATHS.DESIGNER_TEAM,
-          label: t('sidebar.designerTeam'),
-          to: PATHS.DESIGNER_TEAM,
-          icon: <Palette size={14} />,
-          perm: 'page.designer_team',
-        },
-        {
           key: PATHS.ROLES,
           label: t('sidebar.roles'),
           to: PATHS.ROLES,
@@ -523,12 +511,11 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string): NavItem[] {
           pagePerm: 'page.roles',
         },
         {
-          key: PATHS.CUSTOM_ROLES,
-          label: t('sidebar.customRoles'),
-          to: PATHS.CUSTOM_ROLES,
-          icon: <ShieldHalf size={14} />,
-          perm: 'role.manage',
-          pagePerm: 'page.roles',
+          key: PATHS.DESIGNER_TEAM,
+          label: t('sidebar.designerTeam'),
+          to: PATHS.DESIGNER_TEAM,
+          icon: <Palette size={14} />,
+          perm: 'page.designer_team',
         },
         {
           key: PATHS.IMPERSONATE,
