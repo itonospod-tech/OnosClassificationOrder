@@ -102,6 +102,7 @@
     "columns": {
       "seller": "Seller",
       "service": "Dịch vụ",
+      "note": "Ghi chú",
       "date": "Ngày"
     },
     "openAsSeller": "Mở như seller",
