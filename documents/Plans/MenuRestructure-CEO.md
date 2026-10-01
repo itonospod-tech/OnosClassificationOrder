@@ -170,3 +170,43 @@ Kèm số đếm để thấy ngay dòng nào đang chạy.
 `Topup · Transactions · Invoice · Production Transactions · Production Invoice`
 — hệ mới đã có `customer_wallet_transactions` + `applyTransaction()`, nên phần
 sổ cái có sẵn; thiếu giao diện.
+
+## 9. Sửa hai quyết định ở §8 (01/10/2026)
+
+Hai chỗ §8 chốt sai, phát hiện lúc thực thi. Giữ lại ở đây để không ai quay về
+bản cũ.
+
+### 9.1 Hướng dẫn DTF — KHÔNG gỡ khỏi sidebar cho tới khi có chỗ thay
+
+§8 nói gỡ khỏi sidebar, đưa lên thẻ Dashboard. Gỡ ngay là **mở toang route**:
+`buildPagePermissionMap` (AUTH-7) dựng bảng quyền **từ chính cây menu**, nên gỡ
+mục `page.guide_dtf` khỏi menu là route `/ffm/guide/dtf` mất người gác và mọi
+tài khoản vào được.
+
+Thứ tự đúng: 2B dựng thẻ trên Dashboard trước → thêm trang vào danh sách
+"chỉ có route" trong `buildPagePermissionMap` → rồi mới gỡ mục menu.
+
+**Luật chung rút ra:** gỡ bất kỳ mục menu nào cũng phải kiểm nó có đang là
+người gác quyền của route đó không. Cây menu ở app này vừa là điều hướng vừa
+là bảng phân quyền.
+
+### 9.2 Nhóm Hệ thống — KHÔNG khoá cứng chỉ Admin
+
+§8 nói nhóm này chỉ Admin. Sai: Support có `order.import` và
+`page.unmapped_factory`, dùng Import Order và Không xác định xưởng **hằng
+ngày**. Khoá Admin là lấy mất hai việc của Support.
+
+Đúng: giữ nguyên cơ chế lọc theo quyền riêng của từng mục. Admin vẫn thấy đủ,
+Support vẫn thấy đúng phần của họ.
+
+### 9.3 Bộ lọc mặc định của 6 trang dòng sản phẩm
+
+**7 ngày `inProductionAt` gần nhất**, không phải "hôm nay":
+- "hôm nay" chỉ là lượng đơn vào trong ngày, không phải thứ đang chạy;
+- 7 ngày khớp cohort SLA báo cáo Telegram (`SLA_DAY_COUNT`) và `tab=last7day`
+  của hệ cũ;
+- đơn mở lâu hơn là nợ dữ liệu, CEO Dashboard đã tách `staleOpen` > 45 ngày.
+
+Mặc định đặt ở **trang**, không nhét ngày vào link menu: nhét vào link thì người
+dùng đổi ngày là mục menu tắt sáng, và link tính ngày lúc render sẽ cũ qua nửa
+đêm.
