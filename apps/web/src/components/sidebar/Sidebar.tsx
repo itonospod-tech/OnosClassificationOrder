@@ -47,7 +47,7 @@ import {
   Wallet,
   Workflow,
 } from 'lucide-react';
-import { RoleType } from 'shared';
+import { PRODUCT_LINE_WINDOW_DAYS, PRODUCT_LINES, RoleType } from 'shared';
 
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -65,10 +65,14 @@ import { useSidebarBadgeStore } from '../../store/sidebarBadgeStore';
 import { useSidebarResetStore } from '../../store/sidebarResetStore';
 import { handleAxiosError } from '../../utils';
 
-/** Count badge on one sidebar entry (red = urgent, amber = waiting to be assigned/reworked). */
+/**
+ * Count badge on one sidebar entry: red = urgent, amber = waiting to be assigned/reworked,
+ * neutral = informational volume (product-line open orders) — not a to-do, so it never
+ * feeds the collapsed-parent pills or the collapsed-sidebar dot, which signal work.
+ */
 interface SidebarBadge {
   count: number;
-  tone: 'red' | 'amber';
+  tone: 'red' | 'amber' | 'neutral';
   title: string;
 }
 
@@ -94,7 +98,11 @@ function BadgePill({ badge }: { badge: SidebarBadge }) {
         <span
           className={cn(
             'min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-semibold leading-none flex items-center justify-center shrink-0',
-            badge.tone === 'red' ? 'bg-red-500 text-white' : 'bg-amber-400 text-amber-950',
+            badge.tone === 'red'
+              ? 'bg-red-500 text-white'
+              : badge.tone === 'amber'
+                ? 'bg-amber-400 text-amber-950'
+                : 'bg-muted text-muted-foreground',
           )}
         >
           {badge.count}
@@ -130,10 +138,15 @@ function BadgeDot({ badges }: { badges: SidebarBadge[] }) {
   );
 }
 
+/** Drop informational (neutral) badges — the dot and the folded pills only signal work to do. */
+function urgentOnly(badges: SidebarBadge[]): SidebarBadge[] {
+  return badges.filter((b) => b.tone !== 'neutral');
+}
+
 /** Fold the children's badges into 2 pills (red/amber) for a collapsed parent row. */
 function aggregateBadges(badges: SidebarBadge[]): SidebarBadge[] {
   const byTone = new Map<SidebarBadge['tone'], { count: number; titles: string[] }>();
-  for (const b of badges) {
+  for (const b of urgentOnly(badges)) {
     const cur = byTone.get(b.tone) || { count: 0, titles: [] };
     cur.count += b.count;
     cur.titles.push(`${b.title}: ${b.count}`);
@@ -781,7 +794,7 @@ function SidebarLeaf({
           ))}
         </span>
       )}
-      {collapsed && hasBadges && <BadgeDot badges={badges!} />}
+      {collapsed && urgentOnly(badges ?? []).length > 0 && <BadgeDot badges={urgentOnly(badges!)} />}
     </Link>
   );
 }
@@ -830,7 +843,7 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         )}
       >
         <span className={anyChildActive ? 'text-foreground' : 'text-muted-foreground'}>{item.icon}</span>
-        {childBadges.length > 0 && <BadgeDot badges={childBadges} />}
+        {urgentOnly(childBadges).length > 0 && <BadgeDot badges={urgentOnly(childBadges)} />}
       </Link>
     );
   }
@@ -948,8 +961,22 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
     add('dash-tool-check', counts.toolCheckRework, 'amber', t('sidebar.badges.toolCheckRework'));
     add('dash-tool-check', counts.toolCheckUnreviewed, 'red', t('sidebar.badges.toolCheckUnreviewed'));
 
+    // Production › 3D/2D/…: open orders of the line, equal to the rows the line page lists on its
+    // default view (MenuRestructure-CEO.md 2A). Shown even at 0 so every line is visibly there
+    // (§8.3). Hidden while a factory is picked in the header: the count is system-wide and would
+    // read as that factory's — until the BE splits it per factory (`byFactory`), no badge beats a wrong one.
+    if (counts.productLineCounts && !factoryScopeId) {
+      for (const code of PRODUCT_LINES) {
+        (map[`line-${code}`] ||= []).push({
+          count: counts.productLineCounts[code],
+          tone: 'neutral',
+          title: t('sidebar.badges.productLineOpen', { days: PRODUCT_LINE_WINDOW_DAYS }),
+        });
+      }
+    }
+
     return map;
-  }, [counts, roleName, t]);
+  }, [counts, roleName, t, factoryScopeId]);
 
   const handleLogout = async () => {
     try {

@@ -1,11 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
+import { PRODUCT_LINE_WINDOW_DAYS } from 'shared';
 
 import { usePageHeader } from '@/hooks/usePageHeader';
 import { usePermission } from '@/hooks/usePermission';
 
-import { OrderTableWorkshop, PRODUCT_LINE_DEFAULT_DAYS } from '../OrderTableWorkshop';
+import { OrderTableWorkshop } from '../OrderTableWorkshop';
 
 export default function OrdersWorkshopPage() {
   const { t } = useTranslation(['orders', 'products']);
@@ -19,7 +20,7 @@ export default function OrdersWorkshopPage() {
     productLine
       ? t('workshopPage.lineTitle', { line: t(`products:productLines.${productLine}`, { defaultValue: productLine }) })
       : t('workshopPage.title'),
-    productLine ? t('workshopPage.lineSubtitle', { days: PRODUCT_LINE_DEFAULT_DAYS }) : t('workshopPage.subtitle'),
+    productLine ? t('workshopPage.lineSubtitle', { days: PRODUCT_LINE_WINDOW_DAYS }) : t('workshopPage.subtitle'),
   );
 
   if (!canViewWorkshopTable()) {

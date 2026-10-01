@@ -69,7 +69,8 @@
       "designerBacklog": "Total design backlog (last 7 days)",
       "designerBacklogSelf": "Your design backlog (last 7 days)",
       "toolCheckRework": "Tool check — orders needing rework",
-      "toolCheckUnreviewed": "Tool check — unreviewed orders (last 7 days)"
+      "toolCheckUnreviewed": "Tool check — unreviewed orders (last 7 days)",
+      "productLineOpen": "Unfinished orders of this line that entered production in the last {{days}} days"
     },
     "customers": "Customers",
     "impersonate": "Impersonate",

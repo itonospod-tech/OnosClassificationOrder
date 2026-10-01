@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronRight } from 'lucide-react';
-import type { WorkshopAvailableFilters, WorkshopStageFilterKey } from 'shared';
+import type { WorkshopAvailableFilters, WorkshopStageFilter, WorkshopStageFilterKey } from 'shared';
 import { LIFECYCLE_STAGE_KEYS } from 'shared';
 
 import { cn } from '@/utils/cn';
@@ -18,7 +18,8 @@ import { STAGE_COLORS } from './stageColors';
  */
 export interface WorkshopStageStripProps {
   filters: WorkshopAvailableFilters | null;
-  activeStage: WorkshopStageFilterKey | '';
+  /** May be `__open__` (product-line default): no cell is highlighted then. */
+  activeStage: WorkshopStageFilter | '';
   onStageChange: (stage: WorkshopStageFilterKey | '') => void;
 }
 

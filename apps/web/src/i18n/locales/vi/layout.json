@@ -69,7 +69,8 @@
       "designerBacklog": "Tổng tồn thiết kế (7 ngày gần nhất)",
       "designerBacklogSelf": "Tồn thiết kế của bạn (7 ngày gần nhất)",
       "toolCheckRework": "Soát tool — đơn cần làm lại",
-      "toolCheckUnreviewed": "Soát tool — đơn chưa soát (7 ngày gần nhất)"
+      "toolCheckUnreviewed": "Soát tool — đơn chưa soát (7 ngày gần nhất)",
+      "productLineOpen": "Đơn chưa xong của dòng này, vào sản xuất {{days}} ngày gần nhất"
     },
     "customers": "Khách hàng",
     "impersonate": "Mạo danh",
