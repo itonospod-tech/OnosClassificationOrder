@@ -65,3 +65,63 @@ Sáu dòng ở nhóm 2 khớp **chính xác** `ProductLine` đã có:
 - Sửa `packages/shared` thì **phải build shared** rồi mới type-check hai app.
 - Mỗi agent chỉ chạm vùng file của mình. Cần sửa file ngoài vùng → hỏi điều phối.
 - Đích cuối là **đẩy lên `dev`** để anh Tuấn test ở `dev-onos`.
+
+## 6. Khảo sát hệ cũ `app.onospod.com` (01/10/2026, chỉ đọc)
+
+Đăng nhập bằng tài khoản CEO, chỉ xem menu, không thao tác gì.
+
+**Sidebar hệ cũ dùng TIÊU ĐỀ NHÓM + accordion**, không phải menu phẳng:
+
+```
+(không tiêu đề)  Dashboard · Report › Daily Report · Affiliates
+MANUFACTURING    MFT Mê Linh ›        ┐
+                 MFT Thái Nguyên ›    │ mỗi xưởng có CÙNG 4 mục con:
+                 MFT Grabink ›        │ Productions · Batch Items
+                 MFT 2D US ›          │ Box Packages · Production Report
+                 MFT Thái Nguyên Decor ›
+                 Return & Replacement · Grabink
+SALES            Orders › Orders · Shipments · Inventory
+                 Items › 3D · 2D · Grabink · Embroidery · Dropship · Handmade Wood · Category
+                 Product Tags
+                 Billing › Topup · Transactions · Invoice · Production Transactions · Production Invoice
+                 Manufactures · Logistics › · Fulfillments · Media › · Setting ›
+                 Integrations · System Notifications · Users · Extensions
+                 API Logs · Blocked Logs · Support › Tickets
+```
+
+Bấm một nhóm thì nó **mở xổ ngay tại chỗ**, các mục con thụt vào kèm biểu tượng.
+
+**Header:** Switch user · **số dư ví** (đang `-$807.48`) · `Vip: 0` · chuông · email.
+
+**Dashboard:** hàng nút khoảng ngày (Today · Yesterday · Last 7 Days · This Month ·
+Last Month · tự chọn), rồi thẻ **Order Statistics** đếm theo trạng thái
+(Completed · Fulfilled · Processing · Production · Pending · Cancelled · Refund)
+và một số tổng lớn bên trái.
+
+### 6.1 Khác biệt quan trọng so với bản vẽ của CEO
+
+Hệ cũ gom sản xuất theo **XƯỞNG**; bản vẽ của CEO gom theo **DÒNG SẢN PHẨM**.
+Đây là hai trục khác nhau, không phải bắt chước.
+
+Hệ mới đã có **bộ chọn xưởng trên header** (`FactoryScopeSwitch`, Orders.md §25),
+nên để **xưởng ở header + dòng sản phẩm ở sidebar** là khớp cả hai: giữ ý CEO mà
+vẫn đạt được việc hệ cũ làm, và không nhân 6 dòng × 5 xưởng thành 30 mục.
+
+"Ví" trong bản vẽ ứng với **Billing** hệ cũ (Topup · Transactions · Invoice).
+
+## 7. Số thật trên production (01/10/2026) — ẢNH HƯỞNG TRỰC TIẾP MENU
+
+**203 sản phẩm theo dòng:** `3d` 169 · `2d` 15 · `embroidery` 12 · `wood` 3 ·
+**`led` 0 · `canvas` 0**.
+
+**691 đơn từ 01/10:** `3d` 616 · `embroidery` 41 · `2d` 34 · **không có đơn nào
+thiếu `productLine`**.
+
+Hai kết luận:
+
+1. **Đơn mới KHÔNG bị thiếu `productLine`** → 6 trang có dữ liệu để hiện, không
+   cần backfill gấp. Vẫn giữ `__none__` làm đường lui.
+2. **LED và Canvas hiện KHÔNG có sản phẩm nào, cũng không có đơn nào.** Dựng đủ
+   6 mục theo bản vẽ thì **2 mục luôn rỗng**, và Gỗ chỉ có 3 sản phẩm. Cần CEO
+   quyết: hiện đủ 6 cho đúng ý, hay **chỉ hiện dòng có dữ liệu** (mục tự xuất
+   hiện khi có sản phẩm đầu tiên).
