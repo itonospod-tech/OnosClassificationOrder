@@ -1123,6 +1123,12 @@ export const SidebarCountsZod = z.object({
         errorLogTodo: z.number().int().nonnegative(),
         toolCheckRework: z.number().int().nonnegative(),
         toolCheckUnreviewed: z.number().int().nonnegative(),
+        /**
+         * `productLineCounts` restricted to this factory — equals the product-line page
+         * with the header factory scope `?factoryId=<id>`. Absent when the role cannot
+         * open the order list or has no visible open order in this factory (FE: 0).
+         */
+        productLineCounts: ProductLineCountsZod.optional(),
       }),
     )
     .default({}),

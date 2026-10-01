@@ -2,7 +2,7 @@ import { ZodValidationPipe } from '@anatine/zod-nestjs';
 import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Patch, Query, UsePipes } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from 'core';
-import type { FulfillmentStage } from 'shared';
+import type { FulfillmentStage, ProductLineCounts } from 'shared';
 import {
   GetAssignBacklogDto,
   GetAssignBacklogResDto,
@@ -185,7 +185,7 @@ export class DesignerStatsController {
 
     const byFactory: Record<
       string,
-      { errorLogTodo: number; toolCheckRework: number; toolCheckUnreviewed: number }
+      { errorLogTodo: number; toolCheckRework: number; toolCheckUnreviewed: number; productLineCounts?: ProductLineCounts }
     > = {};
     const cell = (id: string) =>
       (byFactory[id] ||= { errorLogTodo: 0, toolCheckRework: 0, toolCheckUnreviewed: 0 });
@@ -195,8 +195,12 @@ export class DesignerStatsController {
       target.toolCheckRework = c.toolCheckRework;
       target.toolCheckUnreviewed = c.toolCheckUnreviewed;
     }
+    for (const [id, c] of Object.entries(productLineCounts?.byFactory ?? {})) cell(id).productLineCounts = c;
 
-    return { success: true, data: { errorLogTodo, ...counts, productLineCounts, byFactory } };
+    return {
+      success: true,
+      data: { errorLogTodo, ...counts, productLineCounts: productLineCounts?.total ?? null, byFactory },
+    };
   }
 
   @Get('designer/overdue-alert')
