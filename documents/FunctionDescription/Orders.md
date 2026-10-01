@@ -2330,6 +2330,8 @@ Cột nằm trong group `identity` (`memberKeys: productionId, orderStatus, prio
 
 > **Yêu cầu (2026-09):** ngoài cụm sản xuất chung (Dashboard / Quản lý đơn / Công việc), **mỗi xưởng có một cụm menu riêng y hệt**; bấm vào là trang mở ra đã lọc sẵn xưởng tương ứng.
 
+> **Fulfillment: `?factoryId=` chỉ THU HẸP, không thay phạm vi (01/10/2026).** Công nhân bị `buildVisibilityFilter` khoá vào xưởng mình (công đoạn In / chưa gán xưởng: `factoryId` bằng; công đoạn khác: `$or` với `originalFactoryId`). `OrderService.applyExplicitFactory()` AND `factoryId` tường minh vào khoá đó, nên chọn xưởng khác trên header ra **rỗng** chứ không ra đơn xưởng khác. Trước đây phép gán `filter.factoryId = dto.factoryId` ghi đè khoá: công nhân In TN chọn Mê Linh thấy 1.628 đơn Mê Linh (đo DB dev, 01–06/09). Áp ở `buildOrderListFilter`, `getStatusOverview`, dropdown lọc của `getFactoryOverview`. Role khác GIỮ hành vi thay thế, để chọn xưởng US vẫn xem được (§21). Khoá bằng `order-filter-scope.spec.ts` khối 3b.
+
 ### 25.1 Phạm vi nằm trên URL, không nằm trong store
 
 Mọi link của cụm xưởng mang thêm `?factoryId=<id>`; `apps/web/src/hooks/useFactoryScope.ts` là **nơi duy nhất** đọc ra phạm vi này.

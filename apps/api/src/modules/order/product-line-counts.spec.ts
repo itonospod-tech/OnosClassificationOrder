@@ -41,7 +41,7 @@ const US_ID = 'USFACTORY0000001';
 beforeAll(async () => {
   jest.useFakeTimers({ now: NOW });
   // Prime the excluded-factory cache so the default filter really excludes "US".
-  await loadExcludedFactoryId({ collection: () => ({ findOne: async () => ({ _id: US_ID }) }) } as never);
+  await loadExcludedFactoryId({ collection: () => ({ findOne: () => Promise.resolve({ _id: US_ID }) }) } as never);
 });
 afterAll(() => {
   jest.useRealTimers();
@@ -62,6 +62,11 @@ describe('workshopStage=__open__', () => {
   });
 });
 
+/** `$and` member order carries no meaning; sort it so filters compare by content. */
+const norm = (f: Record<string, unknown>) =>
+  Array.isArray(f.$and)
+    ? { ...f, $and: [...f.$and].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))) }
+    : f;
 const pipelineOf = (svc: Svc) => svc.orderModel.aggregate.mock.calls[0][0];
 const totalMatchOf = (svc: Svc) => pipelineOf(svc)[1].$facet.total[0].$match;
 const outerMatchOf = (svc: Svc) => pipelineOf(svc)[0].$match;
@@ -88,10 +93,16 @@ describe('countOpenOrdersByProductLine — same filter as the page', () => {
   it.each(SCOPES)('%s — per factory: outer $match + factoryId + productLine === page with ?factoryId', async (_name, scope, fid) => {
     const svc = make();
     await svc.countOpenOrdersByProductLine(...scope);
-    expect({ ...outerMatchOf(svc), factoryId: fid, productLine: { $in: ['wood'] } }).toEqual({
-      ...pageFilter(svc, 'wood', { factoryId: fid }, ...scope),
-      deletedAt: { $exists: false },
-    });
+    const outer = outerMatchOf(svc);
+    // Fulfillment: the page ANDs the explicit factory onto the role's factory lock;
+    // other roles replace the default factory clause. Same set as the badge's group key.
+    const scoped =
+      scope[0] === RoleType.Fulfillment
+        ? { ...outer, $and: [...((outer.$and as unknown[]) ?? []), { factoryId: fid }] }
+        : { ...outer, factoryId: fid };
+    expect(norm({ ...scoped, productLine: { $in: ['wood'] } })).toEqual(
+      norm({ ...pageFilter(svc, 'wood', { factoryId: fid }, ...scope), deletedAt: { $exists: false } }),
+    );
   });
 
   it('US factory: the total excludes it, the per-factory branch matches a page scoped to US', async () => {
