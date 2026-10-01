@@ -217,6 +217,19 @@ Quan sát: `GET admin/customer-orders/counts?factoryId=<TN>` lần đầu 6,8 s 
 
 **Kết luận: mảng `$in` KHÔNG phải nút thắt (~0,2 s).** Chi phí nằm ở derive trạng thái (`$lookup` + `$switch` trong `buildDerivePipeline`), và `computeCountsAdmin` chạy derive **HAI lần** — `countsPipelines` trả 2 pipeline riêng (`byStatus`, `byLine`), mỗi cái derive lại từ đầu. Số đếm không lọc vốn đã ~5 s cùng lý do (comment `cachedAdmin`). Lần đo 6,8 s còn trùng lúc API dev vừa khởi động lại (8 s trước) nên có phần khởi động lạnh.
 
+**ĐÃ SỬA (01/10/2026, `countsPipelines`):** (a) `byLine` bỏ hẳn derive — nó chỉ đọc `items.productLine`; (b) `byStatus` chạy các bộ lọc mức document (ngày, xưởng/ưu tiên, dòng sản phẩm) TRƯỚC `$lookup` thay vì sau — chúng không đọc trường derive nào. Đo trên DB dev, pipeline cũ vs mới chạy như code (2 pipeline song song), 7 tổ hợp, **số giống hệt từng con** (theo trạng thái + theo dòng):
+
+| Tổ hợp | Đơn | Cũ | Mới |
+|---|---:|---:|---:|
+| không lọc | 50.845 | 9,2 / 8,7 s | 6,9 / 7,5 s |
+| 1 seller | 5.215 | 0,81 / 0,84 s | 0,71 / 0,72 s |
+| dòng 3d | 49.515 | 7,9 / 10,8 s | 7,2 / 7,0 s |
+| xưởng TN | 24.291 | 3,8 / 4,0 s | 3,4 / 3,7 s |
+| TN + ưu tiên | 1.357 | 0,44 / 0,31 s | 0,19 / 0,19 s |
+| khoảng ngày | 3.520 | 8,1 / 8,9 s | **0,70 / 0,56 s** |
+
+Dự đoán "giảm ~½" là SAI: hai pipeline vốn chạy song song (`Promise.all`), bỏ một `$lookup` chỉ bớt tranh chấp. Lợi lớn đến từ lọc trước `$lookup`. Phần còn nặng: derive của `byStatus` trên tập lớn (không lọc / theo dòng / xưởng lớn) — hướng tiếp: `$lookup` riêng cho đếm chỉ lấy vài trường cần cho trạng thái/held/rework thay vì cả `PROD_DERIVE_FIELDS` (đã nở ra vì cột Nội bộ của hub).
+
 Hướng sửa, theo thứ tự lời/công:
 1. **Gộp `byStatus` + `byLine` thành MỘT pipeline với `$facet` sau một lần derive** → ước giảm ~½ thời gian mọi số đếm hub (có lọc hay không). Không đụng mô hình dữ liệu.
 2. `byLine` có cần derive không: nếu chỉ đếm theo `items.productLine` + loại đơn hủy thì đếm thẳng mức document, không `$lookup`.
