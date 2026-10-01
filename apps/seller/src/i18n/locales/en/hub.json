@@ -102,6 +102,7 @@
     "columns": {
       "seller": "Seller",
       "service": "Service",
+      "note": "Note",
       "date": "Date"
     },
     "openAsSeller": "Open as seller",

@@ -70,6 +70,7 @@ export function OrderCard({ order, adminMode = false, showViewAs = true, selecte
           <p className="text-xs font-medium text-text-primary truncate">{first?.type || first?.sku || '—'}</p>
           <p className="text-[10px] text-text-muted font-mono truncate">{[first?.sku, [first?.color, first?.size].filter(Boolean).join('/')].filter(Boolean).join(' · ')}{first?.quantity ? ` · ×${first.quantity}` : ''}</p>
           {extra > 0 && <p className="text-[10px] text-accent">{t('customerPortal:orders.moreItems', { count: extra })}</p>}
+          {adminMode && order.note && <p className="text-[10px] text-text-secondary line-clamp-2 break-words">{order.note}</p>}
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {(order.productLines ?? []).map((l) => <ProductLineBadge key={l} line={l} />)}
             {stage && !isPending && <span className="text-[10px] text-text-muted">{stage}</span>}

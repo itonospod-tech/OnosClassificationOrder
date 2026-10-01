@@ -62,14 +62,23 @@ export function buildCustomerNav(t: TFunction): NavGroup[] {
 /** Khớp cụ thể nhất thắng (`/portal/orders/3d` thắng `/portal/orders`) — copy thghub. */
 export function hrefDangChon(pathname: string, hrefs: string[]): string | null {
   let tot: string | null = null;
-  for (const h of hrefs) {
-    if (!h) continue;
+  for (const href of hrefs) {
+    if (!href) continue;
+    // Match on the path only: a menu link may carry a default filter (`?status=processing`).
+    const h = href.split('?')[0];
     const khop = h === '/portal' || h === '/hub' || h === '/hub/orders' ? pathname === h : pathname === h || pathname.startsWith(`${h}/`);
     if (!khop) continue;
-    if (!tot || h.length > tot.length) tot = h;
+    if (!tot || h.length > tot.split('?')[0].length) tot = href;
   }
   return tot;
 }
+
+/**
+ * Hub order links open on "Processing", like the legacy menu (`/orders?status=Processing`):
+ * clicking the menu lands on the view ops act on, not the raw list. The "All" pill is still
+ * one click away.
+ */
+const HUB_ORDERS_DEFAULT = (path: string) => `${path}?status=processing`;
 
 /** Nav khu quản trị `/hub` — Orders xổ "Tất cả" + 6 dịch vụ, cùng khuôn với cổng seller. */
 export function buildHubNav(t: TFunction): NavGroup[] {
@@ -82,14 +91,14 @@ export function buildHubNav(t: TFunction): NavGroup[] {
           id: 'hub_orders',
           icon: '📦',
           label: t('nav.orders', { ns: 'hub' }),
-          href: '/hub/orders',
+          href: HUB_ORDERS_DEFAULT('/hub/orders'),
           children: [
-            { id: 'hub_orders_all', icon: '🗂️', label: t('nav.ordersAll', { ns: 'hub' }), href: '/hub/orders' },
+            { id: 'hub_orders_all', icon: '🗂️', label: t('nav.ordersAll', { ns: 'hub' }), href: HUB_ORDERS_DEFAULT('/hub/orders') },
             ...PRODUCT_LINES.map((line) => ({
               id: `hub_orders_${line}`,
               icon: LINE_ICONS[line] ?? '•',
               label: t(`productLines.${line}`, { ns: 'customerPortal' }),
-              href: `/hub/orders/${line}`,
+              href: HUB_ORDERS_DEFAULT(`/hub/orders/${line}`),
             })),
           ],
         },

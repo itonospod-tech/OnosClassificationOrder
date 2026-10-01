@@ -257,6 +257,7 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
                     <th className={`${TH} min-w-[220px]`}>{t('hub:internal.column')}</th>
                     <th className={TH}>{t('customerPortal:orders.columns.customer')}</th>
                     <th className={TH}>{t('customerPortal:orders.columns.tracking')}</th>
+                    <th className={TH}>{t('hub:orders.columns.note')}</th>
                     <th className={TH}>{t('hub:orders.columns.date')}</th>
                   </tr>
                 </thead>
@@ -335,6 +336,9 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
                         </td>
                         {/* Cột vận đơn: có mã thì hiện mã + link label, chưa có thì nút mua ngay tại hàng. */}
                         <td className="py-2 px-2"><ShipmentCell s={first?.internal} onBought={refetch} /></td>
+                        <td className="py-2 px-2 text-[10.5px] text-text-secondary">
+                          {o.note ? <p title={o.note} className="max-w-[180px] line-clamp-2 break-words">{o.note}</p> : <span className="text-text-muted">—</span>}
+                        </td>
                         <td className="py-2 px-2 text-[10.5px] text-text-secondary whitespace-nowrap">{dayjs(o.pushedAt ?? o.createdAt).format('DD/MM/YYYY HH:mm')}</td>
                       </tr>
                     );
