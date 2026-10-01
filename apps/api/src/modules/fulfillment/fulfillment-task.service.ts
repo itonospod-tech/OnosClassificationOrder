@@ -714,13 +714,15 @@ export class FulfillmentTaskService {
       /** YYYY-MM-DD VN local. Empty string = explicit clear → all-time. */
       createdFrom?: string;
       createdTo?: string;
+      /** Also run `countAllTabs` (see `GetFulfillmentMyTasksZod.withCounts`). */
+      withCounts?: boolean;
     },
   ): Promise<{
     data: ProductionOrder[];
     total: number;
     page: number;
     size: number;
-    tabCounts: { waiting: number; inProgress: number; rework: number; done: number; watching: number };
+    tabCounts?: { waiting: number; inProgress: number; rework: number; done: number; watching: number };
   }> {
     const roleName = user.role?.name;
     const isOverride = roleName ? OVERRIDE_ROLES.includes(roleName) : false;
@@ -755,13 +757,15 @@ export class FulfillmentTaskService {
 
     const [data, total, tabCounts] = await Promise.all([
       this.orderModel
-        .find(filter)
+        // `fulfillmentTimeline` is ~46% of an order document (2.3 of 4.9 KB measured on
+        // dev data) and no My Tasks screen reads it; the kanban loads up to 5000 rows per tab.
+        .find(filter, { fulfillmentTimeline: 0 })
         .sort({ priority: -1, orderAt: -1, inProductionAt: -1 })
         .skip((page - 1) * size)
         .limit(size)
         .lean(),
       this.orderModel.countDocuments(filter),
-      this.countAllTabs(baseFilter, stage, String(user._id), isOverride),
+      query.withCounts ? this.countAllTabs(baseFilter, stage, String(user._id), isOverride) : undefined,
     ]);
 
     return {
