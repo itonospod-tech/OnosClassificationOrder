@@ -2036,6 +2036,12 @@ export const GetFulfillmentMyTasksZod = PageQueryZod.extend({
   tab: FulfillmentTaskTabZod.default('waiting'),
   /** Page size — kanban load full queue per cột (default 50, tối đa 5000). */
   size: z.coerce.number().optional(),
+  /**
+   * Opt-in: also count every tab (`tabCounts`, ~8 extra countDocuments). Off by default:
+   * the kanban calls this endpoint once per tab in parallel and never read the counts,
+   * so each refresh ran the same 8 counts six times.
+   */
+  withCounts: BooleanFlagZod,
   /** Override (Manager/Admin). User Fulfillment không cần set. */
   stage: FulfillmentStageZod.optional(),
   factoryId: IDZod.optional(),
@@ -2133,16 +2139,18 @@ export class FulfillmentDailyOverviewResDto extends createZodDto(extendApi(Fulfi
 export const GetFulfillmentMyTasksResZod = PageResZod.extend({
   data: ProductionOrderZod.array(),
   /** Tab counters (6 tab) — bỏ qua pagination. `unassigned` = 0 với worker
-   *  fulfillment (chỉ admin/manager thấy). */
-  tabCounts: z.object({
-    waiting: z.number(),
-    inProgress: z.number(),
-    rework: z.number(),
-    done: z.number(),
-    fixed: z.number(),
-    watching: z.number(),
-    unassigned: z.number(),
-  }),
+   *  fulfillment (chỉ admin/manager thấy). Present only with `withCounts`. */
+  tabCounts: z
+    .object({
+      waiting: z.number(),
+      inProgress: z.number(),
+      rework: z.number(),
+      done: z.number(),
+      fixed: z.number(),
+      watching: z.number(),
+      unassigned: z.number(),
+    })
+    .optional(), // only when the request sets `withCounts`
 });
 export class GetFulfillmentMyTasksResDto extends createZodDto(extendApi(GetFulfillmentMyTasksResZod)) {}
 
