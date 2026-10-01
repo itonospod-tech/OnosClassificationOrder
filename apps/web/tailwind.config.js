@@ -45,6 +45,13 @@ export default {
           group: 'hsl(var(--nav-group) / <alpha-value>)',
           open: 'hsl(var(--nav-open) / <alpha-value>)',
         },
+        // Status colors by meaning (theme/globals.css --tone-*), light + dark.
+        tone: {
+          info: 'hsl(var(--tone-info) / <alpha-value>)',
+          success: 'hsl(var(--tone-success) / <alpha-value>)',
+          warning: 'hsl(var(--tone-warning) / <alpha-value>)',
+          danger: 'hsl(var(--tone-danger) / <alpha-value>)',
+        },
         // Staff app page background (grey in light mode, see theme/globals.css --page).
         page: 'hsl(var(--page) / <alpha-value>)',
         border: 'hsl(var(--border))',
@@ -81,11 +88,7 @@ export default {
           foreground: 'hsl(var(--card-foreground))',
         },
       },
-      backgroundImage: {
-        'nav-active': 'var(--nav-active-bg)',
-      },
       boxShadow: {
-        'nav-active': 'var(--nav-active-glow)',
         'nav-rail': 'var(--nav-rail-shadow)',
       },
       fontFamily: {

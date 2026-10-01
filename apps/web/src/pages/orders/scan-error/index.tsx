@@ -13,6 +13,7 @@ import { useWorkshopConfigStore } from '@/store/workshopConfigStore';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -248,21 +249,20 @@ function ScanErrorPageContent() {
 
   return (
     <div className="container mx-auto py-6 max-w-3xl space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
-          <ScanLine size={20} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-semibold">{myStage ? t('page.titleStage') : t('page.titleGeneric')}</h1>
-          <p className="text-sm text-muted-foreground">{myStage ? t('page.descStage') : t('page.descGeneric')}</p>
-        </div>
-        {/* In bảng mã hành động (OK / ACT-*) dán tại trạm — điều khiển popup bằng máy quét. */}
-        <Button variant="outline" onClick={() => setPrintingActionSheet(true)} disabled={printingActionSheet}>
-          <Printer size={15} className="mr-1.5" />
-          {t('actionSheet.printBtn')}
-        </Button>
-      </div>
+      {/* Phones: the description is dropped so the scan box is on the first screen (PageHeader). */}
+      <PageHeader
+        icon={<ScanLine size={20} />}
+        title={myStage ? t('page.titleStage') : t('page.titleGeneric')}
+        description={myStage ? t('page.descStage') : t('page.descGeneric')}
+        hideDescriptionOnMobile
+        actions={
+          // In bảng mã hành động (OK / ACT-*) dán tại trạm — điều khiển popup bằng máy quét.
+          <Button variant="outline" onClick={() => setPrintingActionSheet(true)} disabled={printingActionSheet}>
+            <Printer size={15} className="mr-1.5" />
+            {t('actionSheet.printBtn')}
+          </Button>
+        }
+      />
 
       {/* Scan box */}
       <div className="rounded-lg border bg-card p-4 space-y-3">

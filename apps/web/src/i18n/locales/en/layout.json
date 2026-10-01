@@ -142,5 +142,13 @@
   "factoryScopeChip": {
     "label": "Filtered by factory: {{name}}",
     "clear": "Clear factory filter"
+  },
+  "tabBar": {
+    "label": "Quick navigation",
+    "tasks": "Tasks",
+    "scan": "Scan",
+    "errors": "Errors",
+    "orders": "Orders",
+    "more": "More"
   }
 }

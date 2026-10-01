@@ -65,6 +65,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useSidebarBadgeStore } from '../../store/sidebarBadgeStore';
 import { useSidebarResetStore } from '../../store/sidebarResetStore';
 import { handleAxiosError } from '../../utils';
+import { TAB_BAR_ROLES } from './MobileTabBar';
 
 /**
  * Count badge on one sidebar entry: red = urgent, amber = waiting to be assigned/reworked,
@@ -223,8 +224,8 @@ interface NavGroup {
 
 const ADMIN_ROLES: string[] = [RoleType.SuperAdmin, RoleType.Admin];
 
-/** Roles that own a task board (designer kanban / fulfillment kanban) — see `buildMainItems`. */
-const TASK_BOARD_ROLES: string[] = [RoleType.Designer, RoleType.DesignerLeader, RoleType.Fulfillment];
+/** Roles that own a task board (designer / fulfillment kanban) — same set as the phone tab bar. */
+const TASK_BOARD_ROLES = TAB_BAR_ROLES;
 
 /**
  * URL params matched BOTH WAYS in `isLinkActive` (every other param only needs
@@ -804,14 +805,17 @@ function SidebarLeaf({
       }}
       title={collapsed ? item.label : undefined}
       className={cn(
-        'flex items-center gap-2.5 px-3 py-2 rounded text-sm transition-colors',
-        // Active entry = the legacy violet gradient pill with a soft glow (theme/globals.css --nav-*).
-        active ? 'bg-nav-active shadow-nav-active text-white' : 'text-nav-text hover:bg-nav-open hover:text-foreground',
-        collapsed && 'justify-center relative',
+        'relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
+        // Active entry keeps the legacy violet's ROLE (where you are) without its 2018 gradient +
+        // glow: tinted fill, accent text and a thin indicator bar (DesignSystem-LegacyParity.md §9).
+        active
+          ? 'bg-nav-accent/10 font-medium text-nav-accent before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-nav-accent'
+          : 'text-nav-text hover:bg-nav-open hover:text-foreground',
+        collapsed && 'justify-center',
         !collapsed && level > 0 && 'ml-5 py-1.5 text-[13px]',
       )}
     >
-      <span className={active ? 'text-white' : 'text-nav-text'}>{item.icon}</span>
+      <span className={active ? 'text-nav-accent' : 'text-nav-text'}>{item.icon}</span>
       {!collapsed && (
         // Child labels wrap to two lines instead of being cut: Vietnamese labels run long
         // ("Danh sách đơn (bảng phẳng)") and a truncated entry hides what it opens.
@@ -868,13 +872,11 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         to={hrefOf(item.children![0])}
         title={item.label}
         className={cn(
-          'flex items-center justify-center px-3 py-2 rounded text-sm transition-colors relative',
-          anyChildActive
-            ? 'bg-nav-active shadow-nav-active text-white'
-            : 'text-nav-text hover:bg-nav-open hover:text-foreground',
+          'flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-colors relative',
+          anyChildActive ? 'bg-nav-accent/10 text-nav-accent' : 'text-nav-text hover:bg-nav-open hover:text-foreground',
         )}
       >
-        <span className={anyChildActive ? 'text-white' : 'text-nav-text'}>{item.icon}</span>
+        <span className={anyChildActive ? 'text-nav-accent' : 'text-nav-text'}>{item.icon}</span>
         {urgentOnly(childBadges).length > 0 && <BadgeDot badges={urgentOnly(childBadges)} />}
       </Link>
     );
@@ -886,7 +888,7 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'w-full flex items-center gap-2.5 px-3 py-2 rounded text-sm transition-colors text-left border-none cursor-pointer',
+          'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left border-none cursor-pointer',
           // An open group sits on a very light grey row with regular text, as in the legacy app —
           // the violet is reserved for the one active entry so it stays the single eye-catcher.
           open ? 'bg-nav-open text-foreground' : 'bg-transparent text-nav-text hover:bg-nav-open hover:text-foreground',
@@ -914,10 +916,8 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
         )}
         {...(open ? {} : { inert: '' })}
       >
-        {/* Bleed 8px past the row on each side and pad it back, so the active pill's glow is not
-            clipped by the overflow the slide animation needs. */}
-        <div className="-mx-2 min-h-0 overflow-hidden">
-          <div className="space-y-0.5 px-2 py-1">
+        <div className="min-h-0 overflow-hidden">
+          <div className="space-y-0.5 py-1">
             {item.children!.map((c) => (
               <React.Fragment key={c.key}>
                 {c.sectionBefore && (

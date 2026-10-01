@@ -34,21 +34,27 @@
 
     --radius: 0.5rem;
 
-    /* Sidebar navigation — values measured from the legacy OnosPod (Vuexy) sidebar with
-       getComputedStyle: violet #7367F0 accent, #626262 items, #999 group titles, soft right
-       shadow instead of a border. Tailwind reads them as nav-* tokens (tailwind.config.js). */
-    --nav-accent: 244 83% 67%;
+    /* Sidebar navigation (DesignSystem-LegacyParity.md §9): keeps the legacy violet's ROLE — it
+       marks where you are — in a calmer form (tinted fill + indicator bar, no gradient or glow),
+       plus the legacy soft rail shadow. Tailwind reads them as nav-* tokens (tailwind.config.js). */
+    --nav-accent: 245 58% 56%;
     --nav-text: 0 0% 38%;
     --nav-group: 0 0% 60%;
     --nav-open: 0 0% 96%;
-    --nav-active-bg: linear-gradient(118deg, hsl(244 83% 67%), hsl(244 83% 67% / 0.7));
-    --nav-active-glow: 0 0 10px 1px hsl(244 83% 67% / 0.7);
     --nav-rail-shadow: 0 0 15px 0 rgb(0 0 0 / 0.05);
 
     /* Staff app page + surfaces (documents/Plans/DesignSystem-LegacyParity.md §1/§3): light grey
        page, white surfaces lifted by a wide soft shadow instead of an outline. */
     --page: 0 0% 97.3%;
     --surface-shadow: 0 4px 25px 0 rgb(0 0 0 / 0.1);
+
+    /* Status by MEANING, kept from the legacy app (DesignSystem-LegacyParity.md §9): violet = where
+       you are / info, green = done, orange = running / waiting, red = error. Calmer than the Vuexy
+       originals. Pattern: bg-tone-x/10 + text-tone-x for chips, solid bg-tone-x + white for emphasis. */
+    --tone-info: 245 58% 56%;
+    --tone-success: 152 56% 34%;
+    --tone-warning: 28 92% 42%;
+    --tone-danger: 0 68% 50%;
   }
 
   .dark {
@@ -80,19 +86,22 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
 
-    /* The legacy app has no dark mode. On a dark background the full glow and the fade to 70%
-       alpha glare and wash out the white label, so the pill stays nearly solid with a faint glow. */
-    --nav-accent: 244 83% 72%;
+    /* Dark: a lighter violet so accent text and the indicator keep contrast on the dark surface. */
+    --nav-accent: 245 85% 76%;
     --nav-text: 215 20% 72%;
     --nav-group: 215 16% 52%;
     --nav-open: 217.2 32.6% 13%;
-    --nav-active-bg: linear-gradient(118deg, hsl(244 62% 58%), hsl(244 62% 58% / 0.88));
-    --nav-active-glow: 0 0 6px 0 hsl(244 83% 67% / 0.28);
     --nav-rail-shadow: none;
 
     /* Shadows vanish on a dark page, so dark mode keeps the plain page and the borders. */
     --page: 222.2 84% 4.9%;
     --surface-shadow: none;
+
+    /* Lighter on dark so tinted chips keep readable text. */
+    --tone-info: 245 85% 76%;
+    --tone-success: 152 52% 56%;
+    --tone-warning: 35 92% 60%;
+    --tone-danger: 0 82% 68%;
   }
 }
 
