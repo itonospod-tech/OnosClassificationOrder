@@ -125,3 +125,48 @@ Hai kết luận:
    6 mục theo bản vẽ thì **2 mục luôn rỗng**, và Gỗ chỉ có 3 sản phẩm. Cần CEO
    quyết: hiện đủ 6 cho đúng ý, hay **chỉ hiện dòng có dữ liệu** (mục tự xuất
    hiện khi có sản phẩm đầu tiên).
+
+## 8. Quyết định — dựa trên bản đồ menu hệ cũ (01/10/2026)
+
+Rút từ việc đọc toàn bộ link sidebar `app.onospod.com`. Bảy câu treo của 1B
+được chốt như dưới, không cần hỏi CEO từng cái.
+
+### 8.1 Phát hiện quan trọng nhất: menu mang sẵn bộ lọc
+
+**Mọi** link menu hệ cũ đều kèm query mặc định:
+```
+/orders?status=Processing
+/manufactures/<id>/mrp?mrp_status=To Do&source=all
+/manufactures/<id>/mrp_batch?status=Producting
+/manufactures/<id>/report?tab=last7day
+/billing/invoice?status=Pending
+```
+Bấm menu là ra **view hữu ích nhất**, không phải danh sách thô. Đây mới là
+"flow OnosPod" mà CEO muốn, chứ không chỉ là gom nhóm.
+
+→ **Luật cho mọi mục menu mới:** phải mang bộ lọc mặc định có nghĩa. Mục trỏ
+tới danh sách trống hoặc danh sách-tất-cả là làm sai.
+
+### 8.2 Bảy câu treo — đã chốt
+
+| # | Câu hỏi | Chốt | Căn cứ từ hệ cũ |
+|---|---|---|---|
+| 1 | Nhóm Sản xuất dài 17 mục | Giữ **6 dòng + Tất cả đơn + việc có badge**. Import / Không xác định xưởng / classic → chuyển sang nhóm **Hệ thống** | Hệ cũ mỗi xưởng chỉ 4 mục con; việc quản trị nằm khu riêng |
+| 2 | Quét mã · Danh mục lỗi công đoạn | **Giữ trong Sản xuất** | Hệ cũ không có; đây là thao tác tại trạm, việc hằng ngày |
+| 3 | Đơn hàng classic | Chuyển sang **Hệ thống** | Hệ cũ chỉ có MỘT danh sách đơn |
+| 4 | Hướng dẫn DTF | **Bỏ khỏi sidebar**, đưa lên thẻ trên Dashboard | Hệ cũ để hướng dẫn ở thẻ "Getting Started" trên Dashboard |
+| 5 | Nhóm Hệ thống | **Giữ, là nhóm thứ 7**, chỉ Admin | Hệ cũ có ~12 mục quản trị phẳng riêng |
+| 6 | Báo cáo›Ship trùng Ship›Vận đơn | **Bỏ trùng**: Báo cáo chỉ chứa báo cáo, Ship chứa thao tác | Hệ cũ tách `Production Report` khỏi `Shipments` |
+| 7 | Ví | **Làm trang thật trong `/adm`**, không link sang Seller Portal. Số dư lên header | Hệ cũ `Billing` có 5 trang con + số dư trên header |
+
+### 8.3 LED và Canvas rỗng
+
+**Hiện đủ 6 dòng** theo đúng bản vẽ CEO. Hệ cũ cũng hiện đủ 6 loại sản phẩm
+trong `Items` bất kể số lượng. Mục rỗng cho nhân viên biết dòng đó tồn tại.
+Kèm số đếm để thấy ngay dòng nào đang chạy.
+
+### 8.4 Mô hình "Ví" lấy từ `Billing` hệ cũ
+
+`Topup · Transactions · Invoice · Production Transactions · Production Invoice`
+— hệ mới đã có `customer_wallet_transactions` + `applyTransaction()`, nên phần
+sổ cái có sẵn; thiếu giao diện.
