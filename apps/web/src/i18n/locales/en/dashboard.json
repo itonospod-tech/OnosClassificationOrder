@@ -766,5 +766,27 @@
         "level": "Official level is the Admin's call — the \"Suggest\" chip is just computed from the last 60 days' score."
       }
     }
+  },
+  "gettingStarted": {
+    "title": "Getting started",
+    "subtitle": "Guides and lookup pages you use often",
+    "links": {
+      "dtfGuide": {
+        "title": "DTF process guide",
+        "description": "Step by step per role: Support, Designer, Print, Press, QC, Packing."
+      },
+      "orderGuide": {
+        "title": "Seller ordering guide",
+        "description": "How sellers create orders, import CSV and push to production in the Seller Portal."
+      },
+      "catalog": {
+        "title": "Product catalog",
+        "description": "The products and list prices sellers see."
+      },
+      "track": {
+        "title": "Order lookup",
+        "description": "Paste a production ID to see which stage an order is at."
+      }
+    }
   }
 }

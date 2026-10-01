@@ -410,6 +410,18 @@ export const WORKSHOP_STAGE_FILTER_KEYS = [
 ] as const;
 export type WorkshopStageFilterKey = (typeof WORKSHOP_STAGE_FILTER_KEYS)[number];
 
+/**
+ * CSV product-line filter (`ProductLine` codes, `__none__` = orders with no line yet).
+ * Shared by every list that the "Production" / "Tool" menus open per line, so the
+ * accepted values and the 400 on unknown ones stay identical everywhere.
+ */
+export const ProductLineFilterZod = z
+  .string()
+  .refine((s) => s.split(',').every((v) => !v || v === '__none__' || (PRODUCT_LINES as string[]).includes(v)), {
+    message: `productLine phải thuộc ${PRODUCT_LINES.join('|')}|__none__`,
+  })
+  .optional();
+
 export const GetProductionOrdersZod = PageQueryZod.extend({
   /**
    * `true` → chỉ đơn ĐÃ map product config; `false` → chỉ đơn CHƯA map. Bỏ qua
@@ -478,12 +490,7 @@ export const GetProductionOrdersZod = PageQueryZod.extend({
    * CHƯA có `productLine` (đơn cũ trước PRD-8 / không map được config). Giá trị
    * lạ → 400, không âm thầm bỏ qua.
    */
-  productLine: z
-    .string()
-    .refine((s) => s.split(',').every((v) => !v || v === '__none__' || (PRODUCT_LINES as string[]).includes(v)), {
-      message: `productLine phải thuộc ${PRODUCT_LINES.join('|')}|__none__`,
-    })
-    .optional(),
+  productLine: ProductLineFilterZod,
   /** Comma-separated workshop_config codes for fabric_type. */
   fabricType: z.string().optional(),
   /** Comma-separated workshop_config codes for tool_result. */
@@ -2498,6 +2505,8 @@ export const GetToolCheckOverviewZod = z.object({
   machineNumber: z.string().optional(),
   /** Lọc theo mức ưu tiên (`order.priority`) — '1'|'2'|'3'. */
   priority: z.enum(['1', '2', '3']).optional(),
+  /** Product line from the "Tool" menu (Tool 3D / Tool 2D–DTF) — same CSV contract as `GET /orders`. */
+  productLine: ProductLineFilterZod,
 });
 export class GetToolCheckOverviewDto extends createZodDto(extendApi(GetToolCheckOverviewZod)) {}
 

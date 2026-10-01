@@ -31,6 +31,7 @@ import {
 import { designerFlowConds } from '../../utils/designer-flow';
 import { productionFactoryClause } from '../../utils/excluded-factory';
 import { OrderEntity } from '../order/order.entity';
+import { productLineCondition } from '../order/product-line-filter';
 import { OrderLogEntity } from '../order-log/order-log.entity';
 import { ProductConfigEntity } from '../product-config/product-config.entity';
 import { RoleRepository } from '../role/role.repository';
@@ -2239,6 +2240,7 @@ export class DesignerStatsService {
     to?: string,
     machineNumber?: string,
     priority?: string,
+    productLine?: string,
   ): Promise<{
     checkedCount: number;
     errorCount: number;
@@ -2264,7 +2266,13 @@ export class DesignerStatsService {
   }> {
     const { start, end, days } = this.resolveVnWindow(rangeDays, from, to);
     const inWindow = { $gte: start, $lte: end };
+    // Product line is a SCOPE chosen by the menu (Tool 3D / Tool 2D–DTF), not one of the
+    // facet filters: it narrows the facet options too, otherwise Tool 3D would offer 2D
+    // product types in its dropdowns.
+    const lineCond = productLineCondition(productLine);
+    const lineScope = lineCond ? { productLine: lineCond } : {};
     const withFilters = (m: Record<string, unknown>) => {
+      Object.assign(m, lineScope);
       if (type) m.type = type;
       if (customer) m.userSku = customer;
       if (machineNumber) m.machineNumber = machineNumber;
@@ -2331,6 +2339,7 @@ export class DesignerStatsService {
     const facetScope = {
       inProductionAt: inWindow,
       ...alive,
+      ...lineScope,
       $or: [{ toolResultNote: { $in: [null, ''] } }, { productionErrorSource: 'tool-check' }],
     };
     const facetAgg = (field: string) =>
