@@ -597,10 +597,10 @@ OrderSchema.index({ 'onospodHold.onHoldAt': 1 }, { sparse: true });
 // — thiếu compound index này Mongo phải in-memory sort toàn tập kết quả mỗi request.
 OrderSchema.index({ priority: -1, inProductionAt: -1 });
 
-// Danh sách đơn theo dòng sản phẩm — bộ lọc MẶC ĐỊNH của 6 trang "Sản xuất"
-// (MenuRestructure-CEO.md 1A). Thứ tự ESR: productLine (bằng) → sort mặc định
-// priority/inProductionAt → range inProductionAt. OrderService.onModuleInit tạo
-// tường minh vì autoIndex build nền và nuốt lỗi.
+// Order list by product line — the DEFAULT filter of the six "Production" pages
+// (MenuRestructure-CEO.md 1A). ESR order: productLine (equality) → default sort
+// priority/inProductionAt → inProductionAt range. OrderService.onModuleInit creates
+// it explicitly because autoIndex builds in the background and swallows errors.
 export const ORDER_PRODUCT_LINE_INDEX = {
   keys: { productLine: 1, priority: -1, inProductionAt: -1 },
   name: 'productLine_priority_inProductionAt',

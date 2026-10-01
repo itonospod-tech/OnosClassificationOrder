@@ -727,9 +727,10 @@ export class ProductConfigService implements OnModuleInit {
   }
 
   /**
-   * Chặn tạo/đổi tên trùng `fullName` — so khớp CÙNG phép với `importOrders`
-   * (trim, `^…$`, không phân biệt hoa thường). Trùng tên là `importOrders` lấy
-   * bản đầu còn `remapUnmappedOrders` lấy bản cuối → hai đường gán xưởng lệch nhau.
+   * Block creating or renaming onto an existing `fullName`, matching EXACTLY the way
+   * `importOrders` does (trim, `^…$`, case-insensitive). With duplicate names
+   * `importOrders` takes the first record while `remapUnmappedOrders` takes the last,
+   * so the two factory-assignment paths silently disagree.
    */
   private async assertFullNameFree(fullName: string, exceptId?: string) {
     const name = fullName.trim();
