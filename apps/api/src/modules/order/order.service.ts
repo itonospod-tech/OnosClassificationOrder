@@ -170,6 +170,7 @@ import { SystemConfigService } from '../system-config/system-config.service';
 import { UserEntity } from '../user/user.entity';
 import { WorkshopConfigRepository } from '../workshop-config/workshop-config.repository';
 import { resolveBarcodeSkuBase } from './barcode-label';
+import { resolveDesignReviewCodeByDesigns } from './design-review-code-rule';
 import { DriveFileNameService } from './drive-file-name.service';
 import { planForceComplete } from './force-complete-plan';
 import { shouldNotifyCustomerOnManualUnhold } from './onospod-hold-sync.plan';
@@ -356,6 +357,7 @@ const LEGACY_DTF_PRODUCT_CODE = 'TIFF';
 
 /** Phần cấu hình sản phẩm mà design review cần đọc — xem `OrderService.toDesignReviewOrder`. */
 type DesignReviewProductDoc = {
+  sku?: string;
   designReviewCode?: string;
   printMethod?: string;
   printArea?: ProductPrintArea;
@@ -6935,7 +6937,10 @@ export class OrderService implements OnModuleInit {
   /** Map raw order doc (field cần cho design review) → `DesignReviewOrder`. Dùng chung bởi `getNextDesignReviewOrder`/`getDesignReviewOrderByProductionId`. */
   private async toDesignReviewOrder(doc: DesignReviewSourceDoc): Promise<DesignReviewOrder> {
     const product = await this.resolveDesignReviewProduct(doc.type);
-    const productCode = product?.designReviewCode?.trim() || null;
+    // Sản phẩm có rule theo option (vị trí design) thì mã theo option, còn lại
+    // giữ `designReviewCode` như cũ — xem `design-review-code-rule.ts`.
+    const productCode =
+      resolveDesignReviewCodeByDesigns(product?.sku, doc.designs) ?? (product?.designReviewCode?.trim() || null);
     return {
       productionId: doc.productionId,
       orderId: doc.orderId,
