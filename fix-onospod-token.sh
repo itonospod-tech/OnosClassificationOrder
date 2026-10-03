@@ -30,9 +30,11 @@ die() { echo "✗ $*" >&2; exit 1; }
 [ -n "$TOKEN" ] || die "Thiếu token.  Dùng: ./fix-onospod-token.sh <token> [env-file]"
 [ -f "$ENV_FILE" ] || die "Không thấy file env: $ENV_FILE"
 
-# Strip a pasted "Bearer " prefix and any stray quotes, then check the shape
-# before touching anything -- a truncated paste is the likeliest mistake here.
-TOKEN=$(printf '%s' "$TOKEN" | sed -E 's/^[Bb]earer[[:space:]]+//; s/^"//; s/"$//; s/[[:space:]]//g')
+# Clean the pasted value before checking its shape. A long token wraps in the
+# terminal and bash then keeps the newline inside the argument, so whitespace
+# has to go through tr (sed works line by line and would leave it in place).
+# Strip the whitespace first, which turns "Bearer <tok>" into "Bearer<tok>".
+TOKEN=$(printf '%s' "$TOKEN" | tr -d '[:space:]' | sed -E "s/^[Bb]earer//; s/^[\"']//; s/[\"']\$//")
 printf '%s' "$TOKEN" | grep -Eq '^ey[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$' \
   || die "Token không đúng dạng JWT (phải có 3 phần ngăn bằng dấu chấm)."
 
