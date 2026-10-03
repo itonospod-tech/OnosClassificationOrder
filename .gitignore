@@ -97,3 +97,6 @@ apps/web/.dist-prod-prev/
 
 # Superdesign: init snapshot tự sinh từ mã nguồn (tái tạo được), chỉ giữ design-system.md + resume.json
 .superdesign/init/
+
+# Backups made by fix-onospod-token.sh — they hold the same secrets as the env file.
+**/.env*.bak.*

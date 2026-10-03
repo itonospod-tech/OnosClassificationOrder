@@ -100,7 +100,11 @@ git fetch --quiet origin "$BRANCH" 2>/dev/null ||
   { log "LỖI: fetch hỏng (đã thử lại 1 lần)"; exit 1; }
 local_sha=$(git rev-parse HEAD)
 remote_sha=$(git rev-parse "origin/$BRANCH")
-[ "$local_sha" = "$remote_sha" ] && exit 0
+# Nothing to pull when the remote tip is already contained in HEAD. Plain
+# equality is not enough: a local branch that is AHEAD of origin (commits
+# merged here but not pushed) never equals it, so the script re-ran the
+# no-op merge every minute and restarted the dev services each time.
+git merge-base --is-ancestor "$remote_sha" "$local_sha" && exit 0
 
 # Chỉ tính file ĐANG THEO DÕI: file lạ (log, script nháp ai đó để lại) không bị
 # ff-only ghi đè, mà tính vào đây thì một file rác cũng chặn dev đứng mãi. Trường
