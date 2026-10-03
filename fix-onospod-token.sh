@@ -22,7 +22,16 @@ REPO_DIR=$(cd "$(dirname "$0")" && pwd)
 cd "$REPO_DIR"
 
 TOKEN=${1:-}
-ENV_FILE=${2:-apps/api/.env}
+# Default to whichever env file actually declares the variables: a box can
+# carry both .env and .env.development while only one holds the OnosPod block,
+# and picking by name alone silently targets the wrong file.
+ENV_FILE=${2:-}
+if [ -z "$ENV_FILE" ]; then
+  for candidate in apps/api/.env apps/api/.env.development; do
+    [ -f "$candidate" ] && grep -q '^ONOSPOD_API_BEARER_TOKEN=' "$candidate" && { ENV_FILE=$candidate; break; }
+  done
+fi
+ENV_FILE=${ENV_FILE:-apps/api/.env}
 VARS=(ONOSPOD_API_BEARER_TOKEN ONOSPOD_API_SUPER_TOKEN ONOSPOD_QC_BEARER_TOKEN)
 
 die() { echo "✗ $*" >&2; exit 1; }
