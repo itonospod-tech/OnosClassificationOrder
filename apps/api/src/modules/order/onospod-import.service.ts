@@ -41,6 +41,9 @@ const MAX_PAGES = 200;
 // + `price` vào fragment `MrpProduct` (FE OnosPod không query 2 field này
 // nhưng `mapItemToRow()` cần cho `quantity`/`baseCost` — verify bằng test
 // gọi thật 2026-07-18: thiếu thì cả 2 về undefined).
+/** Số lượt import hỏng liên tiếp trước khi bắn cảnh báo Telegram. */
+const IMPORT_FAILURE_ALERT_THRESHOLD = 2;
+
 const PAGINATE_QUERY = `query PaginateMrpProduct(
   $manufacture_id: String
   $page_size: Int
@@ -532,7 +535,48 @@ export class OnospodImportService {
     private readonly onospodHoldSyncService: OnospodHoldSyncService,
   ) {}
 
+  /**
+   * Số lượt import hỏng liên tiếp. Một lượt thành công đặt lại về 0.
+   *
+   * ponytail: nằm trong bộ nhớ tiến trình, nên deploy/restart xoá sạch bộ đếm.
+   * Chấp nhận được: cron chạy 30 phút/lần nên hai lượt hỏng liên tiếp vẫn tới
+   * trước lần restart kế tiếp trong thực tế. Cần bền hơn thì chuyển sang
+   * `system_configs`.
+   */
+  private consecutiveFailures = 0;
+
+  /**
+   * Bọc ngoài `runImport` để một lần đứt kết nối OnosPod KHÔNG còn im lặng.
+   *
+   * 03/10/2026: chủ tịch đổi mật khẩu tài khoản OnosPod, token lưu trong env
+   * chết theo và mọi lượt import hỏng suốt một ngày — không ai biết cho tới
+   * khi xưởng nhắn hỏi. Token hệ cũ mang luôn mật khẩu trong payload nên
+   * chuyện này sẽ còn lặp lại.
+   *
+   * Báo từ lượt hỏng THỨ HAI: một lượt lẻ thường chỉ là mạng chớp, báo ngay
+   * lượt đầu thì cảnh báo thành tiếng ồn và không ai đọc nữa.
+   */
   async importFromOnosPod(dto: ImportFromOnosPodDto, ctx?: AuditContext): Promise<ImportFromOnosPodResDto> {
+    try {
+      const result = await this.runImport(dto, ctx);
+      this.consecutiveFailures = 0;
+      return result;
+    } catch (err) {
+      this.consecutiveFailures += 1;
+      if (this.consecutiveFailures >= IMPORT_FAILURE_ALERT_THRESHOLD) {
+        const reason = err instanceof Error ? err.message : String(err);
+        void this.onospodHoldSyncService.alert(
+          `🚨 Import đơn từ OnosPod hỏng ${this.consecutiveFailures} lượt liên tiếp.\n\n` +
+            `Lý do: ${reason}\n\n` +
+            'Nếu thấy chữ "banned": token OnosPod đã chết, thường là do đổi mật khẩu tài khoản. ' +
+            'Lấy lại cookie `_token` trên app.onospod.com rồi chạy `./fix-onospod-token.sh <token>`.',
+        );
+      }
+      throw err;
+    }
+  }
+
+  private async runImport(dto: ImportFromOnosPodDto, ctx?: AuditContext): Promise<ImportFromOnosPodResDto> {
     const config = this.apiConfigService.onospodQcConfig;
     if (!config) {
       throw new BadRequestException(
