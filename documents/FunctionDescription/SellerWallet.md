@@ -49,6 +49,7 @@ BE ném `BadRequestException` với **message = đúng 1 mã** trong `SELLER_SHI
 | GET | `customer/shipping/orders/:stagingId/quote` | Báo giá (`weightGram?`) — trả 200 kèm `eligible`/`errorCode` |
 | POST | `customer/shipping/orders/:stagingId/label` | Mua (`weightGram`, `requestId` bắt buộc) |
 | GET | `admin/customer-wallets` | List ví seller (`@Auth([Admin])`, search/activeOnly/paging) |
+| GET | `admin/customer-wallets/transactions` | Sổ cái MỌI seller, mới nhất trước (`@Auth([Admin])`; lọc `kind`/`from`/`to` (YYYY-MM-DD, ngày giờ VN)/`search` seller/`customerId`; mỗi dòng kèm `userSku`/`userEmail`/`fullName` + `productionIds` đã dịch từ `refs.orderIds` — mảng đó chứa `_id` đơn, vô nghĩa với nhân viên). Lọc dựng ở hàm thuần `wallet-txn-filter.ts` (+spec); index `{createdAt:-1}` + `{kind:1,createdAt:-1}` |
 | GET | `admin/customer-wallets/:customerId/transactions` | Sổ cái 1 seller |
 | POST | `admin/customer-wallets/:customerId/topup` \| `/adjust` | Nạp (+) / điều chỉnh (±) — note bắt buộc |
 | PATCH | `admin/customer-wallets/:customerId/credit-limit` | Đặt hạn mức |

@@ -100,6 +100,33 @@ export type AdminWalletRow = z.infer<typeof AdminWalletRowZod>;
 export const GetAdminWalletsResZod = ResZod.extend({ data: AdminWalletRowZod.array(), total: z.number() });
 export class GetAdminWalletsResDto extends createZodDto(extendApi(GetAdminWalletsResZod)) {}
 
+/** All sellers' ledger — staff Billing › Transactions (`GET admin/customer-wallets/transactions`). */
+const YmdZod = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD');
+export const GetAdminWalletTxnsZod = z.object({
+  customerId: z.string().optional(),
+  /** Matches seller userSku / userEmail / fullName. */
+  search: z.string().optional(),
+  kind: WalletTxnKindZod.optional(),
+  /** Inclusive day range, interpreted in Vietnam time (UTC+7). */
+  from: YmdZod.optional(),
+  to: YmdZod.optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+export class GetAdminWalletTxnsDto extends createZodDto(extendApi(GetAdminWalletTxnsZod)) {}
+
+export const AdminWalletTxnRowZod = CustomerWalletTxnZod.extend({
+  userSku: z.string(),
+  userEmail: z.string(),
+  fullName: z.string().optional(),
+  /** productionIds of the orders in `refs.orderIds` (those hold order _ids, which mean nothing to staff). */
+  productionIds: z.string().array(),
+});
+export type AdminWalletTxnRow = z.infer<typeof AdminWalletTxnRowZod>;
+
+export const GetAdminWalletTxnsResZod = ResZod.extend({ data: AdminWalletTxnRowZod.array(), total: z.number() });
+export class GetAdminWalletTxnsResDto extends createZodDto(extendApi(GetAdminWalletTxnsResZod)) {}
+
 /** Nạp ví tay — phase 1 seller chuyển khoản ngoài hệ thống, admin cộng + ghi chú. */
 export const TopupWalletZod = z.object({
   amount: z.number().positive().max(1_000_000),

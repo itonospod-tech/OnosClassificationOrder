@@ -6,6 +6,8 @@ import {
   AdjustWalletDto,
   GetAdminWalletsDto,
   GetAdminWalletsResDto,
+  GetAdminWalletTxnsDto,
+  GetAdminWalletTxnsResDto,
   GetCustomerWalletTxnsDto,
   GetCustomerWalletTxnsResDto,
   RoleType,
@@ -45,6 +47,16 @@ export class CustomerWalletAdminController {
       message: JSON.stringify({ method: 'GET', url: '/admin/customer-wallets', userId: user._id }),
     });
     return { success: true, ...(await this.walletService.listWallets(dto)) };
+  }
+
+  // Declared BEFORE `:customerId/transactions` for readability; the two never collide (different segment counts).
+  @Get('transactions')
+  @Auth([RoleType.Admin])
+  @ApiOperation({ summary: 'Sổ cái ví của MỌI seller (lọc loại / ngày / seller)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetAdminWalletTxnsResDto })
+  async listAllTransactions(@Query() dto: GetAdminWalletTxnsDto): Promise<GetAdminWalletTxnsResDto> {
+    return { success: true, ...(await this.walletService.listAllTransactions(dto)) };
   }
 
   @Get(':customerId/transactions')

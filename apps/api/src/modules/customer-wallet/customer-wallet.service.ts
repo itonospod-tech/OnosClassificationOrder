@@ -3,8 +3,10 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
 import type {
   AdminWalletRow,
+  AdminWalletTxnRow,
   CustomerWalletTxn,
   GetAdminWalletsDto,
+  GetAdminWalletTxnsDto,
   GetCustomerWalletTxnsDto,
   WalletTxnKind,
 } from 'shared';
@@ -14,6 +16,7 @@ import { CustomerEntity } from '@/modules/customer/customer.entity';
 import type { CustomerWalletTransactionDocument, WalletTxnRefs } from './customer-wallet-transaction.entity';
 import { CustomerWalletTransactionEntity } from './customer-wallet-transaction.entity';
 import { checkWalletGuard, round2 } from './wallet-guard';
+import { buildAdminTxnFilter } from './wallet-txn-filter';
 
 function isDuplicateKeyError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000;
@@ -145,6 +148,63 @@ export class CustomerWalletService {
       this.txnModel.countDocuments(filter),
     ]);
     return { data: docs.map((d) => this.toTxn(d)), total };
+  }
+
+  /**
+   * Staff view of the ledger across ALL sellers (legacy Billing › Transactions). Newest first.
+   * Resolves `dto.search` to seller ids first. ponytail: the search is capped at 1000 matching sellers.
+   */
+  async listAllTransactions(dto: GetAdminWalletTxnsDto): Promise<{ data: AdminWalletTxnRow[]; total: number }> {
+    let searchIds: string[] | undefined;
+    if (dto.search?.trim()) {
+      const rx = new RegExp(dto.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const found = await this.customerModel
+        .find({ $or: [{ userSku: rx }, { userEmail: rx }, { fullName: rx }] })
+        .select('_id')
+        .limit(1000);
+      searchIds = found.map((c) => String(c._id));
+    }
+    const filter = buildAdminTxnFilter(dto, searchIds);
+    if (!filter) return { data: [], total: 0 };
+
+    const [docs, total] = await Promise.all([
+      this.txnModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((dto.page - 1) * dto.limit)
+        .limit(dto.limit),
+      this.txnModel.countDocuments(filter),
+    ]);
+
+    const customerIds = [...new Set(docs.map((d) => String(d.customerId)))];
+    const orderIds = [...new Set(docs.flatMap((d) => d.refs?.orderIds ?? []))];
+    const [customers, orders] = await Promise.all([
+      this.customerModel.find({ _id: { $in: customerIds } }).select('userSku userEmail fullName'),
+      orderIds.length
+        ? this.txnModel.db
+            .collection<{ _id: string; productionId?: string }>('orders')
+            .find({ _id: { $in: orderIds } }, { projection: { productionId: 1 } })
+            .toArray()
+        : Promise.resolve([]),
+    ]);
+    const customerById = new Map(customers.map((c) => [String(c._id), c]));
+    const productionIdByOrder = new Map(orders.map((o) => [String(o._id), o.productionId]));
+
+    return {
+      data: docs.map((d) => {
+        const seller = customerById.get(String(d.customerId));
+        return {
+          ...this.toTxn(d),
+          userSku: seller?.userSku ?? '',
+          userEmail: seller?.userEmail ?? '',
+          fullName: seller?.fullName || undefined,
+          productionIds: (d.refs?.orderIds ?? [])
+            .map((id) => productionIdByOrder.get(id))
+            .filter((v): v is string => !!v),
+        };
+      }),
+      total,
+    };
   }
 
   async listWallets(dto: GetAdminWalletsDto): Promise<{ data: AdminWalletRow[]; total: number }> {
