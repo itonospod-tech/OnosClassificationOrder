@@ -27,7 +27,8 @@
       "category": "Categories",
       "factory": "Factories",
       "collection": "Collections",
-      "tag": "Tags"
+      "tag": "Tags",
+      "technique": "Techniques"
     }
   },
   "configTab": {
@@ -552,6 +553,10 @@
     "tagsField": {
       "label": "Tags (select many)",
       "empty": "No tags yet — create them in the Tags tab of the Products page."
+    },
+    "techniquesField": {
+      "label": "Techniques (select many)",
+      "empty": "No techniques yet — create them in the Techniques tab of the Products page."
     }
   },
   "collectionTab": {
@@ -668,6 +673,37 @@
       "active": "Active",
       "nameRequired": "Name and short name are required",
       "createSuccess": "Tag created",
+      "updateSuccess": "Updated"
+    }
+  },
+  "productTechniqueTab": {
+    "title": "Product techniques",
+    "description": "Finishing/application techniques (UV, Sublimation…) — separate from the print method, picked on the product detail page.",
+    "table": {
+      "image": "Image",
+      "name": "Name",
+      "shortName": "Short name",
+      "sortOrder": "Order",
+      "status": "Status",
+      "empty": "No techniques yet.",
+      "active": "Active",
+      "inactive": "Off"
+    },
+    "dialog": {
+      "createTitle": "Add technique",
+      "editTitle": "Edit technique"
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "e.g. Sublimation",
+      "shortName": "Short name",
+      "shortNamePlaceholder": "e.g. SUBLIMATION",
+      "image": "Image (URL)",
+      "description": "Description",
+      "sortOrder": "Sort order",
+      "active": "Active",
+      "nameRequired": "Name and short name are required",
+      "createSuccess": "Technique created",
       "updateSuccess": "Updated"
     }
   }

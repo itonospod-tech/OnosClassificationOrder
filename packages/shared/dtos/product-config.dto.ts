@@ -207,6 +207,8 @@ export const ProductConfigZod = BaseEntityZod.extend({
   collectionIds: IDZod.array().max(20).optional(),
   /** ref ProductTagEntity — many tags per product (multi-select). */
   productTagIds: IDZod.array().max(30).optional(),
+  /** ref ProductTechniqueEntity — many techniques per product (multi-select). */
+  productTechniqueIds: IDZod.array().max(20).optional(),
   /** Cấp độ sản phẩm 1..10 (PRODUCT_LEVELS) — hiển thị badge màu. */
   level: z.number().int().min(1).max(10).optional(),
   /** Hướng dẫn / ghi chú sản xuất (HTML từ rich text editor). */
@@ -329,6 +331,7 @@ export const CreateProductConfigZod = z.object({
   images: ProductConfigZod.shape.images,
   collectionIds: ProductConfigZod.shape.collectionIds,
   productTagIds: ProductConfigZod.shape.productTagIds,
+  productTechniqueIds: ProductConfigZod.shape.productTechniqueIds,
   level: ProductConfigZod.shape.level,
   guide: ProductConfigZod.shape.guide,
   productCategoryId: ProductConfigZod.shape.productCategoryId,
@@ -378,6 +381,7 @@ export const UpdateProductConfigZod = z.object({
   images: ProductConfigZod.shape.images,
   collectionIds: ProductConfigZod.shape.collectionIds,
   productTagIds: ProductConfigZod.shape.productTagIds,
+  productTechniqueIds: ProductConfigZod.shape.productTechniqueIds,
   level: ProductConfigZod.shape.level,
   guide: ProductConfigZod.shape.guide,
   productCategoryId: ProductConfigZod.shape.productCategoryId,
@@ -737,6 +741,8 @@ export const GetCustomerCatalogZod = PageQueryZod.extend({
   collectionId: IDZod.optional(),
   /** Product tag filter (`ProductConfig.productTagIds`). */
   productTagId: IDZod.optional(),
+  /** Product technique filter (`ProductConfig.productTechniqueIds`). */
+  productTechniqueId: IDZod.optional(),
   productLine: z.enum(PRODUCT_LINES).optional(),
 });
 export class GetCustomerCatalogDto extends createZodDto(extendApi(GetCustomerCatalogZod)) {}
@@ -801,6 +807,8 @@ export const GetCustomerCatalogFacetsResZod = ResZod.extend({
     collections: CustomerCatalogFacetZod.array(),
     /** Active product tags with at least one visible product. */
     tags: CustomerCatalogFacetZod.array(),
+    /** Active product techniques with at least one visible product. */
+    techniques: CustomerCatalogFacetZod.array(),
     /** Số sản phẩm theo dòng (chỉ dòng có ≥1 sản phẩm). */
     productLines: z.object({ code: z.enum(PRODUCT_LINES), count: z.number() }).array(),
   }),

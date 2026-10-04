@@ -72,6 +72,7 @@ export interface ProductConfigRow {
   images?: string[];
   collectionIds?: string[];
   productTagIds?: string[];
+  productTechniqueIds?: string[];
   level?: number;
   guide?: string;
   factoryId?: string;

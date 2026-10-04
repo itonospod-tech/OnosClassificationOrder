@@ -17,6 +17,7 @@ import { ApiConfigService } from '@/shared/services';
 
 import { CollectionRepository } from '../collection/collection.repository';
 import { ProductTagRepository } from '../product-tag/product-tag.repository';
+import { ProductTechniqueRepository } from '../product-technique/product-technique.repository';
 import { ProductCategoryRepository } from '../product-category/product-category.repository';
 import { ProductConfigEntity } from './product-config.entity';
 import { productLineForNew } from './product-line-migration';
@@ -45,7 +46,7 @@ const productPresetQuery = (collection: string) => `query { productPreset (_id:"
   category,size_chart,print_document,
   print_areas { key,print,width,height,addition_price,is_required,is_embroidery },
   print_template,weight,package_width,package_height,package_length,
-  collection,visible,skip_design_check,skip_affiliate,product_tag_ids
+  collection,visible,skip_design_check,skip_affiliate,product_tag_ids,product_technique_ids
 }}`;
 
 interface OnospodProduct {
@@ -101,6 +102,8 @@ interface OnospodProduct {
   skip_affiliate?: boolean | null;
   /** Legacy tag ids — resolve through `productTags` (id → slug), see `fetchLegacyTagSlugs`. */
   product_tag_ids?: string[] | null;
+  /** Legacy technique ids — resolved through `productTechniques` (id → slug). */
+  product_technique_ids?: string[] | null;
 }
 
 /** Field mapped từ OnosPod — SUBSET của ProductConfig, dùng cho cả create lẫn fill. */
@@ -128,6 +131,7 @@ type MappedProduct = Partial<
     | 'variations'
     | 'collectionIds'
     | 'productTagIds'
+    | 'productTechniqueIds'
     | 'productCategoryId'
     | 'enableDesignCheck'
     | 'enableAffiliate'
@@ -161,6 +165,7 @@ const FILLABLE_FIELDS: (keyof MappedProduct)[] = [
   'variations',
   'collectionIds',
   'productTagIds',
+  'productTechniqueIds',
   'productCategoryId',
   'enableDesignCheck',
   'enableAffiliate',
@@ -211,6 +216,7 @@ export class OnospodProductImportService {
     private readonly collectionRepository: CollectionRepository,
     private readonly productCategoryRepository: ProductCategoryRepository,
     private readonly productTagRepository: ProductTagRepository,
+    private readonly productTechniqueRepository: ProductTechniqueRepository,
     @InjectModel(ProductConfigEntity.name)
     private readonly productConfigModel: Model<ProductConfigEntity>,
   ) {}
@@ -275,7 +281,32 @@ export class OnospodProductImportService {
     return ids.length ? ids : undefined;
   }
 
+  /** Legacy technique id → slug (same pagination caveat as tags). */
+  private async fetchLegacyTechniqueSlugs(): Promise<Map<string, string>> {
+    const res = await this.gql<{ productTechniques?: { _id?: string; slug?: string }[] }>(
+      'query { productTechniques { _id,slug } }',
+      1,
+      500,
+    );
+    const map = new Map<string, string>();
+    for (const t of res.data?.data?.productTechniques ?? []) if (t._id && t.slug) map.set(t._id, t.slug);
+    return map;
+  }
+
+  /** Legacy technique ids → our ProductTechnique ids, matched by slug = shortName. Unknown ones are skipped. */
+  private async resolveTechniqueIds(legacyIds: string[] | null | undefined): Promise<string[] | undefined> {
+    const ids: string[] = [];
+    for (const legacyId of legacyIds ?? []) {
+      const slug = this.legacyTechniqueSlugs.get(legacyId);
+      if (!slug) continue;
+      const technique = await this.productTechniqueRepository.findOne({ shortName: slug.toUpperCase() });
+      if (technique && !ids.includes(String(technique._id))) ids.push(String(technique._id));
+    }
+    return ids.length ? ids : undefined;
+  }
+
   private legacyTagSlugs = new Map<string, string>();
+  private legacyTechniqueSlugs = new Map<string, string>();
 
   /** Cache theo lifetime service — collection/category tra theo TÊN (case-insensitive), thiếu thì tạo. */
   private readonly collectionIdCache = new Map<string, string>();
@@ -403,6 +434,7 @@ export class OnospodProductImportService {
       length: cleanNum(p.package_length),
       variations: variations.length ? variations : undefined,
       productTagIds: await this.resolveTagIds(p.product_tag_ids),
+      productTechniqueIds: await this.resolveTechniqueIds(p.product_technique_ids),
       collectionIds: collectionName ? [await this.resolveCollectionId(collectionName)] : undefined,
       productCategoryId: categoryName ? await this.resolveCategoryId(categoryName) : undefined,
       enableDesignCheck: p.skip_design_check == null ? undefined : !p.skip_design_check,
@@ -435,6 +467,12 @@ export class OnospodProductImportService {
       // Tags are secondary: import the products without them rather than failing the whole run.
       this.legacyTagSlugs = new Map();
       errors.push({ sku: '', name: '', reason: `Không lấy được danh sách tag hệ cũ: ${err instanceof Error ? err.message : String(err)}` });
+    }
+    try {
+      this.legacyTechniqueSlugs = await this.fetchLegacyTechniqueSlugs();
+    } catch (err) {
+      this.legacyTechniqueSlugs = new Map();
+      errors.push({ sku: '', name: '', reason: `Không lấy được danh sách technique hệ cũ: ${err instanceof Error ? err.message : String(err)}` });
     }
     // Dedupe theo _id — phân trang OnosPod không ổn định (thứ tự trượt giữa
     // các lần gọi), cùng 1 trang lớn vẫn dedupe phòng hờ. Khuyến nghị FE gọi

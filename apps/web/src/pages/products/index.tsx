@@ -8,6 +8,7 @@ import { useProductWriteAccess } from '@/hooks/useProductWriteAccess';
 
 import { CollectionTab } from './CollectionTab';
 import { ProductTagTab } from './ProductTagTab';
+import { ProductTechniqueTab } from './ProductTechniqueTab';
 import { FactoryTab } from './FactoryTab';
 import { ProductCategoryTab } from './ProductCategoryTab';
 import { ProductConfigActions } from './ProductConfigActions';
@@ -48,6 +49,7 @@ export default function Products() {
           <TabsTrigger value="category">{t('page.tabs.category')}</TabsTrigger>
           <TabsTrigger value="collection">{t('page.tabs.collection')}</TabsTrigger>
           <TabsTrigger value="tag">{t('page.tabs.tag')}</TabsTrigger>
+          <TabsTrigger value="technique">{t('page.tabs.technique')}</TabsTrigger>
           <TabsTrigger value="factory">{t('page.tabs.factory')}</TabsTrigger>
         </TabsList>
         <TabsContent value="config">
@@ -61,6 +63,9 @@ export default function Products() {
         </TabsContent>
         <TabsContent value="tag">
           <ProductTagTab />
+        </TabsContent>
+        <TabsContent value="technique">
+          <ProductTechniqueTab />
         </TabsContent>
         <TabsContent value="factory">
           <FactoryTab />

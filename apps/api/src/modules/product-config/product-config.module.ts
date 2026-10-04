@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { CollectionModule } from '../collection/collection.module';
 import { ProductTagModule } from '../product-tag/product-tag.module';
+import { ProductTechniqueModule } from '../product-technique/product-technique.module';
 import { FactoryModule } from '../factory/factory.module';
 import { MachineTypeModule } from '../machine-type/machine-type.module';
 import { OrderEntity, OrderSchema } from '../order/order.entity';
@@ -23,6 +24,7 @@ import { ProductConfigService } from './product-config.service';
     MongooseModule.forFeature([{ name: OrderEntity.name, schema: OrderSchema }]),
     CollectionModule,
     ProductTagModule,
+    ProductTechniqueModule,
     FactoryModule,
     MachineTypeModule,
     ProductCategoryModule,

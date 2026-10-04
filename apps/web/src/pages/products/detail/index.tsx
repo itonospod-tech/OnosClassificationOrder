@@ -349,6 +349,7 @@ interface FormSnapshot {
   productLineSource: string;
   collectionIds: string[];
   productTagIds: string[];
+  productTechniqueIds: string[];
   printMethod: string;
   printArea: ProductPrintArea;
   printDocument: string;
@@ -392,6 +393,7 @@ export default function ProductDetailPage() {
   const [productCategoryOptions, setProductCategoryOptions] = useState<RefItem[]>([]);
   const [collectionOptions, setCollectionOptions] = useState<RefItem[]>([]);
   const [tagOptions, setTagOptions] = useState<RefItem[]>([]);
+  const [techniqueOptions, setTechniqueOptions] = useState<RefItem[]>([]);
   const fabricOptions = useWorkshopConfigStore((s) => s.byCategory[WorkshopConfigCategory.FabricType] || []);
   const toolOptions = useWorkshopConfigStore((s) => s.byCategory[WorkshopConfigCategory.ToolResult] || []);
   const printMethodOptions = useWorkshopConfigStore((s) => s.byCategory[WorkshopConfigCategory.PrintMethod] || []);
@@ -423,6 +425,7 @@ export default function ProductDetailPage() {
   const [productLineSource, setProductLineSource] = useState('');
   const [collectionIds, setCollectionIds] = useState<string[]>([]);
   const [productTagIds, setProductTagIds] = useState<string[]>([]);
+  const [productTechniqueIds, setProductTechniqueIds] = useState<string[]>([]);
   const [printMethod, setPrintMethod] = useState('');
   const [printArea, setPrintArea] = useState<ProductPrintArea>([]);
   /**
@@ -465,18 +468,20 @@ export default function ProductDetailPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [fRes, mRes, cRes, colRes, tagRes] = await Promise.all([
+        const [fRes, mRes, cRes, colRes, tagRes, techRes] = await Promise.all([
           RepositoryRemote.factory.getFactories('?page=1&limit=200'),
           RepositoryRemote.machineType.getMachineTypes('?page=1&limit=200'),
           RepositoryRemote.productCategory.getProductCategories('?page=1&limit=200'),
           RepositoryRemote.collection.getCollections('?page=1&limit=200'),
           RepositoryRemote.productTag.getProductTags('?page=1&limit=200'),
+          RepositoryRemote.productTechnique.getProductTechniques('?page=1&limit=200'),
         ]);
         setFactories((fRes.data?.data || []) as RefItem[]);
         setMachineTypes((mRes.data?.data || []) as RefItem[]);
         setProductCategoryOptions((cRes.data?.data || []) as RefItem[]);
         setCollectionOptions((colRes.data?.data || []) as RefItem[]);
         setTagOptions((tagRes.data?.data || []) as RefItem[]);
+        setTechniqueOptions((techRes.data?.data || []) as RefItem[]);
       } catch (error) {
         handleAxiosError(error);
       }
@@ -507,6 +512,7 @@ export default function ProductDetailPage() {
     productLineSource,
     collectionIds,
     productTagIds,
+    productTechniqueIds,
     printMethod,
     printArea,
     printDocument,
@@ -552,6 +558,7 @@ export default function ProductDetailPage() {
       productLineSource: row.productLineSource || '',
       collectionIds: row.collectionIds || [],
       productTagIds: row.productTagIds || [],
+      productTechniqueIds: row.productTechniqueIds || [],
       printMethod: row.printMethod || '',
       printArea: row.printArea || [],
       printDocument: row.printDocument || '',
@@ -593,6 +600,7 @@ export default function ProductDetailPage() {
     setProductLineSource(s.productLineSource);
     setCollectionIds(s.collectionIds);
     setProductTagIds(s.productTagIds);
+    setProductTechniqueIds(s.productTechniqueIds);
     setPrintMethod(s.printMethod);
     setPrintArea(s.printArea);
     // PRD-7 — đổ số đã lưu vào ô nhập, và MỞ SẴN vị trí in nào đã có kích thước.
@@ -679,6 +687,7 @@ export default function ProductDetailPage() {
       productLineSource,
       collectionIds,
       productTagIds,
+      productTechniqueIds,
       printMethod,
       printArea,
       printDocument,
@@ -774,6 +783,8 @@ export default function ProductDetailPage() {
     }
   };
 
+  const toggleTechnique = (tid: string) =>
+    setProductTechniqueIds((prev) => (prev.includes(tid) ? prev.filter((x) => x !== tid) : [...prev, tid]));
   const toggleTag = (tid: string) =>
     setProductTagIds((prev) => (prev.includes(tid) ? prev.filter((x) => x !== tid) : [...prev, tid]));
   const toggleCollection = (cid: string) =>
@@ -1465,6 +1476,25 @@ export default function ProductDetailPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t('detail.techniquesField.label')}</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {techniqueOptions.map((tech) => (
+                    <button key={tech._id} type="button" onClick={() => toggleTechnique(tech._id)}>
+                      <Badge
+                        variant={productTechniqueIds.includes(tech._id) ? 'default' : 'outline'}
+                        className="cursor-pointer font-normal"
+                      >
+                        {tech.name}
+                      </Badge>
+                    </button>
+                  ))}
+                  {techniqueOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground">{t('detail.techniquesField.empty')}</p>
+                  )}
                 </div>
               </div>
 

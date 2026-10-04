@@ -58,8 +58,9 @@ The legacy `productPreset` query exposes id arrays; names come from `productTags
 | `product_technique_ids` | 123 / 221 | 4 of the 5 techniques |
 | `product_material_ids` | 3 / 221 | 2 |
 
-Tags are built (seed + catalog filter + fill-only import). Techniques has real data (123 products) and
-follows the Tags pattern if approved; Materials (3 products) is probably not worth a table.
+Tags and Techniques are BUILT (seed + catalog filter + fill-only import; Techniques added 04/10/2026).
+**Materials is OUT of scope**: 3 of 221 products is noise, not data — a table + CRUD + import for 3 rows is a net loss.
+If ever needed, map by hand into `fabric_type`.
 
 ## 4. Techniques vs `print_method`
 
