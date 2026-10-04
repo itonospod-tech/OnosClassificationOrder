@@ -331,7 +331,7 @@ export class OnospodOrderLookupService {
    * Lô nào fail chỉ log + bỏ qua, các lô còn lại vẫn xử lý tiếp; kết quả là
    * map `orderId (_id)` → địa chỉ, thiếu key = không lấy được.
    */
-  async lookupShippingByOrderIds(orderIds: string[]): Promise<ShippingLookupResult> {
+  async lookupShippingByOrderIds(orderIds: string[], opts: { pauseMs?: number } = {}): Promise<ShippingLookupResult> {
     const result = new Map<string, ProductionOrderShippingAddress>();
     const outcome: ShippingLookupResult = { byOrderId: result, failedBatches: 0, failedOrderIds: 0, firstError: undefined };
     const config = this.apiConfigService.onospodApiConfig;
@@ -340,6 +340,8 @@ export class OnospodOrderLookupService {
     const ids = Array.from(new Set(orderIds.filter((id) => isValidObjectIdHex(id))));
 
     for (let i = 0; i < ids.length; i += SHIPPING_BATCH_SIZE) {
+      // Optional pause between batches: bulk backfills must not hammer the OnosPod account.
+      if (i > 0 && opts.pauseMs) await new Promise((r) => setTimeout(r, opts.pauseMs));
       const chunk = ids.slice(i, i + SHIPPING_BATCH_SIZE);
       try {
         const res = await axios.post(

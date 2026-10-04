@@ -804,6 +804,34 @@ export const ImportFromOnosPodZod = z.object({
 });
 export class ImportFromOnosPodDto extends createZodDto(extendApi(ImportFromOnosPodZod)) {}
 
+/**
+ * One-off backfill of `shippingAddress` for OnosPod orders imported before the address lookup
+ * existed (2026-09-16). Window on the MRP creation time, at most 7 days per call so one call
+ * stays bounded; `dryRun` is the DEFAULT — pass `dryRun=false` explicitly to write.
+ */
+export const BackfillOnospodShippingZod = z.object({
+  start: z.string().datetime({ offset: true }),
+  end: z.string().datetime({ offset: true }),
+  dryRun: BooleanFlagZod,
+});
+export class BackfillOnospodShippingDto extends createZodDto(extendApi(BackfillOnospodShippingZod)) {}
+export const BackfillOnospodShippingResZod = ResZod.extend({
+  data: z.object({
+    dryRun: z.boolean(),
+    period: z.object({ start: z.string(), end: z.string() }),
+    /** MRP items fetched per status — a 0 on a status that should have items means a wrong status name. */
+    fetchedByStatus: z.record(z.number()),
+    /** Our orders in those items that still miss an address (address-waiting holds excluded). */
+    missingInWindow: z.number(),
+    orderIdsLookedUp: z.number(),
+    addressesFound: z.number(),
+    /** Orders written (0 on a dry run). */
+    ordersUpdated: z.number(),
+    failedBatches: z.number(),
+  }),
+});
+export class BackfillOnospodShippingResDto extends createZodDto(extendApi(BackfillOnospodShippingResZod)) {}
+
 // ─── Đồng bộ giữ đơn theo OnosPod (Orders.md §9d) ──────────────────────────
 // Kết quả 1 lượt đồng bộ. `status='aborted'` = KHÔNG ghi gì cả (lỗi fetch,
 // thiếu config, nghi ngờ dữ liệu, vượt trần nhả) — `reason` nói lý do.

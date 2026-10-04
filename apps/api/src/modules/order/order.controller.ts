@@ -8,6 +8,8 @@ import {
   AutoAssignApplyResDto,
   AutoAssignPreviewDto,
   AutoAssignPreviewResDto,
+  BackfillOnospodShippingDto,
+  BackfillOnospodShippingResDto,
   BulkAssignDesignerDto,
   BulkAssignDesignerPreviewDto,
   BulkAssignDesignerPreviewResDto,
@@ -750,6 +752,23 @@ export class OrderController {
     @UserAgent() userAgent: string,
   ): Promise<ImportReworkOrdersResDto> {
     return this.orderService.importRework(dto, { user, ip, userAgent });
+  }
+
+  @Post('onospod/backfill-shipping')
+  @Auth([RoleType.SuperAdmin, RoleType.Admin])
+  @ApiOperation({ summary: 'One-off: fill missing shippingAddress of OnosPod orders from OnosPod (dry run unless dryRun=false)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: BackfillOnospodShippingResDto })
+  async backfillOnospodShipping(
+    @Body() dto: BackfillOnospodShippingDto,
+    @AuthUser() user: UserDocument,
+    @ClientIp() ip: string,
+    @UserAgent() userAgent: string,
+  ): Promise<BackfillOnospodShippingResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/onospod/backfill-shipping', userId: user._id, body: dto }) });
+    const res = await this.onospodImportService.backfillShippingAddresses(dto, { user, ip, userAgent });
+    this.logger.info({ message: JSON.stringify({ action: 'onospodShippingBackfill', userId: user._id, ...res.data }) });
+    return res;
   }
 
   @Post('import-from-onospod')
