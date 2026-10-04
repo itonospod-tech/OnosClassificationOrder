@@ -276,7 +276,7 @@ export default function OrderStatusTab() {
 
       {/* Per-machine mini cards for Fulfill */}
       {showMachineKpis && overview?.totals.byMachine && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2">
           {overview.totals.byMachine.map((m) => (
             <KpiCard
               key={m.machineCode}
