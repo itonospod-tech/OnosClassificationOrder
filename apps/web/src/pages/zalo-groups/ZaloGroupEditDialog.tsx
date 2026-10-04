@@ -106,7 +106,7 @@ export default function ZaloGroupEditDialog({ group, onClose, onSaved }: Props) 
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{group.title || t('table.noTitle')}</DialogTitle>
+          <DialogTitle className="pr-10 text-left">{group.title || t('table.noTitle')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -188,7 +188,7 @@ export default function ZaloGroupEditDialog({ group, onClose, onSaved }: Props) 
 
         <div className="mt-2 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>
-            {t('common:cancel', { defaultValue: 'Hủy' })}
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={submit} disabled={saving}>
             {t('edit.save')}

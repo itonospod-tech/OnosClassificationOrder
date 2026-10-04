@@ -95,10 +95,10 @@ export default function SummariesPanel() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            className="w-64 pl-8"
+            className="w-full pl-8 sm:w-64"
             placeholder={t('filter.search')}
             value={search}
             onChange={(e) => {
@@ -179,15 +179,18 @@ export default function SummariesPanel() {
                   </div>
                   <ul className="space-y-1">
                     {r.checklist.map((c, i) => (
-                      <li key={`${r._id}-${i}`} className="flex items-start gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="mt-1 shrink-0"
-                          aria-label={c.viec}
-                          checked={c.xong}
-                          onChange={(e) => void toggleTask(r, i, e.target.checked)}
-                        />
-                        <span className={cn(c.xong && 'text-slate-400 line-through')}>{c.viec}</span>
+                      <li key={`${r._id}-${i}`}>
+                        {/* The whole row is the label, so a thumb can hit the text, not just a 13px box. */}
+                        <label className="flex cursor-pointer items-start gap-2 py-0.5 text-sm touch:py-2">
+                          <input
+                            type="checkbox"
+                            className="mt-1 shrink-0 touch:h-5 touch:w-5"
+                            aria-label={c.viec}
+                            checked={c.xong}
+                            onChange={(e) => void toggleTask(r, i, e.target.checked)}
+                          />
+                          <span className={cn(c.xong && 'text-slate-400 line-through')}>{c.viec}</span>
+                        </label>
                       </li>
                     ))}
                   </ul>

@@ -77,9 +77,10 @@ export default function WorkshopConfigPage() {
       />
 
       <Tabs defaultValue={TABS[0].key} className="w-full">
-        <TabsList className="flex-wrap h-auto">
+        {/* Ten tabs: one swipeable row on phones (they used to wrap onto four lines), wrapping again from sm up. */}
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto sm:flex-wrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((tab) => (
-            <TabsTrigger key={tab.key} value={tab.key}>
+            <TabsTrigger key={tab.key} value={tab.key} className="shrink-0">
               {tab.label}
             </TabsTrigger>
           ))}

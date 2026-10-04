@@ -169,22 +169,25 @@ export default function ZaloGroupDetailSheet({ group, onClose, onEdit, onChanged
                   </div>
                   <ul className="space-y-2">
                     {tomTat.checklist.map((c, i) => (
-                      <li key={i} className="flex items-start gap-2.5 rounded-md border p-2.5">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer"
-                          aria-label={c.viec}
-                          checked={c.xong}
-                          onChange={(e) => void toggle(i, e.target.checked)}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className={cn('text-sm', c.xong && 'text-slate-400 line-through')}>{c.viec}</div>
-                          {c.xong && c.xongLuc && (
-                            <div className="mt-0.5 text-xs text-slate-400">
-                              {t('summary.doneAt', { at: dayjs(c.xongLuc).format('DD/MM HH:mm') })}
-                            </div>
-                          )}
-                        </div>
+                      <li key={i}>
+                        {/* The whole card is the label: a thumb can hit the text, not only a 16px box. */}
+                        <label className="flex cursor-pointer items-start gap-2.5 rounded-md border p-2.5 touch:min-h-[44px] touch:p-3">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer touch:h-5 touch:w-5"
+                            aria-label={c.viec}
+                            checked={c.xong}
+                            onChange={(e) => void toggle(i, e.target.checked)}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className={cn('text-sm', c.xong && 'text-slate-400 line-through')}>{c.viec}</div>
+                            {c.xong && c.xongLuc && (
+                              <div className="mt-0.5 text-xs text-slate-400">
+                                {t('summary.doneAt', { at: dayjs(c.xongLuc).format('DD/MM HH:mm') })}
+                              </div>
+                            )}
+                          </div>
+                        </label>
                       </li>
                     ))}
                   </ul>

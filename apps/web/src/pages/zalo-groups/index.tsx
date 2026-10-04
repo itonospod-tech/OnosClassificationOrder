@@ -11,6 +11,7 @@ import { RepositoryRemote } from '@/services';
 import { LoadingOverlay } from '@/components/common/LoadingOverlay';
 import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
+import { StatCards } from '@/components/common/StatCards';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -177,7 +178,7 @@ export default function ZaloGroupsPage() {
           <>
           <Button variant="outline" size="sm" onClick={refreshAll}>
             <RefreshCw className="mr-1.5 h-4 w-4" />
-            {t('common:refresh', { defaultValue: 'Làm mới' })}
+            {t('common:actions.refresh')}
           </Button>
           <Button size="sm" disabled={suggestionCount === 0} onClick={() => setShowSuggestions(true)}>
             <Sparkles className="mr-1.5 h-4 w-4" />
@@ -189,21 +190,23 @@ export default function ZaloGroupsPage() {
 
       {/* Bảng phủ sóng — trả lời "còn bao nhiêu chưa xong" ngay khi mở trang. */}
       {coverage && (
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-slate-200 dark:bg-slate-700 sm:grid-cols-3 lg:grid-cols-5">
-          <StatCell label={t('coverage.totalGroups')} value={coverage.totalGroups} />
-          <StatCell label={t('coverage.unreviewed')} value={unreviewed} tone={unreviewed > 0 ? 'warn' : undefined} />
-          <StatCell label={t('coverage.linkedGroups')} value={coverage.linkedGroups} tone="good" />
-          <StatCell
-            label={t('coverage.customersWithGroup')}
-            value={coverage.customersWithGroup}
-            hint={t('coverage.ofTotal', { total: coverage.totalCustomers })}
-          />
-          <StatCell
-            label={t('coverage.customersWithoutGroup')}
-            value={coverage.customersWithoutGroup}
-            tone={coverage.customersWithoutGroup > 0 ? 'warn' : undefined}
-          />
-        </div>
+        <StatCards
+          cols={5}
+          items={[
+            { label: t('coverage.totalGroups'), value: coverage.totalGroups },
+            { label: t('coverage.unreviewed'), value: unreviewed, tone: unreviewed > 0 ? 'warning' : 'neutral' },
+            { label: t('coverage.linkedGroups'), value: coverage.linkedGroups, tone: 'success' },
+            {
+              label: `${t('coverage.customersWithGroup')} ${t('coverage.ofTotal', { total: coverage.totalCustomers })}`,
+              value: coverage.customersWithGroup,
+            },
+            {
+              label: t('coverage.customersWithoutGroup'),
+              value: coverage.customersWithoutGroup,
+              tone: coverage.customersWithoutGroup > 0 ? 'warning' : 'neutral',
+            },
+          ]}
+        />
       )}
 
       {/* Hai góc nhìn cùng một dữ liệu: gắn nhóm (việc thiết lập) và tình hình
@@ -233,10 +236,10 @@ export default function ZaloGroupsPage() {
       {tab === 'groups' && (
       <>
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            className="w-64 pl-8"
+            className="w-full pl-8 sm:w-64"
             placeholder={t('filter.search')}
             value={search}
             onChange={(e) => {
@@ -279,7 +282,8 @@ export default function ZaloGroupsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('table.group')}</TableHead>
+              {/* Phones: the table scrolls sideways inside its frame, so the group name stays pinned on the left. */}
+              <TableHead className="sticky left-0 z-10 min-w-[11rem] max-w-[13rem] bg-card">{t('table.group')}</TableHead>
               <TableHead>{t('table.kind')}</TableHead>
               <TableHead>{t('table.customer')}</TableHead>
               <TableHead>{t('table.owner')}</TableHead>
@@ -303,7 +307,7 @@ export default function ZaloGroupsPage() {
                 className="cursor-pointer"
                 onClick={() => setViewing(r)}
               >
-                <TableCell>
+                <TableCell className="sticky left-0 z-10 min-w-[11rem] max-w-[13rem] bg-card">
                   <div className="font-medium">{r.title || t('table.noTitle')}</div>
                   <div className="mt-0.5 text-xs text-slate-500">
                     {t('table.conversations', { count: r.conversationIds?.length ?? 0 })}
@@ -325,7 +329,7 @@ export default function ZaloGroupsPage() {
                     Chặn nổi bọt để bấm vào ô không mở luôn ngăn chi tiết bên phải. */}
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <select
-                    className="w-40 rounded border border-slate-200 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    className="w-40 rounded border border-slate-200 bg-white px-2 py-1 text-sm touch:h-11 dark:border-slate-700 dark:bg-slate-900"
                     value={r.ownerUserId ?? ''}
                     onChange={(e) => void doiNguoiPhuTrach(r, e.target.value)}
                   >
@@ -375,6 +379,7 @@ export default function ZaloGroupsPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="touch:h-11"
                     onClick={(e) => {
                       // Chặn nổi bọt: bấm nút Gắn nhóm thì mở hộp thoại gắn,
                       // không mở kèm cả ngăn kéo chi tiết ở dưới.
@@ -435,36 +440,6 @@ export default function ZaloGroupsPage() {
           }}
         />
       )}
-    </div>
-  );
-}
-
-function StatCell({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: number;
-  hint?: string;
-  tone?: 'good' | 'warn';
-}) {
-  return (
-    <div className="bg-white p-3 dark:bg-slate-900">
-      <div
-        className={cn(
-          'text-2xl font-semibold tabular-nums',
-          tone === 'good' && 'text-emerald-600 dark:text-emerald-400',
-          tone === 'warn' && 'text-amber-600 dark:text-amber-400',
-        )}
-      >
-        {value}
-      </div>
-      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-        {label}
-        {hint && <span className="ml-1 text-slate-400">{hint}</span>}
-      </div>
     </div>
   );
 }
