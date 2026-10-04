@@ -11,11 +11,11 @@ import { RepositoryRemote } from '@/services';
 
 import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { TierBadge } from '@/components/common/TierBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
@@ -152,62 +152,67 @@ function WalletsContent() {
       />
 
       <div className="relative overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('columns.seller')}</TableHead>
-              <TableHead>{t('columns.tier')}</TableHead>
-              <TableHead className="text-right">{t('columns.balance')}</TableHead>
-              <TableHead className="text-right">{t('columns.creditLimit')}</TableHead>
-              <TableHead>{t('columns.lastTxn')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow
-                key={row.customerId}
-                className="cursor-pointer"
-                onClick={() => updateParams({ customer: row.customerId })}
-              >
-                <TableCell>
-                  <div className="font-medium text-slate-800 dark:text-slate-100">{row.fullName || row.userSku}</div>
-                  <div className="text-xs text-slate-500">
-                    {row.userSku}
-                    {row.userEmail ? ` · ${row.userEmail}` : ''}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <TierBadge tier={row.tier} />
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  <span className={cn('font-semibold', row.balance < 0 ? 'text-red-600' : 'text-slate-800 dark:text-slate-100')}>
-                    {formatUsd(row.balance)}
-                  </span>
-                  {isOverLimit(row.balance, row.creditLimit) && (
-                    <div className="text-xs font-medium text-red-600">{t('overLimit')}</div>
-                  )}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-slate-600 dark:text-slate-300">
-                  {formatUsd(row.creditLimit)}
-                </TableCell>
-                <TableCell className="text-sm text-slate-600 dark:text-slate-300">
-                  {row.lastTxnAt ? dayjs(row.lastTxnAt).format('DD/MM/YYYY HH:mm') : t('neverUsed')}
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-sm text-slate-500">
-                  {t('empty')}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        {loading && rows.length === 0 && (
+        {/* Table on wide screens, tappable cards on phones (ResponsiveList). */}
+        {loading && rows.length === 0 ? (
           <div className="flex justify-center py-10">
             <Spinner />
           </div>
+        ) : (
+          <ResponsiveList
+            className="p-3 md:p-0"
+            rows={rows}
+            rowKey={(row) => row.customerId}
+            onRowClick={(row) => updateParams({ customer: row.customerId })}
+            empty={t('empty')}
+            columns={[
+              {
+                key: 'seller',
+                header: t('columns.seller'),
+                mobile: 'title',
+                cell: (row) => (
+                  <div>
+                    <div className="font-medium text-foreground">{row.fullName || row.userSku}</div>
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {row.userSku}
+                      {row.userEmail ? ` · ${row.userEmail}` : ''}
+                    </div>
+                  </div>
+                ),
+              },
+              { key: 'tier', header: t('columns.tier'), cell: (row) => <TierBadge tier={row.tier} /> },
+              {
+                key: 'balance',
+                header: t('columns.balance'),
+                mobile: 'trailing',
+                className: 'text-right',
+                cell: (row) => (
+                  <div className="text-right tabular-nums">
+                    <span className={cn('font-semibold', row.balance < 0 ? 'text-tone-danger' : 'text-foreground')}>
+                      {formatUsd(row.balance)}
+                    </span>
+                    {isOverLimit(row.balance, row.creditLimit) && (
+                      <div className="text-xs font-medium text-tone-danger">{t('overLimit')}</div>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                key: 'creditLimit',
+                header: t('columns.creditLimit'),
+                className: 'text-right',
+                cell: (row) => <span className="tabular-nums text-muted-foreground">{formatUsd(row.creditLimit)}</span>,
+              },
+              {
+                key: 'lastTxn',
+                header: t('columns.lastTxn'),
+                cell: (row) => (
+                  <span className="text-sm text-muted-foreground">
+                    {row.lastTxnAt ? dayjs(row.lastTxnAt).format('DD/MM/YYYY HH:mm') : t('neverUsed')}
+                  </span>
+                ),
+              },
+            ]}
+          />
         )}
       </div>
 

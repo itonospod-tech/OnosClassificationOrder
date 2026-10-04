@@ -11,11 +11,11 @@ import { useConfirm } from '@/components/common/ConfirmDialog';
 import { LoadingOverlay } from '@/components/common/LoadingOverlay';
 import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
 
@@ -174,75 +174,95 @@ export default function PromotionsPage() {
       </div>
 
       <LoadingOverlay active={loading && items.length > 0} className="rounded-lg border border-border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('page.table.name')}</TableHead>
-              <TableHead>{t('page.table.code')}</TableHead>
-              <TableHead>{t('page.table.discount')}</TableHead>
-              <TableHead>{t('page.table.scope')}</TableHead>
-              <TableHead>{t('page.table.tier')}</TableHead>
-              <TableHead>{t('page.table.validity')}</TableHead>
-              <TableHead>{t('page.table.status')}</TableHead>
-              <TableHead className="w-20"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  <Spinner size={20} className="text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  {t('page.table.empty')}
-                </TableCell>
-              </TableRow>
-            )}
-            {items.map((p) => (
-                <TableRow key={String(p._id)}>
-                  <TableCell className="font-medium">
+        {/* Table on wide screens, cards on phones (ResponsiveList). */}
+        {loading && items.length === 0 ? (
+          <div className="flex justify-center py-8">
+            <Spinner size={20} className="text-muted-foreground" />
+          </div>
+        ) : (
+          <ResponsiveList
+            className="p-3 md:p-0"
+            rows={items}
+            rowKey={(p) => String(p._id)}
+            empty={t('page.table.empty')}
+            columns={[
+              {
+                key: 'name',
+                header: t('page.table.name'),
+                mobile: 'title',
+                cell: (p) => (
+                  <div className="font-medium">
                     {p.name}
-                    {p.description && <p className="text-xs text-muted-foreground line-clamp-1">{p.description}</p>}
-                  </TableCell>
-                  <TableCell>{p.code ? <Badge variant="outline">{p.code}</Badge> : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
-                  <TableCell className="font-medium text-rose-600">{formatDiscount(p)}</TableCell>
-                  <TableCell className="text-sm">{SCOPE_LABEL[p.scope]}</TableCell>
-                  <TableCell className="text-sm">
+                    {p.description && <p className="text-xs font-normal text-muted-foreground line-clamp-1">{p.description}</p>}
+                  </div>
+                ),
+              },
+              {
+                key: 'code',
+                header: t('page.table.code'),
+                cell: (p) => (p.code ? <Badge variant="outline">{p.code}</Badge> : <span className="text-muted-foreground text-xs">—</span>),
+              },
+              {
+                key: 'discount',
+                header: t('page.table.discount'),
+                mobile: 'subtitle',
+                cell: (p) => <span className="font-medium text-tone-danger">{formatDiscount(p)}</span>,
+              },
+              { key: 'scope', header: t('page.table.scope'), cell: (p) => <span className="text-sm">{SCOPE_LABEL[p.scope]}</span> },
+              {
+                key: 'tier',
+                header: t('page.table.tier'),
+                cell: (p) => (
+                  <span className="text-sm">
                     {p.applicableTiers?.length ? p.applicableTiers.map((tier) => `VIP ${tier}`).join(', ') : t('page.allTiers')}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  </span>
+                ),
+              },
+              {
+                key: 'validity',
+                header: t('page.table.validity'),
+                cell: (p) => (
+                  <span className="text-xs text-muted-foreground">
                     {p.startDate ? new Date(p.startDate).toLocaleDateString('vi-VN') : '—'}
                     {' → '}
                     {p.endDate ? new Date(p.endDate).toLocaleDateString('vi-VN') : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={p.status === Status.Active ? 'secondary' : 'outline'}>
-                      {p.status === Status.Active ? t('page.table.active') : t('page.table.inactive')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title={t('common:actions.edit')}>
-                        <Pencil size={14} />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(String(p._id))}
-                        title={t('common:actions.delete')}
-                      >
-                        <Trash2 size={14} className="text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
+                  </span>
+                ),
+              },
+              {
+                key: 'status',
+                header: t('page.table.status'),
+                mobile: 'trailing',
+                cell: (p) => (
+                  <Badge variant={p.status === Status.Active ? 'secondary' : 'outline'}>
+                    {p.status === Status.Active ? t('page.table.active') : t('page.table.inactive')}
+                  </Badge>
+                ),
+              },
+              {
+                key: 'actions',
+                header: '',
+                mobile: 'trailing',
+                className: 'w-20',
+                cell: (p) => (
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(p)} title={t('common:actions.edit')}>
+                      <Pencil size={14} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(String(p._id))}
+                      title={t('common:actions.delete')}
+                    >
+                      <Trash2 size={14} className="text-destructive" />
+                    </Button>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        )}
         <PaginationBar
           position="bottom"
           page={page}
