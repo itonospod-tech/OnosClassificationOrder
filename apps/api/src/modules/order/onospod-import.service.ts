@@ -467,6 +467,7 @@ export function mapItemToRow(
     designs,
     status: item.mrp_status || undefined,
     orderId: item.increment_order_id || undefined,
+    onospodOrderId: item.order_id || undefined,
     orderAt: item.order_id ? formatVnDateTime(objectIdTimestamp(item.order_id)) : undefined,
     inProductionAt: item.mrp_created_at ? formatVnDateTime(new Date(item.mrp_created_at)) : undefined,
     shippingAddress: item.order_id ? shippingByOrderId?.get(item.order_id) : undefined,
@@ -633,14 +634,26 @@ export class OnospodImportService {
     // order_id trước (đơn nhiều item chỉ tra 1 lần). Bước LÀM GIÀU dữ liệu:
     // `lookupShippingByOrderIds()` không bao giờ throw — OnosPod order API
     // lỗi/thiếu config (ONOSPOD_API_*) thì import vẫn chạy, chỉ thiếu địa chỉ.
-    const shippingByOrderId = await this.onospodOrderLookupService.lookupShippingByOrderIds(
+    const shippingLookup = await this.onospodOrderLookupService.lookupShippingByOrderIds(
       allItems.map((item) => item.order_id || ''),
     );
 
     const { rows, duplicatesInBatch } = this.dedupeByProductionId(
-      allItems.map((item) => mapItemToRow(item, shippingByOrderId)).filter((r) => r.productionId),
+      allItems.map((item) => mapItemToRow(item, shippingLookup.byOrderId)).filter((r) => r.productionId),
     );
     const shippingAttached = rows.filter((r) => r.shippingAddress).length;
+    if (shippingLookup.failedBatches > 0) {
+      // Orders still import (enrichment never blocks), but say it out loud: without this the
+      // only trace was a log line, and addressless orders cannot get a shipping label.
+      const missing = rows.length - shippingAttached;
+      void this.onospodHoldSyncService.alert(
+        `⚠️ Import OnosPod: ${shippingLookup.failedBatches} lô lấy địa chỉ bị lỗi ` +
+          `(${shippingLookup.failedOrderIds} đơn OnosPod) — ${missing}/${rows.length} đơn vào hệ thống KHÔNG có địa chỉ giao.\n\n` +
+          `Lỗi đầu: ${shippingLookup.firstError ?? '—'}\n\n` +
+          'Nếu thấy chữ "banned": token OnosPod đã chết (thường do đổi mật khẩu) — chạy `./fix-onospod-token.sh <token>`. ' +
+          'Đơn thiếu địa chỉ lấp lại bằng backfill địa chỉ, không cần import lại.',
+      );
+    }
 
     const importResult = await this.orderService.importOrders({ rows }, ctx);
 
@@ -651,6 +664,7 @@ export class OnospodImportService {
         totalFetched: allItems.length,
         duplicatesInBatch,
         shippingAttached,
+        shippingLookupFailedBatches: shippingLookup.failedBatches,
         period: { start: start.toISOString(), end: end.toISOString() },
         byManufacture,
         holdSync: await this.runHoldSync(ctx),

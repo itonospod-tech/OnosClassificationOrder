@@ -300,6 +300,15 @@ export class OrderEntity extends DatabaseEntityAbstract {
   @Prop({ index: true })
   orderId?: string;
 
+  /**
+   * Mongo `_id` of the parent OnosPod order (MRP `item.order_id`), stored at import. Lets the
+   * shipping-address backfill look addresses up in batches of 50 (`lookupShippingByOrderIds`)
+   * instead of one search per order. Absent on orders imported before 2026-10-04 and on
+   * non-OnosPod orders.
+   */
+  @Prop({ trim: true })
+  onospodOrderId?: string;
+
   @Prop({ index: true })
   externalId?: string;
 

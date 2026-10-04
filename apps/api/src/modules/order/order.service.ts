@@ -7603,6 +7603,7 @@ export class OrderService implements OnModuleInit {
           ...designData,
           status: row.status?.trim(),
           orderId: row.orderId?.trim(),
+          onospodOrderId: row.onospodOrderId?.trim(),
           externalId: row.externalId?.trim(),
           referent: row.referent?.trim(),
           orderAt: parseImportDate(row.orderAt),
@@ -7738,7 +7739,9 @@ export class OrderService implements OnModuleInit {
             const b = beforeDoc as unknown as Record<string, unknown>;
             const a = data as unknown as Record<string, unknown>;
             for (const key of Object.keys(data)) {
-              if (key === 'productionId') continue;
+              // onospodOrderId: technical join key, filled on every legacy order's first re-import
+              // after it was introduced — logging it would add one noise row per order.
+              if (key === 'productionId' || key === 'onospodOrderId') continue;
               const beforeVal = b[key] ?? null;
               const afterVal = a[key] ?? null;
               if (stableStringifyForDiff(beforeVal) !== stableStringifyForDiff(afterVal)) {

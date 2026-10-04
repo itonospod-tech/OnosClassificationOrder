@@ -233,6 +233,8 @@ export const ProductionOrderZod = BaseEntityZod.extend({
    */
   tracking: ProductionOrderTrackingZod.optional(),
   orderId: z.string().optional(),
+  /** Mongo `_id` of the parent OnosPod order (MRP `order_id`) — OnosPod imports only. */
+  onospodOrderId: z.string().optional(),
   externalId: z.string().optional(),
   referent: z.string().optional(),
   orderAt: z.date().optional(),
@@ -726,6 +728,8 @@ export const ImportProductionOrderRowZod = z.object({
   designs: DesignFieldsZod.optional(),
   status: z.string().optional(),
   orderId: z.string().optional(),
+  /** Mongo `_id` of the parent OnosPod order (MRP `order_id`) — OnosPod imports only. */
+  onospodOrderId: z.string().optional(),
   externalId: z.string().optional(),
   referent: z.string().optional(),
   orderAt: z.string().optional(),
@@ -843,6 +847,9 @@ export const ImportFromOnosPodResZod = ResZod.extend({
     // ONOSPOD_API_* (import vẫn chạy, chỉ thiếu địa chỉ — xem log
     // `onospodShippingBatch`).
     shippingAttached: z.number().optional(),
+    // Address lookup batches that FAILED this run (OnosPod down / token dead). >0 also raises a
+    // Telegram alert: those orders came in without an address and nothing else would say so.
+    shippingLookupFailedBatches: z.number().optional(),
     // Pull từ TẤT CẢ manufacture của account trong 1 lượt phân trang duy
     // nhất (không truyền `manufacture_id`) — group lại từ field `manufacture`
     // có sẵn trên mỗi item, KHÔNG loop gọi riêng từng manufacture nữa nên
