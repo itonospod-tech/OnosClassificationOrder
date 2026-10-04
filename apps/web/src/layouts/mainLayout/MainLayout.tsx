@@ -60,7 +60,15 @@ function MainLayout() {
         onMobileClose={() => setMobileOpen(false)}
         onToggleCollapse={() => setCollapsed((v) => !v)}
       />
-      <div className="flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden">
+      <div
+        className={cn(
+          'flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden',
+          // The fixed tab bar (3.5rem + home-indicator inset) sits OVER the bottom of this column.
+          // Ending the scroll area above it — instead of padding the page bottom — keeps every
+          // `sticky bottom-*` bar (bulk-action bars) above the tab bar rather than hidden under it.
+          showTabBar && 'pb-[calc(3.5rem+env(safe-area-inset-bottom))]',
+        )}
+      >
         {/* Dải cảnh báo mạo danh — trên CÙNG cột nội dung, ĐẨY header xuống chứ
             không phủ đè, để không thể cuộn trôi qua (AUTH-1 BR-7/AC-04). */}
         <ImpersonationBanner source="staff" />
@@ -74,13 +82,7 @@ function MainLayout() {
         <OverdueAlertBanner />
         {/* `flex flex-col`: trang nào muốn CHIẾM ĐỦ chiều cao (bảng tự cuộn, chân bảng đứng yên) chỉ cần
             `flex-1 min-h-0` trên root của nó; trang thường vẫn cao theo nội dung và <main> cuộn như cũ. */}
-        <main
-          className={cn(
-            'app-page flex flex-1 flex-col overflow-auto bg-page p-4 md:p-6',
-            // Keep the last row of every page above the fixed tab bar + home indicator.
-            showTabBar && 'pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
-          )}
-        >
+        <main className="app-page flex flex-1 flex-col overflow-auto bg-page p-4 md:p-6">
           {/*
             KHÔNG dùng `exit` animation (trước đây có, đã bỏ) — với
             `AnimatePresence`, khai báo `exit` khiến trang CŨ tiếp tục ở lại
