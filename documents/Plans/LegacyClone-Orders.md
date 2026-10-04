@@ -94,8 +94,8 @@ Công sức: S ≤ 0,5 ngày · M ≈ 1–2 ngày · L ≈ 3–5 ngày · XL > 1
 | Lọc xưởng + Ưu tiên (list + counts, chính xác, không trần) | `5b9ab6c` | Đã gộp `dev`, kiểm API: list = counts ở 10 tổ hợp |
 | Tab Thùng rác (chỉ đơn chưa đẩy, admin, có khôi phục) | `456a087`, `3ed1862` | Đã gộp `dev` |
 | Số đếm hub: lọc trước `$lookup`, `byLine` bỏ derive | `4043788` | Đã gộp `dev`, số không đổi |
-| Shipments: lọc trạng thái hãng + cột item/địa chỉ + preset ngày | — | Đang làm (duyệt bởi onos-80) |
-| Preset "Last 7 Days" cho hub | — | Sau Shipments |
+| Shipments: lọc trạng thái hãng + cột item/địa chỉ + preset ngày | `0759e98` | Xong trên `agent/a1`, chờ gộp |
+| Preset "Last 7 Days" cho hub | (commit này) | Xong trên `agent/a1`, e2e 33/36 (3 đỏ có sẵn) |
 | Bỏ lọc provider (Grabink/Private) | — | Đã duyệt bỏ; hub chưa từng có lọc này nên KHÔNG có gì để gỡ — chỉ ghi nhận ở đây |
 | Nhãn/ngữ nghĩa tab Orders | — | CHẶN: chờ câu "In Production gắn tiền hay sản xuất" |
 | Inventory nhóm SALES | — | Đề xuất KHÔNG CLONE (404 với CEO), chờ chủ dự án |
