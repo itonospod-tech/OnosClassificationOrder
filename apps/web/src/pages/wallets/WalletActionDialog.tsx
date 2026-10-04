@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import { CheckCircle2, Loader2, TriangleAlert } from 'lucide-react';
+import { BookOpenText, CheckCircle2, Loader2, TriangleAlert } from 'lucide-react';
 import type { AdminWalletRow, CustomerWalletTxn, WalletOperationMode } from 'shared';
 import { normalizeExternalTxnId, previewWalletOperation, requiresStatementCheck, WALLET_BIG_AMOUNT_USD } from 'shared';
 
@@ -36,6 +36,12 @@ interface WalletActionDialogProps {
   onClose: () => void;
   /** Called when the dialog closes after something was written, so the parent can refresh. */
   onChanged: () => void;
+  /**
+   * After a lost connection nobody knows whether the write landed. The dialog offers a shortcut to the
+   * ledger (parent closes the dialog and reloads it) so the operator can LOOK before pressing again or
+   * editing the amount — the one place where a changed amount would be a genuinely new operation.
+   */
+  onViewLedger: () => void;
 }
 
 interface DoneState {
@@ -69,7 +75,7 @@ const isWebLink = (value: string) => {
  *  - It is mounted fresh for each operation (the parent renders it conditionally), so state never leaks
  *    from one seller or operation to the next.
  */
-export default function WalletActionDialog({ mode, seller, onClose, onChanged }: WalletActionDialogProps) {
+export default function WalletActionDialog({ mode, seller, onClose, onChanged, onViewLedger }: WalletActionDialogProps) {
   const { t } = useTranslation('wallets');
   const [step, setStep] = useState<Step>('form');
   const [amountInput, setAmountInput] = useState('');
@@ -81,6 +87,7 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged }:
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [connectionLost, setConnectionLost] = useState(false);
   const [done, setDone] = useState<DoneState | null>(null);
   const [wrote, setWrote] = useState(false);
 
@@ -147,6 +154,7 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged }:
     submitLock.current = true;
     setSubmitting(true);
     setError('');
+    setConnectionLost(false);
     try {
       const trimmedNote = note.trim();
       const ext = externalTxnId.trim();
@@ -196,7 +204,9 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged }:
       // Stay on the review step with the SAME key: pressing again is a safe retry.
       const message = handleAxiosError(err);
       // No response at all: the write may well have gone through, so say that instead of a vague "unknown error".
-      setError(axios.isAxiosError(err) && !err.response ? t('dialog.review.networkError') : message);
+      const lost = axios.isAxiosError(err) && !err.response;
+      setConnectionLost(lost);
+      setError(lost ? t('dialog.review.networkError') : message);
     } finally {
       submitLock.current = false;
       setSubmitting(false);
@@ -348,6 +358,12 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged }:
               <Notice tone="warning">{t('dialog.review.overLimit')}</Notice>
             )}
             {error && <Notice tone="danger">{error}</Notice>}
+            {connectionLost && (
+              <Button variant="outline" size="sm" onClick={onViewLedger} disabled={submitting}>
+                <BookOpenText size={16} className="mr-1.5" />
+                {t('dialog.review.viewLedger')}
+              </Button>
+            )}
 
             {bigAmount && (
               <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-tone-warning/40 bg-tone-warning/10 p-3 text-sm">

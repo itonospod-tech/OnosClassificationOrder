@@ -138,7 +138,8 @@
       "bigAmount": "Số tiền từ {{threshold}} trở lên cần đối chiếu trước khi ghi.",
       "bigLimit": "Tăng hạn mức từ {{threshold}} trở lên cần xác nhận đã được duyệt.",
       "retryHint": "Nếu mạng chập chờn, cứ bấm lại: hệ thống nhận ra đây là cùng một yêu cầu và không ghi hai lần.",
-      "networkError": "Mất kết nối trước khi nhận được phản hồi, nên chưa biết giao dịch đã được ghi hay chưa. Bấm lại để chắc chắn — hệ thống sẽ không ghi hai lần."
+      "networkError": "Mất kết nối trước khi nhận được phản hồi, nên chưa biết giao dịch đã được ghi hay chưa. Bấm lại để chắc chắn — hệ thống sẽ không ghi hai lần.",
+      "viewLedger": "Xem sổ cái"
     },
     "confirm": {
       "topup": "Nạp {{amount}}",
