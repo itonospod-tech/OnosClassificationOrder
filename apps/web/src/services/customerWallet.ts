@@ -26,4 +26,17 @@ const listTransactions = (customerId: string, params: { kind?: WalletTxnKind; pa
   );
 };
 
-export const customerWallet = { listWallets, listTransactions };
+/** Ledger across ALL sellers; `from`/`to` are YYYY-MM-DD days in Vietnam time. */
+const listAllTransactions = (params: {
+  search?: string;
+  customerId?: string;
+  kind?: WalletTxnKind;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  return callApi(`/${CONFIG.API_VERSION}/admin/customer-wallets/transactions${qs(params)}`, 'get');
+};
+
+export const customerWallet = { listWallets, listTransactions, listAllTransactions };

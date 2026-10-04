@@ -37,5 +37,37 @@
     "label_refund": "Label refund",
     "order": "Order payment",
     "adjust": "Adjustment"
+  },
+  "nav": {
+    "wallets": "Seller wallets",
+    "transactions": "Transactions"
+  },
+  "txns": {
+    "title": "Wallet transactions",
+    "subtitle": "Wallet ledger of every seller, newest first.",
+    "searchPlaceholder": "Search seller by account, email, name…",
+    "range": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "7d": "Last 7 days",
+      "month": "This month",
+      "lastMonth": "Last month",
+      "all": "All time"
+    },
+    "from": "From",
+    "to": "To",
+    "allKinds": "All types",
+    "columns": {
+      "time": "Time",
+      "seller": "Seller",
+      "kind": "Type",
+      "amount": "Amount",
+      "balance": "Balance before → after",
+      "orders": "Orders",
+      "note": "Note",
+      "by": "By"
+    },
+    "moreOrders": "+{{count}} more",
+    "empty": "No transactions match the filters."
   }
 }

@@ -10,6 +10,7 @@ const ProductDetail = lazy(() => import('../pages/products/detail'));
 const Promotions = lazy(() => import('../pages/promotions'));
 const Customers = lazy(() => import('../pages/customers'));
 const Wallets = lazy(() => import('../pages/wallets'));
+const WalletTransactions = lazy(() => import('../pages/wallets/transactions'));
 const ZaloGroups = lazy(() => import('../pages/zalo-groups'));
 const ZaloChat = lazy(() => import('../pages/zalo'));
 const ZaloChatSettings = lazy(() => import('../pages/zalo/settings'));
@@ -54,6 +55,7 @@ export const routerConfig: RouterConfig[] = [
   { path: PATHS.PROMOTIONS, component: Promotions },
   { path: PATHS.CUSTOMERS, component: Customers },
   { path: PATHS.WALLETS, component: Wallets },
+  { path: PATHS.WALLET_TRANSACTIONS, component: WalletTransactions },
   { path: PATHS.ZALO_GROUPS, component: ZaloGroups },
   { path: PATHS.ZALO_CHAT, component: ZaloChat },
   { path: PATHS.ZALO_CHAT_SETTINGS, component: ZaloChatSettings },

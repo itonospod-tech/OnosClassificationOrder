@@ -37,5 +37,37 @@
     "label_refund": "Hoàn tiền label",
     "order": "Tiền đơn hàng",
     "adjust": "Điều chỉnh"
+  },
+  "nav": {
+    "wallets": "Ví seller",
+    "transactions": "Giao dịch"
+  },
+  "txns": {
+    "title": "Giao dịch ví",
+    "subtitle": "Sổ cái ví của mọi seller, mới nhất trước.",
+    "searchPlaceholder": "Tìm seller theo tài khoản, email, tên…",
+    "range": {
+      "today": "Hôm nay",
+      "yesterday": "Hôm qua",
+      "7d": "7 ngày qua",
+      "month": "Tháng này",
+      "lastMonth": "Tháng trước",
+      "all": "Tất cả"
+    },
+    "from": "Từ ngày",
+    "to": "Đến ngày",
+    "allKinds": "Tất cả loại",
+    "columns": {
+      "time": "Thời gian",
+      "seller": "Seller",
+      "kind": "Loại",
+      "amount": "Số tiền",
+      "balance": "Số dư trước → sau",
+      "orders": "Đơn",
+      "note": "Ghi chú",
+      "by": "Người thao tác"
+    },
+    "moreOrders": "+{{count}} đơn nữa",
+    "empty": "Không có giao dịch nào khớp bộ lọc."
   }
 }
