@@ -23,18 +23,20 @@ interface CatalogFacets {
   categories: CustomerCatalogFacet[];
   collections: CustomerCatalogFacet[];
   tags: CustomerCatalogFacet[];
+  techniques: CustomerCatalogFacet[];
 }
 
 function CustomerCatalog() {
   const { t } = useTranslation('customerPortal');
   const navigate = useNavigate();
   const [items, setItems] = useState<CustomerCatalogItem[]>([]);
-  const [facets, setFacets] = useState<CatalogFacets>({ categories: [], collections: [], tags: [] });
+  const [facets, setFacets] = useState<CatalogFacets>({ categories: [], collections: [], tags: [], techniques: [] });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [collectionId, setCollectionId] = useState<string | null>(null);
   const [tagId, setTagId] = useState<string | null>(null);
+  const [techniqueId, setTechniqueId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [total, setTotal] = useState(0);
@@ -44,7 +46,7 @@ function CustomerCatalog() {
     (async () => {
       try {
         const res = await RepositoryRemote.customerCatalog.getCatalogFacets();
-        setFacets(res?.data?.data ?? { categories: [], collections: [], tags: [] });
+        setFacets(res?.data?.data ?? { categories: [], collections: [], tags: [], techniques: [] });
       } catch (error) {
         handleAxiosError(error);
       }
@@ -59,6 +61,7 @@ function CustomerCatalog() {
       if (categoryId) params.set('productCategoryId', categoryId);
       if (collectionId) params.set('collectionId', collectionId);
       if (tagId) params.set('productTagId', tagId);
+      if (techniqueId) params.set('productTechniqueId', techniqueId);
       const res = await RepositoryRemote.customerCatalog.getCatalog(`?${params.toString()}`);
       setItems(res?.data?.data ?? []);
       setTotal(res?.data?.total ?? 0);
@@ -72,7 +75,7 @@ function CustomerCatalog() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, debouncedSearch, categoryId, collectionId, tagId]);
+  }, [page, pageSize, debouncedSearch, categoryId, collectionId, tagId, techniqueId]);
 
   // Đổi search/filter → luôn quay về trang 1 (bỏ qua lần render đầu, tránh ghi đè page đọc từ URL nếu có).
   const isFirstRender = React.useRef(true);
@@ -82,7 +85,7 @@ function CustomerCatalog() {
       return;
     }
     setPage(1);
-  }, [debouncedSearch, categoryId, collectionId, tagId]);
+  }, [debouncedSearch, categoryId, collectionId, tagId, techniqueId]);
 
   const activeCollection = useMemo(
     () => facets.collections.find((c) => c._id === collectionId),
@@ -92,7 +95,7 @@ function CustomerCatalog() {
     () => facets.categories.find((c) => c._id === categoryId),
     [facets.categories, categoryId],
   );
-  const hasActiveFilter = Boolean(categoryId || collectionId || tagId || search);
+  const hasActiveFilter = Boolean(categoryId || collectionId || tagId || techniqueId || search);
 
   const clearFilters = () => {
     setSearch('');
@@ -246,6 +249,37 @@ function CustomerCatalog() {
                 {tag.name}
                 <span className={cn('ml-1 text-[10px]', active ? 'text-primary-foreground/80' : 'opacity-60')}>
                   {tag.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Techniques: pill bar, click = filter ── */}
+      {facets.techniques.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1 mb-4 -mx-1 px-1">
+          <span className="shrink-0 self-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mr-1">
+            {t('catalog.techniquesTitle')}
+          </span>
+          {facets.techniques.map((tech) => {
+            const active = tech._id === techniqueId;
+            return (
+              <button
+                key={tech._id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setTechniqueId(active ? null : tech._id)}
+                className={cn(
+                  'shrink-0 h-8 px-3.5 rounded-full border text-xs font-medium transition-colors',
+                  active
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background border-input text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+              >
+                {tech.name}
+                <span className={cn('ml-1 text-[10px]', active ? 'text-primary-foreground/80' : 'opacity-60')}>
+                  {tech.count}
                 </span>
               </button>
             );

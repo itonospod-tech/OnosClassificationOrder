@@ -12,7 +12,8 @@
   "filters": {
     "label": "Lọc nhanh",
     "all": "Tất cả",
-    "tags": "Tag"
+    "tags": "Tag",
+    "techniques": "Kỹ thuật"
   },
   "result": {
     "count_one": "{{count}} sản phẩm",

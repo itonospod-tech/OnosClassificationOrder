@@ -24,6 +24,7 @@ import { myNanoid, PRODUCT_FABRIC_TYPE_NONE, PRODUCT_LINES, ProductConfigStatus,
 
 import { CollectionService } from '../collection/collection.service';
 import { ProductTagService } from '../product-tag/product-tag.service';
+import { ProductTechniqueService } from '../product-technique/product-technique.service';
 import { FactoryService } from '../factory/factory.service';
 import { MachineTypeService } from '../machine-type/machine-type.service';
 import { PRODUCT_TYPE_CODE_MAP } from '../order/design-review-product-code';
@@ -183,6 +184,7 @@ export class ProductConfigService implements OnModuleInit {
     private readonly productCategoryService: ProductCategoryService,
     private readonly collectionService: CollectionService,
     private readonly productTagService: ProductTagService,
+    private readonly productTechniqueService: ProductTechniqueService,
     private readonly workshopConfigRepository: WorkshopConfigRepository,
     private readonly systemConfigService: SystemConfigService,
     @InjectModel(ProductConfigEntity.name)
@@ -755,6 +757,7 @@ export class ProductConfigService implements OnModuleInit {
     if (dto.productCategoryId) await this.productCategoryService.getProductCategory(dto.productCategoryId);
     for (const collectionId of dto.collectionIds || []) await this.collectionService.getCollection(collectionId);
     for (const tagId of dto.productTagIds || []) await this.productTagService.getProductTag(tagId);
+    for (const techniqueId of dto.productTechniqueIds || []) await this.productTechniqueService.getProductTechnique(techniqueId);
 
     try {
       return await this.productConfigRepository.create({
@@ -784,6 +787,7 @@ export class ProductConfigService implements OnModuleInit {
     if (dto.productCategoryId) await this.productCategoryService.getProductCategory(dto.productCategoryId);
     for (const collectionId of dto.collectionIds || []) await this.collectionService.getCollection(collectionId);
     for (const tagId of dto.productTagIds || []) await this.productTagService.getProductTag(tagId);
+    for (const techniqueId of dto.productTechniqueIds || []) await this.productTechniqueService.getProductTechnique(techniqueId);
 
     try {
       const p = await this.productConfigRepository.findOneAndUpdate(

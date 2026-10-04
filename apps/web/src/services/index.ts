@@ -4,6 +4,7 @@ import { cache } from './cache';
 import { ceoDashboard } from './ceo';
 import { collection } from './collection';
 import { productTag } from './productTag';
+import { productTechnique } from './productTechnique';
 import { customRoles } from './custom-roles';
 import { customer } from './customer';
 import { customerAssignment } from './customerAssignment';
@@ -59,6 +60,7 @@ export const RepositoryRemote = {
   machineType,
   collection,
   productTag,
+  productTechnique,
   productCategory,
   productConfig,
   order,

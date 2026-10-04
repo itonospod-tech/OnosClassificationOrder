@@ -10,7 +10,7 @@ function build(clash: Record<string, unknown> | null) {
     create: jest.fn().mockResolvedValue({ _id: 'new' }),
   };
   const none = null as never;
-  const svc = new ProductConfigService(repo as never, none, none, none, none, none, none, none, none, none);
+  const svc = new ProductConfigService(repo as never, none, none, none, none, none, none, none, none, none, none);
   return { svc, repo };
 }
 

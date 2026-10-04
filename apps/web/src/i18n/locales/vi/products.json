@@ -27,7 +27,8 @@
       "category": "Danh mục",
       "factory": "Xưởng",
       "collection": "Collection",
-      "tag": "Tag"
+      "tag": "Tag",
+      "technique": "Kỹ thuật"
     }
   },
   "configTab": {
@@ -552,6 +553,10 @@
     "tagsField": {
       "label": "Tag (chọn nhiều)",
       "empty": "Chưa có tag nào — tạo ở tab Tag trang Sản phẩm."
+    },
+    "techniquesField": {
+      "label": "Kỹ thuật (chọn nhiều)",
+      "empty": "Chưa có kỹ thuật nào — tạo ở tab Kỹ thuật trang Sản phẩm."
     }
   },
   "collectionTab": {
@@ -668,6 +673,37 @@
       "active": "Hoạt động",
       "nameRequired": "Tên và viết tắt là bắt buộc",
       "createSuccess": "Đã tạo tag",
+      "updateSuccess": "Đã cập nhật"
+    }
+  },
+  "productTechniqueTab": {
+    "title": "Kỹ thuật sản phẩm",
+    "description": "Kỹ thuật hoàn thiện/ứng dụng của sản phẩm (UV, Sublimation…) — khác phương pháp in, chọn ở trang chi tiết sản phẩm.",
+    "table": {
+      "image": "Ảnh",
+      "name": "Tên",
+      "shortName": "Viết tắt",
+      "sortOrder": "Thứ tự",
+      "status": "Trạng thái",
+      "empty": "Chưa có kỹ thuật nào.",
+      "active": "Hoạt động",
+      "inactive": "Tắt"
+    },
+    "dialog": {
+      "createTitle": "Thêm kỹ thuật",
+      "editTitle": "Sửa kỹ thuật"
+    },
+    "form": {
+      "name": "Tên",
+      "namePlaceholder": "VD: Sublimation",
+      "shortName": "Tên viết tắt",
+      "shortNamePlaceholder": "VD: SUBLIMATION",
+      "image": "Ảnh (URL)",
+      "description": "Mô tả",
+      "sortOrder": "Thứ tự hiển thị",
+      "active": "Hoạt động",
+      "nameRequired": "Tên và viết tắt là bắt buộc",
+      "createSuccess": "Đã tạo kỹ thuật",
       "updateSuccess": "Đã cập nhật"
     }
   }
