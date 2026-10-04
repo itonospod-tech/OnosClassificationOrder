@@ -10,6 +10,7 @@ import { useWorkshopConfigStore } from '@/store/workshopConfigStore';
 import { RepositoryRemote } from '@/services';
 
 import { useConfirm } from '@/components/common/ConfirmDialog';
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
 
@@ -282,7 +282,8 @@ export function FactoryTab() {
       const res = await RepositoryRemote.fulfillment.completePackBacklog({ factoryId: _id, dryRun: false });
       const data = res.data?.data as { total: number; ok: number; fail: number };
       if (data.total === 0) toast.info(t('factoryTab.form.autoPack.sweepEmpty'));
-      else if (data.fail > 0) toast.warning(t('factoryTab.form.autoPack.sweepPartial', { ok: data.ok, fail: data.fail }));
+      else if (data.fail > 0)
+        toast.warning(t('factoryTab.form.autoPack.sweepPartial', { ok: data.ok, fail: data.fail }));
       else toast.success(t('factoryTab.form.autoPack.sweepDone', { ok: data.ok }));
     } catch (error) {
       handleAxiosError(error);
@@ -359,34 +360,23 @@ export function FactoryTab() {
           </Button>
         )}
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('factoryTab.table.name')}</TableHead>
-            <TableHead>{t('factoryTab.table.shortName')}</TableHead>
-            <TableHead>{t('factoryTab.table.status')}</TableHead>
-            <TableHead className="w-20"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading && (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-8">
-                <Spinner size={20} className="text-muted-foreground" />
-              </TableCell>
-            </TableRow>
-          )}
-          {!loading && items.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center py-8 text-muted-foreground text-sm">
-                {t('common:status.noData')}
-              </TableCell>
-            </TableRow>
-          )}
-          {!loading &&
-            items.map((it) => (
-              <TableRow key={it._id}>
-                <TableCell className="font-medium">
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Spinner size={20} className="text-muted-foreground" />
+        </div>
+      ) : (
+        <ResponsiveList<ListItem>
+          rows={items}
+          rowKey={(it) => it._id}
+          onRowClick={canManageProducts ? (it) => openEdit(type, it) : undefined}
+          empty={t('factoryTab.table.empty')}
+          columns={[
+            {
+              key: 'name',
+              header: t('factoryTab.table.name'),
+              mobile: 'title',
+              cell: (it) => (
+                <span className="font-medium">
                   {it.name}
                   {type === 'factory' && it.flowType && it.flowType !== FactoryFlowType.Standard && (
                     <Badge variant="secondary" className="ml-2">
@@ -412,28 +402,48 @@ export function FactoryTab() {
                       {t('factoryTab.table.autoStockOutBadge')}
                     </Badge>
                   )}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{it.shortName}</Badge>
-                </TableCell>
-                <TableCell>
-                  {it.isActive ? (
-                    <Badge variant="success">{t('factoryTab.table.active')}</Badge>
-                  ) : (
-                    <Badge variant="secondary">{t('factoryTab.table.inactive')}</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {canManageProducts && (
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(type, it)}>
-                      {t('common:actions.edit')}
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-        </TableBody>
-      </Table>
+                </span>
+              ),
+            },
+            {
+              key: 'shortName',
+              header: t('factoryTab.table.shortName'),
+              mobile: 'subtitle',
+              cell: (it) => <Badge variant="outline">{it.shortName}</Badge>,
+            },
+            {
+              key: 'status',
+              header: t('factoryTab.table.status'),
+              mobile: 'trailing',
+              cell: (it) =>
+                it.isActive ? (
+                  <Badge variant="success">{t('factoryTab.table.active')}</Badge>
+                ) : (
+                  <Badge variant="secondary">{t('factoryTab.table.inactive')}</Badge>
+                ),
+            },
+            {
+              key: 'actions',
+              header: '',
+              className: 'w-20',
+              mobile: 'hidden',
+              cell: (it) =>
+                canManageProducts && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEdit(type, it);
+                    }}
+                  >
+                    {t('common:actions.edit')}
+                  </Button>
+                ),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 
@@ -441,7 +451,12 @@ export function FactoryTab() {
     <div className="space-y-6">
       {confirmDialog}
       {renderTable(factories, 'factory', t('factoryTab.factory.title'), t('factoryTab.factory.description'))}
-      {renderTable(machineTypes, 'machineType', t('factoryTab.machineType.title'), t('factoryTab.machineType.description'))}
+      {renderTable(
+        machineTypes,
+        'machineType',
+        t('factoryTab.machineType.title'),
+        t('factoryTab.machineType.description'),
+      )}
 
       <div className="rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between p-4 border-b border-border">
@@ -467,71 +482,81 @@ export function FactoryTab() {
             </div>
           )}
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-20">{t('factoryTab.fabric.table.icon')}</TableHead>
-              <TableHead>{t('factoryTab.table.name')}</TableHead>
-              <TableHead>{t('factoryTab.fabric.table.code')}</TableHead>
-              <TableHead className="w-24">{t('factoryTab.table.status')}</TableHead>
-              <TableHead className="w-28 text-right"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {fabricLoading && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  <Spinner size={20} className="text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            )}
-            {!fabricLoading && fabricItems.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">
-                  {t('factoryTab.fabric.table.empty')}
-                </TableCell>
-              </TableRow>
-            )}
-            {!fabricLoading &&
-              fabricItems.map((it) => (
-                <TableRow key={it._id}>
-                  <TableCell>
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-muted">
-                      <LucideIcon name={it.icon} size={16} />
-                    </span>
-                  </TableCell>
-                  <TableCell className="font-medium">{it.name}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{it.code}</TableCell>
-                  <TableCell>
-                    {it.isActive ? (
-                      <Badge variant="success">{t('factoryTab.fabric.table.on')}</Badge>
-                    ) : (
-                      <Badge variant="secondary">{t('factoryTab.table.inactive')}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {canManageProducts && (
-                      <>
-                        <Button variant="ghost" size="sm" onClick={() => openFabricEdit(it)}>
-                          <Pencil size={14} />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setFabricConfirmDelete(it)}>
-                          <Trash2 size={14} className="text-destructive" />
-                        </Button>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
+        {fabricLoading ? (
+          <div className="flex justify-center py-8">
+            <Spinner size={20} className="text-muted-foreground" />
+          </div>
+        ) : (
+          <ResponsiveList
+            rows={fabricItems}
+            rowKey={(it) => it._id ?? it.code}
+            onRowClick={canManageProducts ? openFabricEdit : undefined}
+            empty={t('factoryTab.fabric.table.empty')}
+            columns={[
+              {
+                key: 'icon',
+                header: t('factoryTab.fabric.table.icon'),
+                className: 'w-20',
+                mobile: 'hidden',
+                cell: (it) => (
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded bg-muted">
+                    <LucideIcon name={it.icon} size={16} />
+                  </span>
+                ),
+              },
+              {
+                key: 'name',
+                header: t('factoryTab.table.name'),
+                mobile: 'title',
+                cell: (it) => <span className="font-medium">{it.name}</span>,
+              },
+              {
+                key: 'code',
+                header: t('factoryTab.fabric.table.code'),
+                mobile: 'subtitle',
+                cell: (it) => <span className="font-mono text-xs text-muted-foreground">{it.code}</span>,
+              },
+              {
+                key: 'status',
+                header: t('factoryTab.table.status'),
+                className: 'w-24',
+                mobile: 'trailing',
+                cell: (it) =>
+                  it.isActive ? (
+                    <Badge variant="success">{t('factoryTab.fabric.table.on')}</Badge>
+                  ) : (
+                    <Badge variant="secondary">{t('factoryTab.table.inactive')}</Badge>
+                  ),
+              },
+              {
+                key: 'actions',
+                header: '',
+                className: 'w-28 text-right',
+                mobile: 'hidden',
+                cell: (it) =>
+                  canManageProducts && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm" onClick={() => openFabricEdit(it)}>
+                        <Pencil size={14} />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setFabricConfirmDelete(it)}>
+                        <Trash2 size={14} className="text-destructive" />
+                      </Button>
+                    </div>
+                  ),
+              },
+            ]}
+          />
+        )}
       </div>
 
       <Dialog open={fabricForm.open} onOpenChange={(open) => !open && setFabricForm(FABRIC_FORM_DEFAULT)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {fabricForm.mode === 'create' ? t('factoryTab.fabric.dialog.createTitle') : t('factoryTab.fabric.dialog.editTitle')}
+              {fabricForm.mode === 'create'
+                ? t('factoryTab.fabric.dialog.createTitle')
+                : t('factoryTab.fabric.dialog.editTitle')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
@@ -545,7 +570,8 @@ export function FactoryTab() {
             </div>
             <div className="space-y-2">
               <Label>
-                {t('factoryTab.fabric.form.code')} <span className="text-muted-foreground">{t('factoryTab.fabric.form.codeHint')}</span>
+                {t('factoryTab.fabric.form.code')}{' '}
+                <span className="text-muted-foreground">{t('factoryTab.fabric.form.codeHint')}</span>
               </Label>
               <Input
                 value={fabricForm.code}
@@ -611,7 +637,11 @@ export function FactoryTab() {
               <Input
                 value={form.data.name}
                 onChange={(e) => setForm({ ...form, data: { ...form.data, name: e.target.value } })}
-                placeholder={form.type === 'factory' ? t('factoryTab.dialog.factoryNamePlaceholder') : t('factoryTab.dialog.machineTypeNamePlaceholder')}
+                placeholder={
+                  form.type === 'factory'
+                    ? t('factoryTab.dialog.factoryNamePlaceholder')
+                    : t('factoryTab.dialog.machineTypeNamePlaceholder')
+                }
               />
             </div>
             <div className="space-y-2">
@@ -619,7 +649,11 @@ export function FactoryTab() {
               <Input
                 value={form.data.shortName}
                 onChange={(e) => setForm({ ...form, data: { ...form.data, shortName: e.target.value.toUpperCase() } })}
-                placeholder={form.type === 'factory' ? t('factoryTab.dialog.factoryShortNamePlaceholder') : t('factoryTab.dialog.machineTypeShortNamePlaceholder')}
+                placeholder={
+                  form.type === 'factory'
+                    ? t('factoryTab.dialog.factoryShortNamePlaceholder')
+                    : t('factoryTab.dialog.machineTypeShortNamePlaceholder')
+                }
                 maxLength={20}
               />
             </div>
@@ -643,7 +677,9 @@ export function FactoryTab() {
                   <option value={FactoryFlowType.Standard}>{t('factoryTab.form.flowOptions.standard')}</option>
                   <option value={FactoryFlowType.Merged}>{t('factoryTab.form.flowOptions.merged')}</option>
                   <option value={FactoryFlowType.NoSew}>{t('factoryTab.form.flowOptions.noSew')}</option>
-                  <option value={FactoryFlowType.PressComplete}>{t('factoryTab.form.flowOptions.pressComplete')}</option>
+                  <option value={FactoryFlowType.PressComplete}>
+                    {t('factoryTab.form.flowOptions.pressComplete')}
+                  </option>
                 </select>
                 <p className="text-xs text-muted-foreground">
                   {form.data.flowType === FactoryFlowType.Merged && t('factoryTab.form.flowHint.merged')}
