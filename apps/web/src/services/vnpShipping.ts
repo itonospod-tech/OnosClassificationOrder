@@ -62,8 +62,13 @@ const cancelShipment = (orderId: string) => {
 };
 
 /** Danh sách vận đơn toàn hệ thống (bảng shipments — lịch sử, Admin check). */
-const listShipments = (query: { page?: number; size?: number; search?: string; status?: string } = {}) => {
+const listShipments = (
+  query: { page?: number; size?: number; search?: string; status?: string; carrierPhase?: string; from?: string; to?: string } = {},
+) => {
   const qs = new URLSearchParams();
+  if (query.carrierPhase) qs.set('carrierPhase', query.carrierPhase);
+  if (query.from) qs.set('from', query.from);
+  if (query.to) qs.set('to', query.to);
   if (query.page) qs.set('page', String(query.page));
   if (query.size) qs.set('size', String(query.size));
   if (query.search) qs.set('search', query.search);

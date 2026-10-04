@@ -13,7 +13,7 @@ import type {
   VnpShippingConfig,
   VnpShippingStatus,
 } from 'shared';
-import { SHIPMENT_PROVIDER_VNP, VNP_SHIPMENT_COUNTED_STATUSES, VNP_SHIPPING_CONFIG_KEY } from 'shared';
+import { carrierPhaseFilter, SHIPMENT_PROVIDER_VNP, VNP_SHIPMENT_COUNTED_STATUSES, VNP_SHIPPING_CONFIG_KEY } from 'shared';
 import { Logger } from 'winston';
 
 import { genCode } from '@/utils/gen-code';
@@ -1011,17 +1011,27 @@ export class ShippingVnpService implements OnModuleInit {
 
   /** Danh sách vận đơn toàn hệ thống — search khớp tracking/mã kiện/mã đơn. */
   async listShipments(dto: GetVnpShipmentsDto): Promise<{ data: VnpShipmentRecord[]; total: number }> {
+    // Every condition is ANDed: the search `$or` and the carrier-phase `$or`/`$nor` must never
+    // overwrite each other (same trap as the order filters, Orders.md §25).
+    const conds: Record<string, unknown>[] = [];
     const search = dto.search?.trim();
-    let filter: Record<string, unknown> = {};
     if (search) {
       const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       // Kiện khớp theo mã kiện / productionId / orderId seller → OR với field shipment.
       const packIds = await this.packageModel
         .find({ $or: [{ code: rx }, { productionIds: rx }, { orderCodes: rx }] })
         .distinct('_id');
-      filter = { $or: [{ trackingCode: rx }, { vnpShipmentId: rx }, { packageId: { $in: packIds } }] };
+      conds.push({ $or: [{ trackingCode: rx }, { vnpShipmentId: rx }, { packageId: { $in: packIds } }] });
     }
-    if (dto.status) filter.status = dto.status;
+    if (dto.status) conds.push({ status: dto.status });
+    if (dto.carrierPhase) conds.push(carrierPhaseFilter(dto.carrierPhase));
+    if (dto.from || dto.to) {
+      const createdAt: Record<string, Date> = {};
+      if (dto.from) createdAt.$gte = new Date(`${dto.from}T00:00:00+07:00`);
+      if (dto.to) createdAt.$lte = new Date(`${dto.to}T23:59:59.999+07:00`);
+      conds.push({ createdAt });
+    }
+    const filter = conds.length ? { $and: conds } : {};
     const [docs, total] = await Promise.all([
       this.shipmentModel
         .find(filter)
@@ -1031,7 +1041,31 @@ export class ShippingVnpService implements OnModuleInit {
         .populate('package'),
       this.shipmentModel.countDocuments(filter),
     ]);
-    return { data: (docs as ShipmentDocument[]).map((d) => this.toShipmentRecord(d)), total };
+    const records = (docs as ShipmentDocument[]).map((d) => this.toShipmentRecord(d));
+    return { data: await this.withItemsAndShipTo(records, docs as ShipmentDocument[]), total };
+  }
+
+  /**
+   * List columns ITEM(S) + SHIPPING ADDRESS (legacy Shipments screen): one batched read of the
+   * page's production orders, never one query per row.
+   */
+  private async withItemsAndShipTo(records: VnpShipmentRecord[], docs: ShipmentDocument[]): Promise<VnpShipmentRecord[]> {
+    const idsByRecord = docs.map((d) => d.package?.productionOrderIds ?? []);
+    const allIds = [...new Set(idsByRecord.flat())];
+    if (allIds.length === 0) return records;
+    const orders = await this.orderModel
+      .find({ _id: { $in: allIds } }, { productionId: 1, type: 1, size: 1, color: 1, mockupUrl: 1, shippingAddress: 1 })
+      .lean();
+    const byId = new Map(orders.map((o) => [String(o._id), o]));
+    return records.map((r, i) => {
+      const own = idsByRecord[i].map((id) => byId.get(id)).filter((o): o is NonNullable<typeof o> => !!o);
+      if (own.length === 0) return r;
+      return {
+        ...r,
+        items: own.map((o) => ({ productionId: o.productionId, type: o.type, size: o.size, color: o.color, mockupUrl: o.mockupUrl })),
+        shipTo: own.find((o) => o.shippingAddress)?.shippingAddress,
+      };
+    });
   }
 
   /** Lịch sử vận đơn của 1 đơn sản xuất — mọi record của các kiện chứa nó. */
