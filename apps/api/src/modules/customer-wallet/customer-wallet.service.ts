@@ -5,15 +5,19 @@ import { Connection, Model } from 'mongoose';
 import type {
   AdminWalletRow,
   AdminWalletTxnRow,
+  CreditLimitChange,
   CustomerWalletTxn,
   GetAdminWalletsDto,
   GetAdminWalletTxnsDto,
+  GetCreditLimitHistoryDto,
   GetCustomerWalletTxnsDto,
   WalletTxnKind,
 } from 'shared';
 
 import { CustomerEntity } from '@/modules/customer/customer.entity';
 
+import type { CustomerCreditLimitChangeDocument } from './customer-credit-limit-change.entity';
+import { CustomerCreditLimitChangeEntity } from './customer-credit-limit-change.entity';
 import type { CustomerWalletTransactionDocument, WalletTxnRefs } from './customer-wallet-transaction.entity';
 import {
   CustomerWalletTransactionEntity,
@@ -72,6 +76,8 @@ export class CustomerWalletService implements OnModuleInit {
     private readonly txnModel: Model<CustomerWalletTransactionEntity>,
     @InjectModel(CustomerEntity.name)
     private readonly customerModel: Model<CustomerEntity>,
+    @InjectModel(CustomerCreditLimitChangeEntity.name)
+    private readonly creditLimitChangeModel: Model<CustomerCreditLimitChangeEntity>,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -301,6 +307,25 @@ export class CustomerWalletService implements OnModuleInit {
     };
   }
 
+  /** One seller's wallet row, read fresh. Used by the staff dialogs so a stale list never decides a money step. */
+  async getAdminWallet(customerId: string): Promise<AdminWalletRow> {
+    const c = await this.customerModel
+      .findById(customerId)
+      .select('userSku userEmail fullName tier walletBalance creditLimit deletedAt');
+    if (!c || c.deletedAt) throw new NotFoundException('Không tìm thấy seller.');
+    const last = await this.txnModel.findOne({ customerId }).sort({ createdAt: -1 }).select('createdAt');
+    return {
+      customerId: String(c._id),
+      userSku: c.userSku,
+      userEmail: c.userEmail,
+      fullName: c.fullName || undefined,
+      tier: c.tier,
+      balance: round2(c.walletBalance ?? 0),
+      creditLimit: c.creditLimit ?? 0,
+      lastTxnAt: last?.createdAt ?? null,
+    };
+  }
+
   async listWallets(dto: GetAdminWalletsDto): Promise<{ data: AdminWalletRow[]; total: number }> {
     const filter: Record<string, unknown> = { deletedAt: null };
     if (dto.search?.trim()) {
@@ -341,10 +366,68 @@ export class CustomerWalletService implements OnModuleInit {
     };
   }
 
-  async updateCreditLimit(customerId: string, creditLimit: number): Promise<{ balance: number; creditLimit: number }> {
-    const customer = await this.customerModel.findByIdAndUpdate(customerId, { $set: { creditLimit } }, { new: true });
-    if (!customer) throw new NotFoundException('Không tìm thấy seller.');
-    return { balance: round2(customer.walletBalance ?? 0), creditLimit: customer.creditLimit };
+  /**
+   * Set a seller's credit limit and record the change. The value and its audit row are written in ONE
+   * transaction, so a limit can never change without a trace (nor a trace exist for a change that did not
+   * happen), and `from` is read inside the same snapshot as the write. Setting the value it already has is
+   * a no-op: no write, no audit row.
+   */
+  async updateCreditLimit(
+    customerId: string,
+    creditLimit: number,
+    by?: { userId?: string; userName?: string },
+    note?: string,
+  ): Promise<{ balance: number; creditLimit: number }> {
+    const session = await this.connection.startSession();
+    try {
+      let balance = 0;
+      let current = 0;
+      await session.withTransaction(async () => {
+        const customer = await this.customerModel.findById(customerId).session(session);
+        if (!customer || customer.deletedAt) throw new NotFoundException('Không tìm thấy seller.');
+        const from = customer.creditLimit ?? 0;
+        balance = round2(customer.walletBalance ?? 0);
+        current = creditLimit;
+        if (from === creditLimit) return;
+        await this.customerModel.updateOne({ _id: customerId }, { $set: { creditLimit } }, { session });
+        await this.creditLimitChangeModel.create(
+          [{ customerId, from, to: creditLimit, note: note?.trim() || undefined, byUserId: by?.userId, byUserName: by?.userName }],
+          { session },
+        );
+      });
+      return { balance, creditLimit: current };
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  /** The audit trail of a seller's credit limit, newest change first. */
+  async listCreditLimitHistory(
+    customerId: string,
+    dto: GetCreditLimitHistoryDto,
+  ): Promise<{ data: CreditLimitChange[]; total: number }> {
+    const [docs, total] = await Promise.all([
+      this.creditLimitChangeModel
+        .find({ customerId })
+        .sort({ createdAt: -1 })
+        .skip((dto.page - 1) * dto.limit)
+        .limit(dto.limit),
+      this.creditLimitChangeModel.countDocuments({ customerId }),
+    ]);
+    return { data: docs.map((d) => this.toCreditLimitChange(d)), total };
+  }
+
+  private toCreditLimitChange(doc: CustomerCreditLimitChangeDocument): CreditLimitChange {
+    return {
+      _id: String(doc._id),
+      customerId: String(doc.customerId),
+      from: doc.from,
+      to: doc.to,
+      note: doc.note || undefined,
+      byUserId: doc.byUserId || undefined,
+      byUserName: doc.byUserName || undefined,
+      createdAt: doc.createdAt,
+    };
   }
 
   private toTxn(doc: CustomerWalletTransactionDocument): CustomerWalletTxn {

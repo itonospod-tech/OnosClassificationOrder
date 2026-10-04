@@ -101,6 +101,10 @@ export const AdminWalletRowZod = z.object({
 });
 export type AdminWalletRow = z.infer<typeof AdminWalletRowZod>;
 
+/** One seller's wallet row — same shape as a row of the list, fetched fresh (never from a stale page). */
+export const GetAdminWalletResZod = ResZod.extend({ data: AdminWalletRowZod });
+export class GetAdminWalletResDto extends createZodDto(extendApi(GetAdminWalletResZod)) {}
+
 export const GetAdminWalletsResZod = ResZod.extend({ data: AdminWalletRowZod.array(), total: z.number() });
 export class GetAdminWalletsResDto extends createZodDto(extendApi(GetAdminWalletsResZod)) {}
 
@@ -175,8 +179,32 @@ export class AdjustWalletDto extends createZodDto(extendApi(AdjustWalletZod)) {}
 
 export const UpdateCreditLimitZod = z.object({
   creditLimit: z.number().min(0).max(1_000_000),
+  /** Why the limit changes. Optional here so older callers keep working; the staff dialog requires it. */
+  note: z.string().trim().max(500).optional(),
 });
 export class UpdateCreditLimitDto extends createZodDto(extendApi(UpdateCreditLimitZod)) {}
+
+/** One row of the credit-limit audit trail (`customer_credit_limit_changes`). */
+export const CreditLimitChangeZod = z.object({
+  _id: IDZod,
+  customerId: IDZod,
+  from: z.number(),
+  to: z.number(),
+  note: z.string().optional(),
+  byUserId: z.string().optional(),
+  byUserName: z.string().optional(),
+  createdAt: z.coerce.date().optional(),
+});
+export type CreditLimitChange = z.infer<typeof CreditLimitChangeZod>;
+
+export const GetCreditLimitHistoryZod = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+export class GetCreditLimitHistoryDto extends createZodDto(extendApi(GetCreditLimitHistoryZod)) {}
+
+export const GetCreditLimitHistoryResZod = ResZod.extend({ data: CreditLimitChangeZod.array(), total: z.number() });
+export class GetCreditLimitHistoryResDto extends createZodDto(extendApi(GetCreditLimitHistoryResZod)) {}
 
 export const WalletMutationResZod = ResZod.extend({
   data: z.object({

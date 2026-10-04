@@ -1,66 +1,32 @@
 import { ConflictException } from '@nestjs/common';
-import type { Connection, Model } from 'mongoose';
-import mongoose from 'mongoose';
 
-import { CustomerEntity, CustomerSchema } from '@/modules/customer/customer.entity';
-
-import { CustomerWalletService } from './customer-wallet.service';
-import {
-  CustomerWalletTransactionEntity,
-  CustomerWalletTransactionSchema,
-} from './customer-wallet-transaction.entity';
+import type { CustomerWalletService } from './customer-wallet.service';
+import type { WalletTestDb } from './wallet-test-db';
+import { createWalletTestDb, describeDb } from './wallet-test-db';
 
 /**
- * Double-credit protection, proven against a REAL MongoDB replica set (transactions + unique indexes
- * cannot be faked). It uses a throwaway database that is dropped afterwards; nothing else is touched.
- *
- * `autoIndex` is OFF on purpose: the only indexes that exist are the ones `ensureIndexes()` creates,
- * so a green run proves the explicit boot-time creation works, not that Mongoose happened to build them.
- *
- * Needs the replica set the project already requires for development (`rs0`). Set WALLET_TEST_MONGO_URI
- * to point elsewhere, or SKIP_DB_TESTS=1 to skip these tests explicitly. Unreachable Mongo FAILS the
- * run on purpose — a silently skipped money test is worse than a red one.
+ * Double-credit protection, proven against a REAL MongoDB replica set (see `wallet-test-db.ts` for how the
+ * throwaway database is set up and what happens when Mongo is unreachable).
  */
-const BASE_URI = process.env.WALLET_TEST_MONGO_URI ?? 'mongodb://localhost:27017/?replicaSet=rs0&directConnection=true';
-const describeDb = process.env.SKIP_DB_TESTS ? describe.skip : describe;
-
 type TopupInput = Parameters<CustomerWalletService['applyTransaction']>[0];
 
 describeDb('wallet money safety (real MongoDB)', () => {
-  let connection: Connection;
-  let txnModel: Model<CustomerWalletTransactionEntity>;
-  let customerModel: Model<CustomerEntity>;
+  let db: WalletTestDb;
   let service: CustomerWalletService;
   let sellerA: string;
   let sellerB: string;
 
   beforeAll(async () => {
-    const dbName = `onos-wallet-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    connection = await mongoose
-      .createConnection(BASE_URI, { dbName, autoIndex: false, serverSelectionTimeoutMS: 4000 })
-      .asPromise();
-    txnModel = connection.model(CustomerWalletTransactionEntity.name, CustomerWalletTransactionSchema);
-    customerModel = connection.model(CustomerEntity.name, CustomerSchema);
-    service = new CustomerWalletService(txnModel as never, customerModel as never, connection);
-    await service.ensureIndexes();
-    await customerModel.init(); // collection must exist before transactions can touch it
-    await txnModel.createCollection();
+    db = await createWalletTestDb();
+    service = db.service;
   });
 
   afterAll(async () => {
-    await connection?.dropDatabase();
-    await connection?.close();
+    await db?.drop();
   });
 
   beforeEach(async () => {
-    await txnModel.deleteMany({});
-    await customerModel.deleteMany({});
-    const [a, b] = await customerModel.create([
-      { userSku: 'SELLERA', userEmail: 'a@test.com', fullName: 'Seller A' },
-      { userSku: 'SELLERB', userEmail: 'b@test.com', fullName: 'Seller B' },
-    ]);
-    sellerA = String(a._id);
-    sellerB = String(b._id);
+    ({ sellerA, sellerB } = await db.reset());
   });
 
   const topup = (over: Partial<TopupInput> & { requestId: string; externalTxnId?: string }): Promise<
@@ -77,10 +43,10 @@ describeDb('wallet money safety (real MongoDB)', () => {
     });
 
   const balanceOf = async (id: string) => (await service.getWallet(id)).balance;
-  const rows = (id: string) => txnModel.countDocuments({ customerId: id });
+  const rows = (id: string) => db.txnModel.countDocuments({ customerId: id });
 
   it('the explicit boot step creates both unique indexes', async () => {
-    const names = (await txnModel.collection.indexes()).map((i) => i.name);
+    const names = (await db.txnModel.collection.indexes()).map((i) => i.name);
     expect(names).toContain('topup_externalTxnId_unique');
     expect(names.some((n) => n?.includes('refs.requestId'))).toBe(true);
   });

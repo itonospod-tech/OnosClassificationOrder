@@ -4,10 +4,13 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from 'core';
 import {
   AdjustWalletDto,
+  GetAdminWalletResDto,
   GetAdminWalletsDto,
   GetAdminWalletsResDto,
   GetAdminWalletTxnsDto,
   GetAdminWalletTxnsResDto,
+  GetCreditLimitHistoryDto,
+  GetCreditLimitHistoryResDto,
   GetCustomerWalletTxnsDto,
   GetCustomerWalletTxnsResDto,
   RoleType,
@@ -72,6 +75,16 @@ export class CustomerWalletAdminController {
     return { success: true, ...(await this.walletService.listTransactions(customerId, dto)) };
   }
 
+  // Static `transactions` still wins over this parametric route, so the order of declaration does not matter.
+  @Get(':customerId')
+  @Auth([RoleType.Admin])
+  @ApiOperation({ summary: 'Ví của 1 seller (số dư + hạn mức hiện tại, đọc mới)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetAdminWalletResDto })
+  async getWallet(@Param('customerId') customerId: string): Promise<GetAdminWalletResDto> {
+    return { success: true, data: await this.walletService.getAdminWallet(customerId) };
+  }
+
   @Post(':customerId/topup')
   @Auth([RoleType.Admin])
   @ApiOperation({ summary: 'Nạp ví tay (phase 1 — seller chuyển khoản ngoài hệ thống)' })
@@ -128,6 +141,18 @@ export class CustomerWalletAdminController {
     return { success: true, data: { balance: wallet.balance, creditLimit: wallet.creditLimit, txn, replayed } };
   }
 
+  @Get(':customerId/credit-limit-history')
+  @Auth([RoleType.Admin])
+  @ApiOperation({ summary: 'Lịch sử đổi hạn mức nợ của 1 seller (ai, lúc nào, từ → đến)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetCreditLimitHistoryResDto })
+  async listCreditLimitHistory(
+    @Param('customerId') customerId: string,
+    @Query() dto: GetCreditLimitHistoryDto,
+  ): Promise<GetCreditLimitHistoryResDto> {
+    return { success: true, ...(await this.walletService.listCreditLimitHistory(customerId, dto)) };
+  }
+
   @Patch(':customerId/credit-limit')
   @Auth([RoleType.Admin])
   @ApiOperation({ summary: 'Đặt hạn mức nợ ví cho seller' })
@@ -145,7 +170,12 @@ export class CustomerWalletAdminController {
         userId: user._id,
       }),
     });
-    const data = await this.walletService.updateCreditLimit(customerId, dto.creditLimit);
+    const data = await this.walletService.updateCreditLimit(
+      customerId,
+      dto.creditLimit,
+      { userId: String(user._id), userName: user.fullName },
+      dto.note,
+    );
     return { success: true, data };
   }
 }
