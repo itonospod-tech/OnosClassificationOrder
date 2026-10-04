@@ -141,7 +141,17 @@ export default function PromotionsPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <PageHeader icon={<Tag size={20} />} title={t('page.title')} description={t('page.subtitle')} />
+      <PageHeader
+        icon={<Tag size={20} />}
+        title={t('page.title')}
+        description={t('page.subtitle')}
+        actions={
+          <Button onClick={openCreate}>
+            <Plus size={14} />
+            {t('page.createButton')}
+          </Button>
+        }
+      />
 
       {stats && (
         <StatCards
@@ -154,19 +164,13 @@ export default function PromotionsPage() {
         />
       )}
 
-      <div className="flex items-center justify-between gap-3">
-        <Input
-          placeholder={t('page.searchPlaceholder')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          className="max-w-sm"
-        />
-        <Button onClick={openCreate}>
-          <Plus size={14} />
-          {t('page.createButton')}
-        </Button>
-      </div>
+      <Input
+        placeholder={t('page.searchPlaceholder')}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+        className="w-full sm:max-w-sm"
+      />
 
       <LoadingOverlay active={loading && items.length > 0} className="rounded-lg border border-border bg-card">
         {/* Table on wide screens, cards on phones (ResponsiveList). */}
