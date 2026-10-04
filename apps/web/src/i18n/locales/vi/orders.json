@@ -281,7 +281,8 @@
     "bulkHint": "Dán danh sách mã (mỗi Production ID một dòng) để lọc bảng",
     "bulkBtn": "Nhiều mã",
     "reloadBtn": "Tải lại",
-    "tokenCount": "{{count}} mã"
+    "tokenCount": "{{count}} mã",
+    "filtersBtn": "Bộ lọc"
   },
   "bulkEdit": {
     "fieldLabels": {
@@ -846,5 +847,8 @@
       "viewing": "Đang xem {{shown}} / {{total}} đơn của loại này",
       "empty": "Không có loại sản phẩm nào khớp"
     }
+  },
+  "printCard": {
+    "details": "Chi tiết"
   }
 }

@@ -136,12 +136,19 @@ export function DateRangePicker({
       (p): p is (typeof DATE_PRESETS)[number] => !!p,
     );
     const pillBase =
-      'h-8 px-2.5 rounded-md border text-xs transition-colors whitespace-nowrap inline-flex items-center gap-1';
+      'h-8 px-2.5 rounded-md border text-xs transition-colors whitespace-nowrap inline-flex items-center gap-1 shrink-0 touch:h-10 touch:px-3.5 touch:rounded-full';
     const pillActive = 'border-primary bg-primary/10 text-primary font-medium';
     const pillIdle = 'border-border bg-background hover:bg-muted/40 text-foreground';
 
     return (
-      <div className={cn('w-full flex flex-wrap items-center gap-1.5', className)}>
+      // Phones: ONE row you swipe sideways (hidden scrollbar, bleeds to the card edge) instead of
+      // three wrapped rows of pills that pushed the list down; `sm` and up keeps the wrap.
+      <div
+        className={cn(
+          'flex w-full items-center gap-1.5 overflow-x-auto max-sm:-mx-3 max-sm:w-[calc(100%+1.5rem)] max-sm:px-3 max-sm:pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible',
+          className,
+        )}
+      >
         {quickPresets.map((p) => (
           <button
             key={p.key}
@@ -179,7 +186,9 @@ export function DateRangePicker({
   }
 
   // ─── Variant popover (mặc định — giữ nguyên hành vi cũ) ──────────
-  const activeLabel = activeKey ? presetLabel(t, activeKey, DATE_PRESETS.find((p) => p.key === activeKey)?.label ?? '') : undefined;
+  const activeLabel = activeKey
+    ? presetLabel(t, activeKey, DATE_PRESETS.find((p) => p.key === activeKey)?.label ?? '')
+    : undefined;
   const label = activeLabel || (from && to ? `${fmt(from)} → ${fmt(to)}` : from || to || resolvedPlaceholder);
 
   return (

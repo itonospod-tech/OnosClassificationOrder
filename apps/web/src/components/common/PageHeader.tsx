@@ -12,6 +12,11 @@ export interface PageHeaderProps {
   actions?: React.ReactNode;
   /** Phones: drop the description — for station pages where the first screen must reach the input. */
   hideDescriptionOnMobile?: boolean;
+  /**
+   * Phones: keep `actions` on the title row instead of wrapping them below. For a single icon button
+   * (reload) a whole row is a waste of the first screen; buttons with text labels should wrap.
+   */
+  inlineActionsOnMobile?: boolean;
   className?: string;
 }
 
@@ -40,10 +45,17 @@ export function PageHeader({
   icon,
   actions,
   hideDescriptionOnMobile = false,
+  inlineActionsOnMobile = false,
   className,
 }: PageHeaderProps) {
   return (
-    <div className={cn('flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', className)}>
+    <div
+      className={cn(
+        'flex gap-3 sm:flex-row sm:items-center sm:justify-between',
+        inlineActionsOnMobile ? 'items-center justify-between' : 'flex-col',
+        className,
+      )}
+    >
       <div className="flex min-w-0 items-center gap-3">
         {icon && (
           <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-tone-info/10 text-tone-info sm:flex">

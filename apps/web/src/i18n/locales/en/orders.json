@@ -281,7 +281,8 @@
     "bulkHint": "Paste a list of codes (one Production ID per line) to filter the table",
     "bulkBtn": "Multiple codes",
     "reloadBtn": "Reload",
-    "tokenCount": "{{count}} codes"
+    "tokenCount": "{{count}} codes",
+    "filtersBtn": "Filters"
   },
   "bulkEdit": {
     "fieldLabels": {
@@ -846,5 +847,8 @@
       "viewing": "Showing {{shown}} / {{total}} orders of this type",
       "empty": "No product type matches"
     }
+  },
+  "printCard": {
+    "details": "Details"
   }
 }
