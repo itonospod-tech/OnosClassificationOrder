@@ -46,7 +46,7 @@ export function PageHeader({ title, subtitle, actions, children, tone = "plain",
     <div className={`flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center ${compact ? "mb-1" : "mb-4"}`}>
       <div className="min-w-0">
         <h1 className="text-lg font-extrabold m-0 font-display text-text-primary">{title}</h1>
-        {subtitle && <p className="text-[10.5px] text-text-secondary mt-0.5">{subtitle}</p>}
+        {subtitle && <p className={`text-[10.5px] text-text-secondary mt-0.5 ${compact ? "max-md:hidden" : ""}`}>{subtitle}</p>}
       </div>
       {(actions || children) && (
         <div className="flex flex-wrap gap-1.5 items-center sm:shrink-0">
