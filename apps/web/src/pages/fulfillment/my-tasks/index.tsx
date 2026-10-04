@@ -789,19 +789,29 @@ function FulfillmentKanbanView() {
       {/* Phones reorder the sections (flex + `order-*`): tabs → search → the cards, THEN the statistics
           (error stats, daily overview) — a worker opens this page to work the list, not to read totals. */}
       <div className="space-y-4 max-md:flex max-md:flex-col max-md:gap-3 max-md:space-y-0">
-        {/* Header — PageHeader keeps the title on one line on phones; the factory id line is dropped there. */}
-        <PageHeader
-          icon={<ListChecks size={20} />}
-          title={t('kanban.header.title', { stage: getStageLabel(t, myStage) })}
-          description={t('kanban.header.factory', { factory: profile?.factoryId ?? '—' })}
-          hideDescriptionOnMobile
-          inlineActionsOnMobile
-          actions={
-            <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading} aria-label={t('common:actions.reload', { defaultValue: 'Reload' })}>
-              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-            </Button>
-          }
-        />
+        {/* Header. On phones the title is dropped from the page: the bottom tab bar already says where
+            you are, and the first screen must show the work. An sr-only h1 keeps the page labelled. */}
+        <h1 className="sr-only md:hidden">{t('kanban.header.title', { stage: getStageLabel(t, myStage) })}</h1>
+        <div className="max-md:hidden">
+          <PageHeader
+            icon={<ListChecks size={20} />}
+            title={t('kanban.header.title', { stage: getStageLabel(t, myStage) })}
+            description={t('kanban.header.factory', { factory: profile?.factoryId ?? '—' })}
+            hideDescriptionOnMobile
+            inlineActionsOnMobile
+            actions={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void load()}
+                disabled={loading}
+                aria-label={t('common:actions.reload', { defaultValue: 'Reload' })}
+              >
+                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              </Button>
+            }
+          />
+        </div>
 
         {/* KPI */}
         <div
@@ -923,6 +933,39 @@ function FulfillmentKanbanView() {
                     </span>
                   )}
                 </Button>
+                {/* Phones: reload + filters sit in the search row (one row instead of three). */}
+                {isMobile && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void load()}
+                      disabled={loading}
+                      aria-label={t('common:actions.reload', { defaultValue: 'Reload' })}
+                      className="h-11 w-11 shrink-0 p-0"
+                    >
+                      <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setFacetsOpen((v) => !v)}
+                      aria-expanded={facetsOpen}
+                      aria-label={t('kanban.filters.button', { defaultValue: 'Filters' })}
+                      className={cn(
+                        'relative h-11 w-11 shrink-0 p-0',
+                        (facetsOpen || Object.values(filters).some(Boolean)) && 'border-tone-info text-tone-info',
+                      )}
+                    >
+                      <SlidersHorizontal size={17} />
+                      {Object.values(filters).filter(Boolean).length > 0 && (
+                        <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-tone-info px-1 text-[9px] font-semibold text-white">
+                          {Object.values(filters).filter(Boolean).length}
+                        </span>
+                      )}
+                    </Button>
+                  </>
+                )}
               </div>
               {/* Feedback khi máy quét xuất tiền tố "N-" — cho biết mã thực sẽ tìm. */}
               {stripBarcodePrefix(search) !== search.trim() && !!search.trim() ? (
@@ -940,39 +983,19 @@ function FulfillmentKanbanView() {
             </div>
           </div>
 
-          {/* Row ngày — thanh preset inline full-width */}
-          <DateRangePicker
-            variant="inline"
-            from={dateFrom}
-            to={dateTo}
-            onChange={(f, to) => {
-              setDateFrom(f);
-              setDateTo(to);
-            }}
-            placeholder={t('kanban.dateAllPlaceholder')}
-          />
-
-          {/* Phones: facets fold behind one button that shows how many are in use. */}
-          {isMobile && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setFacetsOpen((v) => !v)}
-              aria-expanded={facetsOpen}
-              className={cn(
-                Object.values(filters).some(Boolean) && 'border-tone-info text-tone-info',
-              )}
-            >
-              <SlidersHorizontal size={14} />
-              {t('kanban.filters.button', { defaultValue: 'Filters' })}
-              {Object.values(filters).filter(Boolean).length > 0 && (
-                <span className="rounded-full bg-tone-info px-1.5 text-[11px] font-semibold leading-4 text-white">
-                  {Object.values(filters).filter(Boolean).length}
-                </span>
-              )}
-              <ChevronDown size={13} className={cn('transition-transform', facetsOpen && 'rotate-180')} />
-            </Button>
-          )}
+          {/* Row ngày — thanh preset inline full-width. Phones: folded together with the facets. */}
+          <div className={cn(isMobile && !facetsOpen && 'hidden')}>
+            <DateRangePicker
+              variant="inline"
+              from={dateFrom}
+              to={dateTo}
+              onChange={(f, to) => {
+                setDateFrom(f);
+                setDateTo(to);
+              }}
+              placeholder={t('kanban.dateAllPlaceholder')}
+            />
+          </div>
 
           {/* Row 2: 5 facet filters */}
           <div className={cn('grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2', isMobile && !facetsOpen && 'hidden')}>
@@ -1399,7 +1422,7 @@ function Column({
         isOver && 'bg-muted/60',
       )}
     >
-      <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+      <div className="flex items-center justify-between text-xs font-semibold text-foreground max-md:hidden">
         <span className="inline-flex items-center gap-1.5">
           {/* Chọn/bỏ chọn CẢ CỘT — tick 1 phát rồi bulk, khỏi tick từng đơn. */}
           {showCheckbox && cards.length > 0 && (

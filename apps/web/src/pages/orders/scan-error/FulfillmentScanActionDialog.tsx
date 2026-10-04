@@ -406,7 +406,7 @@ export function FulfillmentScanActionDialog({
                   target="_blank"
                   rel="noreferrer"
                   title={t('fulfillmentDialog.clickToOpenOriginal')}
-                  className="group relative block flex-1 min-h-0 rounded-xl border border-border overflow-hidden bg-checker max-md:h-[28dvh] max-md:flex-none"
+                  className="group relative block flex-1 min-h-0 rounded-xl border border-border overflow-hidden bg-checker max-md:h-[20dvh] max-md:flex-none max-md:[background-image:none] max-md:bg-muted/30"
                 >
                   <img
                     src={order.mockupUrl || mockupUrl}
@@ -415,7 +415,8 @@ export function FulfillmentScanActionDialog({
                     referrerPolicy="no-referrer"
                   />
                 </a>
-                <Button asChild variant="outline" className="h-14 text-lg shrink-0 max-md:h-11 max-md:text-base">
+                {/* Phones: tapping the mockup already opens the original, so the extra button is dropped to leave room for the size / color tiles. */}
+                <Button asChild variant="outline" className="h-14 text-lg shrink-0 max-md:hidden">
                   <a href={mockupUrl} target="_blank" rel="noreferrer">
                     <ExternalLink size={22} className="mr-2" />
                     {t('fulfillmentDialog.openOriginal')}
@@ -599,7 +600,7 @@ export function FulfillmentScanActionDialog({
         )}
 
         {stockOutElement}
-        <DialogFooter className="gap-3 shrink-0 max-md:sticky max-md:bottom-0 max-md:-mx-4 max-md:grid max-md:grid-cols-3 max-md:gap-2 max-md:border-t max-md:bg-background max-md:px-4 max-md:pt-3">
+        <DialogFooter className="gap-3 shrink-0 max-md:before:pointer-events-none max-md:before:absolute max-md:before:inset-x-0 max-md:before:-top-5 max-md:before:h-5 max-md:before:bg-gradient-to-t max-md:before:from-background max-md:before:to-transparent max-md:sticky max-md:bottom-0 max-md:-mx-4 max-md:grid max-md:grid-cols-3 max-md:gap-2 max-md:border-t max-md:bg-background max-md:px-4 max-md:pt-3">
           <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight">
             <Printer size={20} className="mr-2" />
             {t('printActions.printTemBtn')}
@@ -630,7 +631,9 @@ export function FulfillmentScanActionDialog({
               </Button>
               <Button onClick={() => void doComplete()} disabled={saving} autoFocus className="h-14 px-8 text-lg max-md:col-span-3 max-md:order-first">
                 {saving ? <Spinner size={20} className="mr-2" /> : <CheckCircle2 size={22} className="mr-2" />}
-                {t('fulfillmentDialog.completeBtn')}
+                {/* "(Enter)" is a keyboard hint: only where hovering is possible (a desktop). */}
+                <span className="hidden [@media(hover:hover)]:inline">{t('fulfillmentDialog.completeBtn')}</span>
+                <span className="[@media(hover:hover)]:hidden">{t('fulfillmentDialog.completeBtnShort')}</span>
               </Button>
             </>
           ) : (

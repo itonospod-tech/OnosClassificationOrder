@@ -650,7 +650,10 @@ export default function MyTasksPage() {
     <TooltipProvider delayDuration={200}>
       {/* Phones reorder the sections (flex + `order-*`): tabs → filters → the cards, THEN the statistics. */}
       <div className="space-y-4 max-md:flex max-md:flex-col max-md:gap-3 max-md:space-y-0">
-        {/* Header */}
+        {/* Header. Phones: dropped for designers (the bottom tab bar says where you are, and the first
+            screen must show the work); a manager keeps it because the "view as" picker lives here. */}
+        <h1 className="sr-only md:hidden">{t('myTasks.greeting')}</h1>
+        <div className={cn(!canViewAs && 'max-md:hidden')}>
         <PageHeader
           icon={<ListChecks size={20} />}
           title={`${t('myTasks.greeting')}${fullName ? `, ${fullName}` : ''}`}
@@ -691,6 +694,7 @@ export default function MyTasksPage() {
             </>
           }
         />
+        </div>
 
         {/* Banner "đang xem thay" — bắt buộc phải nổi bật: thao tác trên trang
             này ghi vào task của NGƯỜI KHÁC (order log ghi actor là mình), nhầm
@@ -717,7 +721,7 @@ export default function MyTasksPage() {
 
         {/* Thanh ngày — preset inline full-width */}
         <DateRangePicker
-          className="max-md:order-2"
+          className={cn('max-md:order-2', isMobile && !facetsOpen && 'hidden')}
           variant="inline"
           from={dateFrom}
           to={dateTo}
@@ -813,35 +817,51 @@ export default function MyTasksPage() {
             <label className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
               {t('myTasks.filters.search')}
             </label>
-            <div className="relative mt-1">
-              <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('myTasks.filters.searchPlaceholder')}
-                className="h-7 pl-7 text-xs touch:h-11 touch:pl-8 touch:text-base"
-              />
+            <div className="mt-1 flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={t('myTasks.filters.searchPlaceholder')}
+                  className="h-7 pl-7 text-xs touch:h-11 touch:pl-8 touch:text-base"
+                />
+              </div>
+              {/* Phones: reload + filters sit in the search row (one row instead of three). */}
+              {isMobile && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={refreshAll}
+                    disabled={loading}
+                    aria-label={t('common:actions.reload', { defaultValue: 'Reload' })}
+                    className="h-11 w-11 shrink-0 p-0"
+                  >
+                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setFacetsOpen((v) => !v)}
+                    aria-expanded={facetsOpen}
+                    aria-label={t('myTasks.filters.button', { defaultValue: 'Filters' })}
+                    className={cn(
+                      'relative h-11 w-11 shrink-0 p-0',
+                      (facetsOpen || Object.values(filters).some(Boolean)) && 'border-tone-info text-tone-info',
+                    )}
+                  >
+                    <SlidersHorizontal size={17} />
+                    {Object.values(filters).filter(Boolean).length > 0 && (
+                      <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-tone-info px-1 text-[9px] font-semibold text-white">
+                        {Object.values(filters).filter(Boolean).length}
+                      </span>
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
-          {/* Phones: the seven facet selects fold behind one button that shows how many are in use. */}
-          {isMobile && (
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn('col-span-2', Object.values(filters).some(Boolean) && 'border-tone-info text-tone-info')}
-              aria-expanded={facetsOpen}
-              onClick={() => setFacetsOpen((v) => !v)}
-            >
-              <SlidersHorizontal size={14} />
-              {t('myTasks.filters.button', { defaultValue: 'Filters' })}
-              {Object.values(filters).filter(Boolean).length > 0 && (
-                <span className="rounded-full bg-tone-info px-1.5 text-[11px] font-semibold leading-4 text-white">
-                  {Object.values(filters).filter(Boolean).length}
-                </span>
-              )}
-              <ChevronDown size={13} className={cn('transition-transform', facetsOpen && 'rotate-180')} />
-            </Button>
-          )}
           <div className={isMobile && !facetsOpen ? 'hidden' : 'contents'}>
           <SelectFilter
             label={t('myTasks.filters.type')}
@@ -1112,7 +1132,7 @@ function Column({
         isOver ? 'bg-muted/60' : ''
       }`}
     >
-      <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+      <div className="flex items-center justify-between text-xs font-semibold text-foreground max-md:hidden">
         <span>{meta.label}</span>
         <span className="text-muted-foreground">{cards.length}</span>
       </div>
