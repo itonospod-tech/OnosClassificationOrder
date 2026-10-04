@@ -205,17 +205,21 @@ export function isReworkBadge(p: ProdDeriveFields): boolean {
 }
 
 /**
- * Trạng thái khách của 1 item đã push — plan §1: Processing = chưa từng vào
- * In; In Production = `currentFulfillmentStage` set; Fulfilled = đóng hàng
- * xong; Completed = Fulfilled + N ngày (cutoff tính sẵn từ system_configs).
- * MIRROR với `buildDerivePipeline()`.
+ * Customer status of one PUSHED item: In Production = pushed and not fulfilled yet, whatever
+ * the stage (tool check, design or any fulfillment stage); Fulfilled = packed; Completed =
+ * Fulfilled + N days (cutoff from system_configs). MIRROR of `buildDerivePipeline()`.
+ *
+ * "In Production" = pushed to production, decided 2026-10-04 (LegacyClone-Orders.md §7): the
+ * legacy `process_order` step is the single event "the order leaves the seller for the
+ * factory", which is our push. A pushed item is therefore NEVER "Processing": the push is
+ * atomic, there is no "submitted, waiting" step. Processing stays in the ladder (and stays
+ * empty) for a future pay-before-production gate.
  */
 export function deriveItemStatus(p: ProdDeriveFields, completedCutoff: Date): CustomerOrderStatus {
   if (p.cancelledAt) return CustomerOrderStatus.Cancelled;
   if (p.fulfillmentCompletedAt)
     return p.fulfillmentCompletedAt <= completedCutoff ? CustomerOrderStatus.Completed : CustomerOrderStatus.Fulfilled;
-  if (p.currentFulfillmentStage) return CustomerOrderStatus.InProduction;
-  return CustomerOrderStatus.Processing;
+  return CustomerOrderStatus.InProduction;
 }
 
 // Module-level (not a class field): specs build the service with Object.create(), which skips field initialisers.
@@ -636,9 +640,8 @@ export class CustomerOrderService implements OnModuleInit {
             case: { $ne: [{ $ifNull: ['$$p.fulfillmentCompletedAt', null] }, null] },
             then: { $cond: [{ $lte: ['$$p.fulfillmentCompletedAt', completedCutoff] }, 4, 3] },
           },
-          { case: { $ne: [{ $ifNull: ['$$p.currentFulfillmentStage', null] }, null] }, then: 2 },
         ],
-        default: 1,
+        default: 2 /* pushed, not fulfilled = In Production (see deriveItemStatus) */,
       },
     };
     const reworkCond = {
@@ -710,7 +713,6 @@ export class CustomerOrderService implements OnModuleInit {
                   in: {
                     $switch: {
                       branches: [
-                        { case: { $eq: ['$$minP', 1] }, then: CustomerOrderStatus.Processing },
                         { case: { $eq: ['$$minP', 2] }, then: CustomerOrderStatus.InProduction },
                         { case: { $eq: ['$$minP', 3] }, then: CustomerOrderStatus.Fulfilled },
                       ],
@@ -857,7 +859,7 @@ export class CustomerOrderService implements OnModuleInit {
       if (active.length === 0) status = CustomerOrderStatus.Cancelled;
       else {
         let min = Number.POSITIVE_INFINITY;
-        let minStatus = CustomerOrderStatus.Processing;
+        let minStatus = CustomerOrderStatus.InProduction;
         for (const i of active) {
           const p = CUSTOMER_ORDER_STATUS_PROGRESS[i.status as CustomerOrderStatus] ?? 1;
           if (p < min) {
@@ -1372,12 +1374,12 @@ export class CustomerOrderService implements OnModuleInit {
     }
     const statusFilter: Record<string, unknown> | null =
       opts.status === CustomerOrderStatus.InProduction
-        ? { cancelledAt: null, fulfillmentCompletedAt: null, currentFulfillmentStage: { $ne: null } }
-        : opts.status === CustomerOrderStatus.Processing
-          ? { cancelledAt: null, fulfillmentCompletedAt: null, currentFulfillmentStage: null }
-          : opts.status === CustomerOrderStatus.Fulfilled
+        ? { cancelledAt: null, fulfillmentCompletedAt: null }
+        : opts.status === CustomerOrderStatus.Fulfilled
             ? { cancelledAt: null, fulfillmentCompletedAt: { $gt: opts.cutoff } }
             : null;
+    // No pushed item is ever Processing (deriveItemStatus): an empty candidate set, not "no filter".
+    if (opts.status === CustomerOrderStatus.Processing) sets.push(new Set());
     if (statusFilter) await collect(col.find<{ productionId?: string }>(statusFilter, { projection: { _id: 0, productionId: 1 } }));
     if (opts.held) await collect(col.find<{ productionId?: string }>({ cancelledAt: null, heldAt: { $ne: null } }, { projection: { _id: 0, productionId: 1 } }));
     if (sets.length === 0) return null;

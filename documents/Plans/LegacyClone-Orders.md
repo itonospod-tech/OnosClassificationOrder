@@ -89,7 +89,7 @@ Công sức: S ≤ 0,5 ngày · M ≈ 1–2 ngày · L ≈ 3–5 ngày · XL > 1
 
 | Việc | Commit | Trạng thái |
 |---|---|---|
-| Link menu hub mặc định `?status=processing` | `18f11d3` | Đã gộp `dev` |
+| Link menu hub mặc định `?status=processing` (đổi sang `in-production` theo §7) | `18f11d3` | Đã gộp `dev` |
 | Cột Ghi chú (`customer_orders.note`) | `18f11d3` | Đã gộp `dev` |
 | Lọc xưởng + Ưu tiên (list + counts, chính xác, không trần) | `5b9ab6c` | Đã gộp `dev`, kiểm API: list = counts ở 10 tổ hợp |
 | Tab Thùng rác (chỉ đơn chưa đẩy, admin, có khôi phục) | `456a087`, `3ed1862` | Đã gộp `dev` |
@@ -97,7 +97,7 @@ Công sức: S ≤ 0,5 ngày · M ≈ 1–2 ngày · L ≈ 3–5 ngày · XL > 1
 | Shipments: lọc trạng thái hãng + cột item/địa chỉ + preset ngày | `0759e98` | Xong trên `agent/a1`, chờ gộp |
 | Preset "Last 7 Days" cho hub | (commit này) | Xong trên `agent/a1`, e2e 33/36 (3 đỏ có sẵn) |
 | Bỏ lọc provider (Grabink/Private) | — | Đã duyệt bỏ; hub chưa từng có lọc này nên KHÔNG có gì để gỡ — chỉ ghi nhận ở đây |
-| Nhãn/ngữ nghĩa tab Orders | — | ĐÃ CHỐT 04/10/2026 (§7) — đang làm |
+| Nhãn/ngữ nghĩa tab Orders: In Production = đã đẩy, chưa Fulfilled; Processing luôn rỗng + câu giải thích; link menu hub → `?status=in-production` | (commit này) | Xong trên `agent/a1`, test so khớp JS ↔ pipeline Mongo `derive-status-mirror.spec.ts` |
 | Inventory nhóm SALES | — | BỎ khỏi phạm vi, chốt 04/10/2026 (§8) |
 
 Ảnh chụp hệ cũ: không có — phiên a1 bị chặn đọc production và không đi vòng; cấu trúc giao diện ở bảng do onos-49 khảo sát, chỉ phần tab/cột/lọc/mặc định.

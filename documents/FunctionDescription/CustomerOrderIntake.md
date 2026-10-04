@@ -114,8 +114,8 @@ Chi tiết cách giữ chỗ:
 | Trạng thái | Điều kiện |
 | --- | --- |
 | Pending | staging `pushedAt=null`, `status='pending'` |
-| Processing | đã push, `currentFulfillmentStage=null` && `fulfillmentCompletedAt=null` |
-| In Production | `currentFulfillmentStage` set (kể cả đang rework — badge chồng, KHÔNG tụt về Processing) |
+| Processing | **không bao giờ derive ra** (từ 04/10/2026): đẩy sản xuất là nguyên tử, không có bước "đã gửi, chờ xử lý". Tab giữ lại, luôn 0, ô trống hiện câu giải thích `customerPortal:orders.processingEmpty`; để dành cho cổng trừ ví trước sản xuất (`LegacyClone-Orders.md §7`) |
+| In Production | đã push && `fulfillmentCompletedAt=null` — **bất kể chặng** (soát tool, thiết kế hay bất kỳ công đoạn fulfillment nào; kể cả đang rework — badge chồng). Trước 04/10/2026 phần chưa vào công đoạn fulfillment nào bị tính là Processing |
 | Fulfilled | `fulfillmentCompletedAt` set |
 | Completed | `fulfillmentCompletedAt` ≤ now − N ngày (`system_configs` key `customer_order_completed_days`, default 14) |
 | Refunded | staging `refundedAt` set (flow set chưa build đợt này — tab luôn 0) |

@@ -4,10 +4,11 @@
  *
  * KHÔNG phải trạng thái sản xuất nội bộ: chỉ `pending`/`cancelled` được LƯU
  * trên staging `customer_orders`; các trạng thái còn lại DERIVE at read-time
- * từ `OrderEntity` của từng item đã push (Processing = chưa từng vào In,
- * In Production = đã vào In ≥ 1 lần, Fulfilled = đóng hàng xong, Completed =
- * Fulfilled + N ngày config). Hold + Rework là badge chồng (orthogonal),
- * KHÔNG phải trạng thái.
+ * từ `OrderEntity` của từng item đã push (In Production = pushed, not yet
+ * fulfilled, whatever the stage; Fulfilled = đóng hàng xong, Completed =
+ * Fulfilled + N ngày config). Processing is never derived: push is atomic, the
+ * step stays empty for a future pay-before-production gate (LegacyClone-Orders.md
+ * §7). Hold + Rework là badge chồng (orthogonal), KHÔNG phải trạng thái.
  */
 export enum CustomerOrderStatus {
   Pending = 'pending',
