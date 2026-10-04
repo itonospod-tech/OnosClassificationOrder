@@ -51,7 +51,7 @@ export function Pagination({
         {total === 0 ? t('pagination.noResults') : t('pagination.showing', { from, to, total })}
       </p>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex max-w-full flex-wrap items-center gap-1.5">
         <select
           value={pageSize}
           onChange={(e) => onChange(1, Number(e.target.value))}
@@ -68,7 +68,7 @@ export function Pagination({
         <Button
           variant="outline"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 touch:h-11 touch:w-11 max-sm:hidden"
           onClick={() => go(1)}
           disabled={disabled || safePage === 1}
         >
@@ -77,7 +77,7 @@ export function Pagination({
         <Button
           variant="outline"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 touch:h-11 touch:w-11"
           onClick={() => go(safePage - 1)}
           disabled={disabled || safePage === 1}
         >
@@ -89,7 +89,8 @@ export function Pagination({
             key={p}
             variant={p === safePage ? 'default' : 'outline'}
             size="sm"
-            className="h-8 min-w-8 px-2"
+            // Phones keep only the current page and its neighbours so the row fits 390px.
+            className={cn('h-8 min-w-8 px-2 touch:h-11 touch:min-w-11', Math.abs(p - safePage) > 1 && 'max-sm:hidden')}
             onClick={() => go(p)}
             disabled={disabled}
           >
@@ -100,7 +101,7 @@ export function Pagination({
         <Button
           variant="outline"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 touch:h-11 touch:w-11"
           onClick={() => go(safePage + 1)}
           disabled={disabled || safePage === totalPages}
         >
@@ -109,7 +110,7 @@ export function Pagination({
         <Button
           variant="outline"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 touch:h-11 touch:w-11 max-sm:hidden"
           onClick={() => go(totalPages)}
           disabled={disabled || safePage === totalPages}
         >
