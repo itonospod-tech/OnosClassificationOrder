@@ -8,6 +8,8 @@ export interface StatCardItem {
   key?: string;
   label: React.ReactNode;
   value: React.ReactNode;
+  /** Small leading icon (lucide, size 12) shown beside the label. */
+  icon?: React.ReactNode;
   /** Colors the value by meaning (info = where you are, success = done, warning = waiting/running, danger = error). */
   tone?: StatTone;
   /** Makes the card a button (e.g. drill into the list behind the number). */
@@ -71,7 +73,10 @@ export function StatCards({ items, cols = 4, className }: StatCardsProps) {
       {items.map((it, i) => {
         const body = (
           <>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{it.label}</p>
+            <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+              {it.icon}
+              {it.label}
+            </p>
             <p className={cn('text-lg font-bold tabular-nums', TONE_CLS[it.tone ?? 'neutral'])}>{it.value}</p>
           </>
         );

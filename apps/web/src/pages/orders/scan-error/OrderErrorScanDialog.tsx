@@ -325,7 +325,7 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
     <Dialog open onOpenChange={(o) => !o && !saving && onClose()}>
       {/* Modal gần full màn hình — mockup chiếm 1 nửa trái, form chữ to bên phải. */}
       <DialogContent
-        className="max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] flex flex-col overflow-hidden gap-4"
+        className="max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] flex flex-col overflow-hidden gap-4 max-md:block max-md:h-auto max-md:max-h-[92dvh] max-md:w-full max-md:max-w-none max-md:overflow-y-auto max-md:[&>*+*]:mt-4"
         onKeyDown={(e) => {
           // Máy quét (N-/E-/OK) xử lý trước — nếu đã nuốt event thì thôi.
           if (handleScanKeyDown(e)) return;
@@ -337,13 +337,13 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
         }}
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5 text-2xl">
+          <DialogTitle className="flex items-center gap-2.5 text-2xl max-md:pr-12 max-md:text-lg">
             <MessageSquareWarning size={24} className="text-rose-500" />
             {t('orderErrorDialog.dialogTitle', { productionId: order.productionId })}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 grid gap-6 md:grid-cols-2">
+        <div className="flex-1 min-h-0 grid gap-6 md:grid-cols-2 max-md:gap-4">
           {/* Trái: mockup chiếm 1 nửa, cao hết modal + thông tin đơn chữ to */}
           <div className="min-w-0 min-h-0 flex flex-col gap-3">
             {order.mockupUrl ? (
@@ -352,7 +352,7 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
                 target="_blank"
                 rel="noreferrer"
                 title={t('orderErrorDialog.clickToOpenOriginal')}
-                className="block flex-1 min-h-0 rounded-xl border border-border overflow-hidden bg-checker"
+                className="block flex-1 min-h-0 rounded-xl border border-border overflow-hidden bg-checker max-md:h-[20dvh] max-md:flex-none max-md:[background-image:none] max-md:bg-muted/30"
               >
                 <img
                   src={order.mockupUrl}
@@ -389,8 +389,9 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
           </div>
 
           {/* Phải: hướng dẫn + banner + form gán lỗi — cuộn dọc khi tràn */}
-          <div className="min-w-0 min-h-0 overflow-y-auto space-y-4 pr-1">
+          <div className="min-w-0 min-h-0 overflow-y-auto space-y-4 pr-1 max-md:overflow-visible">
             {/* Hướng dẫn 3 bước CHỮ TO — bọc vùng viền đậm + link thêm lỗi */}
+            <div className="max-md:hidden">
             <GuideZone
               label={t('orderErrorDialog.zoneHowToReport')}
               tone="rose"
@@ -427,6 +428,7 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
                 />
               </div>
             </GuideZone>
+            </div>
 
         {/* Đơn đã hủy → chặn mọi thao tác báo lỗi / đẩy về công đoạn trước. */}
         {orderCancelled && (
@@ -573,33 +575,33 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
         </div>
 
         {stockOutElement}
-        <DialogFooter className="gap-3 shrink-0">
-          <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg">
-            <Printer size={20} className="mr-2" />
+        <DialogFooter className="gap-3 shrink-0 max-md:sticky max-md:bottom-0 max-md:-mx-4 max-md:grid max-md:grid-cols-3 max-md:gap-2 max-md:border-t max-md:bg-background max-md:px-4 max-md:pt-3">
+          <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight">
+            <Printer size={20} className="mr-2 max-md:mr-0" />
             {t('printActions.printTemBtn')}
           </Button>
           <Button
             variant="outline"
             onClick={() => void printLabel()}
             disabled={saving || loadingLabel}
-            className="h-14 px-5 text-lg"
+            className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight"
           >
-            <Tag size={20} className="mr-2" />
+            <Tag size={20} className="mr-2 max-md:mr-0" />
             {t('printActions.printLabelBtn')}
           </Button>
           <Button
             variant="outline"
             onClick={() => void (stockOutOpen ? confirmStockOut() : openStockOut())}
             disabled={saving || stockOutBusy}
-            className="h-14 px-5 text-lg"
+            className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight"
           >
-            <Boxes size={20} className="mr-2" />
+            <Boxes size={20} className="mr-2 max-md:mr-0" />
             {t('stockOut.btn')}
           </Button>
-          <Button variant="outline" onClick={onClose} disabled={saving} className="h-14 px-7 text-lg">
+          <Button variant="outline" onClick={onClose} disabled={saving} className="h-14 px-7 text-lg max-md:hidden">
             {t('common:actions.cancel')}
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit} className="h-14 px-8 text-lg">
+          <Button onClick={handleSubmit} disabled={!canSubmit} className="h-14 px-8 text-lg max-md:col-span-3 max-md:order-first">
             {saving && <Spinner size={20} className="mr-2" />}
             {t('orderErrorDialog.assignAndContinueBtn')}
           </Button>
