@@ -14,6 +14,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  SlidersHorizontal,
   X,
   XCircle,
 } from 'lucide-react';
@@ -30,8 +31,10 @@ import { useWorkshopConfigStore } from '@/store/workshopConfigStore';
 
 import { RepositoryRemote } from '@/services';
 
+import { ColumnTabs } from '@/components/common/ColumnTabs';
 import { DateRangePicker } from '@/components/common/DateRangePicker';
 import { ImagePreviewDialog } from '@/components/common/ImagePreviewDialog';
+import { PageHeader } from '@/components/common/PageHeader';
 import { PipelineDailyOverview } from '@/components/common/PipelineDailyOverview';
 import { SelectFilter } from '@/components/common/SelectFilter';
 import { Button } from '@/components/ui/button';
@@ -39,8 +42,10 @@ import { Input } from '@/components/ui/input';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 import { handleAxiosError } from '@/utils';
+import { cn } from '@/utils/cn';
 
 import { useDebounce } from '@/hooks/useDebounce';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useSidebarResetSignal } from '@/hooks/useSidebarResetSignal';
 
 import { DailyBreakdownPanel } from './DailyBreakdownPanel';
@@ -183,6 +188,11 @@ function planTransition(
 export default function MyTasksPage() {
   const { t } = useTranslation(['designerTaskWorkflow', 'common']);
   const colMeta = useMemo(() => buildColMeta(t), [t]);
+  // Phones: one column at a time from a tab strip, sections reordered so the cards come first, and
+  // the facet selects folded behind a "Filters" button (same pattern as the fulfillment board).
+  const isMobile = useIsMobile();
+  const [mobileCol, setMobileCol] = useState<ColKey | null>(null);
+  const [facetsOpen, setFacetsOpen] = useState(false);
   const [columns, setColumns] = useState<Columns>(EMPTY_COLS);
   const [rejected, setRejected] = useState<DesignerTaskCard[]>([]);
   const [showRejected, setShowRejected] = useState(false);
@@ -624,56 +634,63 @@ export default function MyTasksPage() {
 
   const onPreview = (url: string, title: string, original?: string) => setPreview({ url, title, original });
 
+  // Phone column: the designer's pick, else the first column that has cards.
+  const phoneCols = COL_ORDER.filter(
+    (k) =>
+      (k !== 'rework' || columns.rework.length > 0) &&
+      (k !== 'watching' || columns.watching.length > 0) &&
+      (k !== 'fixed' || columns.fixed.length > 0),
+  );
+  const mobileColActive: ColKey =
+    mobileCol && phoneCols.includes(mobileCol)
+      ? mobileCol
+      : (phoneCols.find((k) => columns[k].length > 0) ?? phoneCols[0] ?? 'assigned');
+
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="space-y-4">
+      {/* Phones reorder the sections (flex + `order-*`): tabs → filters → the cards, THEN the statistics. */}
+      <div className="space-y-4 max-md:flex max-md:flex-col max-md:gap-3 max-md:space-y-0">
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-              <ListChecks size={20} className="text-indigo-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
-                {t('myTasks.greeting')}
-                {fullName ? `, ${fullName}` : ''}
-              </h1>
-              <p className="text-xs text-muted-foreground">{t('myTasks.subtitle')}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* "Xem task của" — chỉ quản lý thấy. Chọn 1 designer → toàn trang
-                (kanban + KPI + Chi tiết theo ngày) đổi sang góc nhìn của người
-                đó và thao tác được y như họ. */}
-            {canViewAs && (
-              <div className="flex items-center gap-1.5">
-                <Eye size={13} className="text-muted-foreground" />
-                <select
-                  value={viewUserId}
-                  onChange={(e) => {
-                    setViewUserId(e.target.value);
-                    // Đổi người xem = đổi hẳn tập task → bỏ chọn cũ, nếu không
-                    // bulk action sẽ bắn lên id của designer trước đó.
-                    setSelected(new Set());
-                  }}
-                  className="h-7 rounded-md border border-input bg-background px-2 text-xs max-w-[220px]"
-                  title={t('myTasks.viewAs.label')}
-                >
-                  <option value="">{t('myTasks.viewAs.self')}</option>
-                  {designers.map((d) => (
-                    <option key={d._id} value={d._id}>
-                      {d.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <Button variant="ghost" size="sm" onClick={refreshAll} disabled={loading}>
-              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          icon={<ListChecks size={20} />}
+          title={`${t('myTasks.greeting')}${fullName ? `, ${fullName}` : ''}`}
+          description={t('myTasks.subtitle')}
+          hideDescriptionOnMobile
+          inlineActionsOnMobile={!canViewAs}
+          actions={
+            <>
+              {/* "Xem task của" — chỉ quản lý thấy. Chọn 1 designer → toàn trang
+                  (kanban + KPI + Chi tiết theo ngày) đổi sang góc nhìn của người
+                  đó và thao tác được y như họ. */}
+              {canViewAs && (
+                <div className="flex items-center gap-1.5">
+                  <Eye size={13} className="text-muted-foreground" />
+                  <select
+                    value={viewUserId}
+                    onChange={(e) => {
+                      setViewUserId(e.target.value);
+                      // Đổi người xem = đổi hẳn tập task → bỏ chọn cũ, nếu không
+                      // bulk action sẽ bắn lên id của designer trước đó.
+                      setSelected(new Set());
+                    }}
+                    className="h-7 max-w-[220px] rounded-md border border-input bg-background px-2 text-xs touch:h-11 touch:text-sm"
+                    title={t('myTasks.viewAs.label')}
+                  >
+                    <option value="">{t('myTasks.viewAs.self')}</option>
+                    {designers.map((d) => (
+                      <option key={d._id} value={d._id}>
+                        {d.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <Button variant="ghost" size="sm" onClick={refreshAll} disabled={loading} aria-label={t('common:actions.reload', { defaultValue: 'Reload' })}>
+                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              </Button>
+            </>
+          }
+        />
 
         {/* Banner "đang xem thay" — bắt buộc phải nổi bật: thao tác trên trang
             này ghi vào task của NGƯỜI KHÁC (order log ghi actor là mình), nhầm
@@ -700,6 +717,7 @@ export default function MyTasksPage() {
 
         {/* Thanh ngày — preset inline full-width */}
         <DateRangePicker
+          className="max-md:order-2"
           variant="inline"
           from={dateFrom}
           to={dateTo}
@@ -712,7 +730,7 @@ export default function MyTasksPage() {
 
         {/* KPI */}
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-8 gap-2 max-md:hidden">
             <KPI label={t('myTasks.kpi.assigned')} value={stats.assignedCount} accent="text-zinc-700 dark:text-zinc-200" />
             <KPI label={t('myTasks.kpi.rework')} value={stats.reworkCount} accent="text-amber-600" />
             <KPI label={t('myTasks.kpi.watching')} value={columns.watching.length} accent="text-sky-600" />
@@ -732,9 +750,26 @@ export default function MyTasksPage() {
           </div>
         )}
 
+        {/* Phones: the KPI tiles become the column picker — tap a count to see that column. */}
+        {isMobile && (
+          <div className="order-1">
+            <ColumnTabs
+              items={COL_ORDER.filter(
+                (k) =>
+                  (k !== 'rework' || columns.rework.length > 0) &&
+                  (k !== 'watching' || columns.watching.length > 0) &&
+                  (k !== 'fixed' || columns.fixed.length > 0),
+              ).map((k) => ({ key: k, label: colMeta[k].label, count: columns[k].length }))}
+              active={mobileColActive}
+              onPick={setMobileCol}
+            />
+          </div>
+        )}
+
         {/* Tổng quan theo ngày — funnel TOÀN CỤC (mọi đơn, không chỉ của bạn),
             highlight lane Designer. Ăn cùng filter ngày; click 1 ngày → lọc về
             đúng ngày đó. Khác với "Chi tiết theo ngày" bên dưới (chỉ đơn của bạn). */}
+        <div className="max-md:order-6">
         <PipelineDailyOverview
           lane="designer"
           from={dateFrom || undefined}
@@ -747,9 +782,11 @@ export default function MyTasksPage() {
           }}
           caption={t('myTasks.pipelineCaption')}
         />
+        </div>
 
         {/* Chi tiết theo ngày — panel focus đơn chưa xong (7/14/30 ngày).
             Click 1 ngày → lọc kanban về đúng ngày đó. */}
+        <div className="max-md:order-6">
         <DailyBreakdownPanel
           selectedDay={dateFrom && dateFrom === dateTo ? dateFrom : undefined}
           onPickDay={(day) => {
@@ -759,9 +796,10 @@ export default function MyTasksPage() {
           reloadToken={breakdownToken}
           viewUserId={effectiveViewUserId || undefined}
         />
+        </div>
 
-        {/* Hint */}
-        <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
+        {/* Hint — Shift/drag tips mean nothing on a touch screen. */}
+        <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground max-md:hidden">
           <MousePointerClick size={13} className="text-primary shrink-0 mt-0.5" />
           <div>
             <strong className="text-foreground">{t('myTasks.hint.title')}</strong> {t('myTasks.hint.textBefore')}{' '}
@@ -770,8 +808,8 @@ export default function MyTasksPage() {
         </div>
 
         {/* Filter bar */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-8 gap-2 rounded-md border border-border bg-card p-2.5">
-          <div>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-8 gap-2 rounded-md border border-border bg-card p-2.5 max-md:order-2">
+          <div className="max-md:col-span-2">
             <label className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
               {t('myTasks.filters.search')}
             </label>
@@ -781,10 +819,30 @@ export default function MyTasksPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={t('myTasks.filters.searchPlaceholder')}
-                className="h-7 pl-7 text-xs"
+                className="h-7 pl-7 text-xs touch:h-11 touch:pl-8 touch:text-base"
               />
             </div>
           </div>
+          {/* Phones: the seven facet selects fold behind one button that shows how many are in use. */}
+          {isMobile && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn('col-span-2', Object.values(filters).some(Boolean) && 'border-tone-info text-tone-info')}
+              aria-expanded={facetsOpen}
+              onClick={() => setFacetsOpen((v) => !v)}
+            >
+              <SlidersHorizontal size={14} />
+              {t('myTasks.filters.button', { defaultValue: 'Filters' })}
+              {Object.values(filters).filter(Boolean).length > 0 && (
+                <span className="rounded-full bg-tone-info px-1.5 text-[11px] font-semibold leading-4 text-white">
+                  {Object.values(filters).filter(Boolean).length}
+                </span>
+              )}
+              <ChevronDown size={13} className={cn('transition-transform', facetsOpen && 'rotate-180')} />
+            </Button>
+          )}
+          <div className={isMobile && !facetsOpen ? 'hidden' : 'contents'}>
           <SelectFilter
             label={t('myTasks.filters.type')}
             value={filters.type}
@@ -830,6 +888,7 @@ export default function MyTasksPage() {
             onChange={(v) => setFilters({ ...filters, errorFile: v })}
             options={filterOptions.errorFile}
           />
+          </div>
         </div>
 
         {/* Kanban — cột "Cần làm lại" + "Đã sửa" chỉ render khi có task (dành chỗ
@@ -850,8 +909,8 @@ export default function MyTasksPage() {
           const gridCls = gridClsByCount[visibleCols.length] ?? gridClsByCount[4];
           return (
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-              <div className={gridCls}>
-                {visibleCols.map((key) => (
+              <div className={cn(isMobile ? 'grid grid-cols-1 gap-3' : gridCls, 'max-md:order-3')}>
+                {(isMobile ? [mobileColActive] : visibleCols).map((key) => (
                   <Column
                     key={key}
                     colKey={key}
@@ -879,7 +938,7 @@ export default function MyTasksPage() {
         })()}
 
         {/* Rejected drawer */}
-        <div className="rounded-md border border-border bg-card">
+        <div className="rounded-md border border-border bg-card max-md:order-5">
           <button
             type="button"
             onClick={() => setShowRejected((s) => !s)}
@@ -1049,7 +1108,7 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-md border-2 ${meta.accent} bg-muted/30 p-2.5 transition-colors min-h-[200px] flex flex-col gap-2 ${
+      className={`rounded-md border-2 ${meta.accent} bg-muted/30 p-2.5 transition-colors min-h-[200px] flex flex-col gap-2 max-md:min-h-0 max-md:border-0 max-md:bg-transparent max-md:p-0 ${
         isOver ? 'bg-muted/60' : ''
       }`}
     >
@@ -1058,7 +1117,7 @@ function Column({
         <span className="text-muted-foreground">{cards.length}</span>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-380px)]">
+      <div className="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-380px)] max-md:max-h-none max-md:overflow-visible">
         {cards.length === 0 && (
           <div className="text-[11px] text-muted-foreground italic text-center py-6">{t('myTasks.column.empty')}</div>
         )}

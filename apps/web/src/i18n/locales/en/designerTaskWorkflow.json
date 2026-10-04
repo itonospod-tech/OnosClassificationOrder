@@ -48,7 +48,8 @@
       "toolResult": "Tool result",
       "toolResultNote": "Tool result note",
       "customer": "Customer",
-      "errorFile": "Error file"
+      "errorFile": "Error file",
+      "button": "Filters"
     },
     "rejectedDrawer": {
       "toggle": "Rejected files ({{count}})",

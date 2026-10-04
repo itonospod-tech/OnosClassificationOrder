@@ -48,7 +48,8 @@
       "toolResult": "Kết quả Tool",
       "toolResultNote": "Note kq Tool",
       "customer": "Khách hàng",
-      "errorFile": "File sửa lỗi"
+      "errorFile": "File sửa lỗi",
+      "button": "Bộ lọc"
     },
     "rejectedDrawer": {
       "toggle": "File không làm được ({{count}})",

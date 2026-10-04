@@ -33,6 +33,7 @@ import { useAuthStore } from '@/store/authStore';
 
 import { RepositoryRemote } from '@/services';
 
+import { ColumnTabs } from '@/components/common/ColumnTabs';
 import { DateRangePicker } from '@/components/common/DateRangePicker';
 import { ImagePreviewDialog } from '@/components/common/ImagePreviewDialog';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -819,11 +820,9 @@ function FulfillmentKanbanView() {
         {/* Phones: the KPI tiles above become a column picker — tap a count to see that column. */}
         {isMobile && (
           <div className="order-1">
-            <MobileColumnTabs
-              cols={visibleCols}
+            <ColumnTabs
+              items={visibleCols.map((k) => ({ key: k, label: colMeta[k].label, count: counts[k] }))}
               active={activeMobileCol}
-              counts={counts}
-              meta={colMeta}
               onPick={setMobileCol}
             />
           </div>
@@ -1291,58 +1290,6 @@ function actionToastLabel(t: TFunction, action: FulfillmentTransitionAction): st
 
 function actionLabelInfinitive(t: TFunction, action: BulkAction): string {
   return action === 'start' ? t('verbs.start') : t('verbs.complete');
-}
-
-/**
- * Phone column picker: the KPI tiles' job on a wide screen, as a swipeable pill row. Each pill is
- * a column + its card count; the active one is the only column shown below.
- */
-function MobileColumnTabs({
-  cols,
-  active,
-  counts,
-  meta,
-  onPick,
-}: {
-  cols: ColKey[];
-  active: ColKey;
-  counts: Record<ColKey, number>;
-  meta: ColMeta;
-  onPick: (k: ColKey) => void;
-}) {
-  return (
-    <div
-      role="tablist"
-      className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-    >
-      {cols.map((k) => {
-        const on = k === active;
-        return (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={on}
-            onClick={() => onPick(k)}
-            className={cn(
-              'inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors',
-              on ? 'border-tone-info bg-tone-info/10 text-tone-info' : 'border-border bg-card text-muted-foreground',
-            )}
-          >
-            {meta[k].label}
-            <span
-              className={cn(
-                'min-w-[1.5rem] rounded-full px-1.5 text-center text-xs font-bold tabular-nums',
-                on ? 'bg-tone-info text-white' : 'bg-muted text-foreground',
-              )}
-            >
-              {counts[k]}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
 function KPI({ label, value, accent }: { label: string; value: number; accent: string }) {
