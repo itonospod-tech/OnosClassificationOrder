@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
 
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
 import { sortCategoryTree } from '@/utils/categoryTree';
@@ -126,60 +126,67 @@ export function ProductCategoryTab() {
             </Button>
           )}
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('categoryTab.table.name')}</TableHead>
-              <TableHead>{t('categoryTab.table.shortName')}</TableHead>
-              <TableHead>{t('categoryTab.table.status')}</TableHead>
-              <TableHead className="w-20"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8">
-                  <Spinner size={20} className="text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground text-sm">
-                  {t('categoryTab.table.empty')}
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading &&
-              sortCategoryTree(items).map((it) => (
-                <TableRow key={it._id}>
-                  <TableCell className="font-medium">
-                    <span style={{ paddingLeft: it.depth * 20 }} className="inline-flex items-center gap-1.5">
-                      {it.depth > 0 && <span className="text-muted-foreground">└</span>}
-                      {it.name}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{it.shortName}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {it.isActive ? (
-                      <Badge variant="success">{t('categoryTab.table.active')}</Badge>
-                    ) : (
-                      <Badge variant="secondary">{t('categoryTab.table.inactive')}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {canManageProducts && (
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(it)}>
-                        {t('common:actions.edit')}
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Spinner size={20} className="text-muted-foreground" />
+          </div>
+        ) : (
+          <ResponsiveList
+            rows={sortCategoryTree(items)}
+            rowKey={(it) => it._id}
+            onRowClick={canManageProducts ? openEdit : undefined}
+            empty={t('categoryTab.table.empty')}
+            columns={[
+              {
+                key: 'name',
+                header: t('categoryTab.table.name'),
+                mobile: 'title',
+                cell: (it) => (
+                  <span style={{ paddingLeft: it.depth * 20 }} className="inline-flex items-center gap-1.5 font-medium">
+                    {it.depth > 0 && <span className="text-muted-foreground">└</span>}
+                    {it.name}
+                  </span>
+                ),
+              },
+              {
+                key: 'shortName',
+                header: t('categoryTab.table.shortName'),
+                mobile: 'subtitle',
+                cell: (it) => <Badge variant="outline">{it.shortName}</Badge>,
+              },
+              {
+                key: 'status',
+                header: t('categoryTab.table.status'),
+                mobile: 'trailing',
+                cell: (it) =>
+                  it.isActive ? (
+                    <Badge variant="success">{t('categoryTab.table.active')}</Badge>
+                  ) : (
+                    <Badge variant="secondary">{t('categoryTab.table.inactive')}</Badge>
+                  ),
+              },
+              {
+                key: 'actions',
+                header: '',
+                className: 'w-20',
+                mobile: 'hidden',
+                cell: (it) =>
+                  canManageProducts && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEdit(it);
+                      }}
+                    >
+                      {t('common:actions.edit')}
+                    </Button>
+                  ),
+              },
+            ]}
+          />
+        )}
       </div>
 
       <Dialog open={form.open} onOpenChange={(open) => !open && setForm(DEFAULT_FORM)}>
