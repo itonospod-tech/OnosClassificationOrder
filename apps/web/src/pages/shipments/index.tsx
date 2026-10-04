@@ -13,11 +13,11 @@ import { RepositoryRemote } from '@/services';
 import { DateRangePicker } from '@/components/common/DateRangePicker';
 import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
@@ -304,113 +304,140 @@ function ShipmentsContent() {
           ))}
         </div>
         <div className="rounded-lg border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('table.createdAt')}</TableHead>
-                <TableHead>{t('table.package')}</TableHead>
-                <TableHead>{t('table.items')}</TableHead>
-                <TableHead>{t('table.shipTo')}</TableHead>
-                <TableHead>{t('table.tracking')}</TableHead>
-                <TableHead>{t('table.service')}</TableHead>
-                <TableHead className="text-right">{t('table.cost')}</TableHead>
-                <TableHead className="text-right">{t('table.sellerPrice')}</TableHead>
-                <TableHead>{t('table.status')}</TableHead>
-                <TableHead>{t('table.label')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading && rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={10} className="py-8 text-center">
-                    <Spinner />
-                  </TableCell>
-                </TableRow>
-              )}
-              {!loading && rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
-                    {t('table.empty')}
-                  </TableCell>
-                </TableRow>
-              )}
-              {rows.map((rec) => (
-                <TableRow key={rec._id} className="cursor-pointer" onClick={() => setSelected(rec)}>
-                  <TableCell className="whitespace-nowrap text-xs">
-                    {rec.createdAt ? dayjs(rec.createdAt).format('DD/MM/YYYY HH:mm') : '—'}
-                    {/* Creator folded under the date: one column less, no horizontal scroll at 1440 px. */}
-                    {rec.createdByUserName && <div className="text-muted-foreground">{rec.createdByUserName}</div>}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    <div className="font-mono">{rec.package?.code ?? rec.packageId}</div>
-                    <div className="text-muted-foreground">
-                      {(rec.package?.productionIds ?? []).slice(0, 3).join(', ')}
-                      {(rec.package?.productionIds?.length ?? 0) > 3
-                        ? ` +${(rec.package?.productionIds?.length ?? 0) - 3}`
-                        : ''}
+          {/* Table on wide screens, tappable cards on phones (ResponsiveList). */}
+          {loading && rows.length === 0 ? (
+            <div className="flex justify-center py-8">
+              <Spinner />
+            </div>
+          ) : (
+            <ResponsiveList
+              className="p-3 md:p-0"
+              rows={rows}
+              rowKey={(rec) => rec._id}
+              onRowClick={setSelected}
+              empty={t('table.empty')}
+              columns={[
+                {
+                  key: 'createdAt',
+                  header: t('table.createdAt'),
+                  className: 'whitespace-nowrap',
+                  cell: (rec) => (
+                    <div className="text-xs">
+                      {rec.createdAt ? dayjs(rec.createdAt).format('DD/MM/YYYY HH:mm') : '—'}
+                      {/* Creator folded under the date: one column less, no horizontal scroll at 1440 px. */}
+                      {rec.createdByUserName && <div className="text-muted-foreground">{rec.createdByUserName}</div>}
                     </div>
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {(rec.items ?? []).slice(0, 2).map((it) => (
-                      <div key={it.productionId} className="max-w-[200px] truncate">
-                        {[it.type, [it.color, it.size].filter(Boolean).join('/')].filter(Boolean).join(' · ') || it.productionId}
+                  ),
+                },
+                {
+                  key: 'package',
+                  header: t('table.package'),
+                  cell: (rec) => (
+                    <div className="text-xs">
+                      <div className="font-mono">{rec.package?.code ?? rec.packageId}</div>
+                      <div className="text-muted-foreground">
+                        {(rec.package?.productionIds ?? []).slice(0, 3).join(', ')}
+                        {(rec.package?.productionIds?.length ?? 0) > 3
+                          ? ` +${(rec.package?.productionIds?.length ?? 0) - 3}`
+                          : ''}
                       </div>
-                    ))}
-                    {(rec.items?.length ?? 0) > 2 && (
-                      <div className="text-muted-foreground">{t('table.moreItems', { count: (rec.items?.length ?? 0) - 2 })}</div>
-                    )}
-                    {!rec.items?.length && '—'}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {rec.shipTo ? (
-                      <>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'items',
+                  header: t('table.items'),
+                  cell: (rec) => (
+                    <div className="text-xs">
+                      {(rec.items ?? []).slice(0, 2).map((it) => (
+                        <div key={it.productionId} className="max-w-[200px] truncate">
+                          {[it.type, [it.color, it.size].filter(Boolean).join('/')].filter(Boolean).join(' · ') || it.productionId}
+                        </div>
+                      ))}
+                      {(rec.items?.length ?? 0) > 2 && (
+                        <div className="text-muted-foreground">{t('table.moreItems', { count: (rec.items?.length ?? 0) - 2 })}</div>
+                      )}
+                      {!rec.items?.length && '—'}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'shipTo',
+                  header: t('table.shipTo'),
+                  mobile: 'subtitle',
+                  cell: (rec) =>
+                    rec.shipTo ? (
+                      <div className="text-xs">
                         <div className="max-w-[180px] truncate">{[rec.shipTo.firstName, rec.shipTo.lastName].filter(Boolean).join(' ') || '—'}</div>
                         <div className="max-w-[180px] truncate text-muted-foreground">
                           {[rec.shipTo.city, [rec.shipTo.state, rec.shipTo.postcode].filter(Boolean).join(' '), rec.shipTo.country].filter(Boolean).join(', ')}
                         </div>
-                      </>
+                      </div>
                     ) : (
                       '—'
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{rec.trackingCode ?? '—'}</TableCell>
-                  <TableCell className="text-xs">{rec.service ?? '—'}</TableCell>
-                  <TableCell className="text-right font-mono text-xs">{rec.shippingCost ?? '—'}</TableCell>
-                  <TableCell className="text-right font-mono text-xs">
-                    {rec.sellerPrice != null ? `$${rec.sellerPrice.toFixed(2)}` : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col items-start gap-1">
-                      <StatusBadge status={rec.status} />
-                      {(() => {
-                        const p = carrierPhaseOf(rec);
-                        return p ? (
+                    ),
+                },
+                {
+                  key: 'tracking',
+                  header: t('table.tracking'),
+                  mobile: 'title',
+                  cell: (rec) => <span className="font-mono text-xs">{rec.trackingCode ?? '—'}</span>,
+                },
+                { key: 'service', header: t('table.service'), cell: (rec) => <span className="text-xs">{rec.service ?? '—'}</span> },
+                {
+                  key: 'cost',
+                  header: t('table.cost'),
+                  className: 'text-right',
+                  cell: (rec) => <span className="font-mono text-xs">{rec.shippingCost ?? '—'}</span>,
+                },
+                {
+                  key: 'sellerPrice',
+                  header: t('table.sellerPrice'),
+                  className: 'text-right',
+                  cell: (rec) => (
+                    <span className="font-mono text-xs">{rec.sellerPrice != null ? `$${rec.sellerPrice.toFixed(2)}` : '—'}</span>
+                  ),
+                },
+                {
+                  key: 'status',
+                  header: t('table.status'),
+                  mobile: 'trailing',
+                  cell: (rec) => {
+                    const p = carrierPhaseOf(rec);
+                    return (
+                      <div className="flex flex-col items-start gap-1">
+                        <StatusBadge status={rec.status} />
+                        {p && (
                           <span
                             title={rec.lastTrackingStatus}
                             className={cn('inline-flex rounded px-1.5 py-0.5 text-[11px] font-medium', PHASE_BADGE_CLS[p])}
                           >
                             {t(`phase.${p}`)}
                           </span>
-                        ) : null;
-                      })()}
-                    </div>
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    {rec.labelUrl && rec.status !== 'cancelled' && (
+                        )}
+                      </div>
+                    );
+                  },
+                },
+                {
+                  key: 'label',
+                  header: t('table.label'),
+                  cell: (rec) =>
+                    rec.labelUrl && rec.status !== 'cancelled' ? (
                       <a
                         href={rec.labelUrl}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="inline-flex items-center gap-1 text-xs text-primary underline"
                       >
                         <ExternalLink size={12} /> {t('timeline.openLabel')}
                       </a>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    ) : null,
+                },
+              ]}
+            />
+          )}
           <PaginationBar
             position="bottom"
             page={page}

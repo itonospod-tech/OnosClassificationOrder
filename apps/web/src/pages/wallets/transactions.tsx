@@ -12,10 +12,10 @@ import { RepositoryRemote } from '@/services';
 
 import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
@@ -219,83 +219,106 @@ function WalletTransactionsContent() {
       />
 
       <div className="relative overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('txns.columns.time')}</TableHead>
-              <TableHead>{t('txns.columns.seller')}</TableHead>
-              <TableHead>{t('txns.columns.kind')}</TableHead>
-              <TableHead className="text-right">{t('txns.columns.amount')}</TableHead>
-              <TableHead className="text-right">{t('txns.columns.balance')}</TableHead>
-              <TableHead>{t('txns.columns.orders')}</TableHead>
-              <TableHead>{t('txns.columns.note')}</TableHead>
-              <TableHead>{t('txns.columns.by')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row._id}>
-                <TableCell className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
-                  {row.createdAt ? dayjs(row.createdAt).format('DD/MM/YYYY HH:mm') : ''}
-                </TableCell>
-                <TableCell>
-                  <Link
-                    to={`${PATHS.WALLETS}?customer=${encodeURIComponent(row.customerId)}`}
-                    className="font-medium text-slate-800 hover:underline dark:text-slate-100"
-                  >
-                    {row.fullName || row.userSku}
-                  </Link>
-                  <div className="text-xs text-slate-500">
-                    {row.userSku}
-                    {row.userEmail ? ` · ${row.userEmail}` : ''}
-                  </div>
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-xs">{t(`kinds.${row.kind}`)}</TableCell>
-                <TableCell
-                  className={cn(
-                    'whitespace-nowrap text-right font-semibold tabular-nums',
-                    row.amount < 0 ? 'text-red-600' : 'text-emerald-600',
-                  )}
-                >
-                  {row.amount > 0 ? '+' : ''}
-                  {formatUsd(row.amount)}
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-right text-xs tabular-nums text-slate-600 dark:text-slate-300">
-                  {formatUsd(row.balanceBefore)} → {formatUsd(row.balanceAfter)}
-                </TableCell>
-                <TableCell className="text-xs text-slate-600 dark:text-slate-300">
-                  {row.productionIds.slice(0, MAX_ORDERS_SHOWN).map((id) => (
-                    <div key={id} className="font-mono">
-                      {id}
-                    </div>
-                  ))}
-                  {row.productionIds.length > MAX_ORDERS_SHOWN && (
-                    <div className="text-slate-400">
-                      {t('txns.moreOrders', { count: row.productionIds.length - MAX_ORDERS_SHOWN })}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="max-w-[240px] break-words text-xs text-slate-600 dark:text-slate-300">
-                  {row.note}
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
-                  {row.byUserName || t('ledger.system')}
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-sm text-slate-500">
-                  {t('txns.empty')}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        {loading && rows.length === 0 && (
+        {/* Table on wide screens, cards on phones (ResponsiveList). */}
+        {loading && rows.length === 0 ? (
           <div className="flex justify-center py-10">
             <Spinner />
           </div>
+        ) : (
+          <ResponsiveList
+            className="p-3 md:p-0"
+            rows={rows}
+            rowKey={(row) => row._id}
+            empty={t('txns.empty')}
+            columns={[
+              {
+                key: 'time',
+                header: t('txns.columns.time'),
+                className: 'whitespace-nowrap',
+                cell: (row) => (
+                  <span className="text-xs text-muted-foreground">
+                    {row.createdAt ? dayjs(row.createdAt).format('DD/MM/YYYY HH:mm') : ''}
+                  </span>
+                ),
+              },
+              {
+                key: 'seller',
+                header: t('txns.columns.seller'),
+                mobile: 'title',
+                cell: (row) => (
+                  <div>
+                    <Link
+                      to={`${PATHS.WALLETS}?customer=${encodeURIComponent(row.customerId)}`}
+                      className="font-medium text-foreground hover:underline"
+                    >
+                      {row.fullName || row.userSku}
+                    </Link>
+                    <div className="text-xs font-normal text-muted-foreground">
+                      {row.userSku}
+                      {row.userEmail ? ` · ${row.userEmail}` : ''}
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: 'kind',
+                header: t('txns.columns.kind'),
+                mobile: 'subtitle',
+                className: 'whitespace-nowrap',
+                cell: (row) => <span className="text-xs">{t(`kinds.${row.kind}`)}</span>,
+              },
+              {
+                key: 'amount',
+                header: t('txns.columns.amount'),
+                mobile: 'trailing',
+                className: 'whitespace-nowrap text-right',
+                cell: (row) => (
+                  <span className={cn('font-semibold tabular-nums', row.amount < 0 ? 'text-tone-danger' : 'text-tone-success')}>
+                    {row.amount > 0 ? '+' : ''}
+                    {formatUsd(row.amount)}
+                  </span>
+                ),
+              },
+              {
+                key: 'balance',
+                header: t('txns.columns.balance'),
+                className: 'whitespace-nowrap text-right',
+                cell: (row) => (
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {formatUsd(row.balanceBefore)} → {formatUsd(row.balanceAfter)}
+                  </span>
+                ),
+              },
+              {
+                key: 'orders',
+                header: t('txns.columns.orders'),
+                cell: (row) => (
+                  <div className="text-xs text-muted-foreground">
+                    {row.productionIds.slice(0, MAX_ORDERS_SHOWN).map((id) => (
+                      <div key={id} className="font-mono">
+                        {id}
+                      </div>
+                    ))}
+                    {row.productionIds.length > MAX_ORDERS_SHOWN && (
+                      <div>{t('txns.moreOrders', { count: row.productionIds.length - MAX_ORDERS_SHOWN })}</div>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                key: 'note',
+                header: t('txns.columns.note'),
+                className: 'max-w-[240px]',
+                cell: (row) => <span className="break-words text-xs text-muted-foreground">{row.note}</span>,
+              },
+              {
+                key: 'by',
+                header: t('txns.columns.by'),
+                className: 'whitespace-nowrap',
+                cell: (row) => <span className="text-xs text-muted-foreground">{row.byUserName || t('ledger.system')}</span>,
+              },
+            ]}
+          />
         )}
       </div>
 
