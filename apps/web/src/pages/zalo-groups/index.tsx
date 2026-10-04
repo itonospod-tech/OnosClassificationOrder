@@ -167,7 +167,7 @@ export default function ZaloGroupsPage() {
   const unreviewed = coverage?.byKind?.[ZaloGroupKind.Unreviewed] ?? 0;
 
   return (
-    <div className="space-y-5 p-5">
+    <div className="space-y-5 md:p-5">
 
       <PageHeader
         icon={<MessageSquare size={20} />}
