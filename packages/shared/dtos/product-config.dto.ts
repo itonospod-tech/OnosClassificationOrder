@@ -205,6 +205,8 @@ export const ProductConfigZod = BaseEntityZod.extend({
   images: z.array(z.string().max(1000)).max(20).optional(),
   /** ref CollectionEntity — 1 sản phẩm thuộc nhiều collection (multi-select). */
   collectionIds: IDZod.array().max(20).optional(),
+  /** ref ProductTagEntity — many tags per product (multi-select). */
+  productTagIds: IDZod.array().max(30).optional(),
   /** Cấp độ sản phẩm 1..10 (PRODUCT_LEVELS) — hiển thị badge màu. */
   level: z.number().int().min(1).max(10).optional(),
   /** Hướng dẫn / ghi chú sản xuất (HTML từ rich text editor). */
@@ -326,6 +328,7 @@ export const CreateProductConfigZod = z.object({
   mockup: ProductConfigZod.shape.mockup,
   images: ProductConfigZod.shape.images,
   collectionIds: ProductConfigZod.shape.collectionIds,
+  productTagIds: ProductConfigZod.shape.productTagIds,
   level: ProductConfigZod.shape.level,
   guide: ProductConfigZod.shape.guide,
   productCategoryId: ProductConfigZod.shape.productCategoryId,
@@ -374,6 +377,7 @@ export const UpdateProductConfigZod = z.object({
   mockup: ProductConfigZod.shape.mockup,
   images: ProductConfigZod.shape.images,
   collectionIds: ProductConfigZod.shape.collectionIds,
+  productTagIds: ProductConfigZod.shape.productTagIds,
   level: ProductConfigZod.shape.level,
   guide: ProductConfigZod.shape.guide,
   productCategoryId: ProductConfigZod.shape.productCategoryId,

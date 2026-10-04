@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useProductWriteAccess } from '@/hooks/useProductWriteAccess';
 
 import { CollectionTab } from './CollectionTab';
+import { ProductTagTab } from './ProductTagTab';
 import { FactoryTab } from './FactoryTab';
 import { ProductCategoryTab } from './ProductCategoryTab';
 import { ProductConfigActions } from './ProductConfigActions';
@@ -46,6 +47,7 @@ export default function Products() {
           <TabsTrigger value="config">{t('page.tabs.config')}</TabsTrigger>
           <TabsTrigger value="category">{t('page.tabs.category')}</TabsTrigger>
           <TabsTrigger value="collection">{t('page.tabs.collection')}</TabsTrigger>
+          <TabsTrigger value="tag">{t('page.tabs.tag')}</TabsTrigger>
           <TabsTrigger value="factory">{t('page.tabs.factory')}</TabsTrigger>
         </TabsList>
         <TabsContent value="config">
@@ -56,6 +58,9 @@ export default function Products() {
         </TabsContent>
         <TabsContent value="collection">
           <CollectionTab />
+        </TabsContent>
+        <TabsContent value="tag">
+          <ProductTagTab />
         </TabsContent>
         <TabsContent value="factory">
           <FactoryTab />

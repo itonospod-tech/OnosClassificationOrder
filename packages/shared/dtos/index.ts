@@ -5,6 +5,7 @@ export * from './artwork.dto';
 export * from './category.dto';
 export * from './ceo-dashboard.dto';
 export * from './collection.dto';
+export * from './product-tag.dto';
 export * from './common.dto';
 export * from './content.dto';
 export * from './cronjob.dto';
