@@ -95,6 +95,7 @@ Luật chung: luồng push GIỮ `waived` cho tới khi chủ dự án duyệt. 
 - **#1 sổ chi phí sản xuất chế độ bóng — XONG** (04/10/2026): `production_cost_entries`, xem `CustomerOrderIntake.md` §3.3b. Giá vốn = `variations[].cost` (xác nhận bằng số prod: cost 5,60 < nonShipCost 6,30 < retailPrice 14,51; 2.224/2.250 biến thể có nonShipCost cao hơn cost).
 - **#2 danh sách giao dịch mọi seller — XONG** (04/10/2026): `GET admin/customer-wallets/transactions` + trang `/adm/wallets/transactions`, xem `SellerWallet.md` §3/§4. Mục menu chưa thêm (Sidebar thuộc a2): link nên là `/adm/wallets/transactions?range=7d`.
 - **#5 thêm loại tiền `import_tax`/`active`/`refund` — XONG phần khai báo** (04/10/2026): chỉ thêm vào `WALLET_TXN_KINDS` + nhãn + màu, CHƯA có dòng nào được ghi (việc ghi thuộc #3).
+- **#6 dialog nạp / điều chỉnh / hạn mức ở `/adm/wallets` — XONG** (04/10/2026): hai bước, đọc lại ví thật, ô tích ≥ $1.000, link chứng từ, chống ghi đôi 4 lớp, dấu vết đổi hạn mức; xem `SellerWallet.md` §4/§5.1/§5.2. **Chưa ai thử với backend + đăng nhập thật.**
 - #3 động cơ tính tiền — CHƯA bắt đầu: chờ chủ dự án duyệt bật tính tiền thật và trả lời ba câu về giá.
 
 ## 6. Cách đối soát tiền đơn: `customer_payments` (waived) so với giao dịch Payment hệ cũ

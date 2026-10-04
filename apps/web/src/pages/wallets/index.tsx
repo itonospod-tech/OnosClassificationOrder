@@ -90,8 +90,6 @@ function WalletsContent() {
     };
   }, [search, activeOnly, page, pageSize, reloadTick]);
 
-  const openRow = rows.find((r) => r.customerId === openCustomerId) ?? null;
-
   return (
     <div className="space-y-4">
       <PageHeader
@@ -133,7 +131,7 @@ function WalletsContent() {
             type="checkbox"
             checked={activeOnly}
             onChange={(e) => updateParams({ activeOnly: e.target.checked ? 'true' : null })}
-            className="h-4 w-4 accent-primary-600"
+            className="h-4 w-4 accent-primary"
           />
           {t('activeOnly')}
         </label>
@@ -230,10 +228,10 @@ function WalletsContent() {
 
       <WalletLedgerSheet
         customerId={openCustomerId}
-        row={openRow}
         kind={params.get('kind')}
         onKindChange={(kind) => updateParams({ kind })}
         onClose={() => updateParams({ customer: null, kind: null })}
+        onChanged={() => setReloadTick((n) => n + 1)}
       />
     </div>
   );

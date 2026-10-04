@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { IDZod } from '..';
 import {
+  normalizeExternalTxnId,
   previewWalletOperation,
   requiresStatementCheck,
   WALLET_BIG_AMOUNT_USD,
@@ -26,7 +27,7 @@ import {
  */
 // Hằng runtime nest-free — dời sang `client/wallet.ts` (apps/seller cần render badge/filter).
 export { WALLET_TXN_KINDS, type WalletTxnKind };
-export { previewWalletOperation, requiresStatementCheck, WALLET_BIG_AMOUNT_USD };
+export { normalizeExternalTxnId, previewWalletOperation, requiresStatementCheck, WALLET_BIG_AMOUNT_USD };
 export type { WalletOperationMode, WalletOperationPreview };
 export const WalletTxnKindZod = z.enum(WALLET_TXN_KINDS);
 

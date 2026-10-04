@@ -1,4 +1,4 @@
-import { normalizeExternalTxnId } from './wallet-topup';
+import { normalizeExternalTxnId } from 'shared';
 
 describe('normalizeExternalTxnId', () => {
   it('treats case and stray whitespace as the same reference', () => {

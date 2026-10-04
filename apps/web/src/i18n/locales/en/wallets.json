@@ -29,7 +29,10 @@
       "note": "Note",
       "by": "By"
     },
-    "system": "System"
+    "system": "System",
+    "history": "Credit limit history",
+    "historyEmpty": "The limit has never been changed.",
+    "historyChange": "{{from}} → {{to}}"
   },
   "kinds": {
     "topup": "Top-up",
@@ -72,5 +75,89 @@
     },
     "moreOrders": "+{{count}} more",
     "empty": "No transactions match the filters."
+  },
+  "actions": {
+    "topup": "Top up",
+    "adjust": "Adjust",
+    "credit": "Credit limit"
+  },
+  "dialog": {
+    "title": {
+      "topup": "Top up {{name}}",
+      "adjust": "Adjust wallet of {{name}}",
+      "credit": "Credit limit of {{name}}"
+    },
+    "current": {
+      "balance": "Current balance",
+      "creditLimit": "Credit limit",
+      "available": "Available"
+    },
+    "fields": {
+      "amountTopup": "Top-up amount (USD)",
+      "amountAdjust": "Adjustment amount (USD)",
+      "amountCredit": "New limit (USD)",
+      "note": "Note (required)",
+      "noteCredit": "Reason for the change (required)",
+      "externalTxnId": "Bank transaction ID",
+      "attachmentUrl": "Proof link"
+    },
+    "hints": {
+      "adjust": "Positive = credit the wallet, negative = debit it. Use for refunds or fixing mistakes.",
+      "credit": "The balance may go down to −limit. 0 = no debt allowed.",
+      "externalTxnId": "Each ID can be credited only ONCE, for any seller. Paste it exactly as on the statement.",
+      "attachmentUrl": "Paste a link to the proof image/file (http or https). Direct upload comes later.",
+      "notePlaceholderTopup": "e.g. Techcombank 03/10 — 200 USD"
+    },
+    "errors": {
+      "amountRequired": "Enter a valid amount.",
+      "amountSign": "A top-up must be greater than 0.",
+      "amountZero": "An adjustment must not be 0.",
+      "amountMax": "At most 1,000,000 USD at a time.",
+      "amountDecimals": "At most 2 decimal places.",
+      "limitNegative": "The limit cannot be negative.",
+      "limitSame": "The new limit equals the current one.",
+      "noteRequired": "A note is required.",
+      "urlInvalid": "The link must start with http:// or https://."
+    },
+    "review": {
+      "heading": "Check before it is written",
+      "seller": "Seller",
+      "amount": "Amount",
+      "balance": "Balance before → after",
+      "limit": "Credit limit before → after",
+      "available": "Available after",
+      "note": "Note",
+      "externalTxnId": "Transaction ID",
+      "attachment": "Proof",
+      "none": "None",
+      "loading": "Reading the latest balance…",
+      "blocked": "Cannot adjust: the balance would fall below the allowed credit limit.",
+      "overLimit": "After this change the seller is over their credit limit (balance below −limit).",
+      "checkStatement": "I have checked this amount against the bank statement / supporting documents.",
+      "checkLimit": "I confirm this limit has been approved.",
+      "bigAmount": "Amounts of {{threshold}} or more must be checked before writing.",
+      "bigLimit": "Raising the limit by {{threshold}} or more needs confirmation that it was approved.",
+      "retryHint": "If the connection drops, just press again: the system recognises the same request and will not write twice.",
+      "networkError": "The connection dropped before an answer arrived, so it is not known whether the write went through. Press again to be sure — the system will not write twice."
+    },
+    "confirm": {
+      "topup": "Top up {{amount}}",
+      "adjust": "Adjust {{amount}}",
+      "credit": "Set limit {{amount}}"
+    },
+    "buttons": {
+      "next": "Continue",
+      "back": "Back",
+      "cancel": "Cancel",
+      "close": "Close",
+      "processing": "Writing…"
+    },
+    "done": {
+      "applied": "Written successfully.",
+      "replayed": "An earlier attempt of this request had already gone through — NOTHING more was written this time.",
+      "balance": "New balance",
+      "creditLimit": "New limit",
+      "unchanged": "The limit is unchanged, nothing was written."
+    }
   }
 }

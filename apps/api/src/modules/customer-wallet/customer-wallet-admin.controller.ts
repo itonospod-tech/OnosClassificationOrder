@@ -13,6 +13,7 @@ import {
   GetCreditLimitHistoryResDto,
   GetCustomerWalletTxnsDto,
   GetCustomerWalletTxnsResDto,
+  normalizeExternalTxnId,
   RoleType,
   TopupWalletDto,
   UpdateCreditLimitDto,
@@ -24,7 +25,6 @@ import { Auth } from '@/decorators';
 import type { UserDocument } from '@/modules/user/user.entity';
 
 import { CustomerWalletService } from './customer-wallet.service';
-import { normalizeExternalTxnId } from './wallet-topup';
 
 /**
  * Quản trị ví seller ở hub (SellerPortal.md §9) — nạp tay phase 1 (seller

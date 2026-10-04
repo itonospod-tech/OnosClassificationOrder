@@ -90,3 +90,14 @@ export function previewWalletOperation(
     blocked: amount < 0 && balanceAfter < -creditLimitBefore,
   };
 }
+
+/**
+ * Canonical form of a bank/payment reference before it is stored and checked for reuse. References are
+ * case-insensitive and often copied with stray spaces ("abc 123" and "ABC123" are the same transfer), so
+ * without this the "credited only once" rule would be trivially bypassed. Blank input gives undefined.
+ * The server applies it to what it stores, and the staff dialog shows the SAME result before saving.
+ */
+export function normalizeExternalTxnId(raw: string | undefined | null): string | undefined {
+  const normalized = (raw ?? '').replace(/\s+/g, '').toUpperCase();
+  return normalized || undefined;
+}
