@@ -79,7 +79,10 @@ export function carrierPhaseFilter(phase: CarrierPhase): MongoCond {
   const idx = CARRIER_PHASE_RULES.findIndex((r) => r.phase === phase);
   const earlier = (idx < 0 ? CARRIER_PHASE_RULES : CARRIER_PHASE_RULES.slice(0, idx)).map((r) => textMatches(r.pattern));
   const notEarlier = earlier.length ? { $nor: earlier } : {};
-  const ruled = idx >= 0 ? [{ ...textMatches(CARRIER_PHASE_RULES[idx].pattern), ...notEarlier }] : [];
+  // `idx >= 0` already guarantees the rule exists; the index read needs the
+  // local binding to say so under noUncheckedIndexedAccess.
+  const rule = idx >= 0 ? CARRIER_PHASE_RULES[idx] : undefined;
+  const ruled = rule ? [{ ...textMatches(rule.pattern), ...notEarlier }] : [];
   if (phase === 'processing') {
     return { $and: [live, { $or: [{ ...NO_TEXT, provider: { $ne: UNTRACKED_PROVIDER } }, ...ruled] }] };
   }
