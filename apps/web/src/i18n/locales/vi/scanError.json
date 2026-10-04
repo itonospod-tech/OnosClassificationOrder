@@ -122,7 +122,8 @@
     "reportErrorBtn": "Báo lỗi",
     "completeBtn": "Hoàn thành (Enter)",
     "reportThisOrderBtn": "Báo lỗi đơn này",
-    "closeContinueBtn": "Đóng & quét tiếp (Enter)"
+    "closeContinueBtn": "Đóng & quét tiếp (Enter)",
+    "completeBtnShort": "Hoàn thành"
   },
   "orderErrorDialog": {
     "sourceLabels": {
