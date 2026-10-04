@@ -1,5 +1,5 @@
 import type { OnModuleInit } from '@nestjs/common';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
@@ -83,6 +83,9 @@ import { workshopStageSwitchExpr } from '@/utils/workshop-stage';
 import type { CustomerOrderItem } from './customer-order.entity';
 import { CustomerOrderEntity } from './customer-order.entity';
 import { CustomerPaymentEntity } from './customer-payment.entity';
+import type { ProductionCostInput } from './production-cost';
+import { buildProductionCostRows } from './production-cost';
+import { ProductionCostEntryEntity } from './production-cost.entity';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -213,6 +216,9 @@ export function deriveItemStatus(p: ProdDeriveFields, completedCutoff: Date): Cu
   return CustomerOrderStatus.Processing;
 }
 
+// Module-level (not a class field): specs build the service with Object.create(), which skips field initialisers.
+const productionCostLogger = new Logger('ProductionCostShadow');
+
 /** Config + variation resolve được từ SKU / type — context chốt giá dùng chung import/preview/push. */
 interface PricingConfig {
   _id: string;
@@ -232,6 +238,8 @@ interface PricingConfig {
     status?: string;
     retailPrice?: number;
     nonShipCost?: number;
+    /** Our production cost per unit (legacy base_price). Shadow ledger only — never shown to the seller. */
+    cost?: number;
     /** Cân nặng gram + kích thước đóng gói cm — đi theo đơn tới xưởng và tới bước mua vận đơn. */
     weight?: number;
     width?: number;
@@ -276,6 +284,13 @@ interface QuoteResult {
   length?: number;
   /** Cước ship của biến thể theo `shipMethod` (`expUsShipCost`/`tiktokShipCost`). */
   shipCost?: number;
+  /**
+   * INTERNAL: production cost per unit + variation SKU, for the shadow cost ledger.
+   * Quotes are mapped field by field into responses, so these never reach a seller;
+   * keep it that way — never spread a QuoteResult into a response.
+   */
+  unitCost?: number;
+  variationSku?: string;
 }
 
 /** Lấy value thuộc tính variation theo tên label (size/color) — attributes tự do key-value. */
@@ -300,6 +315,8 @@ export class CustomerOrderService implements OnModuleInit {
     @InjectModel(OrderEntity.name) private readonly orderModel: Model<OrderEntity>,
     @InjectModel(CustomerOrderEntity.name) private readonly customerOrderModel: Model<CustomerOrderEntity>,
     @InjectModel(CustomerPaymentEntity.name) private readonly customerPaymentModel: Model<CustomerPaymentEntity>,
+    @InjectModel(ProductionCostEntryEntity.name)
+    private readonly productionCostModel: Model<ProductionCostEntryEntity>,
     @InjectModel(ProductConfigEntity.name) private readonly productConfigModel: Model<ProductConfigEntity>,
     private readonly orderService: OrderService,
     private readonly promotionService: PromotionService,
@@ -987,6 +1004,8 @@ export class CustomerOrderService implements OnModuleInit {
       height: variation.height,
       length: variation.length,
       shipCost: shipMethod === 'cod' || shipMethod === 'tiktok' ? variation.tiktokShipCost : variation.expUsShipCost,
+      unitCost: variation.cost,
+      variationSku: variation.sku,
       snapshot: {
         shipMethod,
         unitPrice,
@@ -2076,6 +2095,7 @@ export class CustomerOrderService implements OnModuleInit {
     const results: PushCustomerOrdersResDto['data']['results'] = [];
     const importRows: ImportProductionOrderRow[] = [];
     const pendingUpdates: Array<{ stagingId: string; items: CustomerOrderItem[]; orderTotal: number }> = [];
+    const costInputs: ProductionCostInput[] = [];
     let totalAmount = 0;
     /**
      * Mốc "đơn vào sản xuất" của cả lô đẩy này.
@@ -2158,6 +2178,14 @@ export class CustomerOrderService implements OnModuleInit {
         // xuyên suốt). Fallback sinh mới cho staging doc cũ tạo trước cơ chế này.
         const productionId = it.productionId ?? (await this.generateUniqueProductionId());
         productionIds.push(productionId);
+        costInputs.push({
+          productionId,
+          stagingOrderId: id,
+          productConfigId: q.productConfigId ?? it.productConfigId,
+          variationSku: q.variationSku,
+          unitCost: q.unitCost,
+          quantity: it.quantity ?? 1,
+        });
         updatedItems.push({
           ...it,
           productConfigId: q.productConfigId ?? it.productConfigId,
@@ -2257,6 +2285,10 @@ export class CustomerOrderService implements OnModuleInit {
       throw e;
     }
 
+    // Outside the try above on purpose: the order is already in production, so a
+    // ledger problem must never release the push claims or fail the push.
+    await this.recordProductionCosts(String(customer._id), pushedAt, costInputs);
+
     await Promise.all(
       pendingUpdates.map((u) =>
         this.customerOrderModel.updateOne(
@@ -2330,6 +2362,30 @@ export class CustomerOrderService implements OnModuleInit {
     await this.designStorageService.touchUsageForUrls(cdnUrls);
 
     return { success: true, data: { results, totalAmount: Math.round(totalAmount * 100) / 100 } };
+  }
+
+  /**
+   * Shadow production-cost ledger (money plan §5.3 #1): records, never charges.
+   * Idempotent per `productionId` (upsert with `$setOnInsert`), so a retried push
+   * cannot double-count. Failures are logged and swallowed — see the call site.
+   */
+  private async recordProductionCosts(
+    customerId: string,
+    pushedAt: Date,
+    inputs: ProductionCostInput[],
+  ): Promise<void> {
+    try {
+      const rows = buildProductionCostRows(customerId, pushedAt, inputs);
+      if (rows.length === 0) return;
+      await this.productionCostModel.bulkWrite(
+        rows.map((row) => ({
+          updateOne: { filter: { productionId: row.productionId }, update: { $setOnInsert: row }, upsert: true },
+        })),
+        { ordered: false },
+      );
+    } catch (e) {
+      productionCostLogger.error(`Could not record production cost: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   // -------------------------------------------------------------------------

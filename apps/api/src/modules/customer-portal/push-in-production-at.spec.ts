@@ -60,6 +60,7 @@ const buildService = (opts: { createdAt?: Date } = { createdAt: PLACED_AT }) => 
     },
   };
   svc.customerPaymentModel = { create: () => Promise.resolve({ _id: 'P1' }) };
+  svc.productionCostModel = { bulkWrite: () => Promise.resolve({}) };
   svc.customerOrderModel = {
     updateOne: (_f: unknown, update: { $set: Record<string, unknown> }) => {
       stagingUpdates.push(update);

@@ -86,6 +86,12 @@ Luật chung: luồng push GIỮ `waived` cho tới khi chủ dự án duyệt. 
 | 5 | Thêm loại tiền `import_tax`, `active`, `refund` đơn | Phụ thuộc #3; thêm giá trị vào `WALLET_TXN_KINDS` (`packages/shared/client/wallet.ts`) kéo theo nhãn/badge ở `apps/seller` | M | Công thức thuế/phí |
 | 6 | Dialog nạp / điều chỉnh / hạn mức ở `/adm/wallets`, kèm mã giao dịch ngoài + chứng từ | Nạp tay đang làm được ở `/hub/wallets` nên không chặn vận hành; đụng tiền thật nên làm riêng, chậm, có người kiểm | M | Phiên làm riêng (`onos-49` đã chốt) |
 | 7 | Production Invoice | Gần như không dùng ở hệ cũ (12/5.829 đã trả) | S | Hỏi có ai dùng trước |
-| — | Affiliates | Không làm | 0 | CEO xác nhận bỏ |
+| — | ~~Affiliates~~ | **Gạch khỏi phạm vi**: hệ cũ có 0 giao dịch hoa hồng từ trước tới nay, 0 đơn qua nhóm giới thiệu trong hai tháng gần nhất, link giới thiệu hỏng (`/referral/undefined`) | 0 | Đã duyệt (onos-80, 04/10/2026) |
 
 **Làm được ngay không cần duyệt thêm: #1 (sau khi xác nhận `cost`) và #2.**
+
+### 5.4 Tiến độ
+
+- **#1 sổ chi phí sản xuất chế độ bóng — XONG** (04/10/2026): `production_cost_entries`, xem `CustomerOrderIntake.md` §3.3b. Giá vốn = `variations[].cost` (xác nhận bằng số prod: cost 5,60 < nonShipCost 6,30 < retailPrice 14,51; 2.224/2.250 biến thể có nonShipCost cao hơn cost).
+- #2 danh sách giao dịch mọi seller — chưa làm.
+- #3 động cơ tính tiền — CHƯA bắt đầu: chờ chủ dự án duyệt bật tính tiền thật và trả lời ba câu về giá.
