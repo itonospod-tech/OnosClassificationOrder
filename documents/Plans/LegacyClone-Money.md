@@ -94,4 +94,88 @@ Luật chung: luồng push GIỮ `waived` cho tới khi chủ dự án duyệt. 
 
 - **#1 sổ chi phí sản xuất chế độ bóng — XONG** (04/10/2026): `production_cost_entries`, xem `CustomerOrderIntake.md` §3.3b. Giá vốn = `variations[].cost` (xác nhận bằng số prod: cost 5,60 < nonShipCost 6,30 < retailPrice 14,51; 2.224/2.250 biến thể có nonShipCost cao hơn cost).
 - **#2 danh sách giao dịch mọi seller — XONG** (04/10/2026): `GET admin/customer-wallets/transactions` + trang `/adm/wallets/transactions`, xem `SellerWallet.md` §3/§4. Mục menu chưa thêm (Sidebar thuộc a2): link nên là `/adm/wallets/transactions?range=7d`.
+- **#5 thêm loại tiền `import_tax`/`active`/`refund` — XONG phần khai báo** (04/10/2026): chỉ thêm vào `WALLET_TXN_KINDS` + nhãn + màu, CHƯA có dòng nào được ghi (việc ghi thuộc #3).
 - #3 động cơ tính tiền — CHƯA bắt đầu: chờ chủ dự án duyệt bật tính tiền thật và trả lời ba câu về giá.
+
+## 6. Cách đối soát tiền đơn: `customer_payments` (waived) so với giao dịch Payment hệ cũ
+
+> **CHƯA CHẠY.** Mục này chỉ mô tả cách làm, để người có quyền đọc cả hai đầu chạy. **Phải xong, với kết quả đạt, trước khi bất kỳ ai bật động cơ tính tiền (#3).** Chạy xong thì ghi kết quả vào cuối mục này (ngày, seller, số đơn, số lệch), không ghi đè mô tả.
+
+### 6.1 Hai đầu đo và đơn vị so sánh
+
+Hai bên KHÔNG đo cùng một thứ nếu lấy thẳng số tổng:
+
+| | Hệ mới | Hệ cũ |
+|---|---|---|
+| Nơi lấy | `customer_payments` (dòng `status='waived'`, mỗi lần đẩy một dòng, `amount` = tổng giá chốt cả lô) — chi tiết từng item ở `customer_orders.items[].priceSnapshot.lineTotal`, nối bằng `customer_orders.paymentId = customer_payments._id` | Màn **Transactions** (`/billing/history/all`), lọc Type = Payment, Account = seller, nút ngày; mỗi dòng "Payment order <mã đơn hệ cũ>" kèm Merchant Order ID |
+| Gồm gì | Giá item × số lượng (`nonShipCost` cho cod/tiktok, `retailPrice` cho còn lại, trừ khuyến mãi theo hạng). **Không** có phí ship, **không** có thuế | Payment = subtotal **+ ship nếu seller trả trước** (khảo sát §8); thuế nhập là dòng Import Tax riêng; phí kích hoạt là dòng Active riêng |
+| Kỳ | Theo `pushedAt` | Theo ngày thanh toán ("Pay date") |
+
+Vì vậy **chỉ so phần tiền hàng (subtotal)**, không so Payment tổng của đơn có ship. **Vòng 1 chỉ lấy đơn COD**: hệ cũ ghi ship = 0 và thuế = 0 cho COD (khảo sát §8) nên Payment == subtotal, so thẳng được. Đơn SBTT/ONOSEXPRESS/EXPRESS_US để vòng sau, khi đã tách được subtotal khỏi ship.
+
+### 6.2 Bước 0 — việc người chạy phải xác nhận trước (mình CHƯA kiểm)
+
+1. Màn chi tiết đơn hệ cũ có hiện **subtotal** và **giá bán từng item** (`Sale_cost`) tách khỏi ship/thuế không? Nếu không, vòng 1 chỉ dùng đơn COD và lấy Payment làm subtotal.
+2. Giờ trên màn hệ cũ ("Pay date", "Order date") là múi giờ nào? Giả định tạm là giờ VN (UTC+7). Nếu không phải, đơn sát mép kỳ tuần sẽ rơi sai tuần.
+3. `identity` của seller bên hệ cũ có trùng `customers.userSku` (không phân biệt hoa thường) không. Khảo sát §3 nói có (ví dụ `TIENHC`); kiểm lại trên seller được chọn, vì màn Transactions hiện dạng "HUYDUC / HUYDUC399" (hai mã).
+4. Seller chọn đối soát **có đơn ở cả hai hệ** không (Chế độ A) hay chỉ có ở hệ cũ (Chế độ B).
+
+### 6.3 Hai chế độ
+
+**Chế độ A — đơn có ở cả hai hệ (seller đẩy song song):**
+- Khoá ghép: `(seller, mã đơn ngoài)`. Mã đơn ngoài = `customer_orders.orderId` (hệ mới) ↔ **Merchant Order ID** (hệ cũ). Chuẩn hoá cả hai: bỏ khoảng trắng, so không phân biệt hoa thường.
+- **KHÔNG ghép bằng `productionId`**: mã `XX-#####-#####` mỗi hệ tự cấp, không bao giờ trùng nhau cho cùng một đơn.
+- Trường lấy: hệ mới `items[].priceSnapshot.lineTotal` cộng theo đơn; hệ cũ subtotal của đơn (hoặc Payment nếu COD).
+
+**Chế độ B — đơn chỉ có ở hệ cũ (thực tế trước khi chuyển seller):** tính lại giá. Với mỗi đơn hệ cũ được chọn:
+1. Lấy từ hệ cũ: seller, tên sản phẩm + size (+ màu), số lượng, phương thức ship, hạng VIP, subtotal.
+2. Tra `productConfigs` hệ mới theo tên sản phẩm (`fullName`, không phân biệt hoa thường), chọn biến thể theo size/màu.
+3. Tính giá hệ mới đúng như `quoteItem`: cod/tiktok → `nonShipCost ?? retailPrice`; còn lại → `retailPrice ?? nonShipCost`; rồi áp khuyến mãi có hiệu lực của đúng hạng seller; nhân số lượng, làm tròn cent.
+4. So với subtotal hệ cũ.
+
+### 6.4 Cách lấy số bên hệ mới
+
+Agent API (chỉ đọc), `POST /api/v1/agent/query`. `limit` tối đa 200, có `offset` (≤ 10.000) và `withTotal`; lô thiếu thì tăng `offset`, đừng đoán từ kích thước trang.
+
+```json
+{ "table": "customer_payments",
+  "filter": { "$and": [ { "status": "waived" }, { "customerId": "<_id seller>" },
+                        { "createdAt": { "$gte": "<đầu kỳ, UTC>", "$lt": "<hết kỳ, UTC>" } } ] },
+  "select": { "fields": ["_id", "orderIds", "amount", "createdAt"],
+              "sort": [{ "field": "createdAt", "dir": "asc" }], "limit": 200, "withTotal": true } }
+```
+```json
+{ "table": "customer_orders",
+  "filter": { "paymentId": { "$in": ["<_id các dòng trên>"] } },
+  "select": { "fields": ["orderId", "paymentId", "pushedAt", "items"], "limit": 200, "withTotal": true } }
+```
+`_id` seller lấy ở `customers` theo `userSku`. Đầu/cuối kỳ tuần đổi từ ngày VN sang UTC (trừ 7 giờ): kỳ 22–30/09 là `2026-09-21T17:00:00Z` tới `2026-09-30T17:00:00Z` (loại trừ).
+
+### 6.5 Thế nào là sai
+
+So **từng đơn**, rồi mới cộng theo seller/tuần. Cộng tuần che được lỗi bù trừ nhau, nên tổng khớp KHÔNG thay cho khớp từng đơn.
+
+| Kết quả một đơn | Phân loại | Ý nghĩa |
+|---|---|---|
+| `abs(mới − cũ) ≤ 0,01` | Khớp | Chênh một cent là làm tròn |
+| `mới − cũ > 0,01` | **Thu thừa — CHẶN** | Bật tính tiền sẽ trừ seller nhiều hơn hệ cũ |
+| `cũ − mới > 0,01` | Thu thiếu | Không chặn nhưng phải giải thích được (mất tiền) |
+| Không tra được sản phẩm/biến thể/giá hệ mới | Không đo được | Đếm riêng, không tính vào khớp; mỗi ca là một lỗi dữ liệu sản phẩm cần sửa |
+
+Đọc chênh theo seller để tìm nguyên nhân gốc:
+- Chênh **không đổi trên mỗi item** (ví dụ +0,50 hoặc +0,60) ở mọi đơn của seller → hệ cũ cộng markup riêng cho seller (khảo sát §8: đối tác VIP0 +0,50/+0,60; một số seller +0; VIP3/4 theo giá bán lẻ trừ chiết khấu) mà hệ mới chưa có chỗ lưu. Đây là khoảng trống cấu hình, **không** sửa bằng cách chỉnh giá sản phẩm.
+- Chênh **thay đổi theo sản phẩm** → giá biến thể hai hệ khác nhau (dữ liệu import từ hệ cũ lệch).
+- Chênh chỉ ở đơn **sát mép kỳ** → múi giờ/giờ cắt (Bước 0 mục 2), không phải lỗi giá.
+
+### 6.6 Điều kiện đạt (để được đề nghị bật #3 cho một seller thử)
+
+- Cỡ mẫu tối thiểu: **30 đơn COD của seller đó, trải ít nhất 3 sản phẩm khác nhau**, và gồm đủ một kỳ tuần.
+- **0 đơn "Thu thừa"**, và mọi đơn "Thu thiếu" đều đã có lời giải thích.
+- Số đơn "Không đo được" bằng 0 trên các sản phẩm của seller đó.
+- Kết quả (bảng từng đơn: mã đơn ngoài, giá mới, giá cũ, chênh, phân loại) lưu cạnh mục này để người duyệt đọc.
+
+### 6.7 Chưa đối soát được hôm nay
+
+- **Tiền vận chuyển** (`shipments.sellerPrice`, margin): production hiện có 58 vận đơn, tất cả `provider='customer'`, chưa mua nhãn VNP thật nào (đo 04/10/2026) → không có số thật nào để so với phí ship hệ cũ. Khi có nhãn VNP thật đầu tiên thì so `sellerPrice` với phí ship hệ cũ cùng bậc cân (hệ cũ: bậc EXPRESS_US theo cân; SBTT cộng 0,70 kích hoạt).
+- **Thuế nhập khẩu, phí kích hoạt tracking, hoàn tiền đơn**: hệ mới chưa tính (#5 mới khai báo loại, chưa có dòng nào).
+- **Sổ chi phí sản xuất** (`production_cost_entries`) so với Production Transactions hệ cũ: chỉ làm được khi sổ đã tích luỹ ít nhất một kỳ tuần sau lúc deploy; không backfill.

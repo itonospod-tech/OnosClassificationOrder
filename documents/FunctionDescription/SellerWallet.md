@@ -56,11 +56,13 @@ BE ném `BadRequestException` với **message = đúng 1 mã** trong `SELLER_SHI
 | GET/POST | `admin/seller-shipping/price-table{,/import}` | Xem/thay bảng giá (mốc tăng dần) |
 | POST | `admin/seller-shipping/toggle` | Công tắc tổng seller mua label |
 
-Shared (`packages/shared`): hàm thuần + hằng ở **`client/seller-shipping.ts`** (`computeChargeableWeightGram`/`computeDimWeightGram`/`resolveSellerShipPrice`/`parseSellerShipPriceCsv`/`SELLER_SHIP_ERROR_CODES`/`SellerShipPriceTableZod`) + **`client/wallet.ts`** (`WALLET_TXN_KINDS`) — nest-free cho `apps/seller`; DTO ở `dtos/customer-wallet.dto.ts` + `dtos/seller-shipping.dto.ts` (re-export client). `CustomerZod` thêm `walletBalance`/`creditLimit`.
+Shared (`packages/shared`): hàm thuần + hằng ở **`client/seller-shipping.ts`** (`computeChargeableWeightGram`/`computeDimWeightGram`/`resolveSellerShipPrice`/`parseSellerShipPriceCsv`/`SELLER_SHIP_ERROR_CODES`/`SellerShipPriceTableZod`) + **`client/wallet.ts`** (`WALLET_TXN_KINDS` — thêm một loại phải thêm nhãn ở CẢ 4 file i18n (`apps/seller` `seller.json` + `apps/web` `wallets.json`, vi + en; `wallet-kinds-i18n.spec.ts` kiểm) và màu ở `KIND_COLORS` của `wallet-view.tsx` (kiểu `Record<WalletTxnKind,…>` nên thiếu là lỗi biên dịch)) — nest-free cho `apps/seller`; DTO ở `dtos/customer-wallet.dto.ts` + `dtos/seller-shipping.dto.ts` (re-export client). `CustomerZod` thêm `walletBalance`/`creditLimit`.
 
 ```typescript
 // customer_wallet_transactions — APPEND-ONLY
-{ customerId, kind: 'topup'|'label'|'label_refund'|'order'|'adjust',
+{ customerId, kind: 'topup'|'label'|'label_refund'|'order'|'adjust'
+                  //   + 'import_tax'|'active'|'refund' — DECLARED ONLY, nothing writes them until the
+                  //     order-charging engine ships (LegacyClone-Money.md §5.3 #3/#5),
   amount,                 // + cộng / − trừ (USD, round2)
   balanceBefore, balanceAfter,   // BẮT BUỘC mỗi record — seller xem được cả 2
   note?, byUserId?, byUserName?,

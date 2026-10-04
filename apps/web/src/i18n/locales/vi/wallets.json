@@ -36,7 +36,10 @@
     "label": "Mua label",
     "label_refund": "Hoàn tiền label",
     "order": "Tiền đơn hàng",
-    "adjust": "Điều chỉnh"
+    "adjust": "Điều chỉnh",
+    "import_tax": "Thuế nhập khẩu",
+    "active": "Phí kích hoạt tracking",
+    "refund": "Hoàn tiền đơn hàng"
   },
   "nav": {
     "wallets": "Ví seller",

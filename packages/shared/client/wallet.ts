@@ -14,5 +14,15 @@ export const WALLET_TXN_KINDS = [
   'order',
   /** Admin điều chỉnh tay (+/−, bắt buộc ghi chú). */
   'adjust',
+  // The three kinds below are DECLARED ONLY: nothing writes them yet. They mirror the legacy
+  // OnosPod ledger (money plan LegacyClone-Money.md §5.3 #5) and are written by the order-charging
+  // engine (#3), which is still closed. Adding a kind here also needs a label in all four i18n
+  // files (`wallet-kinds-i18n.spec.ts` checks) and a colour in apps/seller `KIND_COLORS`.
+  /** Import US tax + customs fee, charged per item when an order is paid. */
+  'import_tax',
+  /** Tracking activation fee (USPS activation, ~$0.70 per tracking in the legacy system). */
+  'active',
+  /** Refund of an order payment (not a label refund — that is `label_refund`). */
+  'refund',
 ] as const;
 export type WalletTxnKind = (typeof WALLET_TXN_KINDS)[number];

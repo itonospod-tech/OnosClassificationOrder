@@ -29,6 +29,9 @@ const KIND_COLORS: Record<WalletTxnKind, string> = {
   label_refund: '#7f9a2b',
   order: '#6b7280',
   adjust: '#c9a400',
+  import_tax: '#8a5cc2',
+  active: '#2f7fc1',
+  refund: '#3b9a8f',
 };
 
 export function KindBadge({ kind }: { kind: WalletTxnKind }) {
