@@ -127,6 +127,7 @@
     "resultsCount": "{{count}} orders",
     "empty": "You don't have any orders yet.",
     "emptyFiltered": "No orders match the current filters.",
+    "processingEmpty": "Orders go straight into production when pushed, so none ever stop at this step. See the In Production tab.",
     "placeFirst": "Place your first order",
     "searchPlaceholder": "Search by order code…",
     "filterProduct": "Filter by product",

@@ -75,11 +75,12 @@ export function hrefDangChon(pathname: string, hrefs: string[]): string | null {
 }
 
 /**
- * Hub order links open on "Processing", like the legacy menu (`/orders?status=Processing`):
+ * Hub order links open on "In Production" (the legacy menu opened `?status=Processing`, which
+ * in the new system is always empty: push is atomic, LegacyClone-Orders.md §7):
  * clicking the menu lands on the view ops act on, not the raw list. The "All" pill is still
  * one click away.
  */
-const HUB_ORDERS_DEFAULT = (path: string) => `${path}?status=processing`;
+const HUB_ORDERS_DEFAULT = (path: string) => `${path}?status=in-production`;
 
 /** Nav khu quản trị `/hub` — Orders xổ "Tất cả" + 6 dịch vụ, cùng khuôn với cổng seller. */
 export function buildHubNav(t: TFunction): NavGroup[] {

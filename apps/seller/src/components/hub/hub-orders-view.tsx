@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image as ImageIcon, Loader2, PauseCircle, Plus, RefreshCw, RotateCcw, Send, Trash2, Truck, Wrench } from 'lucide-react';
 import type { AdminCustomerStagingOrder, CustomerOrderCounts, FactoryOptionItem } from 'shared';
+import { CustomerOrderStatus } from 'shared/enums';
 import { InternalStatus } from '@/components/hub/internal-status';
 import { buyInputFrom, buyLabel, canBuyLabel, canBuyLabelNow, ShipmentCell } from '@/components/hub/shipment-cell';
 import { SellerFilterPicker } from '@/components/hub/seller-filter-picker';
@@ -284,7 +285,7 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
         {loading && orders.length === 0 ? (
           <div className="flex-1 flex items-center justify-center py-20 text-[13px] text-text-muted"><Loader2 size={16} className="animate-spin mr-2" />{t('hub:common.loading')}</div>
         ) : orders.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center"><EmptyState title={t('customerPortal:orders.emptyFiltered')} icon={<span className="text-[40px]">📦</span>} /></div>
+          <div className="flex-1 flex items-center justify-center"><EmptyState title={t('customerPortal:orders.emptyFiltered')} description={!trashView && status === CustomerOrderStatus.Processing ? t('customerPortal:orders.processingEmpty') : undefined} icon={<span className="text-[40px]">📦</span>} /></div>
         ) : (
           <>
             <div className={`md:hidden divide-y divide-border2 flex-1 min-h-0 overflow-y-auto ${loading ? 'opacity-60' : ''}`}>
