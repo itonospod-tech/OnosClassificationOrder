@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { RepositoryRemote } from '@/services';
 
 import { LoadingOverlay } from '@/components/common/LoadingOverlay';
+import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -168,16 +169,12 @@ export default function ZaloGroupsPage() {
   return (
     <div className="space-y-5 p-5">
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
-            <MessageSquare className="h-5 w-5 text-primary-500" />
-            {t('title')}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('subtitle')}</p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        icon={<MessageSquare size={20} />}
+        title={t('title')}
+        description={t('subtitle')}
+        actions={
+          <>
           <Button variant="outline" size="sm" onClick={refreshAll}>
             <RefreshCw className="mr-1.5 h-4 w-4" />
             {t('common:refresh', { defaultValue: 'Làm mới' })}
@@ -186,8 +183,9 @@ export default function ZaloGroupsPage() {
             <Sparkles className="mr-1.5 h-4 w-4" />
             {t('suggestions.button', { count: suggestionCount })}
           </Button>
-        </div>
-      </div>
+        </>
+        }
+      />
 
       {/* Bảng phủ sóng — trả lời "còn bao nhiêu chưa xong" ngay khi mở trang. */}
       {coverage && (

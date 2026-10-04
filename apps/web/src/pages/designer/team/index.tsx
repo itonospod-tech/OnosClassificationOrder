@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -134,15 +135,11 @@ export default function DesignerTeamPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
-          <Palette size={20} className="text-violet-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('team.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('team.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Palette size={20} />}
+        title={t('team.title')}
+        description={t('team.subtitle')}
+      />
 
       <div className="grid grid-cols-3 gap-3">
         <StatCard label={t('team.stats.active')} value={totals.active} accent="text-emerald-600" />

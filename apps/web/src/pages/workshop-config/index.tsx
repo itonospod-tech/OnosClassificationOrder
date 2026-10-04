@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next';
 import { Building2 } from 'lucide-react';
 import { WORKSHOP_CONFIG_MODE, WorkshopConfigCategory } from 'shared';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { CategoryEditor } from './CategoryEditor';
@@ -69,15 +70,11 @@ export default function WorkshopConfigPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-          <Building2 size={20} className="text-indigo-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('page.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('page.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Building2 size={20} />}
+        title={t('page.title')}
+        description={t('page.subtitle')}
+      />
 
       <Tabs defaultValue={TABS[0].key} className="w-full">
         <TabsList className="flex-wrap h-auto">
