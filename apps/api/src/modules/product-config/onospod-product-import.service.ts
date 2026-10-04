@@ -16,6 +16,7 @@ import { myNanoid, PRODUCT_PRINT_AREA_KEYS, ProductConfigStatus, Status } from '
 import { ApiConfigService } from '@/shared/services';
 
 import { CollectionRepository } from '../collection/collection.repository';
+import { ProductTagRepository } from '../product-tag/product-tag.repository';
 import { ProductCategoryRepository } from '../product-category/product-category.repository';
 import { ProductConfigEntity } from './product-config.entity';
 import { productLineForNew } from './product-line-migration';
@@ -44,7 +45,7 @@ const productPresetQuery = (collection: string) => `query { productPreset (_id:"
   category,size_chart,print_document,
   print_areas { key,print,width,height,addition_price,is_required,is_embroidery },
   print_template,weight,package_width,package_height,package_length,
-  collection,visible,skip_design_check,skip_affiliate
+  collection,visible,skip_design_check,skip_affiliate,product_tag_ids
 }}`;
 
 interface OnospodProduct {
@@ -98,6 +99,8 @@ interface OnospodProduct {
   visible?: boolean | null;
   skip_design_check?: boolean | null;
   skip_affiliate?: boolean | null;
+  /** Legacy tag ids — resolve through `productTags` (id → slug), see `fetchLegacyTagSlugs`. */
+  product_tag_ids?: string[] | null;
 }
 
 /** Field mapped từ OnosPod — SUBSET của ProductConfig, dùng cho cả create lẫn fill. */
@@ -124,6 +127,7 @@ type MappedProduct = Partial<
     | 'length'
     | 'variations'
     | 'collectionIds'
+    | 'productTagIds'
     | 'productCategoryId'
     | 'enableDesignCheck'
     | 'enableAffiliate'
@@ -156,6 +160,7 @@ const FILLABLE_FIELDS: (keyof MappedProduct)[] = [
   'length',
   'variations',
   'collectionIds',
+  'productTagIds',
   'productCategoryId',
   'enableDesignCheck',
   'enableAffiliate',
@@ -205,22 +210,22 @@ export class OnospodProductImportService {
     private readonly apiConfigService: ApiConfigService,
     private readonly collectionRepository: CollectionRepository,
     private readonly productCategoryRepository: ProductCategoryRepository,
+    private readonly productTagRepository: ProductTagRepository,
     @InjectModel(ProductConfigEntity.name)
     private readonly productConfigModel: Model<ProductConfigEntity>,
   ) {}
 
-  /** Fetch 1 trang productPreset — trả rows + tổng (header `x-total`). */
-  private async fetchPage(page: number, limit: number, collection = ''): Promise<{ rows: OnospodProduct[]; total: number }> {
+  /** POST one GraphQL query to the legacy API (page/limit travel in headers, not variables). */
+  private async gql<T>(query: string, page: number, limit: number) {
     const cfg = this.apiConfigService.onospodApiConfig;
     if (!cfg) {
       throw new BadRequestException(
         'Chưa cấu hình ONOSPOD_API_URL / ONOSPOD_API_BEARER_TOKEN / ONOSPOD_API_SUPER_TOKEN',
       );
     }
-
-    const res = await axios.post<{ data?: { productPreset?: OnospodProduct[] } }>(
+    return axios.post<{ data?: T }>(
       cfg.apiUrl,
-      { query: productPresetQuery(collection) },
+      { query },
       {
         timeout: 60_000,
         headers: {
@@ -236,11 +241,41 @@ export class OnospodProductImportService {
         },
       },
     );
+  }
 
+  /** Fetch 1 trang productPreset — trả rows + tổng (header `x-total`). */
+  private async fetchPage(page: number, limit: number, collection = ''): Promise<{ rows: OnospodProduct[]; total: number }> {
+    const res = await this.gql<{ productPreset?: OnospodProduct[] }>(productPresetQuery(collection), page, limit);
     const rows = res.data?.data?.productPreset ?? [];
     const total = Number(res.headers['x-total'] ?? rows.length) || rows.length;
     return { rows, total };
   }
+
+  /** Legacy tag id → slug. The query is paginated by headers, so ask for a page far larger than the ~18 tags. */
+  private async fetchLegacyTagSlugs(): Promise<Map<string, string>> {
+    const res = await this.gql<{ productTags?: { _id?: string; slug?: string }[] }>(
+      'query { productTags { _id,slug } }',
+      1,
+      500,
+    );
+    const map = new Map<string, string>();
+    for (const t of res.data?.data?.productTags ?? []) if (t._id && t.slug) map.set(t._id, t.slug);
+    return map;
+  }
+
+  /** Legacy tag ids → our ProductTag ids, matched by slug = shortName. Unknown tags are skipped, never created. */
+  private async resolveTagIds(legacyIds: string[] | null | undefined): Promise<string[] | undefined> {
+    const ids: string[] = [];
+    for (const legacyId of legacyIds ?? []) {
+      const slug = this.legacyTagSlugs.get(legacyId);
+      if (!slug) continue;
+      const tag = await this.productTagRepository.findOne({ shortName: slug.toUpperCase() });
+      if (tag && !ids.includes(String(tag._id))) ids.push(String(tag._id));
+    }
+    return ids.length ? ids : undefined;
+  }
+
+  private legacyTagSlugs = new Map<string, string>();
 
   /** Cache theo lifetime service — collection/category tra theo TÊN (case-insensitive), thiếu thì tạo. */
   private readonly collectionIdCache = new Map<string, string>();
@@ -367,6 +402,7 @@ export class OnospodProductImportService {
       height: cleanNum(p.package_height),
       length: cleanNum(p.package_length),
       variations: variations.length ? variations : undefined,
+      productTagIds: await this.resolveTagIds(p.product_tag_ids),
       collectionIds: collectionName ? [await this.resolveCollectionId(collectionName)] : undefined,
       productCategoryId: categoryName ? await this.resolveCategoryId(categoryName) : undefined,
       enableDesignCheck: p.skip_design_check == null ? undefined : !p.skip_design_check,
@@ -392,6 +428,14 @@ export class OnospodProductImportService {
    */
   async importFromOnospod(dto: ImportFromOnospodDto): Promise<ImportFromOnospodResDto> {
     const { rows: rawRows, total } = await this.fetchPage(dto.page, dto.limit, dto.collection);
+    const errors: OnospodImportError[] = [];
+    try {
+      this.legacyTagSlugs = await this.fetchLegacyTagSlugs();
+    } catch (err) {
+      // Tags are secondary: import the products without them rather than failing the whole run.
+      this.legacyTagSlugs = new Map();
+      errors.push({ sku: '', name: '', reason: `Không lấy được danh sách tag hệ cũ: ${err instanceof Error ? err.message : String(err)}` });
+    }
     // Dedupe theo _id — phân trang OnosPod không ổn định (thứ tự trượt giữa
     // các lần gọi), cùng 1 trang lớn vẫn dedupe phòng hờ. Khuyến nghị FE gọi
     // 1 LẦN limit 500 thay vì nhiều trang nhỏ (xem `ImportFromOnospodZod`).
@@ -406,7 +450,6 @@ export class OnospodProductImportService {
     let created = 0;
     let filled = 0;
     let skipped = 0;
-    const errors: OnospodImportError[] = [];
 
     for (const p of rows) {
       const name = cleanStr(p.name);

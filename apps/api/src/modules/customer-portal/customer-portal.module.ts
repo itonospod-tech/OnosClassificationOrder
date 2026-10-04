@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { AuthModule } from '@/modules/auth/auth.module';
 import { CollectionEntity, CollectionSchema } from '@/modules/collection/collection.entity';
+import { ProductTagEntity, ProductTagSchema } from '@/modules/product-tag/product-tag.entity';
 import { CustomerModule } from '@/modules/customer/customer.module';
 import { CustomerEventModule } from '@/modules/customer-event/customer-event.module';
 import { DesignStorageModule } from '@/modules/design-storage/design-storage.module';
@@ -38,6 +39,7 @@ import { PublicTrackService } from './public-track.service';
       { name: ProductConfigEntity.name, schema: ProductConfigSchema },
       { name: ProductCategoryEntity.name, schema: ProductCategorySchema },
       { name: CollectionEntity.name, schema: CollectionSchema },
+      { name: ProductTagEntity.name, schema: ProductTagSchema },
       { name: CustomerOrderEntity.name, schema: CustomerOrderSchema },
       { name: CustomerPaymentEntity.name, schema: CustomerPaymentSchema },
       { name: ProductionCostEntryEntity.name, schema: ProductionCostEntrySchema },

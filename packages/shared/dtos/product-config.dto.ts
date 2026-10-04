@@ -735,6 +735,8 @@ export type CustomerCatalogItem = z.infer<typeof CustomerCatalogItemZod>;
 export const GetCustomerCatalogZod = PageQueryZod.extend({
   productCategoryId: IDZod.optional(),
   collectionId: IDZod.optional(),
+  /** Product tag filter (`ProductConfig.productTagIds`). */
+  productTagId: IDZod.optional(),
   productLine: z.enum(PRODUCT_LINES).optional(),
 });
 export class GetCustomerCatalogDto extends createZodDto(extendApi(GetCustomerCatalogZod)) {}
@@ -797,6 +799,8 @@ export const GetCustomerCatalogFacetsResZod = ResZod.extend({
   data: z.object({
     categories: CustomerCatalogFacetZod.array(),
     collections: CustomerCatalogFacetZod.array(),
+    /** Active product tags with at least one visible product. */
+    tags: CustomerCatalogFacetZod.array(),
     /** Số sản phẩm theo dòng (chỉ dòng có ≥1 sản phẩm). */
     productLines: z.object({ code: z.enum(PRODUCT_LINES), count: z.number() }).array(),
   }),

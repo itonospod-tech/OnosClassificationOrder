@@ -1,7 +1,11 @@
 import { ZodValidationPipe } from '@anatine/zod-nestjs';
 import { Controller, Get, HttpCode, HttpStatus, Param, Query, UsePipes } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { GetCustomerCatalogDto, GetCustomerCatalogItemResDto, GetCustomerCatalogResDto } from 'shared';
+import {
+  GetCustomerCatalogDto,
+  GetCustomerCatalogFacetsResDto,
+  GetCustomerCatalogItemResDto,   GetCustomerCatalogResDto,
+} from 'shared';
 
 import { Auth } from '@/decorators';
 
@@ -29,6 +33,16 @@ export class PublicCatalogController {
   @ApiOkResponse({ type: GetCustomerCatalogResDto })
   async getCatalog(@Query() dto: GetCustomerCatalogDto): Promise<GetCustomerCatalogResDto> {
     return this.customerCatalogService.getPublicCatalog(dto);
+  }
+
+  // Declared BEFORE ':id' so "facets" is not read as a product id.
+  @Get('facets')
+  @Auth([], [], { public: true })
+  @ApiOperation({ summary: 'Public catalog filters (categories, collections, tags, lines) with counts' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetCustomerCatalogFacetsResDto })
+  async getFacets(): Promise<GetCustomerCatalogFacetsResDto> {
+    return this.customerCatalogService.getFacets();
   }
 
   @Get(':id')

@@ -122,6 +122,8 @@
     "subtitle": "Every product on sale · look up SKUs for the import sheet",
     "searchPlaceholder": "Search product name, SKU…",
     "allCategories": "All categories",
+    "tags": "Tags",
+    "allTags": "All",
     "allCollections": "All",
     "collections": "Collections",
     "totalProducts": "{{count}} products",
