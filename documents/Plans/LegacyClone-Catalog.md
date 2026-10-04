@@ -48,6 +48,19 @@ After importing, the 31 wood products still need dragging into factory TNW (`/ad
 | `/product-tag/preset` — 18 rows (Wedding, Valentine, Christmas, Kids, Bestsellers, Signature Products …); same columns | none | **BUILD — approved** | New `product-tag` module, many tags per product | S–M |
 | `/product-labels` — 2 rows of one seller, 18-digit code + CODE + owner email, EDIT/REMOVE | none | UNCLEAR | Do not build; likely dead or abandoned experiment | – |
 
+## 3b. Tags, Techniques, Materials — real data (probed 04/10/2026 via the product query)
+
+The legacy `productPreset` query exposes id arrays; names come from `productTags` / `productTechniques` / `productMaterials`.
+
+| Field | Products carrying a value | Distinct values |
+|---|---|---|
+| `product_tag_ids` | 136 / 221 (dropship 0 / 11) | 18 (all resolve) |
+| `product_technique_ids` | 123 / 221 | 4 of the 5 techniques |
+| `product_material_ids` | 3 / 221 | 2 |
+
+Tags are built (seed + catalog filter + fill-only import). Techniques has real data (123 products) and
+follows the Tags pattern if approved; Materials (3 products) is probably not worth a table.
+
 ## 4. Techniques vs `print_method`
 
 Legacy products carry BOTH `Print Method` (DTF/DTG/EMB, three toggles) and `Technique` (e.g. Sublimation) as
