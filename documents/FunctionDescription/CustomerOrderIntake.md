@@ -221,6 +221,18 @@ CustomerPaymentEntity {
 }
 ```
 
+### 3.3b Sổ chi phí sản xuất chế độ bóng `production_cost_entries` (`production-cost.entity.ts`, `production-cost.ts`)
+
+Mỗi item đẩy sản xuất ghi 1 dòng: `productionId` (unique), `customerId`, `stagingOrderId`, `productConfigId`, `variationSku`, `unitCost` (= `variations[].cost`, VẮNG khi biến thể chưa khai giá vốn), `quantity`, `amount` (= `unitCost × quantity`, làm tròn cent, 0 khi thiếu giá vốn), `pushedAt`.
+
+- **Chỉ ghi, không trừ ví**: không có gì đọc sổ này để đổi số dư; push vẫn kết thúc bằng `customer_payments` `waived`. Dùng để dựng hoá đơn kỳ tuần và đối chiếu với hệ cũ (Production Transactions) — `documents/Plans/LegacyClone-Money.md` §5.
+- Ghi bằng `bulkWrite` upsert `$setOnInsert` theo `productionId` → đẩy lại không đếm đôi. Gọi NGOÀI try của importOrders/payment: lỗi ghi sổ chỉ log (`ProductionCostShadow`), không làm hỏng push và không nhả `pushingAt`.
+- **KHÔNG dùng `OrderEntity.baseCost`** (nó là giá seller trả, CEO Dashboard cộng thành doanh thu) và **KHÔNG dùng `nonShipCost`** (giá bán nonship, cao hơn `cost` ở 2.224/2.250 biến thể trên prod). Giá vốn hệ cũ ≙ `cost`.
+- **Unique index `productionId` tạo TƯỜNG MINH** ở `CustomerOrderService.onModuleInit` (hằng `PRODUCTION_COST_PRODUCTION_ID_INDEX`, đặt TRƯỚC backfill vì backfill thoát sớm khi marker đã set): autoIndex dựng nền và nuốt lỗi, index thiếu thì idempotency hỏng âm thầm và sổ đếm đôi (`ShippingLabelPatterns.md` §2). Lỗi dựng index chỉ log `ProductionCostShadow`, không chặn boot. Test `production-cost-index.spec.ts`.
+- **KHÔNG backfill đơn cũ**: sổ chỉ có từ lúc deploy. Giá vốn quá khứ lấy từ `variations[].cost` HÔM NAY sẽ sai nếu giá vốn từng đổi — backfill là bịa số.
+- `QuoteResult.unitCost`/`variationSku` chỉ nội bộ; quote được map từng field vào response nên không lộ ra seller — đừng spread `QuoteResult` vào response.
+- Test: `production-cost.spec.ts` (hàm thuần), `push-production-cost.spec.ts` (ghi giá vốn chứ không phải giá bán, upsert idempotent, lỗi sổ không làm hỏng push).
+
 ### 3.4 Shared (`packages/shared`)
 
 - `enums/customer-order-status.ts` — `CustomerOrderStatus` (7 giá trị + labels VI cho BE) + `CUSTOMER_ORDER_STATUS_PROGRESS` (thứ tự least-advanced).

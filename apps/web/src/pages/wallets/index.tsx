@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { RefreshCw, Search, Wallet } from 'lucide-react';
 import type { AdminWalletRow } from 'shared';
@@ -100,10 +100,15 @@ function WalletsContent() {
           </h1>
           <p className="mt-1 text-sm text-slate-500">{t('subtitle')}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setReloadTick((n) => n + 1)} disabled={loading}>
-          <RefreshCw size={16} className={cn('mr-1.5', loading && 'animate-spin')} />
-          {t('refresh')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link to={PATHS.WALLET_TRANSACTIONS}>{t('nav.transactions')}</Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setReloadTick((n) => n + 1)} disabled={loading}>
+            <RefreshCw size={16} className={cn('mr-1.5', loading && 'animate-spin')} />
+            {t('refresh')}
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

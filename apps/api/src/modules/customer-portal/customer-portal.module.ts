@@ -23,6 +23,7 @@ import { CustomerOrderEntity, CustomerOrderSchema } from './customer-order.entit
 import { CustomerOrderService } from './customer-order.service';
 import { CustomerOrderAdminController } from './customer-order-admin.controller';
 import { CustomerPaymentEntity, CustomerPaymentSchema } from './customer-payment.entity';
+import { ProductionCostEntryEntity, ProductionCostEntrySchema } from './production-cost.entity';
 import { PublicCatalogController } from './public-catalog.controller';
 import { PublicTrackController } from './public-track.controller';
 import { PublicTrackService } from './public-track.service';
@@ -39,6 +40,7 @@ import { PublicTrackService } from './public-track.service';
       { name: CollectionEntity.name, schema: CollectionSchema },
       { name: CustomerOrderEntity.name, schema: CustomerOrderSchema },
       { name: CustomerPaymentEntity.name, schema: CustomerPaymentSchema },
+      { name: ProductionCostEntryEntity.name, schema: ProductionCostEntrySchema },
     ]),
     AuthModule,
     CustomerModule,

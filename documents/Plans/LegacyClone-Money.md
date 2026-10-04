@@ -52,3 +52,46 @@
 4. **Hoá đơn kỳ tuần** (gom 1 + 2).
 5. Topup có chứng từ + Production Invoice, khi có người cần.
 6. Affiliates: không làm, trừ khi CEO nói khác.
+
+## 5. Đối chiếu với hệ mới (04/10/2026) và thứ tự làm
+
+### 5.1 Hệ mới đã có / còn thiếu, theo từng màn
+
+| Màn hệ cũ | Hệ mới đã có | Thiếu HẲN (cần backend mới) | Chỉ thiếu cột / bộ lọc / nút |
+|---|---|---|---|
+| Topup | `POST admin/customer-wallets/:id/topup` (amount + note), UI chỉ ở `/hub/wallets` | — | Ô "mã giao dịch ngoài" + ảnh chứng từ trong `refs`; dialog nạp ở `/adm/wallets` (hai bước xác nhận, chặn bấm đúp) |
+| Transactions | Sổ cái `customer_wallet_transactions` + `GET admin/customer-wallets/:id/transactions` (một seller) + sheet sổ cái ở `/adm/wallets` | Endpoint danh sách giao dịch **mọi seller**; các loại tiền hệ mới chưa bao giờ ghi: `import_tax`, `active` (phí kích hoạt tracking), `refund` đơn | Lọc theo ngày/seller; cột mã đơn (`refs.orderIds` đã có); không có tab trạng thái vì sổ ví chỉ ghi giao dịch đã chốt |
+| Production Transactions | Không có | Sổ chi phí sản xuất theo item | — |
+| Invoice | Không có (GAP-18) | Bảng hoá đơn kỳ tuần + cron chốt kỳ + xuất xlsx | — |
+| Production Invoice | Không có (GAP-19) | Gom sổ sản xuất theo seller/kỳ | — |
+| Affiliates | Không có | — | Không làm (0 hoa hồng từ trước tới nay) |
+
+### 5.2 Hai bẫy đọc từ code, phải biết trước khi làm
+
+1. **`OrderEntity.baseCost` KHÔNG phải base cost của hệ cũ.** Nó mang giá seller thấy lúc đẩy sản xuất (`customer-order.service.ts` ~2192: `discountedPrice ?? unitPrice`; đường import OnosPod cũng gán `item.price`), và CEO Dashboard cộng nó làm "giá trị đơn". Base cost của hệ cũ (Production Transaction) là giá vốn biến thể (`variations[].cost` ≙ `base_price`). Sổ sản xuất phải snapshot `variations[].cost` vào một trường/collection mới, **không dùng lại `baseCost`**.
+2. **Mỗi lần đẩy sản xuất, hệ mới đã ghi một dòng `customer_payments` trạng thái `waived` kèm tổng tiền.** Đây là dữ liệu có sẵn để so với giao dịch Payment hệ cũ của cùng seller trước khi bật tính tiền thật, không cần viết thêm code thu thập.
+
+### 5.3 Thứ tự làm
+
+Hai sự thật cần nhớ khi làm bất kỳ mục nào: **kỳ hoá đơn theo TUẦN (01–07, 08–14, 15–21, 22–hết tháng)** và **base cost ghi lúc THANH TOÁN đơn, không phải lúc đóng kiện**.
+
+Luật chung: luồng push GIỮ `waived` cho tới khi chủ dự án duyệt. Mọi mục dưới đây hoặc chỉ đọc, hoặc chạy ở chế độ bóng (ghi nhận, không đụng số dư ví).
+
+| # | Việc | Vì sao ở vị trí này | Công sức | Cần duyệt gì |
+|---|---|---|---|---|
+| 1 | **Sổ chi phí sản xuất chế độ bóng**: snapshot `variations[].cost` theo item lúc đẩy sản xuất vào collection riêng, không đụng ví | Hoá đơn và đối soát đều cần dữ liệu này; càng ghi sớm càng có nhiều kỳ để so với hệ cũ. Không rủi ro tiền vì không trừ ai | M | Chỉ cần xác nhận dùng `cost` (không phải `nonShipCost`) |
+| 2 | **Danh sách giao dịch mọi seller** ở `/adm` (chỉ đọc, lọc loại/ngày/seller, cột mã đơn) | Cho nhân viên đúng màn Billing › Transactions; chỉ đọc nên an toàn, tái dùng khuôn `/adm/wallets` | M | Không |
+| 3 | **Động cơ tính tiền đơn có cờ** (đã trình `onos-49`: dùng `quoteItem`, `applyTransaction` kind `order`, cờ toàn hệ thống + cờ từng seller, mặc định tắt, test không trừ hai lần) | Đây là nút thắt chặn chuyển seller, nhưng đang chờ ba quyết định (công thức giá, nghĩa `nonShipCost`, seller thử) | L | **Chủ dự án**: ba câu đã hỏi |
+| 4 | **Hoá đơn kỳ tuần chế độ bóng**: cron chốt kỳ, gom sổ ví + sổ sản xuất theo seller, xuất xlsx, chỉ để đối chiếu với hoá đơn hệ cũ | Chỉ có nghĩa khi #1 và #3 đã chạy; chạy bóng ≥ 1 kỳ để so số | M–L | Không (bóng) |
+| 5 | Thêm loại tiền `import_tax`, `active`, `refund` đơn | Phụ thuộc #3; thêm giá trị vào `WALLET_TXN_KINDS` (`packages/shared/client/wallet.ts`) kéo theo nhãn/badge ở `apps/seller` | M | Công thức thuế/phí |
+| 6 | Dialog nạp / điều chỉnh / hạn mức ở `/adm/wallets`, kèm mã giao dịch ngoài + chứng từ | Nạp tay đang làm được ở `/hub/wallets` nên không chặn vận hành; đụng tiền thật nên làm riêng, chậm, có người kiểm | M | Phiên làm riêng (`onos-49` đã chốt) |
+| 7 | Production Invoice | Gần như không dùng ở hệ cũ (12/5.829 đã trả) | S | Hỏi có ai dùng trước |
+| — | ~~Affiliates~~ | **Gạch khỏi phạm vi**: hệ cũ có 0 giao dịch hoa hồng từ trước tới nay, 0 đơn qua nhóm giới thiệu trong hai tháng gần nhất, link giới thiệu hỏng (`/referral/undefined`) | 0 | Đã duyệt (onos-80, 04/10/2026) |
+
+**Làm được ngay không cần duyệt thêm: #1 (sau khi xác nhận `cost`) và #2.**
+
+### 5.4 Tiến độ
+
+- **#1 sổ chi phí sản xuất chế độ bóng — XONG** (04/10/2026): `production_cost_entries`, xem `CustomerOrderIntake.md` §3.3b. Giá vốn = `variations[].cost` (xác nhận bằng số prod: cost 5,60 < nonShipCost 6,30 < retailPrice 14,51; 2.224/2.250 biến thể có nonShipCost cao hơn cost).
+- **#2 danh sách giao dịch mọi seller — XONG** (04/10/2026): `GET admin/customer-wallets/transactions` + trang `/adm/wallets/transactions`, xem `SellerWallet.md` §3/§4. Mục menu chưa thêm (Sidebar thuộc a2): link nên là `/adm/wallets/transactions?range=7d`.
+- #3 động cơ tính tiền — CHƯA bắt đầu: chờ chủ dự án duyệt bật tính tiền thật và trả lời ba câu về giá.

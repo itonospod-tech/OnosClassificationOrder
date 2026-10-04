@@ -55,6 +55,9 @@ export class CustomerWalletTransactionEntity extends DatabaseEntityAbstract {
 
 export const CustomerWalletTransactionSchema = SchemaFactory.createForClass(CustomerWalletTransactionEntity);
 CustomerWalletTransactionSchema.index({ customerId: 1, createdAt: -1 });
+// All-sellers ledger (staff Billing › Transactions): newest first across every seller, optionally by kind.
+CustomerWalletTransactionSchema.index({ createdAt: -1 });
+CustomerWalletTransactionSchema.index({ kind: 1, createdAt: -1 });
 // Idempotency tầng DB: cùng khách + cùng loại + cùng requestId chỉ ghi được 1
 // lần — chặn trừ tiền đúp khi FE retry. (kind nằm trong khoá để cặp
 // `label` + `label_refund` của CÙNG lượt mua không đụng nhau.)
