@@ -307,6 +307,25 @@ export class CustomerWalletService implements OnModuleInit {
     };
   }
 
+  /** One seller's wallet row, read fresh. Used by the staff dialogs so a stale list never decides a money step. */
+  async getAdminWallet(customerId: string): Promise<AdminWalletRow> {
+    const c = await this.customerModel
+      .findById(customerId)
+      .select('userSku userEmail fullName tier walletBalance creditLimit deletedAt');
+    if (!c || c.deletedAt) throw new NotFoundException('Không tìm thấy seller.');
+    const last = await this.txnModel.findOne({ customerId }).sort({ createdAt: -1 }).select('createdAt');
+    return {
+      customerId: String(c._id),
+      userSku: c.userSku,
+      userEmail: c.userEmail,
+      fullName: c.fullName || undefined,
+      tier: c.tier,
+      balance: round2(c.walletBalance ?? 0),
+      creditLimit: c.creditLimit ?? 0,
+      lastTxnAt: last?.createdAt ?? null,
+    };
+  }
+
   async listWallets(dto: GetAdminWalletsDto): Promise<{ data: AdminWalletRow[]; total: number }> {
     const filter: Record<string, unknown> = { deletedAt: null };
     if (dto.search?.trim()) {

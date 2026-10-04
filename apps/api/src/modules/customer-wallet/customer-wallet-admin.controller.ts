@@ -4,6 +4,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser } from 'core';
 import {
   AdjustWalletDto,
+  GetAdminWalletResDto,
   GetAdminWalletsDto,
   GetAdminWalletsResDto,
   GetAdminWalletTxnsDto,
@@ -72,6 +73,16 @@ export class CustomerWalletAdminController {
     @Query() dto: GetCustomerWalletTxnsDto,
   ): Promise<GetCustomerWalletTxnsResDto> {
     return { success: true, ...(await this.walletService.listTransactions(customerId, dto)) };
+  }
+
+  // Static `transactions` still wins over this parametric route, so the order of declaration does not matter.
+  @Get(':customerId')
+  @Auth([RoleType.Admin])
+  @ApiOperation({ summary: 'Ví của 1 seller (số dư + hạn mức hiện tại, đọc mới)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetAdminWalletResDto })
+  async getWallet(@Param('customerId') customerId: string): Promise<GetAdminWalletResDto> {
+    return { success: true, data: await this.walletService.getAdminWallet(customerId) };
   }
 
   @Post(':customerId/topup')

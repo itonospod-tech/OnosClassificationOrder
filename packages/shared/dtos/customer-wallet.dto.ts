@@ -101,6 +101,10 @@ export const AdminWalletRowZod = z.object({
 });
 export type AdminWalletRow = z.infer<typeof AdminWalletRowZod>;
 
+/** One seller's wallet row — same shape as a row of the list, fetched fresh (never from a stale page). */
+export const GetAdminWalletResZod = ResZod.extend({ data: AdminWalletRowZod });
+export class GetAdminWalletResDto extends createZodDto(extendApi(GetAdminWalletResZod)) {}
+
 export const GetAdminWalletsResZod = ResZod.extend({ data: AdminWalletRowZod.array(), total: z.number() });
 export class GetAdminWalletsResDto extends createZodDto(extendApi(GetAdminWalletsResZod)) {}
 

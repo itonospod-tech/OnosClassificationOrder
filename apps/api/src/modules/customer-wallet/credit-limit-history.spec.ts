@@ -87,4 +87,14 @@ describeDb('credit limit audit trail (real MongoDB)', () => {
     expect(JSON.stringify(customer)).not.toContain('Nguyen Van A');
     expect(JSON.stringify(customer)).not.toContain('secret reason');
   });
+
+  it('getAdminWallet reads the live balance and limit, never a stale copy', async () => {
+    await service.updateCreditLimit(sellerA, 300, staff);
+    await service.applyTransaction({ customerId: sellerA, kind: 'topup', amount: 50, refs: { requestId: 'req-fresh-0001' } });
+
+    const wallet = await service.getAdminWallet(sellerA);
+    expect(wallet).toMatchObject({ customerId: sellerA, userSku: 'SELLERA', balance: 50, creditLimit: 300 });
+    expect(wallet.lastTxnAt).toBeInstanceOf(Date);
+    await expect(service.getAdminWallet('does-not-exist')).rejects.toBeInstanceOf(NotFoundException);
+  });
 });

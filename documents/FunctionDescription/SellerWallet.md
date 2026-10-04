@@ -49,6 +49,7 @@ BE ném `BadRequestException` với **message = đúng 1 mã** trong `SELLER_SHI
 | GET | `customer/shipping/orders/:stagingId/quote` | Báo giá (`weightGram?`) — trả 200 kèm `eligible`/`errorCode` |
 | POST | `customer/shipping/orders/:stagingId/label` | Mua (`weightGram`, `requestId` bắt buộc) |
 | GET | `admin/customer-wallets` | List ví seller (`@Auth([Admin])`, search/activeOnly/paging) |
+| GET | `admin/customer-wallets/:customerId` | Ví của MỘT seller, đọc mới (số dư + hạn mức + danh tính, cùng hình dạng một dòng của list) — dialog nạp/điều chỉnh/hạn mức đọc số này ở bước xác nhận thay vì tin dòng list có thể cũ |
 | GET | `admin/customer-wallets/transactions` | Sổ cái MỌI seller, mới nhất trước (`@Auth([Admin])`; lọc `kind`/`from`/`to` (YYYY-MM-DD, ngày giờ VN)/`search` seller/`customerId`; mỗi dòng kèm `userSku`/`userEmail`/`fullName` + `productionIds` đã dịch từ `refs.orderIds` — mảng đó chứa `_id` đơn, vô nghĩa với nhân viên). Lọc dựng ở hàm thuần `wallet-txn-filter.ts` (+spec); index `{createdAt:-1}` + `{kind:1,createdAt:-1}` |
 | GET | `admin/customer-wallets/:customerId/transactions` | Sổ cái 1 seller |
 | POST | `admin/customer-wallets/:customerId/topup` | Nạp (+). Body: `requestId` (BẮT BUỘC), `amount`, `note` (bắt buộc), `externalTxnId?` (mã giao dịch ngân hàng), `attachmentUrl?` (link chứng từ, chỉ http/https; tải file thật là việc sau). Trả `replayed:true` khi `requestId` đã áp dụng trước đó (không ghi gì). 409 khi: cùng `requestId` khác số tiền; `externalTxnId` đã nạp (cho bất kỳ seller nào) — thông báo nêu seller + giờ + "dùng Điều chỉnh" |
