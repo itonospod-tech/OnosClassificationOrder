@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { handleAxiosError } from '@/utils';
+import { PageHeader } from '@/components/common/PageHeader';
 
 type PwField = 'oldPassword' | 'newPassword' | 'newConfirmPassword';
 
@@ -79,15 +80,11 @@ export default function Account() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center">
-          <User size={20} className="text-rose-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('account.title', { ns: 'auth' })}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t('account.subtitle', { ns: 'auth' })}</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<User size={20} />}
+        title={t('account.title', { ns: 'auth' })}
+        description={t('account.subtitle', { ns: 'auth' })}
+      />
 
       <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/60">
         <div className="space-y-4">

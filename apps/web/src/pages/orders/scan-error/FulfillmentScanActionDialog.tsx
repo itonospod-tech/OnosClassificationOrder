@@ -662,7 +662,7 @@ function BigField({ icon, label, value }: { icon: React.ReactNode; label: string
         {icon}
         {label}
       </div>
-      <div className="mt-1 text-3xl font-bold text-foreground truncate" title={value}>
+      <div className="mt-1 text-3xl font-bold text-foreground md:truncate max-md:break-words max-md:text-xl max-md:leading-tight" title={value}>
         {value}
       </div>
     </div>
