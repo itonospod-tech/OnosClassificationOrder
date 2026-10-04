@@ -100,6 +100,10 @@ git fetch --quiet origin "$BRANCH" 2>/dev/null ||
   { log "LỖI: fetch hỏng (đã thử lại 1 lần)"; exit 1; }
 local_sha=$(git rev-parse HEAD)
 remote_sha=$(git rev-parse "origin/$BRANCH")
+# NOTE: systemd runs the INSTALLED copy at /usr/local/bin/onos-dev-autopull,
+# which is a real file, not a symlink to this one. Editing this file alone
+# changes nothing — run `./dev-autopull.sh --install` to push the change over.
+#
 # Nothing to pull when the remote tip is already contained in HEAD. Plain
 # equality is not enough: a local branch that is AHEAD of origin (commits
 # merged here but not pushed) never equals it, so the script re-ran the
