@@ -5,13 +5,15 @@ import { ZaloGroupKind } from 'shared';
 
 import { RepositoryRemote } from '@/services';
 
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface Props {
   onClose: () => void;
@@ -27,6 +29,7 @@ interface Props {
  */
 export default function SuggestionsDialog({ onClose, onApplied }: Props) {
   const { t } = useTranslation(['zaloGroups', 'common']);
+  const isMobile = useIsMobile();
 
   const [items, setItems] = useState<ZaloGroupSuggestion[]>([]);
   const [idByGroup, setIdByGroup] = useState<Record<string, string>>({});
@@ -91,7 +94,7 @@ export default function SuggestionsDialog({ onClose, onApplied }: Props) {
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{t('suggestions.title')}</DialogTitle>
+          <DialogTitle className="pr-10 text-left">{t('suggestions.title')}</DialogTitle>
         </DialogHeader>
 
         <p className="text-sm text-slate-500 dark:text-slate-400">{t('suggestions.description')}</p>
@@ -104,10 +107,28 @@ export default function SuggestionsDialog({ onClose, onApplied }: Props) {
           <div className="py-10 text-center text-sm text-slate-500">{t('suggestions.empty')}</div>
         ) : (
           <div className="max-h-[55vh] overflow-y-auto rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-10">
+            {/* The table's select-all checkbox lives in its header; cards have no header, so phones get it here. */}
+            {isMobile && (
+              <label className="flex cursor-pointer items-center gap-2 border-b p-3 text-sm touch:min-h-[44px]">
+                <input
+                  type="checkbox"
+                  className="touch:h-5 touch:w-5"
+                  checked={allChecked}
+                  onChange={(e) => setChecked(Object.fromEntries(items.map((s) => [s.groupGlobalId, e.target.checked])))}
+                />
+                {t('suggestions.selectAll')}
+              </label>
+            )}
+            <ResponsiveList
+              className="p-3 md:p-0"
+              rows={items}
+              rowKey={(s) => s.groupGlobalId}
+              columns={[
+                {
+                  key: 'select',
+                  mobile: 'trailing',
+                  className: 'w-10',
+                  header: (
                     <input
                       type="checkbox"
                       aria-label={t('suggestions.selectAll')}
@@ -116,57 +137,70 @@ export default function SuggestionsDialog({ onClose, onApplied }: Props) {
                         setChecked(Object.fromEntries(items.map((s) => [s.groupGlobalId, e.target.checked])))
                       }
                     />
-                  </TableHead>
-                  <TableHead>{t('table.group')}</TableHead>
-                  <TableHead>{t('table.customer')}</TableHead>
-                  <TableHead className="w-24">{t('suggestions.confidence')}</TableHead>
-                  <TableHead>{t('suggestions.reason')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((s) => (
-                  <TableRow key={s.groupGlobalId}>
-                    <TableCell>
-                      <input
-                        type="checkbox"
-                        aria-label={s.title ?? s.groupGlobalId}
-                        checked={!!checked[s.groupGlobalId]}
-                        onChange={(e) => setChecked((c) => ({ ...c, [s.groupGlobalId]: e.target.checked }))}
-                      />
-                    </TableCell>
-                    <TableCell className="text-sm">{s.title || t('table.noTitle')}</TableCell>
-                    <TableCell className="font-mono text-sm">
+                  ),
+                  cell: (s) => (
+                    <input
+                      type="checkbox"
+                      className="touch:h-6 touch:w-6"
+                      aria-label={s.title ?? s.groupGlobalId}
+                      checked={!!checked[s.groupGlobalId]}
+                      onChange={(e) => setChecked((c) => ({ ...c, [s.groupGlobalId]: e.target.checked }))}
+                    />
+                  ),
+                },
+                {
+                  key: 'group',
+                  header: t('table.group'),
+                  mobile: 'title',
+                  cell: (s) => <span className="break-words text-sm font-medium">{s.title || t('table.noTitle')}</span>,
+                },
+                {
+                  key: 'customer',
+                  header: t('table.customer'),
+                  mobile: 'subtitle',
+                  cell: (s) => (
+                    <span className="font-mono text-sm">
                       {s.userSku}
                       {s.action === 'create' && (
                         <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 font-sans text-[10px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">
                           {t('suggestions.willCreate')}
                         </span>
                       )}
-                      {s.customerName && <div className="font-sans text-xs text-slate-500">{s.customerName}</div>}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          'rounded px-1.5 py-0.5 text-xs font-medium tabular-nums',
-                          s.score >= 0.9
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                            : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-                        )}
-                      >
-                        {s.score.toFixed(2)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500">{s.reason}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      {s.customerName && <span className="block font-sans text-xs text-slate-500">{s.customerName}</span>}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'confidence',
+                  header: t('suggestions.confidence'),
+                  mobile: 'trailing',
+                  className: 'w-24',
+                  cell: (s) => (
+                    <span
+                      className={cn(
+                        'rounded px-1.5 py-0.5 text-xs font-medium tabular-nums',
+                        s.score >= 0.9
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+                      )}
+                    >
+                      {s.score.toFixed(2)}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'reason',
+                  header: t('suggestions.reason'),
+                  cell: (s) => <span className="text-xs text-slate-500">{s.reason}</span>,
+                },
+              ]}
+            />
           </div>
         )}
 
         <div className="mt-2 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>
-            {t('common:cancel', { defaultValue: 'Hủy' })}
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={applyAll} disabled={applying || selected.length === 0}>
             {t('suggestions.applyAll')} ({selected.length})
