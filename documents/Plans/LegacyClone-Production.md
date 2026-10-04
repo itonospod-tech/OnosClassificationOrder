@@ -123,3 +123,12 @@ Không ai nhìn thấy [CHƯA XÁC NHẬN]. [DOC]: `replacement`/`return` là tr
 ## 8. Điều tôi KHÔNG xác nhận được
 
 Toàn bộ cột/bộ lọc của Box Packages, Production Report, Return & Replacement; ý nghĩa To Do vs Ready, `Ready`/`Reproduction` của lô; ảnh chụp màn hình. Cần một người được phép mở hệ cũ chỉ-đọc, hoặc người ở xưởng chụp hộ.
+
+## 9. Trạng thái thực hiện
+
+- **Hoãn có lý do:** Return & Replacement KHÔNG đưa sang đợt này (quyết định của `onos-2d` 04/10/2026). Hệ mới chưa chạy xong vòng giao hàng (58 vận đơn trên production, tất cả khách tự cấp, chưa mua nhãn VNP nào); đổi-trả là nghiệp vụ hậu-giao-hàng nên làm sau. Đây là hoãn, không phải bỏ sót.
+- **Không có hook giá vốn lúc đóng kiện:** hệ cũ ghi base cost lúc THANH TOÁN đơn, làn Tiền ghi `variations[].cost` lúc đẩy sản xuất (sổ bóng). Mục này thuộc làn Tiền.
+- **Grabink / 2D US:** không dựng màn riêng, nhưng KHÔNG xoá khỏi dữ liệu và vẫn hiện ở bộ chọn xưởng (Grabink là xưởng đối tác, prod vẫn có đơn mang nhãn Grabink; xưởng US đã cố ý loại khỏi thống kê ở `excluded-factory.ts`).
+- **Link xưởng mang bộ lọc mặc định:** menu đã đổi sang bộ chọn xưởng trên header (Orders.md §25), nên không còn 4 link mỗi xưởng. Các link dòng sản phẩm đã mở sẵn "đơn đang mở" (`WORKSHOP_STAGE_OPEN`); link "Tất cả đơn" mặc định ngày hôm nay. Không sửa `Sidebar.tsx` (của a2).
+- **Bảng ánh xạ MRP cũ ↔ chặng mới:** `packages/shared/constants/legacy-mrp-status.ts` (`LEGACY_MRP_STATUS_BY_STAGE`), test `apps/api/src/utils/legacy-mrp-status.spec.ts`. Chỉ là gợi ý hiển thị; chỉ dòng may và đóng hàng có bằng chứng từ timeline thật, còn To Do/Ready và QC sau ép là đoán.
+- **Mô hình lô:** vẫn ĐÓNG chờ xưởng trả lời.
