@@ -1,10 +1,12 @@
 'use client';
 
 /**
- * `/hub/wallets` — quản trị ví seller + bảng giá label (SellerWallet plan §7).
- * Nạp/điều chỉnh là NGHIỆP VỤ TIỀN: mọi thao tác bắt buộc ghi chú, BE ghi sổ
- * cái append-only kèm tên nhân viên; drill "Sổ cái" xem đúng bảng
- * before → after mà seller thấy ở portal (không có 2 phiên bản sự thật).
+ * `/hub/wallets` — xem ví seller + bảng giá label (SellerWallet plan §7).
+ * Phần này CHỈ ĐỌC với tiền seller: danh sách ví, số dư, hạn mức, drill "Sổ cái" (cùng bảng
+ * before → after mà seller thấy ở portal). Nạp / điều chỉnh / đổi hạn mức KHÔNG còn ở đây:
+ * một thao tác đụng tiền chỉ nên có MỘT đường vào, và đường đó là `/adm/wallets` (hộp thoại hai bước,
+ * đọc lại số dư, ô tích từ $1.000, chống ghi đôi). Hai đường thì mọi lớp bảo vệ phải làm hai lần và
+ * sẽ có lúc quên một bên (SellerWallet.md §5.1).
  * Bảng giá: upload CSV `WEIGHT,PRICE` (parse client bằng
  * `parseSellerShipPriceCsv` shared — cùng luật BE) + công tắc tổng.
  */
@@ -12,7 +14,7 @@
 import dayjs from 'dayjs';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BookOpenText, CircleDollarSign, Power, Upload } from 'lucide-react';
+import { BookOpenText, ExternalLink, Power, Upload } from 'lucide-react';
 import type { AdminWalletRow, CustomerWalletTxn, SellerShipPriceTable, VnpShipmentStats } from 'shared';
 import { parseSellerShipPriceCsv } from 'shared/client';
 import { OrdersPagination } from '@/components/orders/orders-pagination';
@@ -27,9 +29,11 @@ import type { ApiRes } from '@/lib/customer-orders';
 import { fmtUSD } from '@/lib/utils';
 
 const LIMIT = 20;
-const inputCls = 'w-full px-2.5 py-1.5 rounded-lg border border-border1 bg-card text-[12px] text-text-primary outline-none focus:border-accent';
 
-type ActionMode = 'topup' | 'adjust' | 'credit';
+/** Where the staff app lives; money actions are done there. Unset (local dev without it) → no link, nothing breaks. */
+const ADMIN_URL = (process.env.NEXT_PUBLIC_ADMIN_URL ?? '').replace(/\/+$/, '');
+const adminWalletUrl = (customerId?: string) =>
+  `${ADMIN_URL}/adm/wallets${customerId ? `?customer=${encodeURIComponent(customerId)}` : ''}`;
 
 function sellerName(w: AdminWalletRow): string {
   return w.userSku || w.fullName || w.userEmail || w.customerId.slice(-6);
@@ -40,11 +44,10 @@ export function HubWalletsView() {
   const [search, setSearch] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const [action, setAction] = useState<{ mode: ActionMode; row: AdminWalletRow } | null>(null);
   const [ledgerRow, setLedgerRow] = useState<AdminWalletRow | null>(null);
 
   const listUrl = `/api/hub/v1/admin/customer-wallets?page=${page}&limit=${LIMIT}${search ? `&search=${encodeURIComponent(search)}` : ''}${activeOnly ? '&activeOnly=true' : ''}`;
-  const { data: listRes, loading, refetch } = useApi<ApiRes<AdminWalletRow[]> & { total?: number }>(listUrl);
+  const { data: listRes, loading } = useApi<ApiRes<AdminWalletRow[]> & { total?: number }>(listUrl);
   const rows = listRes?.data ?? [];
   const total = listRes?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / LIMIT));
@@ -52,6 +55,17 @@ export function HubWalletsView() {
   return (
     <div className="space-y-4">
       <PageHeader title={t('hub:wallets.title')} subtitle={t('hub:wallets.subtitle')} />
+
+      {ADMIN_URL && (
+        <a
+          href={adminWalletUrl()}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border1 bg-card px-3 py-1.5 text-[12px] font-semibold text-text-primary hover:bg-card-hover"
+        >
+          <ExternalLink size={12} /> {t('hub:wallets.moneyActionsLink')}
+        </a>
+      )}
 
       <MoneySummary />
 
@@ -95,9 +109,11 @@ export function HubWalletsView() {
                       <td className="px-3 py-2 text-text-muted whitespace-nowrap">{w.lastTxnAt ? dayjs(w.lastTxnAt).format('DD/MM/YYYY HH:mm') : '—'}</td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
                         <span className="inline-flex gap-1">
-                          <Button variant="outline" size="sm" onClick={() => setAction({ mode: 'topup', row: w })}><CircleDollarSign size={12} /> {t('hub:wallets.topup')}</Button>
-                          <Button variant="outline" size="sm" onClick={() => setAction({ mode: 'adjust', row: w })}>{t('hub:wallets.adjust')}</Button>
-                          <Button variant="outline" size="sm" onClick={() => setAction({ mode: 'credit', row: w })}>{t('hub:wallets.creditLimitBtn')}</Button>
+                          {ADMIN_URL && (
+                            <a href={adminWalletUrl(w.customerId)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-border1 px-2.5 py-1 text-[11px] font-semibold text-text-primary hover:bg-card-hover">
+                              <ExternalLink size={12} /> {t('hub:wallets.manageInAdmin')}
+                            </a>
+                          )}
                           <Button variant="outline" size="sm" onClick={() => setLedgerRow(w)}><BookOpenText size={12} /> {t('hub:wallets.ledger')}</Button>
                         </span>
                       </td>
@@ -118,9 +134,11 @@ export function HubWalletsView() {
                     <span className={`tabular-nums text-sm font-bold ${w.balance < 0 ? 'text-error' : 'text-text-primary'}`}>{fmtUSD(w.balance)}</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    <Button variant="outline" size="sm" onClick={() => setAction({ mode: 'topup', row: w })}>{t('hub:wallets.topup')}</Button>
-                    <Button variant="outline" size="sm" onClick={() => setAction({ mode: 'adjust', row: w })}>{t('hub:wallets.adjust')}</Button>
-                    <Button variant="outline" size="sm" onClick={() => setAction({ mode: 'credit', row: w })}>{t('hub:wallets.creditLimitBtn')}</Button>
+                    {ADMIN_URL && (
+                      <a href={adminWalletUrl(w.customerId)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-border1 px-2.5 py-1 text-[11px] font-semibold text-text-primary hover:bg-card-hover">
+                        {t('hub:wallets.manageInAdmin')}
+                      </a>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setLedgerRow(w)}>{t('hub:wallets.ledger')}</Button>
                   </div>
                 </div>
@@ -132,14 +150,6 @@ export function HubWalletsView() {
         )}
       </div>
 
-      {action && (
-        <WalletActionDialog
-          mode={action.mode}
-          row={action.row}
-          onClose={() => setAction(null)}
-          onDone={() => { setAction(null); refetch(); }}
-        />
-      )}
       {ledgerRow && <LedgerDialog row={ledgerRow} onClose={() => setLedgerRow(null)} />}
     </div>
   );
@@ -254,78 +264,6 @@ function PriceTableCard() {
         </div>
       </div>
       <p className="text-[10px] text-text-muted">{t('wallets.priceTableHint')}</p>
-    </div>
-  );
-}
-
-function WalletActionDialog({ mode, row, onClose, onDone }: { mode: ActionMode; row: AdminWalletRow; onClose: () => void; onDone: () => void }) {
-  const { t } = useTranslation('hub');
-  const { toast } = useToast();
-  const [amount, setAmount] = useState(mode === 'credit' ? String(row.creditLimit) : '');
-  const [note, setNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  // One idempotency key per opened dialog: every click/retry of THIS operation resends the same value, so a
-  // double click or a retry after a timeout cannot credit or debit twice. A newly opened dialog gets a new one.
-  const [requestId] = useState(() => crypto.randomUUID());
-  const name = sellerName(row);
-  const title = t(`wallets.${mode === 'topup' ? 'topupTitle' : mode === 'adjust' ? 'adjustTitle' : 'creditLimitTitle'}`, { name });
-
-  const submit = async () => {
-    const v = Number(amount);
-    if (!Number.isFinite(v)) return;
-    setSaving(true);
-    try {
-      if (mode === 'credit') {
-        await apiFetch(`/api/hub/v1/admin/customer-wallets/${row.customerId}/credit-limit`, {
-          method: 'PATCH',
-          body: JSON.stringify({ creditLimit: v }),
-        });
-        toast('success', t('wallets.saved'));
-      } else {
-        const res = await apiFetch<ApiRes<{ balance: number }>>(
-          `/api/hub/v1/admin/customer-wallets/${row.customerId}/${mode}`,
-          { method: 'POST', body: JSON.stringify({ requestId, amount: v, note: note.trim() }) },
-        );
-        toast('success', t(mode === 'topup' ? 'wallets.topupDone' : 'wallets.adjustDone', { amount: fmtUSD(v), balance: fmtUSD(res.data.balance) }));
-      }
-      onDone();
-    } catch (e) {
-      toast('error', (e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const invalid =
-    !Number.isFinite(Number(amount)) ||
-    (mode === 'topup' && Number(amount) <= 0) ||
-    (mode === 'adjust' && Number(amount) === 0) ||
-    (mode === 'credit' && Number(amount) < 0) ||
-    (mode !== 'credit' && !note.trim());
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'var(--color-overlay)' }} onClick={onClose}>
-      <div className="w-full max-w-sm bg-card rounded-xl border border-border1 shadow-elevated p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-sm font-bold text-text-primary">{title}</h2>
-        <div>
-          <label className="text-[9px] uppercase tracking-wider text-text-muted font-bold">
-            {t(mode === 'credit' ? 'wallets.creditLimitLabel' : 'wallets.amountLabel')}
-          </label>
-          <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className={`${inputCls} mt-1`} autoFocus />
-          {mode === 'adjust' && <p className="mt-1 text-[10px] text-text-muted">{t('wallets.adjustAmountHint')}</p>}
-          {mode === 'credit' && <p className="mt-1 text-[10px] text-text-muted">{t('wallets.creditLimitHint')}</p>}
-        </div>
-        {mode !== 'credit' && (
-          <div>
-            <label className="text-[9px] uppercase tracking-wider text-text-muted font-bold">{t('wallets.noteLabel')}</label>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('wallets.notePlaceholder')} className={`${inputCls} mt-1`} />
-          </div>
-        )}
-        <div className="flex justify-end gap-2 pt-1">
-          <Button variant="outline" size="sm" onClick={onClose}>{t('sellers.cancel')}</Button>
-          <Button variant="primary" size="sm" onClick={submit} loading={saving} disabled={invalid}>{t('sellers.save')}</Button>
-        </div>
-      </div>
     </div>
   );
 }

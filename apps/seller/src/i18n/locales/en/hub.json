@@ -251,23 +251,8 @@
       "actions": ""
     },
     "empty": "No sellers match.",
-    "topup": "Top up",
-    "adjust": "Adjust",
-    "creditLimitBtn": "Credit",
     "ledger": "Ledger",
-    "topupTitle": "Top up wallet of {{name}}",
-    "adjustTitle": "Adjust wallet of {{name}}",
-    "creditLimitTitle": "Credit limit of {{name}}",
     "ledgerTitle": "Wallet ledger — {{name}}",
-    "amountLabel": "Amount (USD)",
-    "adjustAmountHint": "Positive = credit, negative = debit (e.g. label-cancel refund: positive; clawback: negative).",
-    "noteLabel": "Note (required)",
-    "notePlaceholder": "e.g. Bank transfer 09/09 — 200 USD",
-    "creditLimitLabel": "Limit (USD, ≥ 0)",
-    "creditLimitHint": "Balance may go down to −limit. 0 = no debt allowed.",
-    "saved": "Saved.",
-    "topupDone": "Topped up {{amount}} — new balance {{balance}}.",
-    "adjustDone": "Adjusted {{amount}} — new balance {{balance}}.",
     "priceTable": "Seller label price table",
     "priceTableHint": "2-column CSV WEIGHT,PRICE (gram, USD) — ascending tiers",
     "priceTableEmpty": "No price table yet — sellers CANNOT buy labels. Upload a CSV to enable.",
@@ -285,6 +270,8 @@
       "revenue": "Seller revenue (in)",
       "cost": "VNP spend (out)",
       "margin": "Seller label margin"
-    }
+    },
+    "moneyActionsLink": "Wallet actions at /adm/wallets",
+    "manageInAdmin": "Top up / adjust in /adm"
   }
 }
