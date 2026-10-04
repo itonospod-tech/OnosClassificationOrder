@@ -456,7 +456,8 @@ export default function LifecycleStrip() {
         <div className="text-xs text-rose-600 px-1 py-2">{trackError}</div>
       ) : (
         <TooltipProvider delayDuration={100}>
-          <div className={cn('flex items-stretch gap-1.5 transition-opacity', loading && 'opacity-60')}>
+          {/* Phones: 8 stages cannot share 390px, so the row scrolls on its own instead of widening the page. */}
+          <div className={cn('flex items-stretch gap-1.5 transition-opacity max-md:overflow-x-auto max-md:pb-1', loading && 'opacity-60')}>
             {/* Card Tổng đơn tất cả */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -534,7 +535,7 @@ export default function LifecycleStrip() {
                         <TooltipTrigger asChild>
                           <div
                             className={cn(
-                              'flex-1 min-w-0 rounded-lg border px-2 py-2 flex flex-col items-center gap-1 cursor-help h-[120px] w-[200px]',
+                              'flex-1 min-w-0 rounded-lg border px-2 py-2 flex flex-col items-center gap-1 cursor-help h-[120px] w-[200px] max-md:min-w-[84px]',
                               isBottleneck
                                 ? 'border-amber-400 bg-amber-50/60 dark:bg-amber-500/10 ring-1 ring-amber-300'
                                 : 'border-border bg-background',
