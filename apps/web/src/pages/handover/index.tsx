@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Spinner } from '@/components/common/Spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,17 +88,17 @@ export default function HandoverPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-lg font-semibold">{t('handover.title')}</h1>
-        <span className="text-sm text-muted-foreground">
-          {t('handover.summary', { total: rows.length, missing: thieuCan })}
-        </span>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          {loading ? <Spinner size={13} className="text-muted-foreground" /> : <RefreshCw size={14} />}
-          {t('common:actions.refresh')}
-        </Button>
-      </div>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t('handover.title')}
+        description={t('handover.summary', { total: rows.length, missing: thieuCan })}
+        actions={
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+            {loading ? <Spinner size={13} className="text-muted-foreground" /> : <RefreshCw size={14} />}
+            {t('common:actions.refresh')}
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

@@ -10,6 +10,7 @@ import { PATHS } from '@/constants/paths';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { Spinner } from '@/components/common/Spinner';
 import { Button } from '@/components/ui/button';
@@ -114,23 +115,22 @@ function WalletTransactionsContent() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-slate-800 dark:text-slate-100">
-            <ReceiptText size={20} /> {t('txns.title')}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">{t('txns.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link to={PATHS.WALLETS}>{t('nav.wallets')}</Link>
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setReloadTick((n) => n + 1)} disabled={loading}>
-            <RefreshCw size={16} className={cn('mr-1.5', loading && 'animate-spin')} />
-            {t('refresh')}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        icon={<ReceiptText size={20} />}
+        title={t('txns.title')}
+        description={t('txns.subtitle')}
+        actions={
+          <>
+            <Button variant="outline" size="sm" asChild>
+              <Link to={PATHS.WALLETS}>{t('nav.wallets')}</Link>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setReloadTick((n) => n + 1)} disabled={loading}>
+              <RefreshCw size={16} className={cn('mr-1.5', loading && 'animate-spin')} />
+              {t('refresh')}
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-1.5">
         {WALLET_RANGES.map((r) => (

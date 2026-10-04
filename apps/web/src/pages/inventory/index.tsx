@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -177,21 +178,20 @@ export default function InventoryPage() {
 
   if (!factoryId) {
     return (
-      <div className="p-6">
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <p className="mt-4 text-sm text-muted-foreground">{t('needFactory')}</p>
+      <div className="space-y-4">
+        <PageHeader title={t('title')} />
+        <p className="text-sm text-muted-foreground">{t('needFactory')}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold">{t('title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('description')}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-4">
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        actions={
+          <>
           <Button variant="outline" size="sm" onClick={refreshAll}>
             <RefreshCw size={14} className="mr-1" />
             {t('actions.refresh')}
@@ -215,8 +215,9 @@ export default function InventoryPage() {
               </Button>
             </>
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList>
