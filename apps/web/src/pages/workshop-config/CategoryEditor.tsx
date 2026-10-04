@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import type {
   CreateWorkshopConfigDto,
   WorkshopConfig,
@@ -13,6 +13,7 @@ import { useWorkshopConfigStore } from '@/store/workshopConfigStore';
 
 import { RepositoryRemote } from '@/services';
 
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,9 +21,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 import { ColorPicker } from './ColorPicker';
 import { IconPicker, LucideIcon } from './IconPicker';
@@ -56,6 +58,7 @@ interface Props {
 
 export function CategoryEditor({ category, mode }: Props) {
   const { t } = useTranslation(['workshopConfig', 'common']);
+  const isMobile = useIsMobile();
   const { byCategory, load, loaded, loading, upsertItem, removeItem } = useWorkshopConfigStore();
   const items = byCategory[category] || [];
 
@@ -181,80 +184,80 @@ export function CategoryEditor({ category, mode }: Props) {
           <Plus size={14} /> {t('common:actions.add')}
         </Button>
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10"></TableHead>
-            <TableHead className="w-20">{t('categoryEditor.table.display')}</TableHead>
-            <TableHead>{t('categoryEditor.table.name')}</TableHead>
-            <TableHead>{t('categoryEditor.table.code')}</TableHead>
-            <TableHead className="w-24">{t('categoryEditor.table.status')}</TableHead>
-            <TableHead className="w-28 text-right"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading && (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-8">
-                <Spinner size={20} className="text-muted-foreground" />
-              </TableCell>
-            </TableRow>
-          )}
-          {!loading && items.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
-                {t('categoryEditor.table.empty')}
-              </TableCell>
-            </TableRow>
-          )}
-          {!loading &&
-            items.map((it) => (
-              <TableRow key={it._id}>
-                <TableCell className="text-muted-foreground">
-                  <GripVertical size={14} />
-                </TableCell>
-                <TableCell>
-                  {mode === 'color' ? (
-                    <Badge
-                      className="font-normal border"
-                      style={{ backgroundColor: it.color, color: '#fff', borderColor: it.color }}
-                    >
-                      {it.name}
-                    </Badge>
-                  ) : (
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-muted">
-                      <LucideIcon name={it.icon} size={16} />
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="font-medium">
-                  {it.name}
+      {/* Table on wide screens, cards on phones. The rows hold no inline inputs (edit is a dialog), so cards are safe. */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Spinner size={20} className="text-muted-foreground" />
+        </div>
+      ) : (
+        <ResponsiveList
+          className="p-3 md:p-0"
+          rows={items}
+          rowKey={(it) => it._id!}
+          empty={t('categoryEditor.table.empty')}
+          columns={[
+            {
+              key: 'display',
+              header: t('categoryEditor.table.display'),
+              mobile: 'hidden',
+              className: 'w-36',
+              cell: (it) => <DisplayChip item={it} mode={mode} />,
+            },
+            {
+              key: 'name',
+              header: t('categoryEditor.table.name'),
+              mobile: 'title',
+              cell: (it) => (
+                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                  {/* The phone card has no display column, so the colour/icon rides in front of the name. */}
+                  {isMobile && <DisplayChip item={it} mode={mode} compact />}
+                  <span className="break-words">{it.name}</span>
                   {needsErrorSource && (
                     <ErrorSourceBadge
                       source={(it as { errorSource?: 'designer' | 'factory' | 'tool-check' }).errorSource}
                     />
                   )}
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">{it.code}</TableCell>
-                <TableCell>
-                  {it.isActive ? (
-                    <Badge variant="success">{t('categoryEditor.table.on')}</Badge>
-                  ) : (
-                    <Badge variant="secondary">{t('categoryEditor.table.off')}</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(it)}>
+                </span>
+              ),
+            },
+            {
+              key: 'code',
+              header: t('categoryEditor.table.code'),
+              mobile: 'subtitle',
+              cell: (it) => <span className="break-all font-mono text-xs text-muted-foreground">{it.code}</span>,
+            },
+            {
+              key: 'status',
+              header: t('categoryEditor.table.status'),
+              mobile: 'trailing',
+              className: 'w-24',
+              cell: (it) =>
+                it.isActive ? (
+                  <Badge variant="success">{t('categoryEditor.table.on')}</Badge>
+                ) : (
+                  <Badge variant="secondary">{t('categoryEditor.table.off')}</Badge>
+                ),
+            },
+            {
+              key: 'actions',
+              header: '',
+              mobile: 'trailing',
+              className: 'w-28 text-right',
+              cell: (it) => (
+                <span className="inline-flex items-center">
+                  {/* 44px touch targets on a finger, compact on a mouse. */}
+                  <Button variant="ghost" size="sm" className="touch:h-11 touch:w-11" onClick={() => openEdit(it)}>
                     <Pencil size={14} />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(it)}>
+                  <Button variant="ghost" size="sm" className="touch:h-11 touch:w-11" onClick={() => setConfirmDelete(it)}>
                     <Trash2 size={14} className="text-destructive" />
                   </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-        </TableBody>
-      </Table>
+                </span>
+              ),
+            },
+          ]}
+        />
+      )}
 
       <Dialog open={form.open} onOpenChange={(open) => setForm({ ...form, open })}>
         <DialogContent>
@@ -369,6 +372,28 @@ export function CategoryEditor({ category, mode }: Props) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** The colour badge / icon of a row. `compact` is the phone card: a swatch, since the name is printed right beside it. */
+function DisplayChip({ item, mode, compact = false }: { item: WorkshopConfig; mode: Props['mode']; compact?: boolean }) {
+  if (mode === 'color') {
+    return compact ? (
+      <span
+        aria-hidden
+        className="inline-block h-3 w-3 shrink-0 rounded-full border"
+        style={{ backgroundColor: item.color, borderColor: item.color }}
+      />
+    ) : (
+      <Badge className="whitespace-nowrap font-normal border" style={{ backgroundColor: item.color, color: '#fff', borderColor: item.color }}>
+        {item.name}
+      </Badge>
+    );
+  }
+  return (
+    <span className="inline-flex h-7 w-7 items-center justify-center rounded bg-muted">
+      <LucideIcon name={item.icon} size={16} />
+    </span>
   );
 }
 
