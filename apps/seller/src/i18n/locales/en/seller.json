@@ -185,7 +185,10 @@
       "label": "Label purchase",
       "label_refund": "Label refund",
       "order": "Order payment",
-      "adjust": "Adjustment"
+      "adjust": "Adjustment",
+      "import_tax": "Import tax",
+      "active": "Tracking activation fee",
+      "refund": "Order refund"
     },
     "columns": {
       "when": "When",

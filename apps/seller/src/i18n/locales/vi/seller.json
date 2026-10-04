@@ -185,7 +185,10 @@
       "label": "Mua vận đơn",
       "label_refund": "Hoàn tiền vận đơn",
       "order": "Tiền đơn hàng",
-      "adjust": "Điều chỉnh"
+      "adjust": "Điều chỉnh",
+      "import_tax": "Thuế nhập khẩu",
+      "active": "Phí kích hoạt tracking",
+      "refund": "Hoàn tiền đơn hàng"
     },
     "columns": {
       "when": "Lúc",
