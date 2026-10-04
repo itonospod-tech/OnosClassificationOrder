@@ -69,7 +69,7 @@ export function ImpersonateQuickSwitch() {
           size="icon"
           // Tên + email dài thì cắt bớt, KHÔNG để vỡ thanh nav; màn hẹp rút về
           // đúng biểu tượng.
-          className="w-auto shrink-0 gap-1.5 px-2"
+          className="w-auto shrink-0 gap-1.5 px-2 touch:w-auto"
           title={t('impersonate.quickSwitch.tooltip', { name: displayName, email: displayEmail })}
           aria-label={t('impersonate.quickSwitch.tooltip', { name: displayName, email: displayEmail })}
         >
