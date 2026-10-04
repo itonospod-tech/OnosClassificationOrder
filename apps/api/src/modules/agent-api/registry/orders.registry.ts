@@ -34,7 +34,7 @@ export const ordersRegistry: AgentTableSpec = {
     color: plain('string'),
     size: plain('string'),
     printMethod: plain('string'),
-    productLine: plain('enum', 'PRD-8 — dòng sản phẩm (3d/2d/wood/embroidery/led/canvas), stamp từ ProductConfig lúc import'),
+    productLine: plain('enum', 'PRD-8 — dòng sản phẩm (3d/2d/wood/embroidery/led/canvas/dropship), stamp từ ProductConfig lúc import'),
     quantity: numeric('Số lượng của đơn'),
 
     status: plain('string', 'Trạng thái đơn lấy từ hệ thống nguồn'),

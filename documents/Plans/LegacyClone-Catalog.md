@@ -74,3 +74,19 @@ Leaning: option 2. **Not built** until compared on real data. Materials: likely 
 ## 5. Out of scope / not touched
 
 "Calculate Prices" and all price inputs (external call), and any create/edit/delete on the legacy system.
+
+## 6. Decision: `dropship` becomes the 7th `productLine` (04/10/2026)
+
+- **Decision:** add `dropship` to `ProductLine` and import the 11 `DROP-*` products into it.
+- **Why:** `productLine` is "the line the SELLER sees", unlike `printMethod` (workshop technique). In the legacy
+  system Dropship is a seller-browsable Collection, level with 3D/2D/Embroidery. Filing bought-in jerseys under
+  `2d`/`3d` would misstate what they are (they are not printed by any technique); leaving `productLine` empty would
+  hide them from every product-line page, so importing them would be pointless.
+- **Cost:** one enum value, reversible. Shared enum, labels (vi/en, `customerPortal` + `products` + `layout`),
+  badge colour, seller icon; spec `product-line-i18n.spec.ts` fails if a line lacks a label.
+- **Import:** `inferProductLine` maps collection `dropship` → `dropship` at the LOWEST priority, so no existing product
+  changes line; `productLineForNew` therefore stamps new dropship products. The import must be called with
+  `collection=dropship` (the unfiltered legacy query does not return them).
+- **Not done here:** the staff sidebar's fixed line list (`Sidebar.tsx`) has no Dropship entry — owned by a2.
+- **28 products without price on prod** (7 with no variations, 21 with only `-DEFAULT`) will get variations + prices
+  from the legacy system on the next "Import từ OnosPod" — approved by the merger on 04/10/2026.

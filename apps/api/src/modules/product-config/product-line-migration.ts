@@ -23,6 +23,8 @@ const COLLECTION_PRIORITY: Array<[RegExp, ProductLine]> = [
   [/^(handmade[-\s]?wood|wood|go|gỗ)$/, PL.Wood],
   [/^2d$/, PL.TwoD],
   [/^3d$/, PL.ThreeD],
+  // Lowest priority so no existing product changes line; legacy OnosPod keeps dropship as its own collection.
+  [/^dropship$/, PL.Dropship],
 ];
 
 export function inferProductLine(s: ProductLineSignals): { productLine: ProductLine; source: ProductLineSource } {

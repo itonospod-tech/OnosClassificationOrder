@@ -24,6 +24,7 @@ const LINE_ICONS: Record<string, string> = {
   embroidery: '🧵',
   led: '💡',
   canvas: '🖼️',
+  dropship: '📦',
 };
 
 /** Nav cổng seller — nhãn qua i18n nên phải build trong component (nhận `t`). */
