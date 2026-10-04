@@ -27,8 +27,9 @@ interface OrdersStatusFilterPillsProps {
 export function OrdersStatusFilterPills({ active, onChange, counts, heldOnly, onToggleHeld }: OrdersStatusFilterPillsProps) {
   const { t } = useTranslation('customerPortal');
   const list: readonly string[] = ['all', ...CUSTOMER_ORDER_STATUSES];
+  // Phones: one swipeable row instead of four wrapped rows above the list.
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 md:flex-wrap max-md:overflow-x-auto max-md:no-scrollbar max-md:[&>*]:shrink-0 max-md:-mx-1 max-md:px-1">
       {list.map((status) => {
         const isActive = (status === 'all' && !active) || active === status;
         const count = counts ? (status === 'all' ? counts.all : (counts[COUNT_KEY[status]] as number)) : null;

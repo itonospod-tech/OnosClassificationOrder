@@ -26,8 +26,9 @@ interface ProductLineTabsProps {
 export function ProductLineTabs({ active, onChange, counts, locked }: ProductLineTabsProps) {
   const { t } = useTranslation('customerPortal');
   const keys = locked ? [locked] : PRODUCT_LINE_TAB_KEYS;
+  // Phones: one swipeable row instead of four wrapped rows above the list.
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 md:flex-wrap max-md:overflow-x-auto max-md:no-scrollbar max-md:[&>*]:shrink-0 max-md:-mx-1 max-md:px-1">
       {keys.map((key) => {
         const meta = key === 'all' ? null : PRODUCT_LINE_META[key];
         const color = meta ? meta.color : ALL_COLOR;

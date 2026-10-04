@@ -4,7 +4,7 @@ import Link from 'next/link';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image as ImageIcon, Loader2, PauseCircle, Plus, RefreshCw, RotateCcw, Send, Trash2, Truck, Wrench } from 'lucide-react';
+import { Image as ImageIcon, Loader2, PauseCircle, Plus, RefreshCw, RotateCcw, Send, SlidersHorizontal, Trash2, Truck, Wrench } from 'lucide-react';
 import type { AdminCustomerStagingOrder, CustomerOrderCounts, FactoryOptionItem } from 'shared';
 import { CustomerOrderStatus } from 'shared/enums';
 import { InternalStatus } from '@/components/hub/internal-status';
@@ -58,6 +58,9 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
   const trashView = state.trash === '1';
   const line: ProductLineTabKey = lockedLine ?? (isProductLine(state.line) ? state.line : 'all');
   const [searchInput, setSearchInput] = useState(state.q);
+  // Phones: seller / date / factory / priority fold behind one button; the count shows what is applied.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = [state.seller, state.from || state.to, state.factory, state.prio].filter(Boolean).length;
   const search = useDebounced(searchInput.trim(), 350);
   useEffect(() => {
     if (search !== state.q) setState({ q: search, page: '1' });
@@ -192,7 +195,9 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
 
   return (
     // Khung cố định: main không cuộn; phần đầu (header + lọc) đứng yên, chỉ BẢNG cuộn, phân trang neo đáy.
-    <div className="flex flex-col gap-2 h-[calc(100dvh-4.25rem-var(--viewas-h,0px))] lg:h-[calc(100dvh-2.5rem-var(--viewas-h,0px))]">
+    // From md up only: on phones the filters alone exceed the screen, so a fixed frame squeezed the
+    // card list to nothing. Phones scroll the page instead.
+    <div className="flex flex-col gap-2 md:h-[calc(100dvh-4.25rem-var(--viewas-h,0px))] lg:h-[calc(100dvh-2.5rem-var(--viewas-h,0px))]">
       <div className="shrink-0 space-y-2">
       <PageHeader
         title={
@@ -216,12 +221,15 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
         }
       />
 
-      <OrdersStatsBar counts={counts} compact />
+      {/* Phones: the same numbers sit on the status pills; the five cards pushed the list off the first screen. */}
+      <div className="hidden md:block">
+        <OrdersStatsBar counts={counts} compact />
+      </div>
 
       {!lockedLine && <ProductLineTabs active={line} counts={lineCounts} onChange={(next) => setState({ line: next === 'all' ? '' : next, page: '1', status: '' })} />}
 
       <div className="flex items-center gap-2 flex-wrap">
-        <div className={trashView ? 'opacity-50' : ''}>
+        <div className={`max-md:w-full min-w-0 ${trashView ? 'opacity-50' : ''}`}>
           <OrdersStatusFilterPills active={trashView ? '__none__' : status} counts={counts} heldOnly={!trashView && heldOnly} onToggleHeld={() => setState({ held: heldOnly ? '' : '1', trash: '', page: '1' })} onChange={(s) => setState({ status: s ?? '', trash: '', page: '1' })} />
         </div>
         <button
@@ -233,10 +241,22 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
           {t('hub:orders.trashTab')}
           {counts?.trashed != null && <span className="tabular-nums">{counts.trashed}</span>}
         </button>
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((v) => !v)}
+          aria-expanded={filtersOpen}
+          className={`md:hidden inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${activeFilterCount ? 'border-accent bg-accent/10 text-accent' : 'border-border1 bg-card text-text-secondary'}`}
+        >
+          <SlidersHorizontal size={11} />
+          {t('hub:orders.filters')}
+          {activeFilterCount > 0 && <span className="tabular-nums">{activeFilterCount}</span>}
+        </button>
+        <div className="md:hidden ml-auto text-[10px] text-text-muted tabular-nums whitespace-nowrap">{t('hub:orders.totalOrders', { count: total })}</div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <SearchInput value={searchInput} onChange={setSearchInput} placeholder={t('hub:orders.searchPlaceholder')} className="w-full sm:w-56" />
+      <SearchInput value={searchInput} onChange={setSearchInput} placeholder={t('hub:orders.searchPlaceholder')} className="w-full md:hidden" />
+      <div className={`items-center gap-2 flex-wrap ${filtersOpen ? 'flex' : 'hidden md:flex'}`}>
+        <SearchInput value={searchInput} onChange={setSearchInput} placeholder={t('hub:orders.searchPlaceholder')} className="hidden md:block md:w-56" />
         <SellerFilterPicker value={state.seller} onChange={(id) => setState({ seller: id, page: '1' })} />
         <DateRangeFilter value={dateRange} onChange={(r) => setState({ from: r.dateFrom ?? '', to: r.dateTo ?? '', page: '1' })} />
         <select
@@ -252,7 +272,7 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
           <input type="checkbox" checked={state.prio === '1'} onChange={() => setState({ prio: state.prio === '1' ? '' : '1', page: '1' })} className="accent-[var(--color-accent)]" />
           {t('hub:orders.priorityOnly')}
         </label>
-        <div className="ml-auto text-[10px] text-text-muted tabular-nums whitespace-nowrap">{t('hub:orders.totalOrders', { count: total })}</div>
+        <div className="max-md:hidden ml-auto text-[10px] text-text-muted tabular-nums whitespace-nowrap">{t('hub:orders.totalOrders', { count: total })}</div>
       </div>
       </div>
 

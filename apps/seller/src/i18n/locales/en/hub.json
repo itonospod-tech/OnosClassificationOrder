@@ -95,6 +95,7 @@
     "ordersOf": "Orders of seller"
   },
   "orders": {
+    "filters": "Filters",
     "title": "All customer orders",
     "subtitle": "Read-only — to act on an order, use View as seller.",
     "sellerFilter": "Seller",

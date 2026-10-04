@@ -95,6 +95,7 @@
     "ordersOf": "Đơn của seller"
   },
   "orders": {
+    "filters": "Bộ lọc",
     "title": "Đơn khách toàn hệ",
     "subtitle": "Chỉ đọc — muốn thao tác, bấm Xem như seller.",
     "sellerFilter": "Seller",
