@@ -1,3 +1,8 @@
+// HALF OF THIS SUITE IS SKIPPED UNLESS ENABLED. The JS-vs-Mongo mirror check only runs with
+// DERIVE_MIRROR_MONGO_URI set (no in-memory Mongo in this repo). Anyone editing deriveItemStatus,
+// toStagingOrder or buildDerivePipeline MUST run it, or the mirror is unchecked:
+//   DERIVE_MIRROR_MONGO_URI='mongodb://localhost:27017/onos_derive_mirror?replicaSet=rs0&directConnection=true' \
+//     NODE_ENV=test npx jest src/modules/customer-portal/derive-status-mirror
 import mongoose from 'mongoose';
 import { CustomerOrderStatus } from 'shared';
 
