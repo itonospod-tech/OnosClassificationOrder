@@ -199,7 +199,7 @@ export function ImportOrderTab({ onImported }: ImportOrderTabProps) {
               <p className="text-[11px] text-muted-foreground mt-0.5">{t('importTab.onosPodDateRangeHint')}</p>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {mode === 'new' && (
               <>
                 <DateRangePicker
