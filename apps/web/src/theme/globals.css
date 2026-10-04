@@ -190,3 +190,8 @@
   background-size: 8px 8px;
   background-position: 0 0, 0 4px, 4px -4px, -4px 0;
 }
+
+/* Native controls (checkbox, select arrow, scrollbars, date picker) follow the theme; without this a checkbox is a solid white block on dark pages. */
+.dark {
+  color-scheme: dark;
+}

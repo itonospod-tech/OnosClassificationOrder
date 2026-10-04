@@ -34,7 +34,7 @@ export function ColumnTabs<K extends string = string>({ items, active, onPick, c
     <div
       role="tablist"
       className={cn(
-        '-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        '-mx-4 flex gap-1.5 snap-x snap-proximity overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         className,
       )}
     >
@@ -48,7 +48,7 @@ export function ColumnTabs<K extends string = string>({ items, active, onPick, c
             aria-selected={on}
             onClick={() => onPick(it.key)}
             className={cn(
-              'inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors',
+              'inline-flex min-h-11 shrink-0 snap-center items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-medium transition-colors',
               on ? 'border-tone-info bg-tone-info/10 text-tone-info' : 'border-border bg-card text-muted-foreground',
             )}
           >
@@ -64,6 +64,8 @@ export function ColumnTabs<K extends string = string>({ items, active, onPick, c
           </button>
         );
       })}
+      {/* Trailing flex padding is dropped by browsers when the row overflows, so a spacer keeps the last pill off the edge. */}
+      <span aria-hidden className="w-2 shrink-0" />
     </div>
   );
 }
