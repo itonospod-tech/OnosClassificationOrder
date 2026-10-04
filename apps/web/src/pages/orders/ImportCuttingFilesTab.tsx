@@ -15,6 +15,7 @@ import * as XLSX from 'xlsx';
 import { RepositoryRemote } from '@/services';
 
 import { Spinner } from '@/components/common/Spinner';
+import { StatCards } from '@/components/common/StatCards';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -226,23 +227,40 @@ export function ImportCuttingFilesTab({ onApplied }: ImportCuttingFilesTabProps)
 
       {preview && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <StatCard label={t('cuttingFilesTab.statTotalLinks')} value={preview.summary.totalLinks} icon={Link2} tone="neutral" />
-            <StatCard label={t('cuttingFilesTab.statMatched')} value={preview.summary.matched} icon={CheckCircle2} tone="success" />
-            <StatCard
-              label={t('cuttingFilesTab.statExistingFile')}
-              value={preview.summary.withExistingFile}
-              icon={AlertTriangle}
-              tone="warning"
-            />
-            <StatCard label={t('cuttingFilesTab.statNotFound')} value={preview.summary.notFound} icon={XCircle} tone="warning" />
-            <StatCard
-              label={t('cuttingFilesTab.statInvalidLink')}
-              value={preview.summary.invalid + preview.summary.conflicts}
-              icon={XCircle}
-              tone="danger"
-            />
-          </div>
+          <StatCards
+            cols={5}
+            items={[
+              { key: 'total', label: t('cuttingFilesTab.statTotalLinks'), value: preview.summary.totalLinks, icon: <Link2 size={12} /> },
+              {
+                key: 'matched',
+                label: t('cuttingFilesTab.statMatched'),
+                value: preview.summary.matched,
+                icon: <CheckCircle2 size={12} />,
+                tone: 'success',
+              },
+              {
+                key: 'existing',
+                label: t('cuttingFilesTab.statExistingFile'),
+                value: preview.summary.withExistingFile,
+                icon: <AlertTriangle size={12} />,
+                tone: 'warning',
+              },
+              {
+                key: 'notFound',
+                label: t('cuttingFilesTab.statNotFound'),
+                value: preview.summary.notFound,
+                icon: <XCircle size={12} />,
+                tone: 'warning',
+              },
+              {
+                key: 'invalid',
+                label: t('cuttingFilesTab.statInvalidLink'),
+                value: preview.summary.invalid + preview.summary.conflicts,
+                icon: <XCircle size={12} />,
+                tone: 'danger',
+              },
+            ]}
+          />
 
           {(preview.summary.byFactory.length > 0 || preview.summary.byMachineType.length > 0) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -362,33 +380,6 @@ export function ImportCuttingFilesTab({ onApplied }: ImportCuttingFilesTabProps)
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  tone,
-}: {
-  label: string;
-  value: number;
-  icon: React.ElementType;
-  tone: 'neutral' | 'success' | 'warning' | 'danger';
-}) {
-  const toneCls = {
-    neutral: 'text-muted-foreground bg-muted/40',
-    success: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20',
-    warning: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20',
-    danger: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20',
-  }[tone];
-  return (
-    <div className={`rounded-lg border border-border p-3 ${toneCls}`}>
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider">
-        <Icon size={12} /> {label}
-      </div>
-      <div className="text-xl font-bold mt-1">{value}</div>
     </div>
   );
 }
