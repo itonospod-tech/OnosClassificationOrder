@@ -97,7 +97,8 @@
         "embroidery": "Embroidery",
         "led": "LED",
         "canvas": "Canvas",
-        "wood": "Wood & laser cut"
+        "wood": "Wood & laser cut",
+        "dropship": "Dropship"
       },
       "tool": {
         "title": "Tool",

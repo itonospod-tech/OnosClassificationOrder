@@ -635,7 +635,8 @@
     "embroidery": "Embroidery",
     "led": "LED",
     "canvas": "Canvas",
-    "none": "No line"
+    "none": "No line",
+    "dropship": "Dropship"
   },
   "productLineSources": {
     "manual": "set manually",

@@ -635,7 +635,8 @@
     "embroidery": "Thêu",
     "led": "LED",
     "canvas": "Canvas",
-    "none": "Chưa gắn dòng"
+    "none": "Chưa gắn dòng",
+    "dropship": "Dropship"
   },
   "productLineSources": {
     "manual": "đặt tay",

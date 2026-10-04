@@ -24,6 +24,9 @@ describe('inferProductLine (PRD-8)', () => {
 });
 
 describe('productLineForNew', () => {
+  it('maps the dropship collection to the dropship line', () => {
+    expect(productLineForNew('dropship')).toEqual({ productLine: 'dropship', productLineSource: 'collection' });
+  });
   it('maps named collections', () => {
     expect(productLineForNew('handmade-wood')).toEqual({ productLine: 'wood', productLineSource: 'collection' });
     expect(productLineForNew('embroidery')).toMatchObject({ productLine: 'embroidery' });
@@ -31,7 +34,6 @@ describe('productLineForNew', () => {
     expect(productLineForNew('2D')).toMatchObject({ productLine: '2d' });
   });
   it('leaves unnamed collections unset instead of guessing 3d', () => {
-    expect(productLineForNew('dropship')).toEqual({});
     expect(productLineForNew(undefined)).toEqual({});
   });
 });
