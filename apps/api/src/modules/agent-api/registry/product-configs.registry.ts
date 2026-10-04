@@ -41,6 +41,7 @@ export const productConfigsRegistry: AgentTableSpec = {
     printTemplate: plain('string', 'URL template thiết kế chung của sản phẩm'),
     productCategoryId: plain('objectId', 'Trỏ tới productCategories'),
     collectionIds: plain('objectId', 'Trỏ tới collections'),
+    productTagIds: plain('objectId', 'Trỏ tới productTags'),
     factoryId: plain('objectId'),
     machineTypeId: plain('objectId'),
     fabricType: plain('string'),
