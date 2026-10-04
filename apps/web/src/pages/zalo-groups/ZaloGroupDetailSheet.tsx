@@ -92,7 +92,7 @@ export default function ZaloGroupDetailSheet({ group, onClose, onEdit, onChanged
         <SheetHeader>
           <SheetTitle className="pr-8 text-left">
             <div className="flex items-start gap-2">
-              <MessageSquare className="mt-0.5 h-5 w-5 shrink-0 text-primary-500" />
+              <MessageSquare className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
               <span className="min-w-0">{group.title || t('table.noTitle')}</span>
             </div>
           </SheetTitle>

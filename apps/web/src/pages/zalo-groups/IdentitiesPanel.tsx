@@ -233,8 +233,8 @@ export default function IdentitiesPanel() {
                           className={cn(
                             'rounded border px-2 py-0.5 text-xs transition-colors',
                             r.kind === k
-                              ? 'border-primary-500 bg-primary-500 text-white'
-                              : 'border-slate-200 hover:border-primary-400 dark:border-slate-700',
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-slate-200 hover:border-primary/60 dark:border-slate-700',
                           )}
                         >
                           {t(`identity.kind.${k}`)}
