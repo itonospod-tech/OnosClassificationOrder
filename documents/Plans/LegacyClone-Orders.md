@@ -97,7 +97,23 @@ Công sức: S ≤ 0,5 ngày · M ≈ 1–2 ngày · L ≈ 3–5 ngày · XL > 1
 | Shipments: lọc trạng thái hãng + cột item/địa chỉ + preset ngày | `0759e98` | Xong trên `agent/a1`, chờ gộp |
 | Preset "Last 7 Days" cho hub | (commit này) | Xong trên `agent/a1`, e2e 33/36 (3 đỏ có sẵn) |
 | Bỏ lọc provider (Grabink/Private) | — | Đã duyệt bỏ; hub chưa từng có lọc này nên KHÔNG có gì để gỡ — chỉ ghi nhận ở đây |
-| Nhãn/ngữ nghĩa tab Orders | — | CHẶN: chờ câu "In Production gắn tiền hay sản xuất" |
-| Inventory nhóm SALES | — | Đề xuất KHÔNG CLONE (404 với CEO), chờ chủ dự án |
+| Nhãn/ngữ nghĩa tab Orders | — | ĐÃ CHỐT 04/10/2026 (§7) — đang làm |
+| Inventory nhóm SALES | — | BỎ khỏi phạm vi, chốt 04/10/2026 (§8) |
 
 Ảnh chụp hệ cũ: không có — phiên a1 bị chặn đọc production và không đi vòng; cấu trúc giao diện ở bảng do onos-49 khảo sát, chỉ phần tab/cột/lọc/mặc định.
+
+## 7. Quyết định: "In Production" = ĐÃ ĐẨY VÀO SẢN XUẤT (chốt bởi onos-80, 04/10/2026)
+
+**Nghĩa:** tab In Production = đơn đã đẩy sản xuất và chưa Fulfilled. KHÔNG gắn vào một công đoạn (In hay bất kỳ công đoạn nào).
+
+**Căn cứ:** `OnosPodLegacy-BusinessFlows.md` §4 bước 6 `process_order` — hệ cũ trừ ví (payment + import_tax), set `paid_at` VÀ `inproduction_at`, đơn sang `In Production`, production item sinh ở MRP `To Do`. Đó là MỘT sự kiện: đơn rời tay seller, vào tay xưởng; tiền chỉ đi kèm sự kiện, không phải định nghĩa của nó. Hệ mới có đúng sự kiện đó: `pushToProduction` sinh `OrderEntity` + set `inProductionAt`. Khác biệt duy nhất (chưa trừ tiền, `waived`) thuộc vùng Tiền, không đổi nghĩa tab.
+
+**Trước quyết định này** hệ mới tính: Processing = đã đẩy nhưng chưa vào công đoạn fulfillment nào (đang soát tool / thiết kế); In Production = đã vào bất kỳ công đoạn fulfillment nào. Theo nghĩa mới, giai đoạn soát tool / thiết kế chuyển sang In Production.
+
+**Hệ quả cần biết:** hệ mới đẩy sản xuất NGUYÊN TỬ — không có trạng thái "đã gửi, chờ xử lý" như hệ cũ (bước 3–5: chờ mua label/trừ ví) → tab Processing không có đơn nào cho tới khi có cổng ví trước sản xuất. Seller thấy "In Production" ngay sau khi đẩy (như hệ cũ).
+
+## 8. Quyết định: Inventory nhóm SALES — BỎ khỏi phạm vi (chốt bởi onos-80, 04/10/2026)
+
+**Căn cứ:** link menu `/inventory?status=Processing` trả 404 với cả tài khoản CEO nên không khảo sát được; trong `OnosPodLegacy-BusinessFlows.md` nó không xuất hiện như một màn có số liệu, chỉ có hai HÀNH ĐỘNG mức đơn "Keep in stock" / "Transform to inventory" (§4, dòng 98). Không clone cái chưa từng nhìn thấy.
+
+**Cảnh báo trùng tên:** `/ffm/inventory` của hệ mới là sổ PHÔI theo xưởng (nhập phiếu, trừ khi quét tem — `Inventory.md`), KHÁC hẳn "Inventory" nhóm SALES hệ cũ (nhiều khả năng là hàng THÀNH PHẨM của seller). Đừng coi màn hệ mới là bản clone của màn hệ cũ chỉ vì cùng tên.
