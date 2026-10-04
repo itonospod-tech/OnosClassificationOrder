@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
+  BackfillOnospodShippingDto,
+  BackfillOnospodShippingResDto,
   DesignFields,
   ImportFromOnosPodDto,
   ImportFromOnosPodResDto,
@@ -14,6 +16,7 @@ import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
 import type { OnospodQcConfig } from './onospod-qc.client';
 import { fetchMrpProductPage } from './onospod-qc.client';
+import { buildShippingWrites, orderIdsToLookUp } from './onospod-shipping-backfill.plan';
 import { OrderService } from './order.service';
 
 const TZ_OFFSET_MINUTES = 7 * 60;
@@ -25,6 +28,16 @@ const TZ_OFFSET_MINUTES = 7 * 60;
 // nên fetch cũ bỏ lỡ dù đúng khoảng ngày). KHÔNG lấy các status sau đó
 // (In Production/Done/...) — đơn đã thực sự vào sản xuất thì không lấy lại.
 const MRP_STATUSES = ['To Do', 'Ready'];
+
+/**
+ * Every MRP status of the legacy ladder (OnosPodLegacy-BusinessFlows.md §5), for the address
+ * backfill: old addressless orders have moved past To Do/Ready. Names come from the survey, not
+ * from a live call — the backfill reports items fetched per status, so a wrong name shows as 0.
+ */
+const BACKFILL_MRP_STATUSES = ['To Do', 'Ready', 'In Cutting', 'In Print', 'In Sewing', 'Packing', 'On Hold', 'Cancelled'];
+const BACKFILL_MAX_WINDOW_MS = 7 * 24 * 3600 * 1000;
+/** Pause between OnosPod calls during the backfill: the account was locked once already. */
+const BACKFILL_PAUSE_MS = 1000;
 
 const PAGE_SIZE = 500;
 // an toàn — 200 * 500 = 100k rows, dư sức cho 1 ngày TOÀN BỘ account (không
@@ -467,6 +480,7 @@ export function mapItemToRow(
     designs,
     status: item.mrp_status || undefined,
     orderId: item.increment_order_id || undefined,
+    onospodOrderId: item.order_id || undefined,
     orderAt: item.order_id ? formatVnDateTime(objectIdTimestamp(item.order_id)) : undefined,
     inProductionAt: item.mrp_created_at ? formatVnDateTime(new Date(item.mrp_created_at)) : undefined,
     shippingAddress: item.order_id ? shippingByOrderId?.get(item.order_id) : undefined,
@@ -576,6 +590,51 @@ export class OnospodImportService {
     }
   }
 
+  /**
+   * One-off fill of `shippingAddress` on OnosPod orders imported before the address lookup
+   * existed (Orders.md §3.6, plan in `onospod-shipping-backfill.plan.ts`). Sequential, paced,
+   * bounded to a 7-day window per call, DRY RUN unless `dryRun=false` is passed.
+   */
+  async backfillShippingAddresses(dto: BackfillOnospodShippingDto, ctx?: AuditContext): Promise<BackfillOnospodShippingResDto> {
+    const config = this.apiConfigService.onospodQcConfig;
+    if (!config) throw new BadRequestException('OnosPod QC chưa được cấu hình (thiếu ONOSPOD_QC_API_URL / ONOSPOD_QC_BEARER_TOKEN)');
+    const start = new Date(dto.start);
+    const end = new Date(dto.end);
+    if (!(end > start) || end.getTime() - start.getTime() > BACKFILL_MAX_WINDOW_MS) {
+      throw new BadRequestException('Khoảng thời gian phải hợp lệ và không quá 7 ngày mỗi lượt');
+    }
+    const dryRun = dto.dryRun !== false;
+    const pause = () => new Promise((r) => setTimeout(r, BACKFILL_PAUSE_MS));
+
+    const fetchedByStatus: Record<string, number> = {};
+    const items: MrpProductItem[] = [];
+    for (const status of BACKFILL_MRP_STATUSES) {
+      const got = await this.fetchAllPages(config, status, start, end);
+      fetchedByStatus[status] = got.length;
+      items.push(...got);
+      await pause();
+    }
+    const productionIds = [...new Set(items.map((i) => i.increment_id).filter((x): x is string => !!x))];
+    const missing = await this.orderService.findProductionIdsMissingAddress(productionIds);
+    const orderIds = orderIdsToLookUp(items, missing);
+    const lookup = await this.onospodOrderLookupService.lookupShippingByOrderIds(orderIds, { pauseMs: BACKFILL_PAUSE_MS });
+    const writes = buildShippingWrites(items, missing, lookup.byOrderId);
+    const ordersUpdated = dryRun ? 0 : await this.orderService.fillMissingShippingAddresses(writes);
+
+    const data = {
+      dryRun,
+      period: { start: start.toISOString(), end: end.toISOString() },
+      fetchedByStatus,
+      missingInWindow: missing.size,
+      orderIdsLookedUp: orderIds.length,
+      addressesFound: writes.length,
+      ordersUpdated,
+      failedBatches: lookup.failedBatches,
+    };
+    void ctx; // the controller logs who ran it (request + result)
+    return { success: true, data };
+  }
+
   private async runImport(dto: ImportFromOnosPodDto, ctx?: AuditContext): Promise<ImportFromOnosPodResDto> {
     const config = this.apiConfigService.onospodQcConfig;
     if (!config) {
@@ -633,14 +692,26 @@ export class OnospodImportService {
     // order_id trước (đơn nhiều item chỉ tra 1 lần). Bước LÀM GIÀU dữ liệu:
     // `lookupShippingByOrderIds()` không bao giờ throw — OnosPod order API
     // lỗi/thiếu config (ONOSPOD_API_*) thì import vẫn chạy, chỉ thiếu địa chỉ.
-    const shippingByOrderId = await this.onospodOrderLookupService.lookupShippingByOrderIds(
+    const shippingLookup = await this.onospodOrderLookupService.lookupShippingByOrderIds(
       allItems.map((item) => item.order_id || ''),
     );
 
     const { rows, duplicatesInBatch } = this.dedupeByProductionId(
-      allItems.map((item) => mapItemToRow(item, shippingByOrderId)).filter((r) => r.productionId),
+      allItems.map((item) => mapItemToRow(item, shippingLookup.byOrderId)).filter((r) => r.productionId),
     );
     const shippingAttached = rows.filter((r) => r.shippingAddress).length;
+    if (shippingLookup.failedBatches > 0) {
+      // Orders still import (enrichment never blocks), but say it out loud: without this the
+      // only trace was a log line, and addressless orders cannot get a shipping label.
+      const missing = rows.length - shippingAttached;
+      void this.onospodHoldSyncService.alert(
+        `⚠️ Import OnosPod: ${shippingLookup.failedBatches} lô lấy địa chỉ bị lỗi ` +
+          `(${shippingLookup.failedOrderIds} đơn OnosPod) — ${missing}/${rows.length} đơn vào hệ thống KHÔNG có địa chỉ giao.\n\n` +
+          `Lỗi đầu: ${shippingLookup.firstError ?? '—'}\n\n` +
+          'Nếu thấy chữ "banned": token OnosPod đã chết (thường do đổi mật khẩu) — chạy `./fix-onospod-token.sh <token>`. ' +
+          'Đơn thiếu địa chỉ lấp lại bằng backfill địa chỉ, không cần import lại.',
+      );
+    }
 
     const importResult = await this.orderService.importOrders({ rows }, ctx);
 
@@ -651,6 +722,7 @@ export class OnospodImportService {
         totalFetched: allItems.length,
         duplicatesInBatch,
         shippingAttached,
+        shippingLookupFailedBatches: shippingLookup.failedBatches,
         period: { start: start.toISOString(), end: end.toISOString() },
         byManufacture,
         holdSync: await this.runHoldSync(ctx),

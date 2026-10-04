@@ -241,6 +241,28 @@ User bấm "Lấy đơn từ OnosPod"
          ≥ số ids gửi (search rỗng KHÔNG kèm header → 502, verify gọi thật 2026-09-16).
          Bước LÀM GIÀU: method KHÔNG BAO GIỜ throw — thiếu config/OnosPod lỗi thì import
          vẫn chạy, chỉ thiếu địa chỉ (log Winston `action:'onospodShippingBatch'`).
+         **Từ 04/10/2026 lô lỗi được ĐẾM + BÁO:** hàm trả `ShippingLookupResult`
+         (`byOrderId` + `failedBatches`/`failedOrderIds`/`firstError`); `runImport` thấy
+         `failedBatches > 0` → cảnh báo Telegram qua `OnospodHoldSyncService.alert` (cùng kênh +
+         chống gửi trùng với cảnh báo import hỏng) kèm số đơn vào hệ thống thiếu địa chỉ; kết quả
+         import có thêm `shippingLookupFailedBatches`. Lý do: trước đó lỗi chỉ nằm trong log của
+         cron, prod rò ~50 đơn/ngày không địa chỉ (910 đơn 16/09–04/10, đo bởi onos-80).
+         Import cũng lưu **`onospodOrderId`** (= `item.order_id`) lên `OrderEntity` để lần lấp địa chỉ
+         sau gọi theo lô 50 thay vì tra từng đơn; trường này KHÔNG vào diff order log (khoá kỹ
+         thuật, lần import lại đầu tiên sẽ điền cho mọi đơn cũ).
+         **Lấp địa chỉ một lần cho đơn cũ** (đơn import trước 16/09/2026; prod 30 ngày: 8.770
+         đơn): `POST /v1/orders/onospod/backfill-shipping` `{ start, end, dryRun }` (SuperAdmin/
+         Admin) → `OnospodImportService.backfillShippingAddresses()`. Đọc lại item MRP trong cửa
+         sổ (≤ 7 ngày/lượt) ở MỌI trạng thái của thang hệ cũ `BACKFILL_MRP_STATUSES` (đơn cũ đã
+         qua To Do/Ready — tên trạng thái lấy từ khảo sát, CHƯA gọi thật xác nhận: kết quả trả
+         `fetchedByStatus`, tên sai hiện ra là 0) → `findProductionIdsMissingAddress()` → tra địa
+         chỉ theo lô 50 có nghỉ 1 s/lượt → `fillMissingShippingAddresses()` = `bulkWrite` CHỈ `$set
+         shippingAddress` + `onospodOrderId`, điều kiện "vẫn đang thiếu" kiểm lại trong filter.
+         **KHÔNG** đi qua `importOrders` (`$set` của nó đè `factoryId`/designs). **Loại đơn đang giữ
+         chờ sửa địa chỉ** — `shippingAddress` của chúng là mốc so sánh của `recoverHeldOrders`,
+         điền hộ có thể nuốt mất bản sửa của khách. **Mặc định CHẠY KHÔ** (phải gửi `dryRun=false`
+         mới ghi). Kế hoạch thuần `onospod-shipping-backfill.plan.ts`; test
+         `onospod-shipping-backfill.spec.ts` + đã chạy phần ghi trên Mongo thật (DB tạm).
       5. Gọi lại OrderService.importOrders({ rows }) MỘT LẦN cho toàn bộ rows đã gộp —
          TÁI DÙNG 100% pipeline upsert/mapping/design-job/notification đã có ở §3.1/§3.3
          (row có `shippingAddress` → `$set` lên đơn, xem guard đơn giữ bên dưới)

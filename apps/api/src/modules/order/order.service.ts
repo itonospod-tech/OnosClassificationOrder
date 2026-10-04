@@ -5625,6 +5625,56 @@ export class OrderService implements OnModuleInit {
    *   chỉ SNAPSHOT (không tự mở giữ); từ lần thứ 2 mới thực sự so sánh + mở
    *   giữ khi khác snapshot đã lưu.
    */
+  /**
+   * Address backfill (Orders.md §3.6): which of these production ids still miss an address.
+   * Orders HELD waiting for an address are excluded on purpose: their `shippingAddress` is the
+   * baseline `recoverHeldOrders` compares OnosPod against — filling it here could swallow the
+   * customer's fix and keep the order held forever. That cron fills them itself.
+   */
+  async findProductionIdsMissingAddress(productionIds: string[]): Promise<Set<string>> {
+    const missing = new Set<string>();
+    for (let i = 0; i < productionIds.length; i += 5000) {
+      const docs = await this.orderModel
+        .find(
+          {
+            productionId: { $in: productionIds.slice(i, i + 5000) },
+            $or: [{ shippingAddress: { $exists: false } }, { shippingAddress: null }],
+            holdReason: { $ne: HOLD_REASON_WAITING_ADDRESS },
+          },
+          { productionId: 1 },
+        )
+        .lean();
+      for (const d of docs) missing.add(d.productionId);
+    }
+    return missing;
+  }
+
+  /**
+   * Address backfill writes: `$set` ONLY `shippingAddress` (+ the OnosPod order id) and ONLY on
+   * orders still missing one — re-checked in the filter, so a concurrent import or a manual
+   * edit that filled it first wins. Never goes through `importOrders` (its `$set` would also
+   * reset `factoryId` and designs).
+   */
+  async fillMissingShippingAddresses(
+    writes: Array<{ onospodOrderId: string; productionIds: string[]; address: ProductionOrderShippingAddress }>,
+  ): Promise<number> {
+    if (writes.length === 0) return 0;
+    const res = await this.orderModel.bulkWrite(
+      writes.map((w) => ({
+        updateMany: {
+          filter: {
+            productionId: { $in: w.productionIds },
+            $or: [{ shippingAddress: { $exists: false } }, { shippingAddress: null }],
+            holdReason: { $ne: HOLD_REASON_WAITING_ADDRESS },
+          },
+          update: { $set: { shippingAddress: w.address, onospodOrderId: w.onospodOrderId } },
+        },
+      })),
+      { ordered: false },
+    );
+    return res.modifiedCount;
+  }
+
   async recoverHeldOrders(ctx?: AuditContext): Promise<RecoverHeldOrdersResDto> {
     const skipped: Array<{ productionId: string; reason: string }> = [];
     let checkedDesign = 0;
@@ -7603,6 +7653,7 @@ export class OrderService implements OnModuleInit {
           ...designData,
           status: row.status?.trim(),
           orderId: row.orderId?.trim(),
+          onospodOrderId: row.onospodOrderId?.trim(),
           externalId: row.externalId?.trim(),
           referent: row.referent?.trim(),
           orderAt: parseImportDate(row.orderAt),
@@ -7738,7 +7789,9 @@ export class OrderService implements OnModuleInit {
             const b = beforeDoc as unknown as Record<string, unknown>;
             const a = data as unknown as Record<string, unknown>;
             for (const key of Object.keys(data)) {
-              if (key === 'productionId') continue;
+              // onospodOrderId: technical join key, filled on every legacy order's first re-import
+              // after it was introduced — logging it would add one noise row per order.
+              if (key === 'productionId' || key === 'onospodOrderId') continue;
               const beforeVal = b[key] ?? null;
               const afterVal = a[key] ?? null;
               if (stableStringifyForDiff(beforeVal) !== stableStringifyForDiff(afterVal)) {

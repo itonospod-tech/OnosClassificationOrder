@@ -233,6 +233,8 @@ export const ProductionOrderZod = BaseEntityZod.extend({
    */
   tracking: ProductionOrderTrackingZod.optional(),
   orderId: z.string().optional(),
+  /** Mongo `_id` of the parent OnosPod order (MRP `order_id`) — OnosPod imports only. */
+  onospodOrderId: z.string().optional(),
   externalId: z.string().optional(),
   referent: z.string().optional(),
   orderAt: z.date().optional(),
@@ -726,6 +728,8 @@ export const ImportProductionOrderRowZod = z.object({
   designs: DesignFieldsZod.optional(),
   status: z.string().optional(),
   orderId: z.string().optional(),
+  /** Mongo `_id` of the parent OnosPod order (MRP `order_id`) — OnosPod imports only. */
+  onospodOrderId: z.string().optional(),
   externalId: z.string().optional(),
   referent: z.string().optional(),
   orderAt: z.string().optional(),
@@ -800,6 +804,34 @@ export const ImportFromOnosPodZod = z.object({
 });
 export class ImportFromOnosPodDto extends createZodDto(extendApi(ImportFromOnosPodZod)) {}
 
+/**
+ * One-off backfill of `shippingAddress` for OnosPod orders imported before the address lookup
+ * existed (2026-09-16). Window on the MRP creation time, at most 7 days per call so one call
+ * stays bounded; `dryRun` is the DEFAULT — pass `dryRun=false` explicitly to write.
+ */
+export const BackfillOnospodShippingZod = z.object({
+  start: z.string().datetime({ offset: true }),
+  end: z.string().datetime({ offset: true }),
+  dryRun: BooleanFlagZod,
+});
+export class BackfillOnospodShippingDto extends createZodDto(extendApi(BackfillOnospodShippingZod)) {}
+export const BackfillOnospodShippingResZod = ResZod.extend({
+  data: z.object({
+    dryRun: z.boolean(),
+    period: z.object({ start: z.string(), end: z.string() }),
+    /** MRP items fetched per status — a 0 on a status that should have items means a wrong status name. */
+    fetchedByStatus: z.record(z.number()),
+    /** Our orders in those items that still miss an address (address-waiting holds excluded). */
+    missingInWindow: z.number(),
+    orderIdsLookedUp: z.number(),
+    addressesFound: z.number(),
+    /** Orders written (0 on a dry run). */
+    ordersUpdated: z.number(),
+    failedBatches: z.number(),
+  }),
+});
+export class BackfillOnospodShippingResDto extends createZodDto(extendApi(BackfillOnospodShippingResZod)) {}
+
 // ─── Đồng bộ giữ đơn theo OnosPod (Orders.md §9d) ──────────────────────────
 // Kết quả 1 lượt đồng bộ. `status='aborted'` = KHÔNG ghi gì cả (lỗi fetch,
 // thiếu config, nghi ngờ dữ liệu, vượt trần nhả) — `reason` nói lý do.
@@ -843,6 +875,9 @@ export const ImportFromOnosPodResZod = ResZod.extend({
     // ONOSPOD_API_* (import vẫn chạy, chỉ thiếu địa chỉ — xem log
     // `onospodShippingBatch`).
     shippingAttached: z.number().optional(),
+    // Address lookup batches that FAILED this run (OnosPod down / token dead). >0 also raises a
+    // Telegram alert: those orders came in without an address and nothing else would say so.
+    shippingLookupFailedBatches: z.number().optional(),
     // Pull từ TẤT CẢ manufacture của account trong 1 lượt phân trang duy
     // nhất (không truyền `manufacture_id`) — group lại từ field `manufacture`
     // có sẵn trên mỗi item, KHÔNG loop gọi riêng từng manufacture nữa nên
