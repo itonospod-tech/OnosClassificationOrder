@@ -136,6 +136,9 @@ export default {
   },
   plugins: [
     require('tailwindcss-animate'),
+    // `touch:` = the primary pointer is a finger (phones, tablets), not a narrow desktop window.
+    // Used for the 44px minimum touch target (DesignSystem-LegacyParity.md §10).
+    ({ addVariant }) => addVariant('touch', '@media (pointer: coarse)'),
     // Gói zalo-ui viết cho Tailwind 4: 4 tiện ích dưới đây không có ở v3 → khai bằng tên v4, giá trị tương đương v3.
     ({ addUtilities }) =>
       addUtilities({
