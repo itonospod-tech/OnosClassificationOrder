@@ -316,21 +316,20 @@ function ShipmentsContent() {
                 <TableHead className="text-right">{t('table.cost')}</TableHead>
                 <TableHead className="text-right">{t('table.sellerPrice')}</TableHead>
                 <TableHead>{t('table.status')}</TableHead>
-                <TableHead>{t('table.by')}</TableHead>
                 <TableHead>{t('table.label')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-8 text-center">
+                  <TableCell colSpan={10} className="py-8 text-center">
                     <Spinner />
                   </TableCell>
                 </TableRow>
               )}
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                     {t('table.empty')}
                   </TableCell>
                 </TableRow>
@@ -339,6 +338,8 @@ function ShipmentsContent() {
                 <TableRow key={rec._id} className="cursor-pointer" onClick={() => setSelected(rec)}>
                   <TableCell className="whitespace-nowrap text-xs">
                     {rec.createdAt ? dayjs(rec.createdAt).format('DD/MM/YYYY HH:mm') : '—'}
+                    {/* Creator folded under the date: one column less, no horizontal scroll at 1440 px. */}
+                    {rec.createdByUserName && <div className="text-muted-foreground">{rec.createdByUserName}</div>}
                   </TableCell>
                   <TableCell className="text-xs">
                     <div className="font-mono">{rec.package?.code ?? rec.packageId}</div>
@@ -394,7 +395,6 @@ function ShipmentsContent() {
                       })()}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs">{rec.createdByUserName ?? '—'}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     {rec.labelUrl && rec.status !== 'cancelled' && (
                       <a
