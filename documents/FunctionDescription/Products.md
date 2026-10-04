@@ -391,3 +391,13 @@ Tỉ lệ map tốt là tiền đề cho:
 | Admin | ✅ full CRUD |
 | Manager | ✅ full CRUD |
 | User thường | ❌ |
+
+
+## Product Tags (Tags tab + `productTagIds`)
+
+Flat marketing labels (legacy `/product-tag/preset`: Christmas, Bestsellers, Kids…). Differs from `ProductCategory` (structural) and `Collection` (catalog set): a product carries MANY tags.
+
+- **BE:** `apps/api/src/modules/product-tag/` (entity collection `productTags`, unique `shortName`, `image`/`description`/`sortOrder`/`isActive`) — `GET /product-tags` (Admin/Manager/Support), `POST`/`PATCH :id` (Admin/Manager). Same shape as `collection/`.
+- **ProductConfig:** `productTagIds: string[]` (ref `ProductTagEntity`), validated in `create`/`update` via `ProductTagService.getProductTag`. Not part of the OnosPod import (no tag data there yet) nor `import-full`.
+- **FE:** tab "Tags" on `/adm/products` (`ProductTagTab.tsx`, i18n `productTagTab.*`), multi-select chips on the product detail page (`detail.tagsField.*`), service `services/productTag.ts`, DTOs `packages/shared/dtos/product-tag.dto.ts`.
+- Not built yet (decision pending, see `Plans/LegacyClone-Catalog.md`): Techniques, Materials; tag filter in catalog lists.

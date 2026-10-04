@@ -29,6 +29,7 @@ import { AgentApiModule } from './modules/agent-api/agent-api.module';
 import { AmqpModule } from './modules/amqp/amqp.module';
 import { CeoDashboardModule } from './modules/ceo-dashboard/ceo-dashboard.module';
 import { CollectionModule } from './modules/collection/collection.module';
+import { ProductTagModule } from './modules/product-tag/product-tag.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { CustomerAssignmentModule } from './modules/customer-assignment/customer-assignment.module';
 import { CustomerNotificationModule } from './modules/customer-notification/customer-notification.module';
@@ -81,6 +82,7 @@ import { SharedModule } from './shared/shared.module';
     MachineTypeModule,
     ProductCategoryModule,
     CollectionModule,
+    ProductTagModule,
     ProductConfigModule,
     PromotionModule,
     WorkshopConfigModule,

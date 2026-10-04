@@ -26,7 +26,8 @@
       "config": "Config",
       "category": "Categories",
       "factory": "Factories",
-      "collection": "Collections"
+      "collection": "Collections",
+      "tag": "Tags"
     }
   },
   "configTab": {
@@ -547,6 +548,10 @@
       "allOf": "All - {{name}}",
       "someOf": "{{count}} - {{name}}",
       "clear": "Clear"
+    },
+    "tagsField": {
+      "label": "Tags (select many)",
+      "empty": "No tags yet — create them in the Tags tab of the Products page."
     }
   },
   "collectionTab": {
@@ -634,5 +639,36 @@
     "machineType": "from department",
     "printMethod": "from print method",
     "default": "auto default — please review"
+  },
+  "productTagTab": {
+    "title": "Product tags",
+    "description": "Labels attached to products (many tags per product) — pick them on the product detail page.",
+    "table": {
+      "image": "Image",
+      "name": "Name",
+      "shortName": "Short name",
+      "sortOrder": "Order",
+      "status": "Status",
+      "empty": "No tags yet.",
+      "active": "Active",
+      "inactive": "Off"
+    },
+    "dialog": {
+      "createTitle": "Add tag",
+      "editTitle": "Edit tag"
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "e.g. Christmas",
+      "shortName": "Short name",
+      "shortNamePlaceholder": "e.g. XMAS",
+      "image": "Image (URL)",
+      "description": "Description",
+      "sortOrder": "Sort order",
+      "active": "Active",
+      "nameRequired": "Name and short name are required",
+      "createSuccess": "Tag created",
+      "updateSuccess": "Updated"
+    }
   }
 }

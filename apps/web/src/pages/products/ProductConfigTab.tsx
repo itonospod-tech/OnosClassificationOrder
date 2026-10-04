@@ -71,6 +71,7 @@ export interface ProductConfigRow {
   /** Gallery ảnh bổ sung — `mockup` là ảnh chính (index 0). */
   images?: string[];
   collectionIds?: string[];
+  productTagIds?: string[];
   level?: number;
   guide?: string;
   factoryId?: string;

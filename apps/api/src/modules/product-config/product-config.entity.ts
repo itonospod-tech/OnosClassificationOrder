@@ -81,6 +81,10 @@ export class ProductConfigEntity extends DatabaseEntityAbstract {
   @Prop({ type: [String], ref: 'CollectionEntity', index: true, default: undefined })
   collectionIds?: string[];
 
+  /** ref ProductTagEntity — a product carries many tags. */
+  @Prop({ type: [String], ref: 'ProductTagEntity', index: true, default: undefined })
+  productTagIds?: string[];
+
   /** Cấp độ sản phẩm 1..10 (PRODUCT_LEVELS) — badge màu. */
   @Prop({ type: Number, min: 1, max: 10 })
   level?: number;

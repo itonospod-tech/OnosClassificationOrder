@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { CollectionModule } from '../collection/collection.module';
+import { ProductTagModule } from '../product-tag/product-tag.module';
 import { FactoryModule } from '../factory/factory.module';
 import { MachineTypeModule } from '../machine-type/machine-type.module';
 import { OrderEntity, OrderSchema } from '../order/order.entity';
@@ -21,6 +22,7 @@ import { ProductConfigService } from './product-config.service';
     // `getUnmatchedOrderTypes()`: quét type trên đơn chưa có config.
     MongooseModule.forFeature([{ name: OrderEntity.name, schema: OrderSchema }]),
     CollectionModule,
+    ProductTagModule,
     FactoryModule,
     MachineTypeModule,
     ProductCategoryModule,

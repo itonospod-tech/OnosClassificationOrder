@@ -26,7 +26,8 @@
       "config": "Config",
       "category": "Danh mục",
       "factory": "Xưởng",
-      "collection": "Collection"
+      "collection": "Collection",
+      "tag": "Tag"
     }
   },
   "configTab": {
@@ -547,6 +548,10 @@
       "allOf": "Tất cả - {{name}}",
       "someOf": "{{count}} - {{name}}",
       "clear": "Xóa lọc"
+    },
+    "tagsField": {
+      "label": "Tag (chọn nhiều)",
+      "empty": "Chưa có tag nào — tạo ở tab Tag trang Sản phẩm."
     }
   },
   "collectionTab": {
@@ -634,5 +639,36 @@
     "machineType": "từ phòng máy",
     "printMethod": "từ phương pháp in",
     "default": "máy gán mặc định — cần kiểm lại"
+  },
+  "productTagTab": {
+    "title": "Tag sản phẩm",
+    "description": "Nhãn gắn cho sản phẩm (1 sản phẩm có nhiều tag) — chọn ở trang chi tiết sản phẩm.",
+    "table": {
+      "image": "Ảnh",
+      "name": "Tên",
+      "shortName": "Viết tắt",
+      "sortOrder": "Thứ tự",
+      "status": "Trạng thái",
+      "empty": "Chưa có tag nào.",
+      "active": "Hoạt động",
+      "inactive": "Tắt"
+    },
+    "dialog": {
+      "createTitle": "Thêm tag",
+      "editTitle": "Sửa tag"
+    },
+    "form": {
+      "name": "Tên",
+      "namePlaceholder": "VD: Christmas",
+      "shortName": "Tên viết tắt",
+      "shortNamePlaceholder": "VD: XMAS",
+      "image": "Ảnh (URL)",
+      "description": "Mô tả",
+      "sortOrder": "Thứ tự hiển thị",
+      "active": "Hoạt động",
+      "nameRequired": "Tên và viết tắt là bắt buộc",
+      "createSuccess": "Đã tạo tag",
+      "updateSuccess": "Đã cập nhật"
+    }
   }
 }
