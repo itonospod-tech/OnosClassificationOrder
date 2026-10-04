@@ -5,6 +5,7 @@ import { Bell, Bot, Flag, Package, Settings as SettingsIcon, Truck, UserCog, Use
 
 import { PATHS } from '@/constants/paths';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Spinner } from '@/components/common/Spinner';
 
 import { cn } from '@/utils/cn';
@@ -145,15 +146,11 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-          <SettingsIcon size={20} className="text-slate-600 dark:text-slate-300" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t('settings.title')}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t('settings.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<SettingsIcon size={20} />}
+        title={t('settings.title')}
+        description={t('settings.subtitle')}
+      />
 
       {allItems.length === 0 ? (
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 border border-slate-100 dark:border-slate-700/60 text-center">
