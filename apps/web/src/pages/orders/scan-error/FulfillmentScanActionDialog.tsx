@@ -384,17 +384,19 @@ export function FulfillmentScanActionDialog({
       {/* Modal gần full màn hình — công nhân đứng xa vẫn đọc được: mockup chiếm
           1 nửa trái cao hết modal, cột phải chữ to (text-lg trở lên). */}
       <DialogContent
-        className="max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] flex flex-col overflow-hidden gap-4"
+        // Desktop: near-full-screen modal. Phones: the shared Dialog already makes this a bottom sheet —
+        // let it size to its content (scrolling as a whole) instead of forcing 94vh and a fixed 96vw.
+        className="max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] flex flex-col overflow-hidden gap-4 max-md:block max-md:h-auto max-md:max-h-[92dvh] max-md:w-full max-md:max-w-none max-md:overflow-y-auto max-md:[&>*+*]:mt-4"
         onKeyDown={handleKeyDown}
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5 text-2xl">
+          <DialogTitle className="flex items-center gap-2.5 text-2xl max-md:pr-12 max-md:text-lg">
             <Layers size={26} className="text-primary" />
             {t('fulfillmentDialog.dialogTitle', { stage: myStageLabel })}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 grid gap-6 md:grid-cols-2">
+        <div className="flex-1 min-h-0 grid gap-6 md:grid-cols-2 max-md:gap-4">
           {/* Mockup — chiếm 1 nửa, cao hết modal + nút mở ảnh gốc to */}
           <div className="min-w-0 min-h-0 flex flex-col gap-3">
             {mockupUrl ? (
@@ -404,7 +406,7 @@ export function FulfillmentScanActionDialog({
                   target="_blank"
                   rel="noreferrer"
                   title={t('fulfillmentDialog.clickToOpenOriginal')}
-                  className="group relative block flex-1 min-h-0 rounded-xl border border-border overflow-hidden bg-checker"
+                  className="group relative block flex-1 min-h-0 rounded-xl border border-border overflow-hidden bg-checker max-md:h-[28dvh] max-md:flex-none"
                 >
                   <img
                     src={order.mockupUrl || mockupUrl}
@@ -413,7 +415,7 @@ export function FulfillmentScanActionDialog({
                     referrerPolicy="no-referrer"
                   />
                 </a>
-                <Button asChild variant="outline" className="h-14 text-lg shrink-0">
+                <Button asChild variant="outline" className="h-14 text-lg shrink-0 max-md:h-11 max-md:text-base">
                   <a href={mockupUrl} target="_blank" rel="noreferrer">
                     <ExternalLink size={22} className="mr-2" />
                     {t('fulfillmentDialog.openOriginal')}
@@ -429,11 +431,11 @@ export function FulfillmentScanActionDialog({
           </div>
 
           {/* Thông tin — chữ lớn, cuộn dọc khi tràn */}
-          <div className="min-w-0 min-h-0 overflow-y-auto space-y-5 pr-1">
+          <div className="min-w-0 min-h-0 overflow-y-auto space-y-5 pr-1 max-md:space-y-3 max-md:overflow-visible">
             {/* Tên sản phẩm + productionId + trạng thái */}
             <div className="space-y-1.5">
               <div className="flex items-start justify-between gap-3">
-                <h2 className="text-3xl font-bold leading-tight text-foreground">
+                <h2 className="text-3xl font-bold leading-tight text-foreground max-md:text-xl">
                   {order.type || t('fulfillmentDialog.unknownProductType')}
                 </h2>
                 {statusMeta && (
@@ -508,7 +510,7 @@ export function FulfillmentScanActionDialog({
 
         {/* Banner trạng thái + hướng dẫn quét 3 bước CHỮ TO — công nhân đứng xa đọc được */}
         {isMyTask ? (
-          <div className="shrink-0 space-y-3">
+          <div className="shrink-0 space-y-3 max-md:hidden">
             <div className="rounded-md border border-emerald-300/50 bg-emerald-50/50 dark:bg-emerald-500/5 p-3 text-lg font-semibold text-emerald-700 dark:text-emerald-300 flex items-center gap-2.5">
               <CheckCircle2 size={22} className="shrink-0" />
               {stageStatus === FulfillmentStageStatus.InProgress ? (
@@ -558,7 +560,7 @@ export function FulfillmentScanActionDialog({
             </div>
           </div>
         ) : (
-          <div className="shrink-0 space-y-3">
+          <div className="shrink-0 space-y-3 max-md:hidden">
             <div className="rounded-md border border-rose-300/50 bg-rose-50/50 dark:bg-rose-500/5 p-3 text-lg font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-2.5">
               <ShieldAlert size={22} className="shrink-0" />
               <span>{t('fulfillmentDialog.notYourTaskBanner', { reason: blockReason })}</span>
@@ -597,8 +599,8 @@ export function FulfillmentScanActionDialog({
         )}
 
         {stockOutElement}
-        <DialogFooter className="gap-3 shrink-0">
-          <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg">
+        <DialogFooter className="gap-3 shrink-0 max-md:sticky max-md:bottom-0 max-md:-mx-4 max-md:grid max-md:grid-cols-3 max-md:gap-2 max-md:border-t max-md:bg-background max-md:px-4 max-md:pt-3">
+          <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight">
             <Printer size={20} className="mr-2" />
             {t('printActions.printTemBtn')}
           </Button>
@@ -606,7 +608,7 @@ export function FulfillmentScanActionDialog({
             variant="outline"
             onClick={() => void printLabel()}
             disabled={saving || loadingLabel}
-            className="h-14 px-5 text-lg"
+            className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight"
           >
             <Tag size={20} className="mr-2" />
             {t('printActions.printLabelBtn')}
@@ -615,29 +617,29 @@ export function FulfillmentScanActionDialog({
             variant="outline"
             onClick={() => void (stockOutOpen ? confirmStockOut() : openStockOut())}
             disabled={saving || stockOutBusy}
-            className="h-14 px-5 text-lg"
+            className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight"
           >
             <Boxes size={20} className="mr-2" />
             {t('stockOut.btn')}
           </Button>
           {isMyTask ? (
             <>
-              <Button variant="outline" onClick={onReportError} disabled={saving} className="h-14 px-6 text-lg">
+              <Button variant="outline" onClick={onReportError} disabled={saving} className="h-14 px-6 text-lg max-md:col-span-3">
                 <MessageSquareWarning size={20} className="mr-2 text-rose-500" />
                 {t('fulfillmentDialog.reportErrorBtn')}
               </Button>
-              <Button onClick={() => void doComplete()} disabled={saving} autoFocus className="h-14 px-8 text-lg">
+              <Button onClick={() => void doComplete()} disabled={saving} autoFocus className="h-14 px-8 text-lg max-md:col-span-3 max-md:order-first">
                 {saving ? <Spinner size={20} className="mr-2" /> : <CheckCircle2 size={22} className="mr-2" />}
                 {t('fulfillmentDialog.completeBtn')}
               </Button>
             </>
           ) : (
             <>
-              <Button variant="outline" onClick={onReportError} disabled={saving} className="h-14 px-6 text-lg">
+              <Button variant="outline" onClick={onReportError} disabled={saving} className="h-14 px-6 text-lg max-md:col-span-3">
                 <MessageSquareWarning size={20} className="mr-2 text-rose-500" />
                 {t('fulfillmentDialog.reportThisOrderBtn')}
               </Button>
-              <Button onClick={onClose} autoFocus className="h-14 px-8 text-lg">
+              <Button onClick={onClose} autoFocus className="h-14 px-8 text-lg max-md:col-span-3 max-md:order-first">
                 {t('fulfillmentDialog.closeContinueBtn')}
               </Button>
             </>

@@ -72,7 +72,8 @@
       "fabricType": "Loại vải",
       "machineNumber": "Máy",
       "toolResult": "Kết quả Tool",
-      "userSku": "Khách hàng (SKU)"
+      "userSku": "Khách hàng (SKU)",
+      "button": "Bộ lọc"
     },
     "selection": {
       "selected": "Đã chọn",

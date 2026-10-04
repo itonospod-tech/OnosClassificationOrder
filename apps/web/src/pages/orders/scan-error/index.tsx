@@ -248,7 +248,7 @@ function ScanErrorPageContent() {
   }, [history]);
 
   return (
-    <div className="container mx-auto py-6 max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-4 md:space-y-6 md:py-6">
       {/* Phones: the description is dropped so the scan box is on the first screen (PageHeader). */}
       <PageHeader
         icon={<ScanLine size={20} />}
@@ -257,7 +257,13 @@ function ScanErrorPageContent() {
         hideDescriptionOnMobile
         actions={
           // In bảng mã hành động (OK / ACT-*) dán tại trạm — điều khiển popup bằng máy quét.
-          <Button variant="outline" onClick={() => setPrintingActionSheet(true)} disabled={printingActionSheet}>
+          // Printing the code sheet is a station-PC job; a phone has no printer, so the button is not offered there.
+          <Button
+            variant="outline"
+            className="max-md:hidden"
+            onClick={() => setPrintingActionSheet(true)}
+            disabled={printingActionSheet}
+          >
             <Printer size={15} className="mr-1.5" />
             {t('actionSheet.printBtn')}
           </Button>
@@ -265,11 +271,11 @@ function ScanErrorPageContent() {
       />
 
       {/* Scan box */}
-      <div className="rounded-lg border bg-card p-4 space-y-3">
+      <div className="rounded-lg border bg-card p-4 space-y-3 max-md:rounded-2xl">
         {/* Mode toggle */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{t('page.modeLabel')}</span>
-          <div className="inline-flex rounded-md border bg-muted/50 p-0.5">
+          <div className="inline-flex rounded-md border bg-muted/50 p-0.5 max-md:flex-1">
             <ModeButton
               active={mode === 'barcode'}
               onClick={() => setMode('barcode')}
@@ -314,7 +320,7 @@ function ScanErrorPageContent() {
               placeholder={
                 mode === 'barcode' ? t('page.placeholderBarcode', { prefix: BARCODE_PREFIX }) : t('page.placeholderManual')
               }
-              className="pl-9 pr-3 h-11 text-sm font-mono"
+              className="pl-9 pr-3 h-11 text-sm font-mono touch:h-14 touch:text-base"
               disabled={loading || !!order}
             />
             {loading && (
@@ -324,7 +330,11 @@ function ScanErrorPageContent() {
               />
             )}
           </div>
-          <Button onClick={() => handleLookup(value)} disabled={!value.trim() || loading || !!order}>
+          <Button
+            className="touch:h-14 touch:px-6 touch:text-base"
+            onClick={() => handleLookup(value)}
+            disabled={!value.trim() || loading || !!order}
+          >
             {t('page.lookupBtn')}
           </Button>
         </div>
@@ -356,14 +366,14 @@ function ScanErrorPageContent() {
             );
           })()}
 
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-[11px] text-muted-foreground max-md:hidden">
           {mode === 'barcode' ? t('page.tipBarcode', { prefix: BARCODE_PREFIX }) : t('page.tipManual')}
         </p>
       </div>
 
       {/* Recent history */}
       <div className="rounded-lg border bg-card">
-        <div className="flex items-center justify-between p-3 border-b">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 p-3 border-b">
           <div className="flex items-center gap-2 text-sm font-medium">
             <History size={14} />
             {t('page.historyTitle')}
@@ -371,7 +381,7 @@ function ScanErrorPageContent() {
               ({history.length}/{MAX_HISTORY})
             </span>
           </div>
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             <Stat label={t('page.statSuccess')} value={stats.success} color="emerald" />
             <Stat label={t('page.statNotFound')} value={stats.notFound} color="amber" />
             <Stat label={t('page.statError')} value={stats.error} color="rose" />
@@ -379,7 +389,7 @@ function ScanErrorPageContent() {
               <button
                 type="button"
                 onClick={() => setHistory([])}
-                className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground touch:min-h-10 touch:px-2"
               >
                 <Trash2 size={12} /> {t('page.clearBtn')}
               </button>
@@ -443,7 +453,7 @@ function ModeButton({
       onClick={onClick}
       title={hint}
       className={cn(
-        'inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-colors',
+        'inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-colors touch:min-h-10 touch:flex-1 touch:text-sm',
         active
           ? 'bg-background text-foreground shadow-sm border border-border'
           : 'text-muted-foreground hover:text-foreground',
@@ -486,7 +496,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
   }[entry.status];
 
   return (
-    <li className="flex items-start gap-2 p-2.5 text-xs">
+    <li className="flex items-start gap-2 p-2.5 text-xs touch:min-h-12 touch:py-3 touch:text-sm">
       <span className="mt-0.5 shrink-0">{icon}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

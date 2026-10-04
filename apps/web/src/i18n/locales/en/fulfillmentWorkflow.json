@@ -72,7 +72,8 @@
       "fabricType": "Fabric type",
       "machineNumber": "Machine",
       "toolResult": "Tool result",
-      "userSku": "Customer (SKU)"
+      "userSku": "Customer (SKU)",
+      "button": "Filters"
     },
     "selection": {
       "selected": "Selected",

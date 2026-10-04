@@ -82,7 +82,7 @@ function Header({ changeCollapsed, isMobile }: HeaderProps) {
           size="icon"
           onClick={toggleLanguage}
           title={t('language.switch', { ns: 'common' })}
-          className="hidden w-auto gap-1 px-2 sm:inline-flex"
+          className="hidden w-auto gap-1 px-2 sm:inline-flex touch:w-auto touch:px-3"
         >
           <Languages size={16} />
           <span className="text-xs font-medium uppercase">{language}</span>

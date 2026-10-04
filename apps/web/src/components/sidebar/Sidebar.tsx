@@ -37,6 +37,7 @@ import {
   Settings,
   ShieldCheck,
   Shirt,
+  ShoppingBag,
   Spline,
   Tag,
   TreePine,
@@ -224,6 +225,24 @@ interface NavGroup {
 
 const ADMIN_ROLES: string[] = [RoleType.SuperAdmin, RoleType.Admin];
 
+/** Menu icon per product line (the only hand-kept part of the line list). */
+const LINE_ICONS: Record<string, React.ReactNode> = {
+  '3d': <Box size={14} />,
+  '2d': <Shirt size={14} />,
+  embroidery: <Spline size={14} />,
+  led: <Lightbulb size={14} />,
+  canvas: <Frame size={14} />,
+  wood: <TreePine size={14} />,
+  dropship: <ShoppingBag size={14} />,
+};
+
+/** Order of the first lines in the menu, from the CEO's drawing; anything else sorts after them. */
+const LINE_MENU_ORDER = ['3d', '2d', 'embroidery', 'led', 'canvas', 'wood'];
+const lineMenuRank = (code: string) => {
+  const i = LINE_MENU_ORDER.indexOf(code);
+  return i === -1 ? LINE_MENU_ORDER.length : i;
+};
+
 /** Roles that own a task board (designer / fulfillment kanban) — same set as the phone tab bar. */
 const TASK_BOARD_ROLES = TAB_BAR_ROLES;
 
@@ -319,14 +338,12 @@ function withQuery(to: string, query: string): string {
  */
 function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: string): NavItem[] {
   const to = (path: string) => withFactory(path, factoryId);
-  const lines = [
-    { code: '3d', icon: <Box size={14} /> },
-    { code: '2d', icon: <Shirt size={14} /> },
-    { code: 'embroidery', icon: <Spline size={14} /> },
-    { code: 'led', icon: <Lightbulb size={14} /> },
-    { code: 'canvas', icon: <Frame size={14} /> },
-    { code: 'wood', icon: <TreePine size={14} /> },
-  ];
+  // Follows PRODUCT_LINES, so a new line shows up in the menu without touching this file; only the
+  // icon is mapped by hand (unknown lines get a generic package). The CEO's drawing fixes the order of
+  // the first six; lines added later go after them.
+  const lines = [...PRODUCT_LINES]
+    .sort((a, b) => lineMenuRank(a) - lineMenuRank(b))
+    .map((code) => ({ code, icon: LINE_ICONS[code] ?? <Package size={14} /> }));
   const toolLines = [
     { code: '3d', icon: <Box size={14} /> },
     { code: '2d', icon: <Shirt size={14} /> },

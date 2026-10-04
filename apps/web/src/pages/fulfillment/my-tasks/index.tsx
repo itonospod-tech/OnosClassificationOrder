@@ -16,6 +16,7 @@ import {
   RefreshCw,
   RotateCw,
   ScanLine,
+  SlidersHorizontal,
   Trash2,
   X,
   XCircle,
@@ -32,8 +33,10 @@ import { useAuthStore } from '@/store/authStore';
 
 import { RepositoryRemote } from '@/services';
 
+import { ColumnTabs } from '@/components/common/ColumnTabs';
 import { DateRangePicker } from '@/components/common/DateRangePicker';
 import { ImagePreviewDialog } from '@/components/common/ImagePreviewDialog';
+import { PageHeader } from '@/components/common/PageHeader';
 import { PipelineDailyOverview } from '@/components/common/PipelineDailyOverview';
 import { SelectFilter } from '@/components/common/SelectFilter';
 import { Spinner } from '@/components/common/Spinner';
@@ -49,6 +52,7 @@ import { cn } from '@/utils/cn';
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
 
 import { useDebounce } from '@/hooks/useDebounce';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useSidebarResetSignal } from '@/hooks/useSidebarResetSignal';
 
 import { FulfillmentScanActionDialog } from '../../orders/scan-error/FulfillmentScanActionDialog';
@@ -263,6 +267,11 @@ export default function FulfillmentMyTasksPage() {
 function FulfillmentKanbanView() {
   const { t } = useTranslation(['fulfillmentWorkflow', 'common']);
   const colMeta = useMemo(() => buildColMeta(t), [t]);
+  // Phones: one column at a time, picked from a tab strip (the 4–7 side-by-side columns do not fit),
+  // and the five facet selects fold behind a "Filters" button.
+  const isMobile = useIsMobile();
+  const [mobileCol, setMobileCol] = useState<ColKey | null>(null);
+  const [facetsOpen, setFacetsOpen] = useState(false);
   const profile = useAuthStore((s) => s.profile);
   const myStage = profile?.fulfillmentStage as FulfillmentStage | undefined;
   // Admin/Manager/SupportManager (= override roles ở BE) → thấy thêm column
@@ -767,36 +776,37 @@ function FulfillmentKanbanView() {
     unassigned: filteredColumns.unassigned.length,
   };
 
+  // Phone column: the worker's pick, else the first column that has cards (so the tab bar opens on work, not on an empty column).
+  const activeMobileCol: ColKey =
+    mobileCol && visibleCols.includes(mobileCol)
+      ? mobileCol
+      : (visibleCols.find((k) => counts[k] > 0) ?? visibleCols[0] ?? 'waiting');
+
   const onPreview = (url: string, title: string, original?: string) => setPreview({ url, title, original });
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-              <ListChecks size={20} className="text-indigo-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
-                {t('kanban.header.title', { stage: getStageLabel(t, myStage) })}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {t('kanban.header.factory', { factory: profile?.factoryId ?? '—' })}
-              </p>
-            </div>
-          </div>
-
-          <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          </Button>
-        </div>
+      {/* Phones reorder the sections (flex + `order-*`): tabs → search → the cards, THEN the statistics
+          (error stats, daily overview) — a worker opens this page to work the list, not to read totals. */}
+      <div className="space-y-4 max-md:flex max-md:flex-col max-md:gap-3 max-md:space-y-0">
+        {/* Header — PageHeader keeps the title on one line on phones; the factory id line is dropped there. */}
+        <PageHeader
+          icon={<ListChecks size={20} />}
+          title={t('kanban.header.title', { stage: getStageLabel(t, myStage) })}
+          description={t('kanban.header.factory', { factory: profile?.factoryId ?? '—' })}
+          hideDescriptionOnMobile
+          inlineActionsOnMobile
+          actions={
+            <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading} aria-label={t('common:actions.reload', { defaultValue: 'Reload' })}>
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            </Button>
+          }
+        />
 
         {/* KPI */}
         <div
           className={cn(
-            'grid gap-2',
+            'grid gap-2 max-md:hidden',
             colOrder.length === 7
               ? 'grid-cols-2 md:grid-cols-4 xl:grid-cols-7'
               : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-6',
@@ -807,16 +817,29 @@ function FulfillmentKanbanView() {
           ))}
         </div>
 
-        {/* Ô thống kê lỗi công đoạn — click xổ bảng lỗi theo ngày (inProductionAt). */}
-        <StageErrorPanel
-          stage={myStage}
-          from={dateFrom || undefined}
-          to={dateTo || undefined}
-          reloadToken={overviewToken}
-        />
+        {/* Phones: the KPI tiles above become a column picker — tap a count to see that column. */}
+        {isMobile && (
+          <div className="order-1">
+            <ColumnTabs
+              items={visibleCols.map((k) => ({ key: k, label: colMeta[k].label, count: counts[k] }))}
+              active={activeMobileCol}
+              onPick={setMobileCol}
+            />
+          </div>
+        )}
 
-        {/* Hint */}
-        <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
+        {/* Ô thống kê lỗi công đoạn — click xổ bảng lỗi theo ngày (inProductionAt). */}
+        <div className="max-md:order-6">
+          <StageErrorPanel
+            stage={myStage}
+            from={dateFrom || undefined}
+            to={dateTo || undefined}
+            reloadToken={overviewToken}
+          />
+        </div>
+
+        {/* Hint — Shift/drag tips mean nothing on a touch screen. */}
+        <div className="flex items-start gap-2 rounded-md max-md:hidden border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
           <MousePointerClick size={13} className="text-primary shrink-0 mt-0.5" />
           <div>
             <strong className="text-foreground">{t('kanban.hint.tip')}</strong> {t('kanban.hint.body1')}{' '}
@@ -825,11 +848,11 @@ function FulfillmentKanbanView() {
         </div>
 
         {/* Filter bar — search + date trên 1 row, các facet ở row dưới */}
-        <div className="rounded-md border border-border bg-card p-2.5 space-y-2">
+        <div className="rounded-md border border-border bg-card p-2.5 space-y-2 max-md:order-2">
           {/* Row 1: Search (flex-1) + DateRangePicker */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex-1 min-w-[220px]">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium max-md:hidden">
                 {t('kanban.search.label')}
               </label>
               <div className="mt-1 flex items-center gap-1.5">
@@ -908,7 +931,7 @@ function FulfillmentKanbanView() {
                   <code className="font-mono">{stripBarcodePrefix(search)}</code>
                 </p>
               ) : (
-                <p className="mt-1 text-[10px] text-muted-foreground">
+                <p className="mt-1 text-[10px] text-muted-foreground max-md:hidden">
                   {t('kanban.search.hintPre')} <strong>{t('actions.complete')}</strong> /{' '}
                   <strong>{t('actions.reportError')}</strong>
                   {t('kanban.search.hintSuffix')}
@@ -929,8 +952,30 @@ function FulfillmentKanbanView() {
             placeholder={t('kanban.dateAllPlaceholder')}
           />
 
+          {/* Phones: facets fold behind one button that shows how many are in use. */}
+          {isMobile && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFacetsOpen((v) => !v)}
+              aria-expanded={facetsOpen}
+              className={cn(
+                Object.values(filters).some(Boolean) && 'border-tone-info text-tone-info',
+              )}
+            >
+              <SlidersHorizontal size={14} />
+              {t('kanban.filters.button', { defaultValue: 'Filters' })}
+              {Object.values(filters).filter(Boolean).length > 0 && (
+                <span className="rounded-full bg-tone-info px-1.5 text-[11px] font-semibold leading-4 text-white">
+                  {Object.values(filters).filter(Boolean).length}
+                </span>
+              )}
+              <ChevronDown size={13} className={cn('transition-transform', facetsOpen && 'rotate-180')} />
+            </Button>
+          )}
+
           {/* Row 2: 5 facet filters */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+          <div className={cn('grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2', isMobile && !facetsOpen && 'hidden')}>
             <SelectFilter
               label={t('kanban.filters.type')}
               value={filters.type}
@@ -965,19 +1010,27 @@ function FulfillmentKanbanView() {
         </div>
 
         {/* Bảng tổng quan theo ngày — click 1 ngày lọc kanban client-side. */}
-        <PipelineDailyOverview
-          stage={myStage}
-          from={dateFrom || undefined}
-          to={dateTo || undefined}
-          reloadToken={overviewToken}
-          dayFilter={dayFilter}
-          onPickDay={toggleDay}
-        />
+        <div className="max-md:order-5">
+          <PipelineDailyOverview
+            stage={myStage}
+            from={dateFrom || undefined}
+            to={dateTo || undefined}
+            reloadToken={overviewToken}
+            dayFilter={dayFilter}
+            onPickDay={toggleDay}
+          />
+        </div>
 
         {/* Kanban — 6 cột worker / 7 cột admin; cột rework/watching trống bị ẩn */}
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className={cn('grid gap-3', KANBAN_GRID_BY_COUNT[visibleCols.length] ?? KANBAN_GRID_BY_COUNT[6])}>
-            {visibleCols.map((key) => (
+          <div
+            className={cn(
+              'max-md:order-3',
+              'grid gap-3',
+              isMobile ? 'grid-cols-1' : (KANBAN_GRID_BY_COUNT[visibleCols.length] ?? KANBAN_GRID_BY_COUNT[6]),
+            )}
+          >
+            {(isMobile ? [activeMobileCol] : visibleCols).map((key) => (
               <Column
                 key={key}
                 colKey={key}
@@ -1340,7 +1393,8 @@ function Column({
     <div
       ref={setNodeRef}
       className={cn(
-        'rounded-md border-2 bg-muted/30 p-2.5 transition-colors min-h-[200px] flex flex-col gap-2',
+        // Phones show ONE column on the page itself: no frame, no inner padding, so the cards get the full width.
+        'rounded-md border-2 bg-muted/30 p-2.5 transition-colors min-h-[200px] flex flex-col gap-2 max-md:min-h-0 max-md:border-0 max-md:bg-transparent max-md:p-0',
         meta.accent,
         isOver && 'bg-muted/60',
       )}
@@ -1367,7 +1421,7 @@ function Column({
         </span>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-380px)]">
+      <div className="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-380px)] max-md:max-h-none max-md:overflow-visible">
         {cards.length === 0 && (
           <div className="text-[11px] text-muted-foreground italic text-center py-6">{t('kanban.column.empty')}</div>
         )}
@@ -1420,7 +1474,7 @@ function Column({
               </div>
 
               {!isCollapsed && (
-                <div className="space-y-2 pl-2 pr-2 border-l-2 border-border/40 ml-2.5">
+                <div className="space-y-2 pl-2 pr-2 border-l-2 border-border/40 ml-2.5 max-md:ml-0 max-md:space-y-3 max-md:border-l-0 max-md:px-0">
                   {rows.map((o) => {
                     const checked = selected.has(o._id);
                     const isDragging = activeDragId === o._id;
@@ -1445,7 +1499,7 @@ function Column({
                                 onCheckCard(o._id, e.currentTarget.checked, ws);
                               }}
                               onPointerDown={(e) => e.stopPropagation()}
-                              className="w-3.5 h-3.5 accent-indigo-500"
+                              className="w-3.5 h-3.5 accent-indigo-500 touch:h-5 touch:w-5"
                             />
                           </div>
                         )}

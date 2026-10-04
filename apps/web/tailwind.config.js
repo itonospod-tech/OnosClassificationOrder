@@ -136,6 +136,11 @@ export default {
   },
   plugins: [
     require('tailwindcss-animate'),
+    // `touch:` = the primary input is a finger (phones, tablets), not a narrow desktop window.
+    // Used for the 44px minimum touch target (DesignSystem-LegacyParity.md §10). `(hover: none)` is
+    // there too because device emulation (and some webviews) report no pointer type at all while
+    // still reporting that hovering is impossible; a desktop with a mouse matches neither.
+    ({ addVariant }) => addVariant('touch', '@media (pointer: coarse), (hover: none)'),
     // Gói zalo-ui viết cho Tailwind 4: 4 tiện ích dưới đây không có ở v3 → khai bằng tên v4, giá trị tương đương v3.
     ({ addUtilities }) =>
       addUtilities({
