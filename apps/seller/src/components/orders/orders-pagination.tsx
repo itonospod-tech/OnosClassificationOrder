@@ -4,7 +4,7 @@
  * Shared pagination footer cho Orders list — Hub + Portal cùng dùng
  * (THG-SELLER-005 full visual sync).
  *
- * Layout: trái = "Showing X–Y of N" + Rows: [50/100] dropdown. Phải =
+ * Layout: trái = "Showing X–Y of N" + Rows: [10/20/50/100] dropdown (legacy parity). Phải =
  * chevron prev + numbered page buttons (max 5) + chevron next.
  *
  * Trước đây Hub có inline pagination bên trong table card (line 814-868
@@ -37,6 +37,7 @@ export function OrdersPagination({ page, limit, pages, total, onChange }: Orders
             onChange={(e) => onChange({ limit: Number(e.target.value), page: 1 })}
             className="px-1.5 py-0.5 rounded border border-border1 bg-card text-[10px] cursor-pointer"
           >
+            <option value={10}>10</option>
             <option value={20}>20</option>
             <option value={50}>50</option>
             <option value={100}>100</option>
