@@ -11,6 +11,7 @@ import { PATHS } from '@/constants/paths';
 import { RepositoryRemote } from '@/services';
 
 import { DateRangePicker } from '@/components/common/DateRangePicker';
+import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { Spinner } from '@/components/common/Spinner';
 import { Button } from '@/components/ui/button';
@@ -213,25 +214,24 @@ function ShipmentsContent() {
   );
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-lg font-semibold">
-            <Truck size={20} /> {t('title')}
-          </h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-          <Wallet size={16} className="text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">{t('wallet.title')}:</span>
-          <span className="text-sm font-mono font-semibold">
-            {walletBusy ? '…' : (wallet ?? t('wallet.unknown'))}
-          </span>
-          <Button size="sm" variant="ghost" className="h-7 px-2" disabled={walletBusy} onClick={loadWallet}>
-            <RefreshCw size={13} />
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        icon={<Truck size={20} />}
+        title={t('title')}
+        description={t('subtitle')}
+        actions={
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+            <Wallet size={16} className="text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">{t('wallet.title')}:</span>
+            <span className="text-sm font-mono font-semibold">
+              {walletBusy ? '…' : (wallet ?? t('wallet.unknown'))}
+            </span>
+            <Button size="sm" variant="ghost" className="h-7 px-2" disabled={walletBusy} onClick={loadWallet}>
+              <RefreshCw size={13} />
+            </Button>
+          </div>
+        }
+      />
 
       {/* ── Dashboard chi phí ── */}
       <section className="space-y-2">

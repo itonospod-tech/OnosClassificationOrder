@@ -9,6 +9,7 @@ import { RepositoryRemote } from '@/services';
 
 import { useConfirm } from '@/components/common/ConfirmDialog';
 import { LoadingOverlay } from '@/components/common/LoadingOverlay';
+import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
@@ -139,15 +140,7 @@ export default function PromotionsPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center">
-          <Tag size={20} className="text-rose-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('page.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('page.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader icon={<Tag size={20} />} title={t('page.title')} description={t('page.subtitle')} />
 
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

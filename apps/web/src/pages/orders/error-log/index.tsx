@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { AlertTriangle } from 'lucide-react';
 import { RoleType } from 'shared';
 
+import { PageHeader } from '@/components/common/PageHeader';
+
 import { usePermission } from '@/hooks/usePermission';
 
 import { ErrorLogTab } from '../ErrorLogTab';
@@ -23,15 +25,7 @@ export default function OrdersErrorLogPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
-          <AlertTriangle size={20} className="text-emerald-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('page.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('page.pageSubtitle')}</p>
-        </div>
-      </div>
+      <PageHeader icon={<AlertTriangle size={20} />} title={t('page.title')} description={t('page.pageSubtitle')} />
 
       <ErrorLogTab />
     </div>
