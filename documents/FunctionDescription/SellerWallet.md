@@ -51,7 +51,8 @@ BE ném `BadRequestException` với **message = đúng 1 mã** trong `SELLER_SHI
 | GET | `admin/customer-wallets` | List ví seller (`@Auth([Admin])`, search/activeOnly/paging) |
 | GET | `admin/customer-wallets/transactions` | Sổ cái MỌI seller, mới nhất trước (`@Auth([Admin])`; lọc `kind`/`from`/`to` (YYYY-MM-DD, ngày giờ VN)/`search` seller/`customerId`; mỗi dòng kèm `userSku`/`userEmail`/`fullName` + `productionIds` đã dịch từ `refs.orderIds` — mảng đó chứa `_id` đơn, vô nghĩa với nhân viên). Lọc dựng ở hàm thuần `wallet-txn-filter.ts` (+spec); index `{createdAt:-1}` + `{kind:1,createdAt:-1}` |
 | GET | `admin/customer-wallets/:customerId/transactions` | Sổ cái 1 seller |
-| POST | `admin/customer-wallets/:customerId/topup` \| `/adjust` | Nạp (+) / điều chỉnh (±) — note bắt buộc |
+| POST | `admin/customer-wallets/:customerId/topup` | Nạp (+). Body: `requestId` (BẮT BUỘC), `amount`, `note` (bắt buộc), `externalTxnId?` (mã giao dịch ngân hàng), `attachmentUrl?` (link chứng từ, chỉ http/https; tải file thật là việc sau). Trả `replayed:true` khi `requestId` đã áp dụng trước đó (không ghi gì). 409 khi: cùng `requestId` khác số tiền; `externalTxnId` đã nạp (cho bất kỳ seller nào) — thông báo nêu seller + giờ + "dùng Điều chỉnh" |
+| POST | `admin/customer-wallets/:customerId/adjust` | Điều chỉnh (±). Body: `requestId` (BẮT BUỘC), `amount`, `note` (bắt buộc). Cùng cơ chế `replayed`/409 như nạp |
 | PATCH | `admin/customer-wallets/:customerId/credit-limit` | Đặt hạn mức |
 | GET/POST | `admin/seller-shipping/price-table{,/import}` | Xem/thay bảng giá (mốc tăng dần) |
 | POST | `admin/seller-shipping/toggle` | Công tắc tổng seller mua label |
@@ -86,6 +87,19 @@ Shared (`packages/shared`): hàm thuần + hằng ở **`client/seller-shipping.
 - `seller-shipping/`: `seller-label-eligibility.ts` (hàm thuần + spec) + service (`quote`/`buy`/`getPriceTable`/`importPriceTable`/`toggle`) + 2 controller. Module chỉ bind model (không import CustomerPortalModule/OrderModule). Feature bật khi: có bảng giá + `enabled !== false` + có `vnpEglobalConfig`.
 - `shipping-vnp/shipment.entity.ts` thêm `sellerPrice`/`sellerCustomerId` (index)/`sellerWalletTxnId`; `toShipmentRecord()` trả 2 field đầu.
 - Test: `NODE_ENV=test npx jest src/modules/customer-wallet src/modules/seller-shipping` (guard ví, eligibility, mốc giá/biên 10kg, parse CSV, bộ lọc sổ cái mọi seller `wallet-txn-filter.spec.ts`, ánh xạ seller + productionIds `list-all-transactions.spec.ts`).
+
+### 5.1 Chống ghi trùng tiền (nạp/điều chỉnh tay)
+
+Trước 04/10/2026 nạp/điều chỉnh tay KHÔNG truyền `refs.requestId` nên idempotency không bao giờ kích hoạt (bấm đúp hay retry sau timeout là cộng hai lần), và unique index chỉ dựa autoIndex. Nay có bốn lớp:
+
+1. **Giao diện**: dialog sinh `requestId` (`crypto.randomUUID`) MỘT lần khi mở, gửi lại nguyên giá trị đó ở mọi lần bấm/retry; mở dialog mới mới có mã mới (`hub-wallets-view.tsx` và dialog ở `/adm/wallets`).
+2. **API**: `requestId` bắt buộc ở `TopupWalletZod`/`AdjustWalletZod`; `applyTransaction` có `strictReplay` (chỉ các đường nhân viên bật): cùng `requestId` mà khác số tiền → 409 thay vì lặng lẽ trả dòng cũ. Mặc định tắt vì mua label báo lại giá giữa các lần retry.
+3. **DB**: hai unique index tạo TƯỜNG MINH ở `CustomerWalletService.ensureIndexes()` (boot, không await, lỗi ghi log `CustomerWallet`): `(customerId, kind, refs.requestId)` (tên mặc định, khớp index autoIndex đã dựng) và `topup_externalTxnId_unique` — `refs.externalTxnId` duy nhất giữa MỌI lần nạp, bất kể seller/nhân viên/`requestId`. Mã được chuẩn hoá (bỏ khoảng trắng, in hoa) bằng `normalizeExternalTxnId` trước khi lưu vì "abc 123" và "ABC123" là một giao dịch.
+4. **Tường minh khi trùng**: lỗi trùng mã giao dịch nói rõ phải làm gì tiếp, không chỉ báo trùng.
+
+Giới hạn cần biết: khoá `requestId` là THEO seller (`customerId` nằm trong khoá, dùng chung với mua label) nên cùng `requestId` cho hai seller khác nhau KHÔNG bị phát hiện — dialog sinh UUID mới mỗi lần mở nên giao diện không tự gây ra chuyện này. Lớp 3 là lớp chặn cho trường hợp hai nhân viên nhập cùng một dòng sao kê.
+
+Test: `wallet-idempotency.spec.ts` chạy trên MongoDB replica set THẬT (cơ sở dữ liệu tạm, xoá sau khi chạy; autoIndex tắt nên chỉ có index do `ensureIndexes` tạo; thiếu Mongo thì FAIL, `SKIP_DB_TESTS=1` để bỏ qua tường minh) — gồm gọi hai lần, 10 lượt song song, khác số tiền, trùng mã ngân hàng khác tab/seller, 6 lượt đua cùng một mã. Kiểm chứng bằng cách tắt `ensureIndexes`: bài kiểm index và bài đua theo mã ngân hàng chuyển đỏ. `wallet-ensure-indexes.spec.ts`, `wallet-topup.spec.ts`.
 
 ## 6. Performance notes
 

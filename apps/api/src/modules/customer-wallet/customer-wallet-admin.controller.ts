@@ -21,6 +21,7 @@ import { Auth } from '@/decorators';
 import type { UserDocument } from '@/modules/user/user.entity';
 
 import { CustomerWalletService } from './customer-wallet.service';
+import { normalizeExternalTxnId } from './wallet-topup';
 
 /**
  * Quản trị ví seller ở hub (SellerPortal.md §9) — nạp tay phase 1 (seller
@@ -84,15 +85,21 @@ export class CustomerWalletAdminController {
     this.logger.info({
       message: JSON.stringify({ method: 'POST', url: `/admin/customer-wallets/${customerId}/topup`, userId: user._id }),
     });
-    const txn = await this.walletService.applyTransaction({
+    const { replayed, ...txn } = await this.walletService.applyTransaction({
       customerId,
       kind: 'topup',
       amount: dto.amount,
       note: dto.note,
       by: { userId: String(user._id), userName: user.fullName },
+      refs: {
+        requestId: dto.requestId,
+        externalTxnId: normalizeExternalTxnId(dto.externalTxnId),
+        attachmentUrl: dto.attachmentUrl,
+      },
+      strictReplay: true,
     });
     const wallet = await this.walletService.getWallet(customerId);
-    return { success: true, data: { balance: wallet.balance, creditLimit: wallet.creditLimit, txn } };
+    return { success: true, data: { balance: wallet.balance, creditLimit: wallet.creditLimit, txn, replayed } };
   }
 
   @Post(':customerId/adjust')
@@ -108,15 +115,17 @@ export class CustomerWalletAdminController {
     this.logger.info({
       message: JSON.stringify({ method: 'POST', url: `/admin/customer-wallets/${customerId}/adjust`, userId: user._id }),
     });
-    const txn = await this.walletService.applyTransaction({
+    const { replayed, ...txn } = await this.walletService.applyTransaction({
       customerId,
       kind: 'adjust',
       amount: dto.amount,
       note: dto.note,
       by: { userId: String(user._id), userName: user.fullName },
+      refs: { requestId: dto.requestId },
+      strictReplay: true,
     });
     const wallet = await this.walletService.getWallet(customerId);
-    return { success: true, data: { balance: wallet.balance, creditLimit: wallet.creditLimit, txn } };
+    return { success: true, data: { balance: wallet.balance, creditLimit: wallet.creditLimit, txn, replayed } };
   }
 
   @Patch(':customerId/credit-limit')

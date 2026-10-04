@@ -264,6 +264,9 @@ function WalletActionDialog({ mode, row, onClose, onDone }: { mode: ActionMode; 
   const [amount, setAmount] = useState(mode === 'credit' ? String(row.creditLimit) : '');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  // One idempotency key per opened dialog: every click/retry of THIS operation resends the same value, so a
+  // double click or a retry after a timeout cannot credit or debit twice. A newly opened dialog gets a new one.
+  const [requestId] = useState(() => crypto.randomUUID());
   const name = sellerName(row);
   const title = t(`wallets.${mode === 'topup' ? 'topupTitle' : mode === 'adjust' ? 'adjustTitle' : 'creditLimitTitle'}`, { name });
 
@@ -281,7 +284,7 @@ function WalletActionDialog({ mode, row, onClose, onDone }: { mode: ActionMode; 
       } else {
         const res = await apiFetch<ApiRes<{ balance: number }>>(
           `/api/hub/v1/admin/customer-wallets/${row.customerId}/${mode}`,
-          { method: 'POST', body: JSON.stringify({ amount: v, note: note.trim() }) },
+          { method: 'POST', body: JSON.stringify({ requestId, amount: v, note: note.trim() }) },
         );
         toast('success', t(mode === 'topup' ? 'wallets.topupDone' : 'wallets.adjustDone', { amount: fmtUSD(v), balance: fmtUSD(res.data.balance) }));
       }

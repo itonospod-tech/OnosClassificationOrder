@@ -39,6 +39,10 @@ export const CustomerWalletTxnZod = z.object({
       shipmentId: z.string().optional(),
       orderIds: z.string().array().optional(),
       stagingOrderId: z.string().optional(),
+      /** Top-up: the bank/payment reference the money arrived under (normalised: trimmed, upper-case, no spaces). */
+      externalTxnId: z.string().optional(),
+      /** Top-up: link to the proof of payment (http/https only). */
+      attachmentUrl: z.string().optional(),
     })
     .optional(),
   createdAt: z.coerce.date().optional(),
@@ -127,15 +131,39 @@ export type AdminWalletTxnRow = z.infer<typeof AdminWalletTxnRowZod>;
 export const GetAdminWalletTxnsResZod = ResZod.extend({ data: AdminWalletTxnRowZod.array(), total: z.number() });
 export class GetAdminWalletTxnsResDto extends createZodDto(extendApi(GetAdminWalletTxnsResZod)) {}
 
+/**
+ * Idempotency key of ONE staff money operation. The client generates it once when the dialog opens and
+ * resends the same value on every retry, so a double click or a retry after a timeout cannot apply twice.
+ */
+export const WalletRequestIdZod = z
+  .string()
+  .trim()
+  .min(8)
+  .max(100)
+  .regex(/^[A-Za-z0-9_-]+$/, 'requestId may only contain letters, digits, "-" and "_"');
+
 /** Nạp ví tay — phase 1 seller chuyển khoản ngoài hệ thống, admin cộng + ghi chú. */
 export const TopupWalletZod = z.object({
+  requestId: WalletRequestIdZod,
   amount: z.number().positive().max(1_000_000),
   note: z.string().min(1).max(500),
+  /** Bank / payment reference. A reference can be credited only once across all sellers. */
+  externalTxnId: z.string().trim().min(1).max(100).optional(),
+  /** Proof of payment. Link only for now; uploading a file is a later phase. */
+  attachmentUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .url()
+    // `url()` accepts javascript:/data: — this value is rendered as a link, so allow web links only.
+    .refine((u) => /^https?:\/\//i.test(u), 'Only http(s) links are allowed')
+    .optional(),
 });
 export class TopupWalletDto extends createZodDto(extendApi(TopupWalletZod)) {}
 
 /** Điều chỉnh tay (+/−) — hoàn tiền hủy label, sửa sai sót... Bắt buộc note. */
 export const AdjustWalletZod = z.object({
+  requestId: WalletRequestIdZod,
   amount: z
     .number()
     .max(1_000_000)
@@ -151,6 +179,12 @@ export const UpdateCreditLimitZod = z.object({
 export class UpdateCreditLimitDto extends createZodDto(extendApi(UpdateCreditLimitZod)) {}
 
 export const WalletMutationResZod = ResZod.extend({
-  data: z.object({ balance: z.number(), creditLimit: z.number(), txn: CustomerWalletTxnZod.optional() }),
+  data: z.object({
+    balance: z.number(),
+    creditLimit: z.number(),
+    txn: CustomerWalletTxnZod.optional(),
+    /** True when the same `requestId` had already been applied: nothing was written this time. */
+    replayed: z.boolean().optional(),
+  }),
 });
 export class WalletMutationResDto extends createZodDto(extendApi(WalletMutationResZod)) {}
