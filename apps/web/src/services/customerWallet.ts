@@ -1,4 +1,4 @@
-import type { WalletTxnKind } from 'shared';
+import type { AdjustWalletDto, TopupWalletDto, UpdateCreditLimitDto, WalletTxnKind } from 'shared';
 
 import { callApi } from '../apis';
 import { CONFIG } from '../constants';
@@ -39,4 +39,42 @@ const listAllTransactions = (params: {
   return callApi(`/${CONFIG.API_VERSION}/admin/customer-wallets/transactions${qs(params)}`, 'get');
 };
 
-export const customerWallet = { listWallets, listTransactions, listAllTransactions };
+/** One seller's wallet, read fresh — what the money dialogs decide from, never a list row that may be stale. */
+const getWallet = (customerId: string) => {
+  return callApi(`/${CONFIG.API_VERSION}/admin/customer-wallets/${encodeURIComponent(customerId)}`, 'get');
+};
+
+const listCreditLimitHistory = (customerId: string, params: { page?: number; limit?: number } = {}) => {
+  return callApi(
+    `/${CONFIG.API_VERSION}/admin/customer-wallets/${encodeURIComponent(customerId)}/credit-limit-history${qs(params)}`,
+    'get',
+  );
+};
+
+// Money-moving calls. `requestId` is the idempotency key the dialog keeps stable across retries.
+const topup = (customerId: string, body: TopupWalletDto) => {
+  return callApi(`/${CONFIG.API_VERSION}/admin/customer-wallets/${encodeURIComponent(customerId)}/topup`, 'post', body);
+};
+
+const adjust = (customerId: string, body: AdjustWalletDto) => {
+  return callApi(`/${CONFIG.API_VERSION}/admin/customer-wallets/${encodeURIComponent(customerId)}/adjust`, 'post', body);
+};
+
+const setCreditLimit = (customerId: string, body: UpdateCreditLimitDto) => {
+  return callApi(
+    `/${CONFIG.API_VERSION}/admin/customer-wallets/${encodeURIComponent(customerId)}/credit-limit`,
+    'patch',
+    body,
+  );
+};
+
+export const customerWallet = {
+  listWallets,
+  listTransactions,
+  listAllTransactions,
+  getWallet,
+  listCreditLimitHistory,
+  topup,
+  adjust,
+  setCreditLimit,
+};

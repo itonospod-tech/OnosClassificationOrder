@@ -4,7 +4,16 @@ import { ResZod } from '@shared/types';
 import { z } from 'zod';
 
 import { IDZod } from '..';
-import { WALLET_TXN_KINDS, type WalletTxnKind } from '../client';
+import {
+  normalizeExternalTxnId,
+  previewWalletOperation,
+  requiresStatementCheck,
+  WALLET_BIG_AMOUNT_USD,
+  WALLET_TXN_KINDS,
+  type WalletOperationMode,
+  type WalletOperationPreview,
+  type WalletTxnKind,
+} from '../client';
 
 /**
  * Ví seller (USD) — ví TỔNG đa mục đích: hôm nay trừ tiền mua label, sau này
@@ -18,6 +27,8 @@ import { WALLET_TXN_KINDS, type WalletTxnKind } from '../client';
  */
 // Hằng runtime nest-free — dời sang `client/wallet.ts` (apps/seller cần render badge/filter).
 export { WALLET_TXN_KINDS, type WalletTxnKind };
+export { normalizeExternalTxnId, previewWalletOperation, requiresStatementCheck, WALLET_BIG_AMOUNT_USD };
+export type { WalletOperationMode, WalletOperationPreview };
 export const WalletTxnKindZod = z.enum(WALLET_TXN_KINDS);
 
 export const CustomerWalletTxnZod = z.object({

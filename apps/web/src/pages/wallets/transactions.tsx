@@ -141,33 +141,36 @@ function WalletTransactionsContent() {
             className={cn(
               'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
               !isCustomRange && range === r
-                ? 'border-primary-600 bg-primary-600 text-white'
+                ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800',
             )}
           >
             {t(`txns.range.${r}`)}
           </button>
         ))}
-        <label className="ml-2 flex items-center gap-1.5 text-xs text-slate-500">
-          {t('txns.from')}
-          <Input
-            type="date"
-            value={explicitFrom}
-            max={explicitTo || undefined}
-            onChange={(e) => updateParams({ from: e.target.value || null, range: null })}
-            className="h-8 w-36"
-          />
-        </label>
-        <label className="flex items-center gap-1.5 text-xs text-slate-500">
-          {t('txns.to')}
-          <Input
-            type="date"
-            value={explicitTo}
-            min={explicitFrom || undefined}
-            onChange={(e) => updateParams({ to: e.target.value || null, range: null })}
-            className="h-8 w-36"
-          />
-        </label>
+        {/* Own row on phones so the two dates sit side by side instead of wrapping apart from their labels. */}
+        <div className="flex w-full items-center gap-2 sm:ml-2 sm:w-auto">
+          <label className="flex flex-1 items-center gap-1.5 text-xs text-muted-foreground sm:flex-none">
+            {t('txns.from')}
+            <Input
+              type="date"
+              value={explicitFrom}
+              max={explicitTo || undefined}
+              onChange={(e) => updateParams({ from: e.target.value || null, range: null })}
+              className="h-8 w-full sm:w-36"
+            />
+          </label>
+          <label className="flex flex-1 items-center gap-1.5 text-xs text-muted-foreground sm:flex-none">
+            {t('txns.to')}
+            <Input
+              type="date"
+              value={explicitTo}
+              min={explicitFrom || undefined}
+              onChange={(e) => updateParams({ to: e.target.value || null, range: null })}
+              className="h-8 w-full sm:w-36"
+            />
+          </label>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -196,7 +199,7 @@ function WalletTransactionsContent() {
               className={cn(
                 'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                 kind === k
-                  ? 'border-primary-600 bg-primary-600 text-white'
+                  ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800',
               )}
             >
