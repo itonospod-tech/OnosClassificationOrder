@@ -1892,7 +1892,7 @@ Sort: `priority desc` → `inProductionAt asc` → `createdAt asc` (đơn ưu ti
   data: {
     productionId: string;          // khóa duy nhất, luôn có — dùng để gọi lại POST /design-review/result
     orderId?: string;              // mã đơn marketplace/sàn (import từ sheet) — có thể rỗng với 1 số đơn
-    productCode: string | null;    // = `ProductConfig.designReviewCode` của sản phẩm khớp `type` (PRD-2, đọc DB) — null nếu không khớp sản phẩm nào hoặc mã trống. TÊN FIELD giữ nguyên cho tool ngoài
+    productCode: string | null;    // = mã theo option (§18.5, vd polo thêu `placket` → PLTRU) nếu có, else `ProductConfig.designReviewCode` của sản phẩm khớp `type` (PRD-2, đọc DB) — null nếu không khớp sản phẩm nào hoặc mã trống. TÊN FIELD giữ nguyên cho tool ngoài
     attributes: { size?: string; color?: string };
     designs: DesignFields;        // chỉ các key có URL (front/back/sleeve/...), raw Drive URL (R2 pipeline đang tắt — xem ImageOptimization.md)
     mockupUrl?: string;            // ảnh mockup sản phẩm — tham chiếu trực quan khi soát design
@@ -1937,6 +1937,15 @@ Sản phẩm chưa cấu hình vị trí in nào và đơn cũng không có desi
 
 ### 18.5 Nguồn `productCode` — `ProductConfig.designReviewCode` trong DB (PRD-2)
 `productCode` đọc từ **DB lúc gọi API**: `resolveDesignReviewProduct()` (`order.service.ts` — từ ORD-6 đọc CẢ cấu hình sản phẩm một lần cho `productCode` + `isDtf` + `printAreas` + `variantSku`) khớp `OrderEntity.type` ↔ `ProductConfig.fullName` (exact, trim + case-insensitive — đúng quy tắc map cũ) rồi trả **`designReviewCode`** của sản phẩm; không khớp sản phẩm nào / mã trống → `null`. **Sửa/thêm mã ngay trên UI Products** (ô "Mã chạy tool duyệt thiết kế", khu Sản xuất trang chi tiết sản phẩm), không cần deploy.
+
+**Mã theo option khách chọn (1 SKU → nhiều tool PTS).** Trước khi dùng `designReviewCode`, `resolveDesignReviewCodeByDesigns()` (`order/design-review-code-rule.ts`, hàm thuần + spec) tra map `DESIGN_REVIEW_CODE_BY_DESIGN_KEY` theo `ProductConfig.sku` (không theo `fullName` — có bản trùng khác dấu nháy). Option không có field riêng trên đơn; nó lộ qua **vị trí design** trong `designs`:
+
+| SKU | Design key | `productCode` |
+| --- | --- | --- |
+| `AOP-POLO-EMLOGO` (polo thêu) | `chestLeft` (thêu ngực) | `PLNGUC` |
+| `AOP-POLO-EMLOGO` (polo thêu) | `placket` (thêu trụ) | `PLTRU` |
+
+Chỉ dùng mã theo option khi khớp **đúng một** key; không khớp key nào, khớp cả hai (`chestLeft` + `placket` — chưa có quy tắc nghiệp vụ), hoặc sản phẩm không có entry → `designReviewCode` như cũ. Thêm sản phẩm/option mới = thêm entry vào map (cần deploy). Lý do: dữ liệu prod 09/2026 cho thấy từ 22/09 đơn thêu trụ đến dưới SKU polo thêu ngực với key `placket`, trước đó cùng chạy `PLNGUC` và bị lỗi "Trụ" (~18% so với ~1% đơn thêu ngực).
 
 > **PRD-2 — mã tool KHÔNG còn nằm ở `shortName`.** ORD-3 mượn `shortName` làm khoá kỹ thuật nên tên viết tắt do người dùng đặt bị coi là mã tool; nay mã có trường riêng `designReviewCode`, còn `shortName` trở lại đúng nghĩa tên viết tắt và **không migration/import nào được ghi đè nó nữa**. Tên field `productCode` trong response GIỮ NGUYÊN — tool ngoài (`.localdev`) đang đọc đúng tên đó.
 
