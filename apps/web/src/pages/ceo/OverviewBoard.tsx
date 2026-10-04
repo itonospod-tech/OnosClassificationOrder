@@ -25,7 +25,7 @@ const fmtInt = (n: number) => n.toLocaleString('en-US');
 const HEX: Record<string, string> = {
   'tool-check': '#94a3b8', designer: '#38bdf8', print: '#6366f1', press: '#fbbf24', 'qc-post-press': '#a78bfa',
   'sew-in': '#34d399', 'sew-out': '#14b8a6', pack: '#84cc16', done: '#047857',
-  in: '#6366f1', out: '#10b981', errors: '#f43f5e', muted: 'hsl(215 16% 47%)', grid: 'hsl(214 32% 91%)',
+  in: '#6366f1', out: '#10b981', errors: '#f43f5e', muted: 'hsl(var(--muted-foreground))', grid: 'hsl(var(--border))',
 };
 const SOURCE_HEX: Record<string, string> = { designer: '#38bdf8', factory: '#f59e0b', 'tool-check': '#94a3b8', unknown: '#cbd5e1' };
 
@@ -391,12 +391,14 @@ export function OverviewBoard() {
                 ) : (
                   <ul className="divide-y divide-border text-xs">
                     {d.sla.overdue.sample.map((o) => (
-                      <li key={o.productionId} className="flex items-center justify-between py-1.5">
-                        <span className="font-mono font-semibold">{o.productionId}</span>
-                        <span className="text-muted-foreground">{o.userSku}</span>
-                        <span className="text-muted-foreground">{o.factory}</span>
-                        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', STAGE_COLORS[o.stage as keyof typeof STAGE_COLORS]?.chip || 'bg-muted')}>{stageLabel(o.stage)}</span>
-                        <span className="tabular-nums text-rose-600">{t('sla.age', { n: o.ageDays })}</span>
+                      <li key={o.productionId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 sm:flex-nowrap sm:justify-between sm:py-1.5">
+                        {/* Phones: id and age share the first line, the rest wraps beneath (flex order); one row from sm up. */}
+                        <span className="order-1 font-mono font-semibold">{o.productionId}</span>
+                        <span className="order-2 ml-auto whitespace-nowrap tabular-nums text-rose-600 sm:order-5 sm:ml-0">{t('sla.age', { n: o.ageDays })}</span>
+                        <span className="order-3 basis-full sm:hidden" aria-hidden />
+                        <span className="order-4 text-muted-foreground sm:order-2">{o.userSku}</span>
+                        <span className="order-4 text-muted-foreground sm:order-3">{o.factory}</span>
+                        <span className={cn('order-4 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium sm:order-4', STAGE_COLORS[o.stage as keyof typeof STAGE_COLORS]?.chip || 'bg-muted')}>{stageLabel(o.stage)}</span>
                       </li>
                     ))}
                   </ul>
@@ -466,17 +468,17 @@ export function OverviewBoard() {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                  <th className="py-1.5 pr-3 font-medium">{t('customers.cols.customer')}</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">{t('customers.cols.orders')}</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">{t('customers.cols.prev')}</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">{t('customers.cols.revenue')}</th>
-                  <th className="py-1.5 text-right font-medium">{t('customers.cols.issues')}</th>
+                  <th className="sticky left-0 bg-card py-1.5 pr-3 font-medium">{t('customers.cols.customer')}</th>
+                  <th className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">{t('customers.cols.orders')}</th>
+                  <th className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">{t('customers.cols.prev')}</th>
+                  <th className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">{t('customers.cols.revenue')}</th>
+                  <th className="whitespace-nowrap py-1.5 text-right font-medium">{t('customers.cols.issues')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {d.customers.top.map((c) => (
                   <tr key={c.userSku} className="hover:bg-muted/40">
-                    <td className="py-1.5 pr-3">
+                    <td className="sticky left-0 whitespace-nowrap bg-card py-1.5 pr-3">
                       <button type="button" onClick={() => go({ wusersku: c.userSku })} className="font-medium hover:text-indigo-700">{c.userSku}</button>
                       {c.tier != null && <span className="ml-1.5 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800">{t('customers.vip', { tier: c.tier })}</span>}
                     </td>
@@ -539,14 +541,14 @@ export function OverviewBoard() {
               <thead>
                 <tr className="border-b text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                   {(['factory', 'in', 'out', 'backlog', 'perDay', 'clear', 'n2', 'errors'] as const).map((k) => (
-                    <th key={k} className={cn('py-1.5 pr-3 font-medium', k !== 'factory' && 'text-right')}>{t(`capacity.cols.${k}`)}</th>
+                    <th key={k} className={cn('whitespace-nowrap py-1.5 pr-3 font-medium', k === 'factory' ? 'sticky left-0 bg-card' : 'text-right')}>{t(`capacity.cols.${k}`)}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {d.production.byFactory.map((f) => (
                   <tr key={f.factoryId} className="hover:bg-muted/40">
-                    <td className="py-1.5 pr-3 font-medium"><button type="button" onClick={() => navigate(`${PATHS.ORDERS_WORKSHOP}?wfrom=${from}&wto=${to}&factoryId=${f.factoryId}`)} className="hover:text-indigo-700">{f.shortName ? `${f.shortName} · ${f.name}` : f.name}</button></td>
+                    <td className="sticky left-0 whitespace-nowrap bg-card py-1.5 pr-3 font-medium"><button type="button" onClick={() => navigate(`${PATHS.ORDERS_WORKSHOP}?wfrom=${from}&wto=${to}&factoryId=${f.factoryId}`)} className="hover:text-indigo-700">{f.shortName ? `${f.shortName} · ${f.name}` : f.name}</button></td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{f.in}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{f.out}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{f.backlog}</td>
