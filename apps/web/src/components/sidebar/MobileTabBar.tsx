@@ -20,7 +20,11 @@ interface Tab {
   badge?: number | null;
 }
 
-/** Roles whose phone users get the bottom tab bar (they own a task board). */
+/**
+ * Roles whose phone users get the bottom tab bar (they own a task board).
+ * Deliberately NOT every role: these people work standing at a station and need thumb reach, while
+ * Admin/Manager need the full drawer menu more than four fixed tabs. Do not widen this to all roles.
+ */
 export const TAB_BAR_ROLES: string[] = [RoleType.Designer, RoleType.DesignerLeader, RoleType.Fulfillment];
 
 /**
