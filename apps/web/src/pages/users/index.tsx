@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import { handleAxiosError } from '@/utils';
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
+import { PageHeader } from '@/components/common/PageHeader';
 
 interface UserRow {
   _id: string;
@@ -236,15 +237,11 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-          <UsersIcon size={20} className="text-indigo-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('users.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('users.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<UsersIcon size={20} />}
+        title={t('users.title')}
+        description={t('users.subtitle')}
+      />
 
       <div className="rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between p-4 border-b border-border">
