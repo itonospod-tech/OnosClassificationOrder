@@ -240,7 +240,7 @@
   },
   "wallets": {
     "title": "Seller wallets",
-    "subtitle": "Top up/adjust wallets, credit limits and the label price table sold to sellers",
+    "subtitle": "View seller balances, credit limits and ledgers, and the label price table sold to sellers. Top-ups, adjustments and credit-limit changes are done at /adm/wallets.",
     "nav": "Wallets",
     "activeOnly": "Only funded wallets",
     "columns": {

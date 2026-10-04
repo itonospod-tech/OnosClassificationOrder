@@ -240,7 +240,7 @@
   },
   "wallets": {
     "title": "Ví seller",
-    "subtitle": "Nạp/điều chỉnh ví, hạn mức nợ và bảng giá vận đơn bán cho seller",
+    "subtitle": "Xem số dư, hạn mức nợ và sổ cái ví của seller, cùng bảng giá vận đơn bán cho seller. Nạp / điều chỉnh / đổi hạn mức làm ở /adm/wallets.",
     "nav": "Ví seller",
     "activeOnly": "Chỉ ví có tiền/hạn mức",
     "columns": {
