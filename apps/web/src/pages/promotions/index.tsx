@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
+import { StatCards } from '@/components/common/StatCards';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -143,20 +144,14 @@ export default function PromotionsPage() {
       <PageHeader icon={<Tag size={20} />} title={t('page.title')} description={t('page.subtitle')} />
 
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">{t('page.stats.total')}</p>
-            <p className="text-xl font-semibold">{stats.total}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">{t('page.stats.active')}</p>
-            <p className="text-xl font-semibold text-emerald-600">{stats.active}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-3">
-            <p className="text-xs text-muted-foreground">{t('page.stats.expiringSoon')}</p>
-            <p className="text-xl font-semibold text-amber-600">{stats.expiringSoon}</p>
-          </div>
-        </div>
+        <StatCards
+          cols={3}
+          items={[
+            { key: 'total', label: t('page.stats.total'), value: stats.total },
+            { key: 'active', label: t('page.stats.active'), value: stats.active, tone: 'success' },
+            { key: 'expiringSoon', label: t('page.stats.expiringSoon'), value: stats.expiringSoon, tone: 'warning' },
+          ]}
+        />
       )}
 
       <div className="flex items-center justify-between gap-3">
