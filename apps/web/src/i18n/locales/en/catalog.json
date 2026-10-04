@@ -11,7 +11,8 @@
   },
   "filters": {
     "label": "Quick filter",
-    "all": "All"
+    "all": "All",
+    "tags": "Tags"
   },
   "result": {
     "count_one": "{{count}} product",

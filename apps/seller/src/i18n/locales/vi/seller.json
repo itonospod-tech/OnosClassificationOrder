@@ -122,6 +122,8 @@
     "subtitle": "Toàn bộ sản phẩm đang bán · tra SKU để điền file import",
     "searchPlaceholder": "Tìm tên sản phẩm, SKU…",
     "allCategories": "Tất cả danh mục",
+    "tags": "Tag",
+    "allTags": "Tất cả",
     "allCollections": "Tất cả",
     "collections": "Bộ sưu tập",
     "totalProducts": "{{count}} sản phẩm",

@@ -275,6 +275,7 @@
     "variationCount": "{{count}} variations",
     "resultsCount": "{{count}} products",
     "clearSearch": "Clear search",
+    "tagsTitle": "Tags",
     "collectionsTitle": "Collections",
     "allCategories": "All",
     "clearFilters": "Clear filters"
