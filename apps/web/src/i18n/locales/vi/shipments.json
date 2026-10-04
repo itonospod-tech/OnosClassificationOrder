@@ -26,7 +26,8 @@
   },
   "filter": {
     "search": "Tìm tracking / mã kiện / mã đơn sản xuất / mã đơn seller...",
-    "allStatuses": "Tất cả trạng thái"
+    "allStatuses": "Tất cả trạng thái",
+    "phaseHint": "Trạng thái hãng suy từ text thô của hãng — luật tạm, sẽ chỉnh khi có dữ liệu thật"
   },
   "status": {
     "purchasing": "Đang mua",
@@ -47,7 +48,10 @@
     "by": "Người tạo",
     "label": "Label",
     "empty": "Chưa có vận đơn nào",
-    "sellerPrice": "Thu seller"
+    "sellerPrice": "Thu seller",
+    "items": "Sản phẩm",
+    "shipTo": "Giao tới",
+    "moreItems": "+{{count}} sp"
   },
   "timeline": {
     "title": "Timeline vận đơn — {{code}}",
@@ -60,5 +64,18 @@
     "scannedAt": "Vào mạng lưới lần đầu",
     "carrierNote": "Ghi chú từ hãng",
     "failReason": "Lý do lỗi"
+  },
+  "phase": {
+    "all": "Tất cả",
+    "processing": "Chờ lấy hàng",
+    "picked_up": "Đã lấy hàng",
+    "processed": "Đã xử lý",
+    "in_transit": "Đang vận chuyển",
+    "out_for_delivery": "Đang giao",
+    "delivery_attempt": "Giao không thành công",
+    "delivered": "Đã giao",
+    "failed": "Thất bại",
+    "exception": "Ngoại lệ",
+    "other": "Khác"
   }
 }

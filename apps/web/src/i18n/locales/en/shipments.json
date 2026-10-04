@@ -26,7 +26,8 @@
   },
   "filter": {
     "search": "Search tracking / package code / production ID / seller order ID...",
-    "allStatuses": "All statuses"
+    "allStatuses": "All statuses",
+    "phaseHint": "Carrier status derived from the carrier's raw text — provisional rules, refined once real data arrives"
   },
   "status": {
     "purchasing": "Purchasing",
@@ -47,7 +48,10 @@
     "by": "Created by",
     "label": "Label",
     "empty": "No shipments yet",
-    "sellerPrice": "Seller price"
+    "sellerPrice": "Seller price",
+    "items": "Item(s)",
+    "shipTo": "Shipping address",
+    "moreItems": "+{{count}} more"
   },
   "timeline": {
     "title": "Shipment timeline — {{code}}",
@@ -60,5 +64,18 @@
     "scannedAt": "First carrier scan",
     "carrierNote": "Carrier note",
     "failReason": "Failure reason"
+  },
+  "phase": {
+    "all": "All",
+    "processing": "Processing",
+    "picked_up": "Picked Up",
+    "processed": "Processed",
+    "in_transit": "In Transit",
+    "out_for_delivery": "Out For Delivery",
+    "delivery_attempt": "Delivery Attempt",
+    "delivered": "Delivered",
+    "failed": "Failed",
+    "exception": "Exception",
+    "other": "Other"
   }
 }

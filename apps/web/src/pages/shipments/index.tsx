@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { Navigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { ExternalLink, RefreshCw, Truck, Wallet } from 'lucide-react';
-import type { VnpShipmentRecord, VnpShipmentStats } from 'shared';
-import { VNP_SHIPMENT_RECORD_STATUSES } from 'shared';
+import type { CarrierPhase, VnpShipmentRecord, VnpShipmentStats } from 'shared';
+import { CARRIER_PHASES, carrierPhaseOf, VNP_SHIPMENT_RECORD_STATUSES } from 'shared';
 
 import { PATHS } from '@/constants/paths';
 
 import { RepositoryRemote } from '@/services';
 
+import { DateRangePicker } from '@/components/common/DateRangePicker';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { Spinner } from '@/components/common/Spinner';
 import { Button } from '@/components/ui/button';
@@ -49,6 +50,20 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
+
+/** Carrier ladder colours (legacy shipment_status): blue = moving, green = done, red = problem. */
+const PHASE_BADGE_CLS: Record<CarrierPhase, string> = {
+  processing: 'bg-muted text-muted-foreground',
+  picked_up: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200',
+  processed: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200',
+  in_transit: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
+  out_for_delivery: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200',
+  delivery_attempt: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+  delivered: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
+  failed: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
+  exception: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
+  other: 'bg-muted text-muted-foreground',
+};
 
 /** Bảng bucket nhỏ (theo tháng / xưởng / service) trong dashboard chi phí. */
 function BucketTable({
@@ -136,12 +151,13 @@ function ShipmentsContent() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [phase, setPhase] = useState<CarrierPhase | ''>('');
   const debouncedSearch = useDebounce(search, 300);
   const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, status]);
+  }, [debouncedSearch, status, phase, from, to]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +169,10 @@ function ShipmentsContent() {
           size: PAGE_SIZE,
           search: debouncedSearch || undefined,
           status: status || undefined,
+          carrierPhase: phase || undefined,
+          // One date range drives both the cost dashboard and the list (legacy date buttons).
+          from: from || undefined,
+          to: to || undefined,
         });
         if (cancelled) return;
         setRows((res.data?.data as VnpShipmentRecord[]) ?? []);
@@ -166,7 +186,7 @@ function ShipmentsContent() {
     return () => {
       cancelled = true;
     };
-  }, [page, debouncedSearch, status, reloadTick]);
+  }, [page, debouncedSearch, status, phase, from, to, reloadTick]);
 
   const [selected, setSelected] = useState<VnpShipmentRecord | null>(null);
 
@@ -216,14 +236,15 @@ function ShipmentsContent() {
       {/* ── Dashboard chi phí ── */}
       <section className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1 text-xs text-muted-foreground">
-            {t('stats.from')}
-            <Input type="date" className="h-8 w-36" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </label>
-          <label className="flex items-center gap-1 text-xs text-muted-foreground">
-            {t('stats.to')}
-            <Input type="date" className="h-8 w-36" value={to} onChange={(e) => setTo(e.target.value)} />
-          </label>
+          <DateRangePicker
+            variant="inline"
+            from={from}
+            to={to}
+            onChange={(f, tt) => {
+              setFrom(f);
+              setTo(tt);
+            }}
+          />
           <span className="text-[11px] text-muted-foreground">{t('stats.costNote')}</span>
         </div>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
@@ -267,12 +288,29 @@ function ShipmentsContent() {
             <RefreshCw size={13} />
           </Button>
         </div>
+        <div className="flex flex-wrap items-center gap-1.5" title={t('filter.phaseHint')}>
+          {(['', ...CARRIER_PHASES] as const).map((p) => (
+            <button
+              key={p || 'all'}
+              type="button"
+              onClick={() => setPhase(p)}
+              className={cn(
+                'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                phase === p ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted',
+              )}
+            >
+              {t(`phase.${p || 'all'}`)}
+            </button>
+          ))}
+        </div>
         <div className="rounded-lg border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{t('table.createdAt')}</TableHead>
                 <TableHead>{t('table.package')}</TableHead>
+                <TableHead>{t('table.items')}</TableHead>
+                <TableHead>{t('table.shipTo')}</TableHead>
                 <TableHead>{t('table.tracking')}</TableHead>
                 <TableHead>{t('table.service')}</TableHead>
                 <TableHead className="text-right">{t('table.cost')}</TableHead>
@@ -285,14 +323,14 @@ function ShipmentsContent() {
             <TableBody>
               {loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center">
+                  <TableCell colSpan={11} className="py-8 text-center">
                     <Spinner />
                   </TableCell>
                 </TableRow>
               )}
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={11} className="py-8 text-center text-sm text-muted-foreground">
                     {t('table.empty')}
                   </TableCell>
                 </TableRow>
@@ -311,6 +349,29 @@ function ShipmentsContent() {
                         : ''}
                     </div>
                   </TableCell>
+                  <TableCell className="text-xs">
+                    {(rec.items ?? []).slice(0, 2).map((it) => (
+                      <div key={it.productionId} className="max-w-[200px] truncate">
+                        {[it.type, [it.color, it.size].filter(Boolean).join('/')].filter(Boolean).join(' · ') || it.productionId}
+                      </div>
+                    ))}
+                    {(rec.items?.length ?? 0) > 2 && (
+                      <div className="text-muted-foreground">{t('table.moreItems', { count: (rec.items?.length ?? 0) - 2 })}</div>
+                    )}
+                    {!rec.items?.length && '—'}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {rec.shipTo ? (
+                      <>
+                        <div className="max-w-[180px] truncate">{[rec.shipTo.firstName, rec.shipTo.lastName].filter(Boolean).join(' ') || '—'}</div>
+                        <div className="max-w-[180px] truncate text-muted-foreground">
+                          {[rec.shipTo.city, [rec.shipTo.state, rec.shipTo.postcode].filter(Boolean).join(' '), rec.shipTo.country].filter(Boolean).join(', ')}
+                        </div>
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{rec.trackingCode ?? '—'}</TableCell>
                   <TableCell className="text-xs">{rec.service ?? '—'}</TableCell>
                   <TableCell className="text-right font-mono text-xs">{rec.shippingCost ?? '—'}</TableCell>
@@ -318,7 +379,20 @@ function ShipmentsContent() {
                     {rec.sellerPrice != null ? `$${rec.sellerPrice.toFixed(2)}` : '—'}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={rec.status} />
+                    <div className="flex flex-col items-start gap-1">
+                      <StatusBadge status={rec.status} />
+                      {(() => {
+                        const p = carrierPhaseOf(rec);
+                        return p ? (
+                          <span
+                            title={rec.lastTrackingStatus}
+                            className={cn('inline-flex rounded px-1.5 py-0.5 text-[11px] font-medium', PHASE_BADGE_CLS[p])}
+                          >
+                            {t(`phase.${p}`)}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                   </TableCell>
                   <TableCell className="text-xs">{rec.createdByUserName ?? '—'}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>

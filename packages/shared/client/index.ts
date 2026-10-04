@@ -6,6 +6,7 @@
  *
  * Quy tắc: file trong `client/` CHỈ được import `zod` và file khác trong `client/`.
  */
+export * from './carrier-phase';
 export * from './customer-import';
 export * from './design-cdn';
 export * from './design-fields';
