@@ -53,7 +53,8 @@ BE ném `BadRequestException` với **message = đúng 1 mã** trong `SELLER_SHI
 | GET | `admin/customer-wallets/:customerId/transactions` | Sổ cái 1 seller |
 | POST | `admin/customer-wallets/:customerId/topup` | Nạp (+). Body: `requestId` (BẮT BUỘC), `amount`, `note` (bắt buộc), `externalTxnId?` (mã giao dịch ngân hàng), `attachmentUrl?` (link chứng từ, chỉ http/https; tải file thật là việc sau). Trả `replayed:true` khi `requestId` đã áp dụng trước đó (không ghi gì). 409 khi: cùng `requestId` khác số tiền; `externalTxnId` đã nạp (cho bất kỳ seller nào) — thông báo nêu seller + giờ + "dùng Điều chỉnh" |
 | POST | `admin/customer-wallets/:customerId/adjust` | Điều chỉnh (±). Body: `requestId` (BẮT BUỘC), `amount`, `note` (bắt buộc). Cùng cơ chế `replayed`/409 như nạp |
-| PATCH | `admin/customer-wallets/:customerId/credit-limit` | Đặt hạn mức |
+| PATCH | `admin/customer-wallets/:customerId/credit-limit` | Đặt hạn mức. Body: `creditLimit`, `note?` (bắt buộc ở dialog `/adm`, tuỳ chọn ở API để caller cũ không gãy). Mỗi lần đổi giá trị thật ghi 1 dòng audit CÙNG transaction; đặt đúng giá trị hiện có thì không ghi gì |
+| GET | `admin/customer-wallets/:customerId/credit-limit-history` | Lịch sử đổi hạn mức, mới nhất trước: `from → to`, ai, lúc nào, lý do |
 | GET/POST | `admin/seller-shipping/price-table{,/import}` | Xem/thay bảng giá (mốc tăng dần) |
 | POST | `admin/seller-shipping/toggle` | Công tắc tổng seller mua label |
 
@@ -99,7 +100,17 @@ Trước 04/10/2026 nạp/điều chỉnh tay KHÔNG truyền `refs.requestId` n
 
 Giới hạn cần biết: khoá `requestId` là THEO seller (`customerId` nằm trong khoá, dùng chung với mua label) nên cùng `requestId` cho hai seller khác nhau KHÔNG bị phát hiện — dialog sinh UUID mới mỗi lần mở nên giao diện không tự gây ra chuyện này. Lớp 3 là lớp chặn cho trường hợp hai nhân viên nhập cùng một dòng sao kê.
 
-Test: `wallet-idempotency.spec.ts` chạy trên MongoDB replica set THẬT (cơ sở dữ liệu tạm, xoá sau khi chạy; autoIndex tắt nên chỉ có index do `ensureIndexes` tạo; thiếu Mongo thì FAIL, `SKIP_DB_TESTS=1` để bỏ qua tường minh) — gồm gọi hai lần, 10 lượt song song, khác số tiền, trùng mã ngân hàng khác tab/seller, 6 lượt đua cùng một mã. Kiểm chứng bằng cách tắt `ensureIndexes`: bài kiểm index và bài đua theo mã ngân hàng chuyển đỏ. `wallet-ensure-indexes.spec.ts`, `wallet-topup.spec.ts`.
+Test: `wallet-idempotency.spec.ts` (dùng chung harness `wallet-test-db.ts`) chạy trên MongoDB replica set THẬT (cơ sở dữ liệu tạm, xoá sau khi chạy; autoIndex tắt nên chỉ có index do `ensureIndexes` tạo; thiếu Mongo thì FAIL, `SKIP_DB_TESTS=1` để bỏ qua tường minh) — gồm gọi hai lần, 10 lượt song song, khác số tiền, trùng mã ngân hàng khác tab/seller, 6 lượt đua cùng một mã. Kiểm chứng bằng cách tắt `ensureIndexes`: bài kiểm index và bài đua theo mã ngân hàng chuyển đỏ. `wallet-ensure-indexes.spec.ts`, `wallet-topup.spec.ts`.
+
+### 5.2 Dấu vết đổi hạn mức nợ (`customer_credit_limit_changes`)
+
+Nâng hạn mức là cho seller tiêu tiền chưa nạp, nên ai/lúc nào/từ-đến/lý do phải bền và tra được (không nằm trong file log xoay vòng). Collection RIÊNG, append-only (`customer-credit-limit-change.entity.ts`): giá trị mới và dòng audit ghi trong CÙNG một transaction Mongo (không có thay đổi nào thiếu dấu vết, cũng không có dấu vết cho thay đổi không xảy ra), `from` đọc trong cùng snapshot với lúc ghi; đổi song song thì mỗi dòng ghi đúng giá trị nó thay (chuỗi `from` = `to` dòng trước, không hở không trùng).
+
+Vì sao KHÔNG nhét vào chỗ khác:
+- **Không phải dòng 0 đồng trong `customer_wallet_transactions`**: đổi hạn mức không dời đồng nào, và mọi dòng sổ ví là `balanceBefore → balanceAfter`; dòng 0 đồng làm hỏng ngữ nghĩa sổ.
+- **Không phải mảng trên `customers`**: `toSafeCustomer()` trả MỌI path trong schema cho seller, còn dấu vết này mang tên nhân viên. Collection riêng thì không thể rò qua document khách theo mặc định, và không làm document khách phình dần.
+
+Test: `credit-limit-history.spec.ts` (MongoDB thật, dùng chung `wallet-test-db.ts`): ghi đủ ai/từ/đến/lý do, mới nhất trước, đặt lại đúng giá trị không ghi gì, seller không tồn tại không để lại dòng nào, 4 lượt đổi song song tạo chuỗi liền mạch (kiểm chứng: bỏ transaction thì bài này chuyển đỏ), và không lọt vào document khách.
 
 ## 6. Performance notes
 
