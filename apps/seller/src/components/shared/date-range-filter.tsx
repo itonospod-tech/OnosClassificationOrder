@@ -24,11 +24,12 @@ export interface DateRange {
  * /tasks, /attendance, /kpi.
  */
 
-type PresetKey = "today" | "yesterday" | "thisWeek" | "thisMonth" | "lastMonth" | "thisYear";
+type PresetKey = "today" | "yesterday" | "last7Days" | "thisWeek" | "thisMonth" | "lastMonth" | "thisYear";
 
 const PRESETS: { key: PresetKey; label: string }[] = [
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
+  { key: "last7Days", label: "Last 7 Days" },
   { key: "thisWeek", label: "This Week" },
   { key: "thisMonth", label: "This Month" },
   { key: "lastMonth", label: "Last Month" },
@@ -58,6 +59,12 @@ export function computePresetRange(key: PresetKey, now: Date = new Date()): Date
       y.setDate(y.getDate() - 1);
       const iso = toIso(y);
       return { dateFrom: iso, dateTo: iso };
+    }
+    case "last7Days": {
+      // Today plus the 6 days before it — the legacy OnosPod "Last 7 Days" button.
+      const start = new Date(today);
+      start.setDate(start.getDate() - 6);
+      return { dateFrom: toIso(start), dateTo: toIso(today) };
     }
     case "thisWeek": {
       // Monday → today. JS getDay: 0=Sun, 1=Mon … 6=Sat. We want Monday-start
