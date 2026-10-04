@@ -217,7 +217,7 @@ export default function ZaloGroupsPage() {
             className={cn(
               '-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors',
               tab === k
-                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
             )}
           >

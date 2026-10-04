@@ -295,6 +295,11 @@ export default function WalletLedgerSheet({ customerId, kind, onKindChange, onCl
           seller={{ customerId, name }}
           onClose={() => setAction(null)}
           onChanged={handleChanged}
+          // Reload the ledger (and the list): after a lost connection the write may or may not have landed.
+          onViewLedger={() => {
+            setAction(null);
+            handleChanged();
+          }}
         />
       )}
     </>

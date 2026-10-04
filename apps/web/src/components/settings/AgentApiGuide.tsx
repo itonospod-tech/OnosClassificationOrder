@@ -111,8 +111,8 @@ export default function AgentApiGuide() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-500/15">
-            <Bot size={20} className="text-primary-600 dark:text-primary-400" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <Bot size={20} className="text-primary" />
           </div>
           <div>
             <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{t('title')}</h2>

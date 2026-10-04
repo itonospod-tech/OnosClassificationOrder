@@ -65,7 +65,7 @@ export function StartTab({ overview, baseUrl, apiKey, onKeyLoaded }: Props) {
         <div className="space-y-2">
           {CAPABILITIES.map((c) => (
             <div key={c.key} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="w-12 shrink-0 font-mono text-xs font-semibold text-primary-600 dark:text-primary-400">{c.method}</span>
+              <span className="w-12 shrink-0 font-mono text-xs font-semibold text-primary">{c.method}</span>
               <code className="font-mono text-xs text-slate-700 dark:text-slate-200">
                 {overview.basePath}
                 {c.pattern}

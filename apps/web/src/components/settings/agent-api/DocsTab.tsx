@@ -151,7 +151,7 @@ export function DocsTab({ basePath, authHeader, ensureKey }: Props) {
                     className={cn(
                       'w-full rounded-lg px-3 py-2 text-left transition-colors',
                       selected?.slug === d.slug
-                        ? 'bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300'
+                        ? 'bg-primary/10 text-primary'
                         : 'hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200',
                     )}
                   >

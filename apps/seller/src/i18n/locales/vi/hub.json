@@ -251,23 +251,8 @@
       "actions": ""
     },
     "empty": "Không có seller nào khớp.",
-    "topup": "Nạp ví",
-    "adjust": "Điều chỉnh",
-    "creditLimitBtn": "Hạn mức",
     "ledger": "Sổ cái",
-    "topupTitle": "Nạp ví cho {{name}}",
-    "adjustTitle": "Điều chỉnh ví {{name}}",
-    "creditLimitTitle": "Hạn mức nợ của {{name}}",
     "ledgerTitle": "Sổ cái ví — {{name}}",
-    "amountLabel": "Số tiền (USD)",
-    "adjustAmountHint": "Dương = cộng ví, âm = trừ ví (vd hoàn tiền hủy label: nhập số dương; thu hồi: số âm).",
-    "noteLabel": "Ghi chú (bắt buộc)",
-    "notePlaceholder": "VD: CK Techcombank 09/09 — 200 USD",
-    "creditLimitLabel": "Hạn mức (USD, ≥ 0)",
-    "creditLimitHint": "Số dư ví được phép xuống tới −hạn mức. 0 = không cho nợ.",
-    "saved": "Đã lưu.",
-    "topupDone": "Đã nạp {{amount}} — số dư mới {{balance}}.",
-    "adjustDone": "Đã điều chỉnh {{amount}} — số dư mới {{balance}}.",
     "priceTable": "Bảng giá vận đơn seller",
     "priceTableHint": "CSV 2 cột WEIGHT,PRICE (gram, USD) — mốc tăng dần, khớp Data/shipping_cost.csv. Mỗi lượt mua snapshot giá nên đổi bảng không ảnh hưởng lịch sử.",
     "priceTableEmpty": "Chưa có bảng giá — seller CHƯA mua được label. Upload CSV để bật.",
@@ -285,6 +270,8 @@
       "revenue": "Thu seller (tiền vào)",
       "cost": "Chi VNP (tiền ra)",
       "margin": "Lãi label seller"
-    }
+    },
+    "moneyActionsLink": "Thao tác ví ở /adm/wallets",
+    "manageInAdmin": "Nạp / điều chỉnh ở /adm"
   }
 }
