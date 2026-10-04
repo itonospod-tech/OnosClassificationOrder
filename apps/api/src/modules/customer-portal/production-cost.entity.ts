@@ -58,6 +58,17 @@ export class ProductionCostEntryEntity extends DatabaseEntityAbstract {
 }
 
 export const ProductionCostEntrySchema = SchemaFactory.createForClass(ProductionCostEntryEntity);
-ProductionCostEntrySchema.index({ productionId: 1 }, { unique: true });
+// This unique index IS the idempotency guarantee (a retried push must never double-count),
+// so CustomerOrderService.onModuleInit creates it explicitly: autoIndex builds in the
+// background and swallows errors, and a missing index would fail silently
+// (ShippingLabelPatterns.md §2 — duplicate protection belongs in the DB, not the app).
+export const PRODUCTION_COST_PRODUCTION_ID_INDEX = {
+  keys: { productionId: 1 },
+  name: 'productionId_unique',
+} as const;
+ProductionCostEntrySchema.index(PRODUCTION_COST_PRODUCTION_ID_INDEX.keys, {
+  name: PRODUCTION_COST_PRODUCTION_ID_INDEX.name,
+  unique: true,
+});
 
 export type ProductionCostEntryDocument = HydratedDocument<ProductionCostEntryEntity>;

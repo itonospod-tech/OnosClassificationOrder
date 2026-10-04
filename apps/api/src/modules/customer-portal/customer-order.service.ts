@@ -85,7 +85,7 @@ import { CustomerOrderEntity } from './customer-order.entity';
 import { CustomerPaymentEntity } from './customer-payment.entity';
 import type { ProductionCostInput } from './production-cost';
 import { buildProductionCostRows } from './production-cost';
-import { ProductionCostEntryEntity } from './production-cost.entity';
+import { PRODUCTION_COST_PRODUCTION_ID_INDEX, ProductionCostEntryEntity } from './production-cost.entity';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -335,6 +335,17 @@ export class CustomerOrderService implements OnModuleInit {
 
   async onModuleInit() {
     this.warmAdminCache();
+    // First on purpose: the backfill below returns early once its marker is set, and
+    // the index must be (re)asserted on EVERY boot. Not awaited so the build cannot
+    // block startup; a failure must reach the log (autoIndex would swallow it).
+    void this.productionCostModel.collection
+      .createIndex(PRODUCTION_COST_PRODUCTION_ID_INDEX.keys, {
+        name: PRODUCTION_COST_PRODUCTION_ID_INDEX.name,
+        unique: true,
+      })
+      .catch((err: Error) =>
+        productionCostLogger.error(`production_cost_entries unique index build failed: ${err.message?.slice(0, 1000)}`),
+      );
     const MARKER = 'customer_orders_backfill_v1';
     try {
       const done = await this.systemConfigService.get<string>(MARKER);
