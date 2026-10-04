@@ -69,12 +69,12 @@ export function ImpersonateQuickSwitch() {
           size="icon"
           // Tên + email dài thì cắt bớt, KHÔNG để vỡ thanh nav; màn hẹp rút về
           // đúng biểu tượng.
-          className="w-auto gap-1.5 px-2"
+          className="w-auto shrink-0 gap-1.5 px-2"
           title={t('impersonate.quickSwitch.tooltip', { name: displayName, email: displayEmail })}
           aria-label={t('impersonate.quickSwitch.tooltip', { name: displayName, email: displayEmail })}
         >
           <UserCog size={16} className={impersonating ? 'text-amber-500' : undefined} />
-          <span className="hidden max-w-[168px] flex-col text-left leading-tight lg:flex">
+          <span className="hidden w-[168px] shrink-0 flex-col text-left leading-tight lg:flex">
             <span className="truncate text-xs font-medium text-foreground">{displayName}</span>
             <span className="truncate text-[11px] text-muted-foreground">{displayEmail}</span>
           </span>
