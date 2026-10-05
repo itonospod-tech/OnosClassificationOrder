@@ -54,6 +54,7 @@ type StatusCounts = {
   done: number;
   fixed: number;
   watching: number;
+  held: number;
 };
 const EMPTY_COUNTS: StatusCounts = {
   all: 0,
@@ -63,6 +64,7 @@ const EMPTY_COUNTS: StatusCounts = {
   done: 0,
   fixed: 0,
   watching: 0,
+  held: 0,
 };
 
 /** value '' = tất cả (không lọc theo stage status). */
@@ -77,6 +79,8 @@ function buildStatusTabs(
     { value: 'done', label: t('stageStatus.done'), countKey: 'done', accent: 'text-emerald-600' },
     { value: 'fixed', label: t('stageStatus.fixed'), countKey: 'fixed', accent: 'text-teal-600' },
     { value: 'watching', label: t('stageStatus.watching'), countKey: 'watching', accent: 'text-sky-600' },
+    // Held orders cut out of "waiting" (Orders.md §9b). Shown only when there are some (or it is selected).
+    { value: 'held', label: t('stageStatus.held'), countKey: 'held', accent: 'text-tone-warning' },
   ];
 }
 
@@ -584,6 +588,7 @@ export function PrintOrderTable({
         <div className="flex flex-wrap items-center gap-2 max-md:-mx-4 max-md:flex-nowrap max-md:overflow-x-auto max-md:px-4 max-md:pb-0.5 max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden">
           {statusTabs.map((tab) => {
             const active = statusFilter === tab.value;
+            if (tab.value === 'held' && !active && !counts.held) return null;
             return (
               <button
                 key={tab.value || 'all'}

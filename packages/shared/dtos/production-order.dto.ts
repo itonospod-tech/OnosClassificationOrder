@@ -658,7 +658,7 @@ export const GetProductionOrdersZod = PageQueryZod.extend({
    *   fixed                           — stage đã completedAt + đã rời stage, TỪNG bị đẩy về (reworkCount>0) = "Đã sửa".
    *   watching                        — user đã rework-back, đang chờ quay lại.
    */
-  fulfillmentStatus: z.enum(['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching']).optional(),
+  fulfillmentStatus: z.enum(['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching', 'held']).optional(),
   /**
    * Lọc theo CHẶNG HIỆN TẠI của đơn — ô phễu trang "Đơn hàng theo xưởng" (Orders.md §10.2b).
    * Chặng suy ra trong Mongo bằng ĐÚNG luật `computeCurrentStage()` (customer-order.service.ts)
@@ -708,6 +708,8 @@ export const FulfillmentStatusCountsResZod = ResZod.extend({
     done: z.number(),
     fixed: z.number(),
     watching: z.number(),
+    /** Held orders cut out of `waiting` (same rule as the kanban `held` tab, Orders.md §9b). */
+    held: z.number(),
   }),
 });
 export class FulfillmentStatusCountsResDto extends createZodDto(extendApi(FulfillmentStatusCountsResZod)) {}
@@ -2089,6 +2091,13 @@ export const FULFILLMENT_TASK_TABS = [
    * vào Designer cụ thể → đơn theo flow chuẩn (designer.complete → Print stage).
    */
   'unassigned',
+  /**
+   * Held orders that would otherwise sit in `waiting` (Orders.md §9b): "waiting" is the list a
+   * worker PICKS from, so a held order there only gets picked by mistake. Exactly the part cut out
+   * of `waiting` — waiting ∪ held = the old waiting column. Held orders already in progress /
+   * rework stay in their column with the hold badge (hiding work in hand looks like lost work).
+   */
+  'held',
 ] as const;
 export type FulfillmentTaskTab = (typeof FULFILLMENT_TASK_TABS)[number];
 export const FulfillmentTaskTabZod = z.enum(FULFILLMENT_TASK_TABS);
@@ -2210,6 +2219,7 @@ export const GetFulfillmentMyTasksResZod = PageResZod.extend({
       fixed: z.number(),
       watching: z.number(),
       unassigned: z.number(),
+      held: z.number(),
     })
     .optional(), // only when the request sets `withCounts`
 });
