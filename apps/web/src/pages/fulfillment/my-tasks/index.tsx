@@ -31,6 +31,7 @@ import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSen
 import { PATHS } from '@/constants/paths';
 
 import { useAuthStore } from '@/store/authStore';
+import { useFactoryOptionsStore } from '@/store/factoryOptionsStore';
 
 import { RepositoryRemote } from '@/services';
 
@@ -285,6 +286,13 @@ function FulfillmentKanbanView() {
   const [facetsOpen, setFacetsOpen] = useState(false);
   const profile = useAuthStore((s) => s.profile);
   const myStage = profile?.fulfillmentStage as FulfillmentStage | undefined;
+  // Factory flag `allowToolCheckRework` (one-site experiment): read from the all-staff options list.
+  const factoryOptions = useFactoryOptionsStore((s) => s.factories);
+  const loadFactoryOptions = useFactoryOptionsStore((s) => s.load);
+  useEffect(() => {
+    void loadFactoryOptions();
+  }, [loadFactoryOptions]);
+  const allowToolCheck = factoryOptions.find((f) => f._id === String(profile?.factoryId))?.allowToolCheckRework === true;
   // Admin/Manager/SupportManager (= override roles ở BE) → thấy thêm column
   // "Chưa gán Designer" + được phép gọi tab=unassigned.
   const roleName = profile?.role?.name as string | undefined;
@@ -1195,6 +1203,7 @@ function FulfillmentKanbanView() {
           <ReworkBackDialog
             order={reworkOrder}
             myStage={myStage}
+            allowToolCheck={allowToolCheck}
             onClose={() => setReworkOrder(null)}
             onSubmit={async (target, reason) => {
               await callTransition(reworkOrder, FulfillmentTransitionAction.ReworkBack, {

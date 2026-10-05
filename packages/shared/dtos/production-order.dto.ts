@@ -2121,8 +2121,12 @@ export class BulkResolveErrorResDto extends createZodDto(extendApi(BulkResolveEr
 export const FulfillmentTransitionZod = z.object({
   stage: FulfillmentStageZod,
   action: FulfillmentTransitionActionZod,
-  /** Required khi action='rework-back': 'designer' hoặc FulfillmentStage trước stage hiện tại. */
-  target: z.union([z.literal('designer'), FulfillmentStageZod]).optional(),
+  /**
+   * Required khi action='rework-back': 'designer', FulfillmentStage trước stage hiện tại,
+   * hoặc 'tool-check' (đẩy về Support — chỉ công đoạn In ở xưởng bật
+   * `FactoryEntity.allowToolCheckRework`, BE kiểm tra).
+   */
+  target: z.union([z.literal('designer'), z.literal('tool-check'), FulfillmentStageZod]).optional(),
   /** Required khi action='rework-back'. */
   reason: z.string().max(500).optional(),
   /**

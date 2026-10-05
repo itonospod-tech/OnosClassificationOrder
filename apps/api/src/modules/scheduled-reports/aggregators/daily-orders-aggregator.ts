@@ -11,6 +11,7 @@ import { designerFlowConds } from '@/utils/designer-flow';
 import { getExcludedFactoryIdSync, productionFactoryClause } from '@/utils/excluded-factory';
 
 import { buildReportDayWindows, SLA_DAY_COUNT } from '../build-period';
+import type { SupportHold } from '../support-hold';
 import type { DailyOrdersReportData, DesignerReportDay, ReportDayStats, SlaCohortRow } from '../types';
 
 type MetricShape = {
@@ -302,12 +303,55 @@ export class DailyOrdersAggregator {
       };
     });
 
-    const [factories, { slaDays, slaFactories }] = await Promise.all([
+    const [factories, { slaDays, slaFactories }, supportHold] = await Promise.all([
       this.listProductionFactories(),
       this.aggregateSla(now, factoryId),
+      this.aggregateSupportHold(now, factoryId),
     ]);
 
-    return { days, priorityRows, designerDays, toolCheckDays, slaDays, slaFactories, factories };
+    return { days, priorityRows, designerDays, toolCheckDays, slaDays, slaFactories, supportHold, factories };
+  }
+
+  /**
+   * Orders held by Support (marker pair) over ALL ages + the age of the oldest. Hold start = the latest
+   * timeline entry that sent the order to tool-check (every send-back path writes one); falls back to
+   * the first-error stamp, then `updatedAt`. Same scope as the funnel (no cancelled/deleted/unmapped/US).
+   */
+  private async aggregateSupportHold(now: Date, factoryId?: string): Promise<SupportHold> {
+    const toolCheckAts = {
+      $map: {
+        input: {
+          $filter: {
+            input: { $ifNull: ['$fulfillmentTimeline', []] },
+            cond: { $eq: ['$$this.reworkTarget', 'tool-check'] },
+          },
+        },
+        in: '$$this.at',
+      },
+    };
+    const [row] = await this.orderModel.aggregate<{ count: number; oldest: Date | null }>([
+      {
+        $match: {
+          cancelledAt: null,
+          deletedAt: null,
+          factoryId: factoryId || productionFactoryClause(this.orderModel.db),
+          productionErrorSource: 'tool-check',
+          toolResultNote: 'error',
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+          oldest: { $min: { $ifNull: [{ $max: toolCheckAts }, { $ifNull: ['$productionFirstErrorAt', '$updatedAt'] }] } },
+        },
+      },
+    ]);
+
+    return {
+      count: row?.count ?? 0,
+      oldestHours: row?.oldest ? (now.getTime() - new Date(row.oldest).getTime()) / 3_600_000 : 0,
+    };
   }
 
   /**

@@ -109,6 +109,10 @@ export const factoriesRegistry: AgentTableSpec = {
       'bool',
       'Bật = bỏ qua soát tool: đơn MỚI import/push vào xưởng được stamp toolResultNote=ok + toolCheckedAt ngay lúc tạo và vào thẳng công đoạn In (xưởng DTF). Chỉ áp đơn tạo mới',
     ),
+    allowToolCheckRework: plain(
+      'bool',
+      'Bật = công nhân In ở xưởng này thấy đích "Soát tool" trong hộp thoại báo lỗi của kanban và đẩy được đơn về Support. Mặc định tắt (thí nghiệm một xưởng trước)',
+    ),
     autoStockOut: plain(
       'bool',
       'Bật = trạm quét tự trừ tồn kho (inventory_transactions) sau khi in label giao hàng; tắt (mặc định) = quét ACT-STOCK-OUT xác nhận tay',

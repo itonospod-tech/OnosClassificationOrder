@@ -196,6 +196,10 @@
         "label": "Skip tool check",
         "hint": "On: NEW orders imported/pushed into this factory are stamped tool-checked \"ok\" at creation and go straight to the Print stage — no Support review, no designer auto-assign. New orders only; in-flight orders are untouched."
       },
+      "allowToolCheckRework": {
+        "label": "Let Print send orders back to Support (Tool check)",
+        "hint": "On: the kanban \"Send back\" dialog gives this factory's Print workers an extra \"Tool check\" target that sends the order back to Support. Print stage only. An order sitting with Support for over 24 hours triggers a warning in the Telegram report."
+      },
       "autoStockOut": {
         "label": "Auto stock-out after label print",
         "hint": "On: at the scan station, after printing an order's shipping label the system automatically deducts inventory (blanks) for that order — no ACT-STOCK-OUT confirmation scan needed. Repeat deductions are harmless: each order is deducted once unless a rework deduction is made deliberately."

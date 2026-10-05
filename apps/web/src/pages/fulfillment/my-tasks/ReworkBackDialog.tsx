@@ -17,16 +17,18 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
 
-type Target = 'designer' | FulfillmentStage;
+type Target = 'designer' | 'tool-check' | FulfillmentStage;
 
 interface Props {
   order: ProductionOrder;
   myStage: FulfillmentStage;
+  /** Factory flag `allowToolCheckRework`: adds the "Soát tool" target (Print stage only, mirrored on the server). */
+  allowToolCheck?: boolean;
   onClose: () => void;
   onSubmit: (target: Target, reason: string) => Promise<void>;
 }
 
-export function ReworkBackDialog({ order, myStage, onClose, onSubmit }: Props) {
+export function ReworkBackDialog({ order, myStage, allowToolCheck, onClose, onSubmit }: Props) {
   const { t } = useTranslation(['fulfillmentWorkflow', 'common']);
   const myIdx = FULFILLMENT_STAGE_ORDER[myStage];
   const previousStages = useMemo(() => FULFILLMENT_STAGES.filter((s) => FULFILLMENT_STAGE_ORDER[s] < myIdx), [myIdx]);
@@ -63,6 +65,11 @@ export function ReworkBackDialog({ order, myStage, onClose, onSubmit }: Props) {
               <button type="button" onClick={() => setTarget('designer')} className={chipClass(target === 'designer')}>
                 {t('reworkDialog.designer')}
               </button>
+              {allowToolCheck && myStage === 'print' && (
+                <button type="button" onClick={() => setTarget('tool-check')} className={chipClass(target === 'tool-check')}>
+                  {t('reworkDialog.toolCheck')}
+                </button>
+              )}
               {previousStages.map((s) => (
                 <button key={s} type="button" onClick={() => setTarget(s)} className={chipClass(target === s)}>
                   {getStageLabel(t, s)}
