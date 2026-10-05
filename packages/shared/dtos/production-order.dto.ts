@@ -658,7 +658,7 @@ export const GetProductionOrdersZod = PageQueryZod.extend({
    *   fixed                           — stage đã completedAt + đã rời stage, TỪNG bị đẩy về (reworkCount>0) = "Đã sửa".
    *   watching                        — user đã rework-back, đang chờ quay lại.
    */
-  fulfillmentStatus: z.enum(['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching']).optional(),
+  fulfillmentStatus: z.enum(['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching', 'held']).optional(),
   /**
    * Lọc theo CHẶNG HIỆN TẠI của đơn — ô phễu trang "Đơn hàng theo xưởng" (Orders.md §10.2b).
    * Chặng suy ra trong Mongo bằng ĐÚNG luật `computeCurrentStage()` (customer-order.service.ts)
@@ -708,6 +708,8 @@ export const FulfillmentStatusCountsResZod = ResZod.extend({
     done: z.number(),
     fixed: z.number(),
     watching: z.number(),
+    /** Held orders cut out of `waiting` (same rule as the kanban `held` tab, Orders.md §9b). */
+    held: z.number(),
   }),
 });
 export class FulfillmentStatusCountsResDto extends createZodDto(extendApi(FulfillmentStatusCountsResZod)) {}

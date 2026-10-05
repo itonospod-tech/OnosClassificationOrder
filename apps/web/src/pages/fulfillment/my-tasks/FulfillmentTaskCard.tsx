@@ -44,7 +44,7 @@ import { useNow } from '@/hooks/useNow';
  *   - Time stamp + reworkCount + productionErrorNote layout y hệt.
  *   - Type / size / color line.
  */
-type ColKey = 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'unassigned';
+type ColKey = 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'unassigned' | 'held';
 
 export interface FulfillmentTaskCardProps {
   order: ProductionOrderRow;

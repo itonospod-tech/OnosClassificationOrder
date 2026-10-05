@@ -12,6 +12,7 @@ import {
   ListChecks,
   Loader2,
   MousePointerClick,
+  PauseCircle,
   PlayCircle,
   RefreshCw,
   RotateCw,
@@ -118,7 +119,7 @@ function stripBarcodePrefix(raw: string): string {
 // Worker fulfillment: 5 columns (waiting / in-progress / rework / done /
 // watching). Admin/Manager: thêm column `unassigned` (đơn chưa được gán
 // Designer — admin gán qua AssignDesignerDialog).
-type ColKey = 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'unassigned';
+type ColKey = 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'unassigned' | 'held';
 
 type Columns = Record<ColKey, ProductionOrderRow[]>;
 
@@ -130,9 +131,11 @@ const EMPTY_COLS: Columns = {
   fixed: [],
   watching: [],
   unassigned: [],
+  held: [],
 };
 
-const WORKER_COL_ORDER: ColKey[] = ['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching'];
+// `held` = held orders cut out of "waiting" (Orders.md §9b): last, read-only, shown only when non-empty.
+const WORKER_COL_ORDER: ColKey[] = ['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching', 'held'];
 const ADMIN_COL_ORDER: ColKey[] = ['unassigned', ...WORKER_COL_ORDER];
 
 // Tailwind cần class tĩnh → tra theo số cột đang hiện (rework/watching trống bị ẩn).
@@ -141,6 +144,7 @@ const KANBAN_GRID_BY_COUNT: Record<number, string> = {
   5: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-5',
   6: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-6',
   7: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-7',
+  8: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-8',
 };
 
 type BulkAction = 'start' | 'complete' | 'start-complete';
@@ -205,6 +209,13 @@ function buildColMeta(t: TFunction): ColMeta {
       icon: ListChecks,
       accent: 'border-rose-300 dark:border-rose-700',
       kpiAccent: 'text-rose-600',
+      bulk: [],
+    },
+    held: {
+      label: t('stageStatus.held'),
+      icon: PauseCircle,
+      accent: 'border-tone-warning/50',
+      kpiAccent: 'text-tone-warning',
       bulk: [],
     },
   };
@@ -407,7 +418,7 @@ function FulfillmentKanbanView() {
       const adminUnassignedPromise = isOverrideRole
         ? RepositoryRemote.fulfillment.myTasks({ tab: 'unassigned', size: 5000, ...dateParams })
         : Promise.resolve({ data: { data: [] } });
-      const [w, ip, rw, dn, fx, wt, un] = await Promise.all([
+      const [w, ip, rw, dn, fx, wt, un, hd] = await Promise.all([
         RepositoryRemote.fulfillment.myTasks({ tab: 'waiting', size: 5000, ...dateParams }),
         RepositoryRemote.fulfillment.myTasks({ tab: 'in-progress', size: 5000, ...dateParams }),
         RepositoryRemote.fulfillment.myTasks({ tab: 'rework', size: 5000, ...dateParams }),
@@ -415,6 +426,7 @@ function FulfillmentKanbanView() {
         RepositoryRemote.fulfillment.myTasks({ tab: 'fixed', size: 5000, ...dateParams }),
         RepositoryRemote.fulfillment.myTasks({ tab: 'watching', size: 5000, ...dateParams }),
         adminUnassignedPromise,
+        RepositoryRemote.fulfillment.myTasks({ tab: 'held', size: 5000, ...dateParams }),
       ]);
       setColumns({
         waiting: w.data.data ?? [],
@@ -424,6 +436,7 @@ function FulfillmentKanbanView() {
         fixed: fx.data.data ?? [],
         watching: wt.data.data ?? [],
         unassigned: un.data.data ?? [],
+        held: hd.data.data ?? [],
       });
       // Backward compat — `watching` state cũ vẫn để cho `filteredWatching`
       // hoạt động nếu chỗ nào còn ref (drawer block bị comment ra rồi).
@@ -509,6 +522,7 @@ function FulfillmentKanbanView() {
       fixed: apply(columns.fixed),
       watching: apply(columns.watching),
       unassigned: apply(columns.unassigned),
+      held: apply(columns.held),
     };
   }, [columns, debouncedSearch, filters, dayFilter]);
 
@@ -539,6 +553,7 @@ function FulfillmentKanbanView() {
       ...columns.done,
       ...columns.watching,
       ...columns.unassigned,
+      ...columns.held,
     ];
     const facetFor = (
       key: keyof Filters,
@@ -666,6 +681,7 @@ function FulfillmentKanbanView() {
       fixed: [],
       watching: [],
       unassigned: [],
+      held: [],
     };
     const noTypeLabel = t('kanban.column.noType');
     for (const k of colOrder) {
@@ -727,7 +743,7 @@ function FulfillmentKanbanView() {
   // gọn màn hình. Xét trên dữ liệu THÔ (chưa qua filter client) — cột trống
   // do filter thì vẫn hiện, tránh cột nhấp nháy khi gõ filter.
   const visibleCols = useMemo(
-    () => colOrder.filter((k) => (k === 'rework' || k === 'watching' ? columns[k].length > 0 : true)),
+    () => colOrder.filter((k) => (k === 'rework' || k === 'watching' || k === 'held' ? columns[k].length > 0 : true)),
     [colOrder, columns],
   );
 
@@ -774,6 +790,7 @@ function FulfillmentKanbanView() {
     fixed: filteredColumns.fixed.length,
     watching: filteredColumns.watching.length,
     unassigned: filteredColumns.unassigned.length,
+    held: filteredColumns.held.length,
   };
 
   // Phone column: the worker's pick, else the first column that has cards (so the tab bar opens on work, not on an empty column).
@@ -1409,7 +1426,7 @@ function Column({
     });
 
   // Cột done không có checkbox (đã xong rồi — không có bulk action).
-  const showCheckbox = colKey !== 'done' && colKey !== 'fixed';
+  const showCheckbox = colKey !== 'done' && colKey !== 'fixed' && colKey !== 'held';
   const colSelCount = useMemo(() => cards.filter((c) => selected.has(c._id)).length, [cards, selected]);
 
   return (

@@ -15,7 +15,8 @@
     "done": "Đã xong",
     "fixed": "Đã sửa",
     "watching": "Đang chờ quay lại",
-    "unassigned": "Chưa gán Designer"
+    "unassigned": "Chưa gán Designer",
+    "held": "Đang giữ"
   },
   "actions": {
     "start": "Bắt đầu",

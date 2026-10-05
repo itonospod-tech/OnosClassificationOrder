@@ -15,7 +15,8 @@
     "done": "Done",
     "fixed": "Fixed",
     "watching": "Waiting to return",
-    "unassigned": "Unassigned Designer"
+    "unassigned": "Unassigned Designer",
+    "held": "On hold"
   },
   "actions": {
     "start": "Start",

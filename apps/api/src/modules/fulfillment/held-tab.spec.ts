@@ -1,5 +1,6 @@
 import { FulfillmentStage } from 'shared';
 
+import { OrderService } from '../order/order.service';
 import { FulfillmentTaskService } from './fulfillment-task.service';
 
 /**
@@ -26,5 +27,32 @@ describe.each(Object.values(FulfillmentStage))('stage %s', (stage) => {
 
   it('work in hand keeps held orders (shown with the badge)', () => {
     for (const tab of ['in-progress', 'rework']) expect(svc.applyTabFilter(base, tab, stage, 'u1')).not.toHaveProperty('heldAt');
+  });
+});
+
+/** The print-stage table (OrderService.applyFulfillmentStatusFilter) mirrors the kanban split. */
+describe('print table status filter', () => {
+  const orderSvc = Object.create(OrderService.prototype) as unknown as {
+    applyFulfillmentStatusFilter: (f: Filter, status: string, stage?: string, userId?: string) => void;
+  };
+  const run = (status: string, start: Filter = {}) => {
+    const f: Filter = { ...start };
+    orderSvc.applyFulfillmentStatusFilter(f, status, FulfillmentStage.Print, 'u1');
+    return f;
+  };
+
+  it('held = waiting with the opposite heldAt clause', () => {
+    const waiting = run('waiting');
+    const held = run('held');
+    expect(waiting.$and).toContainEqual({ heldAt: { $exists: false } });
+    expect(held.$and).toContainEqual({ heldAt: { $exists: true } });
+    const strip = (f: Filter) => ({ ...f, $and: (f.$and as Filter[]).filter((c) => !('heldAt' in c)) });
+    expect(strip(held)).toEqual(strip(waiting));
+  });
+
+  it('ANDs with the page "held" toggle instead of overwriting it', () => {
+    const f = run('waiting', { heldAt: { $exists: true } });
+    expect(f.heldAt).toEqual({ $exists: true });
+    expect(f.$and).toContainEqual({ heldAt: { $exists: false } }); // together: empty, as it should be
   });
 });

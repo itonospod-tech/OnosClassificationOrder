@@ -992,7 +992,7 @@ export class OrderService implements OnModuleInit {
 
   private applyFulfillmentStatusFilter(
     filter: Record<string, unknown>,
-    status: 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching',
+    status: 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'held',
     stage?: string,
     userId?: string,
   ): void {
@@ -1004,6 +1004,7 @@ export class OrderService implements OnModuleInit {
     };
     switch (status) {
       case 'waiting':
+      case 'held':
         filter.currentFulfillmentStage = stg;
         filter[`fulfillmentStages.${stg}.status`] = FulfillmentStageStatus.Waiting;
         filter.designerStatus = { $ne: 'rework' };
@@ -1012,6 +1013,10 @@ export class OrderService implements OnModuleInit {
         pushAnd({
           $nor: [{ productionErrorSource: 'tool-check', toolResultNote: 'error' }],
         });
+        // "Waiting" is the pick list: held orders go to `held`, its exact complement.
+        // Mirror of FulfillmentTaskService.applyTabFilter (Orders.md §9b).
+        // ANDed, not assigned: the page's own "held" toggle may already set `heldAt`.
+        pushAnd({ heldAt: { $exists: status === 'held' } });
         break;
       case 'in-progress':
         filter.currentFulfillmentStage = stg;
@@ -1260,12 +1265,13 @@ export class OrderService implements OnModuleInit {
       done: number;
       fixed: number;
       watching: number;
+      held: number;
     };
   }> {
     const baseDto = { ...dto, fulfillmentStatus: undefined } as GetProductionOrdersDto;
     const base = this.buildOrderListFilter(baseDto, roleName, assigneeCode, fulfillmentFactoryId, fulfillmentStage);
-    const statuses = ['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching'] as const;
-    const [all, waiting, inProgress, rework, done, fixed, watching] = await Promise.all([
+    const statuses = ['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching', 'held'] as const;
+    const [all, waiting, inProgress, rework, done, fixed, watching, held] = await Promise.all([
       // "Tất cả" = tổng đơn theo filter hiện tại (không kèm fulfillmentStatus).
       this.orderModel.countDocuments(base),
       ...statuses.map((s) => {
@@ -1280,7 +1286,7 @@ export class OrderService implements OnModuleInit {
     ]);
     return {
       success: true,
-      data: { all, waiting, inProgress, rework, done, fixed, watching },
+      data: { all, waiting, inProgress, rework, done, fixed, watching, held },
     };
   }
 

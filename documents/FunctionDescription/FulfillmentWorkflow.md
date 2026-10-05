@@ -776,3 +776,8 @@ Trước đây bản ghi kiện CHỈ sinh lúc mua vận đơn và chỉ gom da
 - **Cân tính cước** dùng chung công thức với lúc seller tự mua label: `max(cân thật, dài×rộng×cao/6)`, thiếu một chiều thì bỏ phần quy đổi chứ không tính thể tích bằng 0 (`canTinhCuoc`, có spec).
 
 **Chưa làm (vẫn thuộc phase P2 của lộ trình chuyển đổi):** chưa sinh bút toán chi phí trả xưởng khi đóng kiện (GAP-18), chưa đối soát cước thật với cân vừa thu được (GAP-19), chưa có thùng master gộp nhiều kiện (`parentPackageId` đã chừa sẵn field).
+
+## Đơn đang giữ trong hàng chờ (05/10/2026)
+
+Tab `waiting` (kanban) và pill "Đang chờ" (bảng trang In) KHÔNG còn chứa đơn đang giữ; chúng nằm ở tab/pill `held` "Đang giữ (N)" — đúng phần bị cắt khỏi waiting, chỉ hiện khi có đơn, chỉ đọc (không kéo thả, không chọn hàng loạt ở kanban). Đơn giữ đang làm / làm lại vẫn ở cột của nó kèm badge. Chi tiết + lý do: `Orders.md` §9b.3. BE chặn transition đơn giữ như cũ (`fulfillment-task.service.ts`).
+
