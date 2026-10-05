@@ -2089,6 +2089,13 @@ export const FULFILLMENT_TASK_TABS = [
    * vào Designer cụ thể → đơn theo flow chuẩn (designer.complete → Print stage).
    */
   'unassigned',
+  /**
+   * Held orders that would otherwise sit in `waiting` (Orders.md §9b): "waiting" is the list a
+   * worker PICKS from, so a held order there only gets picked by mistake. Exactly the part cut out
+   * of `waiting` — waiting ∪ held = the old waiting column. Held orders already in progress /
+   * rework stay in their column with the hold badge (hiding work in hand looks like lost work).
+   */
+  'held',
 ] as const;
 export type FulfillmentTaskTab = (typeof FULFILLMENT_TASK_TABS)[number];
 export const FulfillmentTaskTabZod = z.enum(FULFILLMENT_TASK_TABS);
@@ -2210,6 +2217,7 @@ export const GetFulfillmentMyTasksResZod = PageResZod.extend({
       fixed: z.number(),
       watching: z.number(),
       unassigned: z.number(),
+      held: z.number(),
     })
     .optional(), // only when the request sets `withCounts`
 });

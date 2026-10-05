@@ -859,6 +859,18 @@ export class FulfillmentTaskService {
           currentFulfillmentStage: stage,
           [`fulfillmentStages.${stage}.status`]: FulfillmentStageStatus.Waiting,
           designerStatus: { $ne: 'rework' },
+          // Held orders are not work to pick up; they live in the `held` tab (Orders.md §9b).
+          heldAt: { $exists: false },
+        };
+      case 'held':
+        // Exact complement of the held cut above: same waiting conditions, held.
+        return {
+          ...base,
+          readyForFulfill: true,
+          currentFulfillmentStage: stage,
+          [`fulfillmentStages.${stage}.status`]: FulfillmentStageStatus.Waiting,
+          designerStatus: { $ne: 'rework' },
+          heldAt: { $exists: true },
         };
       case 'in-progress':
         return {
@@ -951,8 +963,9 @@ export class FulfillmentTaskService {
     fixed: number;
     watching: number;
     unassigned: number;
+    held: number;
   }> {
-    const [waiting, inProgress, rework, done, fixed, watching, unassigned] = await Promise.all([
+    const [waiting, inProgress, rework, done, fixed, watching, unassigned, held] = await Promise.all([
       this.orderModel.countDocuments(this.applyTabFilter(base, 'waiting', stage, userId)),
       this.orderModel.countDocuments(this.applyTabFilter(base, 'in-progress', stage, userId)),
       this.orderModel.countDocuments(this.applyTabFilter(base, 'rework', stage, userId)),
@@ -963,8 +976,9 @@ export class FulfillmentTaskService {
       isOverride
         ? this.orderModel.countDocuments(this.applyTabFilter(base, 'unassigned', stage, userId))
         : Promise.resolve(0),
+      this.orderModel.countDocuments(this.applyTabFilter(base, 'held', stage, userId)),
     ]);
-    return { waiting, inProgress, rework, done, fixed, watching, unassigned };
+    return { waiting, inProgress, rework, done, fixed, watching, unassigned, held };
   }
 
   /**
