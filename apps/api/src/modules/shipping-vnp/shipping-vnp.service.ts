@@ -20,6 +20,7 @@ import { genCode } from '@/utils/gen-code';
 
 import { ApiConfigService } from '../../shared/services/api-config.service';
 import { OrderEntity } from '../order/order.entity';
+import { resolveShippingLabelInfo } from '../order/shipping-label';
 import { SystemConfigService } from '../system-config/system-config.service';
 import { buildCarrierPatch, extractStatusText, hasCarrierError, hasCarrierSignal, isCancelledStatusText } from './carrier-status';
 import { digString, interpretVnpLookup, RECONCILE_BATCH, RECONCILE_MIN_AGE_MS } from './purchase-reconcile';
@@ -1054,15 +1055,33 @@ export class ShippingVnpService implements OnModuleInit {
     const allIds = [...new Set(idsByRecord.flat())];
     if (allIds.length === 0) return records;
     const orders = await this.orderModel
-      .find({ _id: { $in: allIds } }, { productionId: 1, type: 1, size: 1, color: 1, mockupUrl: 1, shippingAddress: 1 })
+      .find({ _id: { $in: allIds } }, { productionId: 1, type: 1, size: 1, color: 1, mockupUrl: 1, shippingAddress: 1, productConfigId: 1 })
       .lean();
     const byId = new Map(orders.map((o) => [String(o._id), o]));
+    // Variant SKU per item, same function as the label (Orders.md §23a), one read for the page.
+    const pcIds = [...new Set(orders.map((o) => (o.productConfigId ? String(o.productConfigId) : '')).filter(Boolean))];
+    const configs = pcIds.length
+      ? await this.orderModel.db
+          .collection('productConfigs')
+          .find<{ _id: unknown; variations?: { sku?: string }[] }>({ _id: { $in: pcIds } } as never, { projection: { 'variations.sku': 1 } })
+          .toArray()
+      : [];
+    const varsByPc = new Map(configs.map((c) => [String(c._id), c.variations ?? []]));
+    const variantSkuOf = (o: { productConfigId?: unknown; size?: string }) =>
+      o.productConfigId ? resolveShippingLabelInfo(varsByPc.get(String(o.productConfigId)) ?? [], o.size, undefined, undefined).sku : undefined;
     return records.map((r, i) => {
       const own = idsByRecord[i].map((id) => byId.get(id)).filter((o): o is NonNullable<typeof o> => !!o);
       if (own.length === 0) return r;
       return {
         ...r,
-        items: own.map((o) => ({ productionId: o.productionId, type: o.type, size: o.size, color: o.color, mockupUrl: o.mockupUrl })),
+        items: own.map((o) => ({
+          productionId: o.productionId,
+          type: o.type,
+          size: o.size,
+          color: o.color,
+          mockupUrl: o.mockupUrl,
+          variantSku: variantSkuOf(o),
+        })),
         shipTo: own.find((o) => o.shippingAddress)?.shippingAddress,
       };
     });
