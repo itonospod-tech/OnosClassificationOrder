@@ -35,15 +35,19 @@ describe('PriceVisibilityInterceptor', () => {
     expect(out).toMatchObject({ data: [{ productionId: 'P1', size: 'M' }, { productionId: 'P2' }], totals: { totalOrders: 2 } });
   });
 
-  it.each([RoleType.SuperAdmin, RoleType.Admin, RoleType.Manager, RoleType.Support, RoleType.DesignerLeader])(
+  it.each([RoleType.SuperAdmin, RoleType.Admin, RoleType.Manager, RoleType.Support])(
     '%s gets the response untouched',
     async (role) => {
       expect(await run(role)).toBe(body);
     },
   );
 
-  it('the hidden set is exactly what the web app hid before (no policy change)', () => {
-    expect([...PRICE_HIDDEN_ROLES].sort()).toEqual([RoleType.Designer, RoleType.Fulfillment].sort());
+  // The hidden set is a POLICY: it changes only by an owner decision, and this test pins it so a
+  // change shows up in review. 2026-10-05: started as exactly the roles the web app already hid
+  // (Designer, Fulfillment); the owner then added DesignerLeader. The web app reads the same
+  // constant (isPriceHiddenRole), so server and UI cannot drift apart again.
+  it('the hidden set is the decided policy: Designer, DesignerLeader, Fulfillment', () => {
+    expect([...PRICE_HIDDEN_ROLES].sort()).toEqual([RoleType.Designer, RoleType.DesignerLeader, RoleType.Fulfillment].sort());
   });
 
   it('binary bodies pass through', () => {
