@@ -8,7 +8,7 @@ import {
   History,
 } from 'lucide-react';
 import type { WorkshopAvailableFilters, WorkshopStageFilter } from 'shared';
-import { PRODUCT_LINE_WINDOW_DAYS, WORKSHOP_STAGE_OPEN } from 'shared';
+import { OPEN_ORDER_STALE_DAYS, PRODUCT_LINE_WINDOW_DAYS, WORKSHOP_STAGE_OPEN } from 'shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 import { PATHS } from '@/constants/paths';
@@ -266,7 +266,7 @@ const ProductRow = React.memo(function ProductRow({
 });
 
 export function OrderTableWorkshop() {
-  const { t } = useTranslation('orders');
+  const { t, i18n } = useTranslation('orders');
   const { has, canViewField, canEditField, roleName } = usePermission();
   const loadConfig = useWorkshopConfigStore((s) => s.load);
   const configLoaded = useWorkshopConfigStore((s) => s.loaded);
@@ -1138,6 +1138,54 @@ export function OrderTableWorkshop() {
             setPage(1);
           }}
         />
+
+        {/* Product-line views: open orders older than the line window but not stale yet. The BE count
+            uses the page's own filters with only the date range swapped, and the click applies exactly
+            that range, so the number equals the rows it opens. */}
+        {(() => {
+          const ow = productLine ? workshopFilters?.outOfWindow : undefined;
+          if (!ow) return null;
+          const onDefault = createdFrom === defaultFromFor(productLine) && createdTo === todayISO();
+          const onOlder = createdFrom === ow.from && createdTo === ow.to;
+          const setRange = (from: string, to: string) => {
+            setCreatedFrom(from);
+            setCreatedTo(to);
+            setPage(1);
+          };
+          if (onDefault && ow.count > 0) {
+            return (
+              <button
+                type="button"
+                onClick={() => setRange(ow.from, ow.to)}
+                className="flex w-full items-center gap-2 rounded-lg border border-tone-warning/40 bg-tone-warning/10 px-3 py-2 text-left text-sm font-medium text-tone-warning hover:bg-tone-warning/15 touch:min-h-11"
+              >
+                <CalendarClock size={16} className="shrink-0" />
+                <span className="min-w-0 flex-1">
+                  {t('workshopPage.olderOpen', { count: ow.count, n: ow.count.toLocaleString(i18n.language), days: PRODUCT_LINE_WINDOW_DAYS })}
+                </span>
+                <ChevronRight size={16} className="shrink-0" />
+              </button>
+            );
+          }
+          if (onOlder) {
+            return (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-tone-warning/40 bg-tone-warning/10 px-3 py-2 text-sm text-tone-warning">
+                <CalendarClock size={16} className="shrink-0" />
+                <span className="min-w-0 flex-1 font-medium">
+                  {t('workshopPage.olderOpenActive', { days: PRODUCT_LINE_WINDOW_DAYS, staleDays: OPEN_ORDER_STALE_DAYS })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setRange(defaultFromFor(productLine), todayISO())}
+                  className="rounded-md border border-tone-warning/40 bg-card px-2.5 py-1 text-xs font-semibold hover:bg-accent touch:min-h-11"
+                >
+                  {t('workshopPage.backToWindow', { days: PRODUCT_LINE_WINDOW_DAYS })}
+                </button>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         <WorkshopToolbar
           onBulkApply={(ids) => {

@@ -716,7 +716,11 @@
     "title": "Danh sách đơn",
     "subtitle": "Quản lý production orders",
     "lineTitle": "Sản xuất · {{line}}",
-    "lineSubtitle": "Mặc định: đơn CHƯA xong, vào sản xuất {{days}} ngày gần nhất"
+    "lineSubtitle": "Mặc định: đơn CHƯA xong, vào sản xuất {{days}} ngày gần nhất",
+    "olderOpen_one": "Còn {{n}} đơn vào sản xuất trước {{days}} ngày qua mà chưa xong — bấm để xem",
+    "olderOpen_other": "Còn {{n}} đơn vào sản xuất trước {{days}} ngày qua mà chưa xong — bấm để xem",
+    "olderOpenActive": "Đang xem đơn chưa xong vào sản xuất từ {{days}} đến {{staleDays}} ngày trước",
+    "backToWindow": "Về {{days}} ngày gần nhất"
   },
   "classicPage": {
     "title": "Đơn hàng",
