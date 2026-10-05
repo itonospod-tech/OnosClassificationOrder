@@ -706,6 +706,10 @@ So khớp CHÍNH XÁC chuỗi lý do (không phải substring) — đổi text p
 
 Đơn giữ **VẪN xuất hiện** trong `GET /orders` (mặc định — chỉ tô xám, KHÔNG ẩn, khác `cancelledAt` bị loại mặc định) — trừ hàng đợi `getNextDesignReviewOrder()` (§18): filter riêng `heldAt: { $exists: false }` LOẠI đơn giữ khỏi hàng đợi "chưa soát" cho tool ngoài, tránh tool nhặt nhầm đơn đang tạm dừng chờ khách. Lookup trực tiếp theo `productionId` (`getDesignReviewOrderByProductionId`/`GET design-review/by-production-id/:productionId`) KHÔNG áp filter này — tra cứu 1 mã cụ thể vẫn thấy đơn giữ.
 
+**In: đơn giữ KHÔNG BAO GIỜ được in (05/10/2026).** Trước đó giữ đơn chỉ chặn sổ sách: công nhân quét đơn giữ ở trạm, in tem, mất mực và vải, đến lúc bấm Hoàn thành mới biết (đơn thật `KH-13604-99037`). Hai tầng:
+- **BE** — `getBarcodeLabels` / `getShippingLabels` (`POST /orders/barcode-labels`, `POST /orders/shipping-labels` — đường sau `@Auth([])` nên chốt nằm ở service, không ở quyền): query loại `heldAt: { $exists: false }`; đơn giữ trả riêng ở `skippedHeld: [{ productionId, holdReason }]` cạnh `data`, phần còn lại của lô vẫn in. Nếu MỌI đơn yêu cầu đều đang giữ → 400 nêu mã + lý do (`assertNotHeld(order, { action: 'in' })`: *"Đơn KH-… đang bị giữ (Chờ khách xác nhận) — mở lại (bỏ giữ) trước khi in."*; nhiều đơn: *"N đơn đều đang bị giữ…"*). Xuất PDF label thật (`shipping-labels/export-pdf`): đơn giữ vào `skipped` lý do `held`. FE `BulkEditToolbar` toast `bulkEdit.heldSkipped` liệt kê mã + lý do. Spec `held-print-guard.spec.ts`.
+- **Trạm quét** — tem khách ở popup quét render THẲNG từ payload quét, không gọi BE, nên chốt FE là bắt buộc: xem `ScanError.md` §10b.4.
+
 ### 9b.4 Thống kê
 - **Dashboard tab Stats** (`getDashboard` → `totals.heldOrders`): card **"Đơn đang giữ"** (hổ phách) ở `OrderStatsTab.tsx`. VẪN nằm trong `totalOrders` (chỉ tạm dừng, không loại như đơn hủy).
 - **Danh sách đơn** (`getWorkshopAvailableFilters` → `data.heldCount`): nút toggle **"Đang giữ (N)"** ở `topActionsRight` `OrderFilterBar` → set param `held=true` (URL `wheld`) + chip "Trạng thái: Đang giữ".

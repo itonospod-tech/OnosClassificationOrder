@@ -34,15 +34,25 @@ export function useScanPrint(order: ScannedOrder, opts?: { onLabelPrinted?: () =
   const [shipLabels, setShipLabels] = useState<ShippingLabel[] | null>(null);
   const [loadingLabel, setLoadingLabel] = useState(false);
 
+  // Held orders never print (Orders.md §9b). The tem renders from the scanned payload without a
+  // server call, so this is the only gate for it; the label path is also refused by the server.
+  const held = !!order.heldAt;
+  const refuseHeld = useCallback(() => {
+    beepError();
+    toast.error(t('held.blocked', { productionId: order.productionId }));
+  }, [order.productionId, t]);
+
   const printTem = useCallback(() => {
+    if (held) return refuseHeld();
     beepScan();
     // `getByProductionId` trả full document nên row có đủ field tem cần
     // (designs/orderId/externalId/tracking...) — chỉ khác kiểu khai báo.
     setTemOrders([order as unknown as WorkshopOrderRow]);
-  }, [order]);
+  }, [held, order, refuseHeld]);
 
   const printLabel = useCallback(async () => {
     if (loadingLabel) return;
+    if (held) return refuseHeld();
     try {
       setLoadingLabel(true);
       const res = await RepositoryRemote.order.getShippingLabels({ ids: [order._id] });
@@ -65,7 +75,7 @@ export function useScanPrint(order: ScannedOrder, opts?: { onLabelPrinted?: () =
     } finally {
       setLoadingLabel(false);
     }
-  }, [loadingLabel, order._id, t]);
+  }, [held, loadingLabel, order._id, refuseHeld, t]);
 
   const elements = (
     <>

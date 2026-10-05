@@ -16,9 +16,11 @@ export interface LabelExportOrderDoc {
   productionId: string;
   vnpShipment?: { labelUrl?: string; cancelledAt?: Date };
   tracking?: { labelUrl?: string };
+  /** On hold (Orders.md §9b): never exported, skipped as `held`. */
+  heldAt?: Date;
 }
 
-export type LabelSkipReason = 'not-found' | 'no-label' | 'fetch-failed' | 'unsupported-format';
+export type LabelSkipReason = 'not-found' | 'no-label' | 'fetch-failed' | 'unsupported-format' | 'held';
 
 export interface LabelExportSource {
   productionId: string;
@@ -44,6 +46,10 @@ export function resolveLabelExportSources(ids: string[], docs: LabelExportOrderD
     const doc = byId.get(String(id));
     if (!doc) {
       skipped.push({ productionId: String(id), reason: 'not-found' });
+      continue;
+    }
+    if (doc.heldAt) {
+      skipped.push({ productionId: doc.productionId, reason: 'held' });
       continue;
     }
     const vnpUrl = !doc.vnpShipment?.cancelledAt ? doc.vnpShipment?.labelUrl?.trim() : undefined;

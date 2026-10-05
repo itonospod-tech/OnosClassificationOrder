@@ -111,7 +111,7 @@ import type {
   ProductPrintArea,
   ProductVariation,
 } from 'shared';
-import type { ProductLineCounts, WorkshopStageFilter } from 'shared';
+import type { HeldPrintSkip, ProductLineCounts, WorkshopStageFilter } from 'shared';
 import {
   customerMatchKey,
   DESIGNER_ACTIVE_STATUSES,
@@ -2021,9 +2021,10 @@ export class OrderService implements OnModuleInit {
    *   vì `orderId` chỉ unique theo nguồn đơn, hai khách khác nhau có thể trùng.
    *   Thứ tự item cố định theo `productionId` để in lại tem không đổi số.
    */
-  async getBarcodeLabels(ids: string[]): Promise<BarcodeLabel[]> {
+  async getBarcodeLabels(ids: string[]): Promise<{ labels: BarcodeLabel[]; skippedHeld: HeldPrintSkip[] }> {
     const clean = [...new Set(ids.map((s) => s.trim()).filter(Boolean))];
-    if (clean.length === 0) return [];
+    if (clean.length === 0) return { labels: [], skippedHeld: [] };
+    const skippedHeld = await this.findHeldForPrint(clean);
     type Row = {
       _id: unknown;
       productionId?: string;
@@ -2037,7 +2038,7 @@ export class OrderService implements OnModuleInit {
     };
     const select = ['productionId', 'userSku', 'userEmail', 'orderId', 'inProductionAt', 'size', 'color', 'productConfigId'];
     const orders = await this.orderRepository.findAll<Row>(
-      { _id: { $in: clean }, cancelledAt: { $exists: false } },
+      { _id: { $in: clean }, cancelledAt: { $exists: false }, heldAt: { $exists: false } },
       { select },
     );
 
@@ -2089,7 +2090,8 @@ export class OrderService implements OnModuleInit {
         itemTotal: pos?.total ?? 1,
       });
     }
-    return out;
+    this.assertSomethingPrintable(out.length, skippedHeld);
+    return { labels: out, skippedHeld };
   }
 
   /**
@@ -2106,9 +2108,10 @@ export class OrderService implements OnModuleInit {
    *   `order.weight` → biến thể → default sản phẩm.
    * - `factoryName`: đọc thẳng bảng `factories` theo `factoryId`.
    */
-  async getShippingLabels(ids: string[]): Promise<ShippingLabel[]> {
+  async getShippingLabels(ids: string[]): Promise<{ labels: ShippingLabel[]; skippedHeld: HeldPrintSkip[] }> {
     const clean = [...new Set(ids.map((s) => s.trim()).filter(Boolean))];
-    if (clean.length === 0) return [];
+    if (clean.length === 0) return { labels: [], skippedHeld: [] };
+    const skippedHeld = await this.findHeldForPrint(clean);
     type Row = {
       _id: unknown;
       productionId?: string;
@@ -2124,7 +2127,7 @@ export class OrderService implements OnModuleInit {
       productConfigId?: unknown;
     };
     const orders = await this.orderRepository.findAll<Row>(
-      { _id: { $in: clean }, cancelledAt: { $exists: false } },
+      { _id: { $in: clean }, cancelledAt: { $exists: false }, heldAt: { $exists: false } },
       {
         select: [
           'productionId',
@@ -2188,7 +2191,8 @@ export class OrderService implements OnModuleInit {
         shippingAddress: o.shippingAddress as ShippingLabel['shippingAddress'],
       });
     }
-    return out;
+    this.assertSomethingPrintable(out.length, skippedHeld);
+    return { labels: out, skippedHeld };
   }
 
   /**
@@ -5126,10 +5130,36 @@ export class OrderService implements OnModuleInit {
    * đầu updateField / setProductionError / transition designer + fulfillment.
    * Đơn giữ = tạm dừng — phải mở lại (unhold) trước khi thao tác tiếp.
    */
-  private assertNotHeld(order: { heldAt?: Date | null }): void {
-    if (order?.heldAt) {
-      throw new BadRequestException('Đơn đang bị giữ — mở lại (bỏ giữ) trước khi thao tác tiếp.');
-    }
+  private assertNotHeld(
+    order: { heldAt?: Date | null; productionId?: string; holdReason?: string },
+    /** Print paths: name the order and the hold reason, the worker at the printer needs both. */
+    opts?: { action: string },
+  ): void {
+    if (!order?.heldAt) return;
+    if (!opts) throw new BadRequestException('Đơn đang bị giữ — mở lại (bỏ giữ) trước khi thao tác tiếp.');
+    const who = order.productionId ? `Đơn ${order.productionId}` : 'Đơn';
+    const why = order.holdReason ? ` (${order.holdReason})` : '';
+    throw new BadRequestException(`${who} đang bị giữ${why} — mở lại (bỏ giữ) trước khi ${opts.action}.`);
+  }
+
+  /**
+   * Print guard (Orders.md §9b): held orders never get print data. Returns the held ones among
+   * `ids` so the batch can report "skipped N held orders"; the caller excludes them from its
+   * query. When every printable order is held, throws with the hold reason instead, so a
+   * single-order print (scan station, row menu) fails loudly rather than printing nothing.
+   */
+  private async findHeldForPrint(ids: string[]): Promise<HeldPrintSkip[]> {
+    const held = await this.orderRepository.findAll<{ productionId?: string; holdReason?: string }>(
+      { _id: { $in: ids }, cancelledAt: { $exists: false }, heldAt: { $exists: true } },
+      { select: ['productionId', 'holdReason'] },
+    );
+    return held.map((h) => ({ productionId: h.productionId || '', holdReason: h.holdReason || undefined }));
+  }
+
+  private assertSomethingPrintable(printed: number, held: HeldPrintSkip[]): void {
+    if (printed > 0 || held.length === 0) return;
+    if (held.length === 1) this.assertNotHeld({ heldAt: new Date(), ...held[0] }, { action: 'in' });
+    throw new BadRequestException(`${held.length} đơn đều đang bị giữ — mở lại (bỏ giữ) trước khi in.`);
   }
 
   /**

@@ -331,6 +331,16 @@ Prefix mới `ACT-` (`SCAN_ACTION_PREFIX`), parse case-insensitive → `{ kind: 
 - Tem khách: `getByProductionId` trả full document nên truyền thẳng order vào `CustomerLabelPrint` (cast sang `WorkshopOrderRow`). Label: fetch `POST /orders/shipping-labels` (ids=[_id]) rồi mount `ShippingLabelPrint`; thiếu địa chỉ → toast cảnh báo `printActions.labelNoAddress`, không in tem trống.
 - **Cơ chế OK-để-in**: cả 2 component in đều mount → `window.print()` → hộp thoại in trình duyệt mở. Máy quét luôn gửi kèm Enter cuối mã, Enter trong hộp thoại in = nút "In" → **quét `OK` là in ra**. Muốn hủy phải bấm ESC bàn phím (mọi mã quét đều kết thúc bằng Enter nên không có mã hủy dùng được ở bước này — ghi rõ trên sheet).
 
+### 10b.4 Đơn ĐANG GIỮ ở trạm quét (05/10/2026)
+
+Quét trúng đơn có `heldAt` (payload `GET /orders/by-production-id/:code` đã mang `heldAt`/`holdReason`) → cả 2 dialog hiện `ScanHeldBanner` đỏ ngay dưới tiêu đề (KHÔNG nằm trong footer dính đáy điện thoại): "ĐƠN ĐANG BỊ GIỮ · Lý do: … · Không in, không làm tiếp". Khóa:
+- `useScanPrint`: `printTem`/`printLabel` từ chối (beep lỗi + toast `held.blocked`) — phủ cả nút lẫn `ACT-PRINT-*`. Tem khách không qua BE nên đây là chốt DUY NHẤT của nó; label còn bị BE từ chối (Orders.md §9b.3).
+- `useScanStockOut`: `ACT-STOCK-OUT` từ chối (đơn giữ không xuất kho).
+- `FulfillmentScanActionDialog`: `isMyTask = false` khi giữ → Enter / `OK` / quét lại mã không Hoàn thành; `ACT-REPORT-ERROR` + mã `E-…` từ chối; nút in/trừ kho/báo lỗi disabled; vùng "không phải việc của bạn" ẩn (banner đã nói lý do). `ACT-CANCEL` + Enter tay vẫn đóng popup để quét tiếp.
+- `OrderErrorScanDialog`: `canSubmit` false, mã `E-…` từ chối, nút in/trừ kho disabled.
+
+Đã thử trên dev (dữ liệu production) với `KH-13604-99037`: admin + mạo danh `in.thainguyen@onospod.com` (công nhân In xưởng TN, đúng chặng của đơn), 1440 và 390px — banner hiện, 4 nút khóa, OK / quét lại / `ACT-PRINT-LABEL` / `ACT-STOCK-OUT` đều bị từ chối.
+
 ### 10b.3 Sheet in bảng mã (`ActionCodeSheetPrint.tsx`)
 
 Nút **"In bảng mã hành động"** trên header trang quét → sheet A4 Code128 (react-barcode) 5 mã trên + mô tả từng mã + ghi chú cơ chế OK/ESC, in ra dán cạnh trạm. Dùng khuôn portal + `display:none` siblings của `CustomerLabelPrint`, **KHÔNG** dùng visibility-trick luôn-mount như sheet `stage-errors` — trang này còn in tem/label từ chính nó, style `visibility: hidden` thường trực sẽ nuốt trắng các bản in kia. Sheet mount lúc in rồi tự gỡ (`afterprint` + timeout).
