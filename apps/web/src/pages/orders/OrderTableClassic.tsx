@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Ban, FilterX, History, MousePointerClick, PauseCircle, X } from 'lucide-react';
 import type { WorkshopAvailableFilters } from 'shared';
+import { PRODUCT_LINE_WINDOW_DAYS, WORKSHOP_STAGE_OPEN } from 'shared';
 
 import { PATHS } from '@/constants/paths';
 
@@ -44,6 +45,7 @@ import { cn } from '@/utils/cn';
 import { isCancelled, isHeld, showOnospodHoldFlag } from '@/utils/orderActions';
 
 import { useDebounce } from '@/hooks/useDebounce';
+import { useFactoryScope } from '@/hooks/useFactoryScope';
 import { useIsNoTool } from '@/hooks/useIsNoTool';
 import { usePendingDesignsPoll } from '@/hooks/usePendingDesignsPoll';
 import { usePermission } from '@/hooks/usePermission';
@@ -81,6 +83,13 @@ const FILTER_CHIP_COLORS: Record<string, string> = {
 };
 const FILTER_CHIP_DEFAULT =
   'bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-200 dark:border-zinc-600';
+/** Local YYYY-MM-DD, `daysAgo` days back (same helper the grouped page uses; never `toISOString`, that is UTC). */
+function localISO(daysAgo = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const TIP_KEY = 'onosfactory-classic-tip-dismissed';
 const fmtChipDate = (s: string) => (s ? s.split('-').reverse().slice(0, 2).join('/') : '');
 
 interface RowProps {
@@ -179,6 +188,27 @@ export function OrderTableClassic() {
 
   // URL params (prefix `c` = classic) — F5/copy link giữ nguyên toàn bộ filter.
   const [searchParams, setSearchParams] = useSearchParams();
+  // Scope from the sidebar / the view switch: a product line (`?productLine=3d`) and the factory picked in the
+  // header. Both pages send the same params to the same endpoint, so "By product" and "Flat table" list the
+  // SAME orders — only the layout differs. (The flat table also sends `includeExcludedFactory`, ORD-19, so its
+  // total can exceed the grouped page's by the US-factory orders.)
+  const productLine = searchParams.get('productLine') || '';
+  const [tipDismissed, setTipDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(TIP_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const dismissTip = () => {
+    setTipDismissed(true);
+    try {
+      localStorage.setItem(TIP_KEY, '1');
+    } catch {
+      /* storage blocked: the tip just returns next visit */
+    }
+  };
+  const factoryScope = useFactoryScope();
 
   const [items, setItems] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -192,8 +222,13 @@ export function OrderTableClassic() {
     return Number.isFinite(s) && s > 0 ? s : DEFAULT_PAGE_SIZE;
   });
   const [pid, setPid] = useState(() => searchParams.get('pid')?.trim() || '');
-  const [createdFrom, setCreatedFrom] = useState(() => searchParams.get('cfrom') || '');
-  const [createdTo, setCreatedTo] = useState(() => searchParams.get('cto') || '');
+  // A product-line view opens on its line window (same default as the grouped page and the sidebar badge).
+  const [createdFrom, setCreatedFrom] = useState(
+    () => searchParams.get('cfrom') || (productLine && !searchParams.get('pid') ? localISO(PRODUCT_LINE_WINDOW_DAYS - 1) : ''),
+  );
+  const [createdTo, setCreatedTo] = useState(
+    () => searchParams.get('cto') || (productLine && !searchParams.get('pid') ? localISO() : ''),
+  );
   const [search, setSearch] = useState(() => searchParams.get('csearch') || '');
   const debouncedSearch = useDebounce(search, 300);
   const [bulkIds, setBulkIds] = useState<string[]>([]);
@@ -308,11 +343,19 @@ export function OrderTableClassic() {
     if (filterCancelled) params.set('cancelled', 'true');
     if (createdFrom) params.set('createdFrom', createdFrom);
     if (createdTo) params.set('createdTo', createdTo);
+    if (factoryScope) params.set('factoryId', factoryScope);
+    if (productLine) {
+      params.set('productLine', productLine);
+      // A line view lists OPEN orders (what its sidebar badge counts), like the grouped page's default.
+      params.set('workshopStage', WORKSHOP_STAGE_OPEN);
+    }
     // ORD-19 — trang này hiển thị CẢ đơn xưởng US (xưởng ngoài luồng sản xuất,
     // mặc định bị loại khỏi mọi danh sách). Gửi theo request thay vì nới ở BE
     // cho mọi caller: `GET /orders` còn phục vụ drill-down từ dashboard, số ở
     // đó phải khớp số dashboard. Đơn đã hủy + đơn chưa map xưởng vẫn ẩn như cũ.
-    params.set('includeExcludedFactory', 'true');
+    // …but NOT on a product-line view: the line badge and the grouped page leave the US factory out, and one
+    // menu entry must give one number (an explicit `factoryId` still shows US when chosen).
+    if (!productLine) params.set('includeExcludedFactory', 'true');
     // Sắp theo ngày vào sản xuất, MỚI NHẤT trước.
     params.set('sort', 'inProductionAt');
     params.set('order', 'desc');
@@ -349,6 +392,8 @@ export function OrderTableClassic() {
     Promise.all([fetchData(), fetchFilters()]).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    productLine,
+    factoryScope,
     page,
     pageSize,
     debouncedSearch,
@@ -707,10 +752,10 @@ export function OrderTableClassic() {
     setPid('');
     setBulkIds([]);
     setFilterHeld(false);
-    // KHÔNG reset về hôm nay như Workshop — Classic cố ý mặc định rỗng (BR-8,
+    // KHÔNG reset về hôm nay như Workshop — Classic cố ý mặc định rỗng (BR-8; riêng view dòng sản phẩm về cửa sổ dòng,
     // người dùng đã chọn giữ nguyên khác biệt này).
-    setCreatedFrom('');
-    setCreatedTo('');
+    setCreatedFrom(productLine ? localISO(PRODUCT_LINE_WINDOW_DAYS - 1) : '');
+    setCreatedTo(productLine ? localISO() : '');
     setFilterType('');
     setFilterFabricType('');
     setFilterMachineNumber('');
@@ -837,7 +882,7 @@ export function OrderTableClassic() {
             hiện. Cố ý BỎ `selectionHint.line1`: dòng đó mô tả thao tác tick
             checkbox cạnh tên sản phẩm, vốn chỉ có ở bảng nhóm của Workshop —
             giữ lại sẽ là nhãn cho một thao tác không tồn tại ở đây (BR-15). */}
-        {selected.size === 0 && items.length > 0 && (
+        {selected.size === 0 && items.length > 0 && !tipDismissed && (
           <div className="flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
             <MousePointerClick size={13} className="mt-0.5 shrink-0 text-primary" />
             <p>
@@ -846,6 +891,15 @@ export function OrderTableClassic() {
               <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-[10px]">Shift</kbd>{' '}
               {t('tableWorkshop.selectionHint.line2After')}
             </p>
+            {/* Shown until dismissed once; the choice is kept in this browser. */}
+            <button
+              type="button"
+              onClick={dismissTip}
+              aria-label={t('common:actions.close')}
+              className="ml-auto shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <X size={13} />
+            </button>
           </div>
         )}
 
