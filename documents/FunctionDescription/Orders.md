@@ -2310,6 +2310,29 @@ Ghi **thẳng** vào đơn thay vì đi qua `FulfillmentTaskService.transition()
 
 ---
 
+## 23b. Dọn đơn tồn quá hạn theo lô (SuperAdmin, 05/10/2026)
+
+**Vì sao:** đơn mở quá `OPEN_ORDER_STALE_DAYS` (45, `shared`) gần như toàn là nợ dữ liệu (xong ngoài đời, chưa đóng trên hệ thống). Trên bản sao production 05/10 có 3.825 đơn như vậy: 97% xưởng TN, 0 đơn có vận đơn/kiện/label, 873 không có hoạt động sản xuất nào, 1.212 chưa từng qua thiết kế. Chúng làm sai tồn, SLA, Dashboard, CEO Dashboard (`staleOpen`). Bấm "Chuyển hoàn thành" (§23) từng đơn thì không ai làm nổi.
+
+**Lối vào:** trang `/adm/stale-orders` (`pages/stale-orders/index.tsx`), CHỈ SuperAdmin, KHÔNG có mục sidebar (công cụ dùng vài lần). Vào từ nút "Rà soát & dọn" cạnh dòng `staleOpen` ở CEO Dashboard (`pages/ceo/OverviewBoard.tsx`, chỉ SuperAdmin thấy nút).
+
+**Tập đơn:** chưa hủy, chưa xong, chưa xóa, có xưởng sản xuất (không chưa-map, không US — `productionFactoryClause`), `inProductionAt` < bây giờ − 45 ngày (cùng mốc với `staleOpen` của CEO Dashboard). **Chọn được** khi thêm: không đang giữ, và KHÔNG có hoạt động sản xuất trong 45 ngày qua (đơn còn đang chạy thật — trên dữ liệu 05/10 có 4 đơn như vậy). Luật nằm ở `order/stale-cleanup.logic.ts` (`staleEligibility`), kiểm LẠI ở mỗi lượt xem trước và mỗi lượt chạy, không tin danh sách phía client.
+
+**"Hoạt động sản xuất"** = `toolCheckedAt`, các mốc designer, mọi mốc `fulfillmentStages.*` và `fulfillmentTimeline[].at` (`PRODUCTION_ACTIVITY_PATHS`). Nhật ký đơn (`orderLogs`) KHÔNG tính: job đồng bộ/backfill cũng ghi vào đó. Biểu thức Mongo (danh sách) và hàm JS (kiểm lại) sinh từ CÙNG một danh sách trường; đã đối chiếu 0 lệch trên toàn bộ 3.825 đơn, cả khóa chặng (`staleStageKey` mirror `workshopStageSwitchExpr`).
+
+**Bằng chứng từng dòng** (`GET /orders/stale-open`): chặng đang kẹt · hoạt động sản xuất cuối (ngày + trường nguồn, hoặc "Không có") · nhật ký cuối (chỉ để tham khảo) · vận đơn (VNP / khách cấp) · kiện (`shipping_packages`) · hoàn thành (luôn "Không" trong tập này) · đang giữ · lý do không chọn được. Tóm tắt toàn tập: tổng, theo xưởng, số có vận đơn, số không có hoạt động, số chưa từng qua thiết kế. Lọc xưởng / dòng / khách / tuổi (45–90 · 90–180 · 180+); nhóm theo sản phẩm hoặc khách (số đơn + số chọn được).
+
+**Chọn:** mặc định KHÔNG chọn gì; tick từng đơn hoặc "chọn đơn trong nhóm" — dừng ở trần `STALE_CLEANUP_BATCH_MAX` (200)/lượt. Không có nút chọn tất cả.
+
+**Xem trước** (`POST /orders/stale-open/preview`, chỉ đọc): tiêu đề đỏ "không hoàn tác được"; "X/N đơn có vận đơn hoặc kiện… Hệ thống KHÔNG có bằng chứng các đơn còn lại đã giao; bạn đang xác nhận dựa trên thông tin ngoài hệ thống"; chữ đỏ riêng cho nhóm chưa từng qua thiết kế (sẽ điền mốc cả 8 khâu cho công việc hệ thống chưa từng ghi nhận); KHOẢNG NGÀY hoàn thành sẽ ghi ("không phải hôm nay"); "khách không được báo"; theo xưởng / chặng / các khâu sẽ được điền (thứ tự dòng chảy); đơn rơi ra khi kiểm lại. Bắt nhập lý do (≥10 ký tự) và gõ lại đúng số đơn mới mở nút chạy.
+
+**Chạy** (`POST /orders/stale-open/complete`): kiểm lại quyền + từng đơn, khóa một lượt chạy một lúc, chạy TUẦN TỰ từng đơn qua ĐÚNG lõi của §23 (`applyForceComplete`, `planForceComplete` không đổi; không `updateMany`). Lỗi một đơn không dừng cả lô. Khác §23 đúng hai điểm, gói trong `mode: 'cleanup'` (KHÔNG phải cờ tùy chọn — đường từng đơn không có cách nào bật):
+1. **Mốc hoàn thành trong QUÁ KHỨ**, không phải lúc bấm (`staleCleanupEnd`): hoạt động sản xuất cuối; không có thì `inProductionAt + STALE_CLEANUP_NO_ACTIVITY_DAYS` (3, mốc N2 SLA). Ghi hôm nay thì báo cáo Telegram "Stock out" và mọi thống kê thông lượng sẽ có một đỉnh giả vài nghìn đơn trong một ngày, nằm lại vĩnh viễn. Dọn xong, các ngày cũ trong lịch sử được cộng thêm số đơn hoàn thành tương ứng — đó là con số đúng hơn.
+2. **KHÔNG bắn `order.production_completed`** (webhook khách ORD-4 + chuông portal ORD-5): báo seller (và qua tích hợp của họ, người mua cuối) rằng đơn nhiều tháng tuổi "vừa sản xuất xong" là câu nói sai và không gọi lại được. Hook nội bộ giữ đủ (timeline ghi "Dọn đơn tồn quá hạn: <lý do>", cache, trạng thái đơn khách tự suy).
+Order log `force_complete` từng đơn: đúng người bấm + `after.mode='stale-cleanup'`, `reason`, `runId`, `customerNotified: false`.
+
+Spec `stale-cleanup.spec.ts` (điều kiện chọn, mốc kết thúc, khóa chặng, chạy không báo khách + mốc quá khứ, nút §23 vẫn báo khách + mốc hiện tại, chỉ SuperAdmin). Giao diện kiểm ở 1440 + 390px với response thật sinh từ code mới trên DB dev (lượt chạy bị chặn ở trình duyệt, không ghi DB).
+
 ## 24. Cột "Trạng thái" — đơn đang nằm ở chặng nào
 
 > **File FE:** `apps/web/src/utils/orderStatusLabel.ts` (`getOrderStatusInfo` + `makeOrderStatusTranslate` + `ORDER_STATUS_TONE_CLASS`), cột `orderStatus` trong `apps/web/src/components/orders/workshopTableConfig.tsx` (thuộc group `identity`), cell trong `apps/web/src/pages/orders/ListOrderTab.tsx`, i18n `orders.json` → `statusLabel.*` + `workshopCols.col/short.orderStatus`.

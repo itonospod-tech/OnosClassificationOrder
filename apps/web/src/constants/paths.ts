@@ -64,6 +64,7 @@ export const PATHS = {
   IMPERSONATE: '/adm/impersonate',
   /** CEO Dashboard — bảng điều hành cho lãnh đạo, CHỈ SuperAdmin/Admin (CeoDashboard.md). */
   CEO_DASHBOARD: '/adm/ceo',
+  STALE_ORDERS: '/adm/stale-orders',
 
   LOGIN: '/adm/login',
   REGISTER: '/adm/register',

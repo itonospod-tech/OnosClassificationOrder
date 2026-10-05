@@ -67,6 +67,8 @@ import type {
   GetOrderStatusOverviewResDto,
   GetProductionOrdersDto,
   GetProductionOrdersResDto,
+  GetStaleOpenOrdersDto,
+  GetStaleOpenOrdersResDto,
   HoldOrderDto,
   HoldOrderResDto,
   ImportProductionOrdersDto,
@@ -111,7 +113,7 @@ import type {
   ProductPrintArea,
   ProductVariation,
 } from 'shared';
-import type { HeldPrintSkip, ProductLineCounts, WorkshopStageFilter } from 'shared';
+import type { HeldPrintSkip, ProductLineCounts, StaleCleanupPreview, StaleCleanupRunResult, WorkshopStageFilter } from 'shared';
 import {
   customerMatchKey,
   DESIGNER_ACTIVE_STATUSES,
@@ -184,6 +186,16 @@ import { OrderRepository } from './order.repository';
 import { parseTypeFilter, TYPE_NONE_TOKEN } from './parse-type-filter';
 import { productLineCondition } from './product-line-filter';
 import { resolveShippingLabelInfo } from './shipping-label';
+import {
+  lastProductionActivity,
+  lastProductionActivityExpr,
+  PRODUCTION_ACTIVITY_PATHS,
+  staleCleanupEnd,
+  staleCutoff,
+  staleEligibility,
+  staleStageKey,
+  TIMELINE_PATH,
+} from './stale-cleanup.logic';
 
 const FIELD_CONFIG_CATEGORY: Record<OrderWorkshopField, WorkshopConfigCategory | null> = {
   printStatus: WorkshopConfigCategory.PrintStatus,
@@ -5271,6 +5283,301 @@ export class OrderService implements OnModuleInit {
   }
 
   // ─── Chuyển hoàn thành (SuperAdmin) — Orders.md §23 ────────────────
+  // ─── Stale-order cleanup (Orders.md §23b, SuperAdmin only) ─────────────────
+  /** One cleanup run at a time: two overlapping runs on the same ids would double the order logs. */
+  private staleCleanupRunning = false;
+
+  private assertSuperAdmin(roleName?: RoleType): void {
+    if (roleName !== RoleType.SuperAdmin) throw new ForbiddenException('Chỉ SuperAdmin được dọn đơn tồn quá hạn.');
+  }
+
+  /** Stale = open, mapped to a production factory (not US), not deleted, entered production > OPEN_ORDER_STALE_DAYS ago. */
+  private staleBaseMatch(now: Date): Record<string, unknown> {
+    return {
+      cancelledAt: { $exists: false },
+      fulfillmentCompletedAt: null,
+      deletedAt: { $exists: false },
+      factoryId: productionFactoryClause(this.orderModel.db),
+      inProductionAt: { $lt: staleCutoff(now) },
+    };
+  }
+
+  private static readonly STALE_SHIPPING_EVIDENCE = {
+    $or: [
+      { 'vnpShipment.trackingCode': { $nin: [null, ''] } },
+      { 'tracking.trackingNumber': { $nin: [null, ''] } },
+      { 'tracking.labelUrl': { $nin: [null, ''] } },
+    ],
+  };
+
+  async getStaleOpenOrders(dto: GetStaleOpenOrdersDto, roleName?: RoleType): Promise<GetStaleOpenOrdersResDto> {
+    this.assertSuperAdmin(roleName);
+    const now = new Date();
+    const cutoff = staleCutoff(now);
+    const base = this.staleBaseMatch(now);
+    const DAY = 86_400_000;
+    const ageRange: Record<string, Record<string, Date>> = {
+      '45-90': { $lt: cutoff, $gte: new Date(now.getTime() - 90 * DAY) },
+      '90-180': { $lt: new Date(now.getTime() - 90 * DAY), $gte: new Date(now.getTime() - 180 * DAY) },
+      '180+': { $lt: new Date(now.getTime() - 180 * DAY) },
+    };
+    const filtered: Record<string, unknown> = { ...base };
+    const and: Record<string, unknown>[] = [];
+    if (dto.factoryId) and.push({ factoryId: dto.factoryId }); // ANDed: an explicit US id still matches nothing
+    if (dto.productLine) filtered.productLine = dto.productLine;
+    if (dto.userSku) filtered.userSku = dto.userSku;
+    if (dto.type) filtered.type = dto.type;
+    if (dto.age) and.push({ inProductionAt: ageRange[dto.age] });
+    if (and.length) filtered.$and = and;
+
+    const lastAct = lastProductionActivityExpr();
+    const selectableExpr = {
+      $and: [
+        { $eq: [{ $ifNull: ['$heldAt', null] }, null] },
+        { $or: [{ $eq: [lastAct, null] }, { $lt: [lastAct, cutoff] }] },
+      ],
+    };
+
+    const [summaryRows, factoryDocs] = await Promise.all([
+      this.orderModel.aggregate<{
+        total: Array<{ n: number }>;
+        byFactory: Array<{ _id: string; n: number }>;
+        evidence: Array<{ n: number }>;
+        noActivity: Array<{ n: number }>;
+        neverProduced: Array<{ n: number }>;
+      }>([
+        { $match: base },
+        {
+          $facet: {
+            total: [{ $count: 'n' }],
+            byFactory: [{ $group: { _id: '$factoryId', n: { $sum: 1 } } }, { $sort: { n: -1 } }],
+            evidence: [{ $match: OrderService.STALE_SHIPPING_EVIDENCE }, { $count: 'n' }],
+            noActivity: [{ $match: { $expr: { $eq: [lastAct, null] } } }, { $count: 'n' }],
+            neverProduced: [
+              { $match: { $expr: { $in: [workshopStageSwitchExpr(), ['tool-check', 'designer']] } } },
+              { $count: 'n' },
+            ],
+          },
+        },
+      ]),
+      this.factoryRepository.findAll<{ _id: unknown; shortName?: string }>({}, { select: ['shortName'] }),
+    ]);
+    const shortOf = new Map(factoryDocs.map((f) => [String(f._id), f.shortName]));
+    const sr = summaryRows[0];
+    const summary = {
+      total: sr?.total[0]?.n ?? 0,
+      byFactory: (sr?.byFactory ?? []).map((r) => ({ factoryId: String(r._id), shortName: shortOf.get(String(r._id)), count: r.n })),
+      withShippingEvidence: sr?.evidence[0]?.n ?? 0,
+      noActivity: sr?.noActivity[0]?.n ?? 0,
+      neverProduced: sr?.neverProduced[0]?.n ?? 0,
+    };
+
+    if (dto.groupBy) {
+      const groups = await this.orderModel.aggregate<{ _id: string | null; count: number; selectable: number }>([
+        { $match: filtered },
+        { $group: { _id: `$${dto.groupBy}`, count: { $sum: 1 }, selectable: { $sum: { $cond: [selectableExpr, 1, 0] } } } },
+        { $sort: { count: -1, _id: 1 } },
+      ]);
+      return {
+        success: true,
+        data: [],
+        groups: groups.map((g) => ({ key: g._id ?? '', count: g.count, selectable: g.selectable })),
+        total: groups.length,
+        summary,
+      };
+    }
+
+    const page = Math.max(1, Number(dto.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(dto.limit) || 50));
+    const activityProjection = Object.fromEntries([...PRODUCTION_ACTIVITY_PATHS, `${TIMELINE_PATH}.at`, `${TIMELINE_PATH}.stage`, `${TIMELINE_PATH}.action`].map((p) => [p, 1]));
+    const [rows, total] = await Promise.all([
+      this.orderModel.aggregate<Record<string, unknown>>([
+        { $match: filtered },
+        { $sort: { inProductionAt: 1, _id: 1 } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+        { $addFields: { stage: workshopStageSwitchExpr() } },
+        {
+          $project: {
+            productionId: 1, orderId: 1, userSku: 1, type: 1, productLine: 1, factoryId: 1, inProductionAt: 1, heldAt: 1,
+            cancelledAt: 1, fulfillmentCompletedAt: 1, stage: 1, 'vnpShipment.trackingCode': 1, 'tracking.trackingNumber': 1,
+            ...activityProjection,
+          },
+        },
+      ]),
+      this.orderModel.countDocuments(filtered),
+    ]);
+    const ids = rows.map((r) => String(r._id));
+    const pids = rows.map((r) => String(r.productionId));
+    const db = this.orderModel.db;
+    const [logs, packages] = await Promise.all([
+      db
+        .collection('orderLogs')
+        .aggregate<{ _id: string; at: Date; action: string }>([
+          { $match: { orderId: { $in: ids } } },
+          { $sort: { createdAt: -1 } },
+          { $group: { _id: '$orderId', at: { $first: '$createdAt' }, action: { $first: '$action' } } },
+        ])
+        .toArray(),
+      db
+        .collection('shipping_packages')
+        .find<{ code?: string; productionIds?: string[] }>({ productionIds: { $in: pids } }, { projection: { code: 1, productionIds: 1 } })
+        .toArray(),
+    ]);
+    const logOf = new Map(logs.map((l) => [String(l._id), l]));
+    const pkgOf = new Map<string, string>();
+    for (const p of packages) for (const pid of p.productionIds ?? []) if (p.code) pkgOf.set(pid, p.code);
+    const excludedId = getExcludedFactoryIdSync(db);
+
+    const data = rows.map((r) => {
+      const act = lastProductionActivity(r);
+      const block = staleEligibility(r, now, excludedId);
+      const log = logOf.get(String(r._id));
+      const inProd = r.inProductionAt as Date;
+      return {
+        _id: String(r._id),
+        productionId: String(r.productionId),
+        orderId: (r.orderId as string) || undefined,
+        userSku: (r.userSku as string) || undefined,
+        type: (r.type as string) || undefined,
+        productLine: (r.productLine as string) || undefined,
+        factoryId: r.factoryId ? String(r.factoryId) : undefined,
+        factoryShortName: r.factoryId ? shortOf.get(String(r.factoryId)) : undefined,
+        inProductionAt: inProd,
+        ageDays: Math.floor((now.getTime() - inProd.getTime()) / DAY),
+        stage: String(r.stage),
+        lastActivityAt: act?.at ?? null,
+        lastActivitySource: act?.field ?? null,
+        lastLogAt: log?.at ?? null,
+        lastLogAction: log?.action ?? null,
+        shipping: {
+          vnpTracking: ((r.vnpShipment as { trackingCode?: string } | undefined)?.trackingCode as string) || undefined,
+          customerTracking: ((r.tracking as { trackingNumber?: string } | undefined)?.trackingNumber as string) || undefined,
+          packageCode: pkgOf.get(String(r.productionId)),
+        },
+        held: !!r.heldAt,
+        selectable: block === null,
+        blockReason: block,
+      };
+    });
+    return { success: true, data, total, summary } as GetStaleOpenOrdersResDto;
+  }
+
+  /** Load the requested orders with every field the eligibility check and the plan need. */
+  private async loadForStaleCleanup(ids: string[]): Promise<Map<string, Record<string, unknown>>> {
+    const docs = await this.orderModel.find({ _id: { $in: ids } }).lean();
+    return new Map(docs.map((d) => [String(d._id), d as unknown as Record<string, unknown>]));
+  }
+
+  /** Read-only: what a run on `ids` would do. Re-checks every order; nothing is trusted from the list. */
+  async previewStaleCleanup(ids: string[], roleName?: RoleType): Promise<StaleCleanupPreview> {
+    this.assertSuperAdmin(roleName);
+    const now = new Date();
+    const unique = [...new Set(ids)];
+    const byId = await this.loadForStaleCleanup(unique);
+    const excludedId = getExcludedFactoryIdSync(this.orderModel.db);
+    const factoryDocs = await this.factoryRepository.findAll<{ _id: unknown; shortName?: string }>({}, { select: ['shortName'] });
+    const shortOf = new Map(factoryDocs.map((f) => [String(f._id), f.shortName || String(f._id)]));
+    const skipped: Array<{ id: string; productionId?: string; reason: string }> = [];
+    const count = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
+    const byFactory = new Map<string, number>();
+    const byStage = new Map<string, number>();
+    const stepsFilled = new Map<string, number>();
+    let eligible = 0;
+    let neverProduced = 0;
+    let withShippingEvidence = 0;
+    let from: Date | null = null;
+    let to: Date | null = null;
+    for (const id of unique) {
+      const d = byId.get(id);
+      const block = staleEligibility(d, now, excludedId);
+      if (block || !d) {
+        skipped.push({ id, productionId: d?.productionId as string | undefined, reason: block ?? 'not-found' });
+        continue;
+      }
+      eligible++;
+      const stage = staleStageKey(d);
+      count(byStage, stage);
+      if (stage === 'tool-check' || stage === 'designer') neverProduced++;
+      count(byFactory, shortOf.get(String(d.factoryId)) ?? String(d.factoryId));
+      const vnp = (d.vnpShipment as { trackingCode?: string } | undefined)?.trackingCode;
+      const tr = d.tracking as { trackingNumber?: string; labelUrl?: string } | undefined;
+      if (vnp || tr?.trackingNumber || tr?.labelUrl) withShippingEvidence++;
+      const end = staleCleanupEnd(d);
+      if (!from || end < from) from = end;
+      if (!to || end > to) to = end;
+      const plan = planForceComplete({
+        now: end,
+        inProductionAt: d.inProductionAt as Date,
+        orderAt: d.orderAt as Date,
+        createdAt: d.createdAt as Date,
+        flowType: getFactoryFlowTypeSync(this.orderModel.db, d.factoryId as string),
+        autoPack: getFactoryAutoPackSync(this.orderModel.db, d.factoryId as string),
+        toolCheckedAt: d.toolCheckedAt as Date,
+        toolResultNote: d.toolResultNote as string,
+        designerStatus: d.designerStatus as string,
+        designerCompletedAt: d.designerCompletedAt as Date,
+        fulfillmentStages: d.fulfillmentStages as Record<string, { completedAt?: Date }>,
+      });
+      for (const st of plan.steps) count(stepsFilled, st.key);
+    }
+    const toArr = <K extends string>(m: Map<string, number>, key: K) =>
+      [...m.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ [key]: k, count: n }) as Record<K, string> & { count: number });
+    return {
+      eligible,
+      skipped,
+      byFactory: toArr(byFactory, 'shortName'),
+      byStage: toArr(byStage, 'stage'),
+      neverProduced,
+      // Flow order (tool check → design → the 6 stages), not by count: it reads as the order's path.
+      stepsFilled: ['tool-check', 'designer', ...FULFILLMENT_STAGES]
+        .filter((k) => stepsFilled.has(k))
+        .map((k) => ({ key: k, count: stepsFilled.get(k) ?? 0 })),
+      completedFrom: from,
+      completedTo: to,
+      withShippingEvidence,
+    };
+  }
+
+  /**
+   * Complete up to STALE_CLEANUP_BATCH_MAX stale orders, one by one through the same core as the
+   * single-order button (`applyForceComplete`, mode `cleanup`): past completion date, no customer
+   * event, order log per order with the actor, the reason and the run id. One order failing does
+   * not stop the run. Irreversible.
+   */
+  async runStaleCleanup(ids: string[], reason: string, roleName?: RoleType, ctx?: AuditContext): Promise<StaleCleanupRunResult> {
+    this.assertSuperAdmin(roleName);
+    if (this.staleCleanupRunning) throw new BadRequestException('Đang có một lượt dọn khác chạy — đợi lượt đó xong.');
+    this.staleCleanupRunning = true;
+    const runId = `stale-${Date.now().toString(36)}`;
+    const skipped: Array<{ id: string; productionId?: string; reason: string }> = [];
+    let done = 0;
+    try {
+      const now = new Date();
+      const unique = [...new Set(ids)];
+      const byId = await this.loadForStaleCleanup(unique);
+      const excludedId = getExcludedFactoryIdSync(this.orderModel.db);
+      for (const id of unique) {
+        const d = byId.get(id);
+        const block = staleEligibility(d, now, excludedId);
+        if (block || !d) {
+          skipped.push({ id, productionId: d?.productionId as string | undefined, reason: block ?? 'not-found' });
+          continue;
+        }
+        try {
+          await this.applyForceComplete(id, d, ctx, { kind: 'cleanup', end: staleCleanupEnd(d), reason, runId });
+          done++;
+        } catch (err) {
+          skipped.push({ id, productionId: d.productionId as string, reason: (err as Error).message || 'error' });
+        }
+      }
+    } finally {
+      this.staleCleanupRunning = false;
+    }
+    this.logger.info({ message: JSON.stringify({ staleCleanup: runId, done, skipped: skipped.length, by: ctx?.user?._id }) });
+    return { runId, done, skipped };
+  }
+
   /**
    * Ép 1 đơn về trạng thái **đã hoàn thành sản xuất**, và điền mốc thời gian
    * cho các khâu chưa xong bằng cách CHIA ĐỀU khoảng
@@ -5305,11 +5612,35 @@ export class OrderService implements OnModuleInit {
     const order = await this.orderModel.findById(id).lean();
     if (!order) throw new NotFoundException('Order not found');
 
-    const o = order as unknown as {
-      cancelledAt?: Date | null;
-      heldAt?: Date | null;
-      fulfillmentCompletedAt?: Date | null;
-      currentFulfillmentStage?: FulfillmentStage | null;
+    const o = order as unknown as { cancelledAt?: Date | null; heldAt?: Date | null; fulfillmentCompletedAt?: Date | null };
+
+    if (o.cancelledAt) throw new BadRequestException('Đơn đã hủy — không thể chuyển hoàn thành.');
+    // Đơn giữ = đang tạm dừng có chủ đích; mở giữ trước rồi mới chốt hoàn thành.
+    this.assertNotHeld(o);
+    if (o.fulfillmentCompletedAt) throw new BadRequestException('Đơn đã hoàn thành sản xuất rồi.');
+
+    const updated = await this.applyForceComplete(id, order as Record<string, unknown>, ctx, { kind: 'manual' });
+    return { success: true, data: updated } as unknown as ForceCompleteOrderResDto;
+  }
+
+  /**
+   * Shared core of "Chuyển hoàn thành": the single-order button and the stale-order cleanup
+   * (Orders.md §23b) go through the same writes, timeline and order log. The two differ only by
+   * `mode`, which is deliberately not a set of flags:
+   *  - `manual`: finished NOW, and the customer is told (`order.production_completed`), exactly as
+   *    when the floor finishes an order.
+   *  - `cleanup`: finished at a PAST moment (`end`, see `staleCleanupEnd`) and the customer is NOT
+   *    told: telling a seller (and, through their integration, the buyer) that a months-old order
+   *    "was just produced" is false, and cannot be recalled. Only the cleanup run builds this mode.
+   * Callers validate the order first.
+   */
+  private async applyForceComplete(
+    id: string,
+    order: Record<string, unknown>,
+    ctx: AuditContext | undefined,
+    mode: { kind: 'manual' } | { kind: 'cleanup'; end: Date; reason: string; runId: string },
+  ): Promise<unknown> {
+    const o = order as {
       factoryId?: string;
       inProductionAt?: Date;
       orderAt?: Date;
@@ -5321,15 +5652,10 @@ export class OrderService implements OnModuleInit {
       designerStartedAt?: Date;
       designerFirstStartedAt?: Date;
       designerCompletedAt?: Date;
+      currentFulfillmentStage?: FulfillmentStage | null;
       fulfillmentStages?: Record<string, { status?: FulfillmentStageStatus; completedAt?: Date } | undefined>;
     };
-
-    if (o.cancelledAt) throw new BadRequestException('Đơn đã hủy — không thể chuyển hoàn thành.');
-    // Đơn giữ = đang tạm dừng có chủ đích; mở giữ trước rồi mới chốt hoàn thành.
-    this.assertNotHeld(o);
-    if (o.fulfillmentCompletedAt) throw new BadRequestException('Đơn đã hoàn thành sản xuất rồi.');
-
-    const now = new Date();
+    const now = mode.kind === 'cleanup' ? mode.end : new Date();
     const plan = planForceComplete({
       now,
       inProductionAt: o.inProductionAt,
@@ -5391,7 +5717,12 @@ export class OrderService implements OnModuleInit {
         byUserId,
         byUserName,
         at: step.to,
-        reason: step.auto ? 'Chuyển hoàn thành (luồng rút gọn)' : 'Chuyển hoàn thành',
+        reason:
+          mode.kind === 'cleanup'
+            ? `Dọn đơn tồn quá hạn: ${mode.reason}`
+            : step.auto
+              ? 'Chuyển hoàn thành (luồng rút gọn)'
+              : 'Chuyển hoàn thành',
       });
     }
 
@@ -5416,14 +5747,18 @@ export class OrderService implements OnModuleInit {
         completedAt: now,
         start: plan.start,
         steps: plan.steps.map((s) => ({ key: s.key, from: s.from, to: s.to, auto: s.auto })),
+        ...(mode.kind === 'cleanup'
+          ? { mode: 'stale-cleanup', reason: mode.reason, runId: mode.runId, customerNotified: false }
+          : {}),
       },
       ctx,
     });
     // Cùng sự kiện với lúc xưởng bấm xong thật — webhook khách (ORD-4) + chuông
     // portal (ORD-5) không được phân biệt đơn xong thật với đơn được chốt tay.
-    this.emitCustomerOrderEvent('order.production_completed', [updated]);
+    // Cleanup: no customer event, on purpose (see the method comment).
+    if (mode.kind === 'manual') this.emitCustomerOrderEvent('order.production_completed', [updated]);
     void this.invalidateListCache();
-    return { success: true, data: updated } as unknown as ForceCompleteOrderResDto;
+    return updated;
   }
 
   /**

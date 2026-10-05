@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
 
+import { usePermission } from '@/hooks/usePermission';
 import { STAGE_COLORS } from '@/pages/orders/workshop/stageColors';
 
 const iso = (d: dayjs.Dayjs) => d.format('YYYY-MM-DD');
@@ -87,6 +88,7 @@ export function OverviewBoard() {
   const { t, i18n } = useTranslation('ceoDashboard');
   const { t: tOrders } = useTranslation('orders');
   const navigate = useNavigate();
+  const { roleName } = usePermission();
   const [from, setFrom] = useState(() => iso(dayjs().subtract(6, 'day')));
   const [to, setTo] = useState(() => iso(dayjs()));
   const [data, setData] = useState<CeoOverview | null>(null);
@@ -532,7 +534,15 @@ export function OverviewBoard() {
           {d.capacity.staleOpen > 0 && (
             <p className="mt-3 flex items-start gap-1.5 rounded-md border border-dashed border-amber-300 bg-amber-50/60 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
               <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-              {t('capacity.stale', { n: d.capacity.staleOpen.toLocaleString('en-US'), days: d.capacity.staleDays })}
+              <span className="min-w-0 flex-1">
+                {t('capacity.stale', { n: d.capacity.staleOpen.toLocaleString('en-US'), days: d.capacity.staleDays })}
+              </span>
+              {/* The cleanup tool (Orders.md §23b) has no sidebar entry: it is reached from the number it fixes. */}
+              {roleName === 'SuperAdmin' && (
+                <button type="button" onClick={() => navigate(PATHS.STALE_ORDERS)} className="shrink-0 font-semibold underline underline-offset-2 touch:min-h-11">
+                  {t('capacity.staleReview')}
+                </button>
+              )}
             </p>
           )}
           <div className="mt-4 overflow-x-auto">

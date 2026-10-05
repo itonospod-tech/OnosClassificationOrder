@@ -64,6 +64,8 @@ import {
   GetProductionOrdersResDto,
   GetShippingLabelsDto,
   GetShippingLabelsResDto,
+  GetStaleOpenOrdersDto,
+  GetStaleOpenOrdersResDto,
   HoldOrderDto,
   HoldOrderResDto,
   ImportFromOnosPodDto,
@@ -82,6 +84,10 @@ import {
   SetDesignReviewResultResDto,
   SetProductionErrorDto,
   SetProductionErrorResDto,
+  StaleCleanupPreviewDto,
+  StaleCleanupPreviewResDto,
+  StaleCleanupRunDto,
+  StaleCleanupRunResDto,
   SyncDesignByCustomerDto,
   SyncDesignByCustomerResDto,
   SyncOnospodHoldResDto,
@@ -445,6 +451,46 @@ export class OrderController {
     @AuthUser() user: UserDocument,
   ): Promise<GetCancelledOrdersResDto> {
     return this.orderService.getCancelledOrders(dto, user?.role?.name, user?.factoryId);
+  }
+
+  /** Stale-order cleanup (Orders.md §23b): open orders older than OPEN_ORDER_STALE_DAYS, with evidence per row. */
+  @Get('stale-open')
+  @Auth([RoleType.SuperAdmin])
+  @ApiOperation({ summary: 'Đơn tồn quá hạn (mở > 45 ngày) + bằng chứng từng dòng — SuperAdmin' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetStaleOpenOrdersResDto })
+  async getStaleOpenOrders(@Query() dto: GetStaleOpenOrdersDto, @AuthUser() user: UserDocument): Promise<GetStaleOpenOrdersResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'GET', url: '/orders/stale-open', userId: user?._id }) });
+    return this.orderService.getStaleOpenOrders(dto, user?.role?.name as RoleType);
+  }
+
+  @Post('stale-open/preview')
+  @Auth([RoleType.SuperAdmin])
+  @ApiOperation({ summary: 'Xem trước một lượt dọn đơn tồn (chỉ đọc) — SuperAdmin' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: StaleCleanupPreviewResDto })
+  async previewStaleCleanup(@Body() dto: StaleCleanupPreviewDto, @AuthUser() user: UserDocument): Promise<StaleCleanupPreviewResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/stale-open/preview', userId: user?._id, count: dto.ids.length }) });
+    return { success: true, data: await this.orderService.previewStaleCleanup(dto.ids, user?.role?.name as RoleType) };
+  }
+
+  /** Irreversible: completes up to STALE_CLEANUP_BATCH_MAX orders at past dates, without customer events. */
+  @Post('stale-open/complete')
+  @Auth([RoleType.SuperAdmin])
+  @ApiOperation({ summary: 'Chuyển hoàn thành một lô đơn tồn quá hạn — KHÔNG hoàn tác, không báo khách — SuperAdmin' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: StaleCleanupRunResDto })
+  async runStaleCleanup(
+    @Body() dto: StaleCleanupRunDto,
+    @AuthUser() user: UserDocument,
+    @ClientIp() ip: string,
+    @UserAgent() userAgent: string,
+  ): Promise<StaleCleanupRunResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/stale-open/complete', userId: user?._id, count: dto.ids.length }) });
+    return {
+      success: true,
+      data: await this.orderService.runStaleCleanup(dto.ids, dto.reason, user?.role?.name as RoleType, { user, ip, userAgent }),
+    };
   }
 
   @Get('lifecycle-track/:code')

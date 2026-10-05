@@ -100,3 +100,7 @@ SuperAdmin / Admin. Endpoint `@Auth([SuperAdmin, Admin])`; sidebar `onlyForRoles
 - **KHÔNG lưu ảnh vào Mongo**: `POST /agent/query` mở hết mọi bảng (API-19) nên nhị phân trong document sẽ lọt ra và phồng phản hồi. Dựng lại chỉ mất vài chục mili giây và `getOverview` đã cache 5 phút.
 - Nhận **mọi** khoảng ngày (khác `ceo-report` phải khớp đúng `periodKey`); chưa có nhận định thì ảnh chỉ gồm số liệu và ghi rõ điều đó.
 
+
+## Lối vào dọn đơn treo (05/10/2026)
+
+Dòng cảnh báo `staleOpen` (khối năng lực) có nút "Rà soát & dọn" — CHỈ SuperAdmin thấy — mở `/adm/stale-orders`, công cụ dọn đơn tồn quá hạn theo lô (`Orders.md` §23b). Mốc 45 ngày là `OPEN_ORDER_STALE_DAYS` ở `shared`, dùng chung cho `staleOpen` và công cụ đó.
