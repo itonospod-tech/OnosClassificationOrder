@@ -33,6 +33,11 @@ export interface OrderFilterFacet {
 }
 
 export interface OrderFilterBarProps {
+  /**
+   * Fold the facet grid behind the "Filters" button on every screen size, not only phones. For lists that
+   * must show as many rows as possible above the fold (the flat order table).
+   */
+  foldFacets?: boolean;
   /** Search input (Production ID / SKU / Order ID / Type). Bỏ qua nếu không truyền. */
   search?: string;
   onSearchChange?: (v: string) => void;
@@ -85,6 +90,7 @@ export interface OrderFilterBarProps {
  * caller tự handle (mỗi tab có prefix param riêng).
  */
 export function OrderFilterBar({
+  foldFacets,
   search,
   onSearchChange,
   searchPlaceholder,
@@ -117,7 +123,8 @@ export function OrderFilterBar({
 
   const visibleFacets = (facets || []).filter((f) => !f.hidden && (!f.perm || has(f.perm)));
   const activeFacetCount = visibleFacets.filter((f) => !!f.value).length;
-  const facetsShown = !isMobile || facetsOpen;
+  const folded = isMobile || !!foldFacets;
+  const facetsShown = !folded || facetsOpen;
 
   return (
     <div className={cn('rounded-lg border border-border bg-card p-3 space-y-3', className)}>
@@ -162,7 +169,7 @@ export function OrderFilterBar({
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           <span className={isMobile ? 'sr-only' : undefined}>{t('filterBar.reloadBtn')}</span>
         </Button>
-        {isMobile && visibleFacets.length > 0 && (
+        {folded && visibleFacets.length > 0 && (
           <Button
             variant="outline"
             size="sm"

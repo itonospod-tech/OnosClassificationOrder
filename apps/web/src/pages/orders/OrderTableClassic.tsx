@@ -24,10 +24,14 @@ import { OrderRowActionsMenu } from '@/components/orders/OrderRowActionsMenu';
 import { OrderViewSwitch } from '@/components/orders/OrderViewSwitch';
 import {
   buildColGroups,
-  GroupCellContent,
+  DENSE_PANEL_KEYS,
+  DenseDetails,
+  DenseGroupCellContent,
   groupTitle,
+  renderMember,
   type ResolvedColGroup,
   WORKSHOP_COLS,
+  type WorkshopColMeta,
   type WorkshopOrderRow,
   type WorkshopRenderCtx,
 } from '@/components/orders/workshopTableConfig';
@@ -82,6 +86,8 @@ const fmtChipDate = (s: string) => (s ? s.split('-').reverse().slice(0, 2).join(
 interface RowProps {
   row: OrderRow;
   groups: ResolvedColGroup[];
+  /** Fields that left the one-line row — shown in the details popover. */
+  panelCols: WorkshopColMeta[];
   ctx: RenderCtx;
   isSelected: boolean;
   noTool: boolean;
@@ -95,6 +101,7 @@ interface RowProps {
 const OrderRowItem = React.memo(function OrderRowItem({
   row,
   groups,
+  panelCols,
   ctx,
   isSelected,
   noTool,
@@ -111,7 +118,7 @@ const OrderRowItem = React.memo(function OrderRowItem({
     const effectiveCtx = held ? { ...ctx, canEditField: () => false } : ctx;
     const map = new Map<string, React.ReactNode>();
     for (const g of groups) {
-      for (const c of g.members) map.set(c.key, c.render(row, effectiveCtx));
+      for (const c of g.members) map.set(c.key, renderMember(c, row, effectiveCtx, true));
     }
     return map;
   }, [groups, row, ctx, held]);
@@ -125,7 +132,7 @@ const OrderRowItem = React.memo(function OrderRowItem({
         dim && 'opacity-60',
       )}
     >
-      <TableCell className={cn('sticky left-0 z-10', rowBgClass)}>
+      <TableCell className={cn('sticky left-0 z-10 py-1', rowBgClass)}>
         <input
           type="checkbox"
           checked={isSelected}
@@ -138,17 +145,21 @@ const OrderRowItem = React.memo(function OrderRowItem({
       {groups.map((g, gi) => (
         <TableCell
           key={g.key}
-          className={cn('py-2 align-top', gi === 0 && cn('sticky left-8 z-10 shadow-[1px_0_0_0_var(--border)]', rowBgClass))}
+          className={cn('py-1 align-middle', gi === 0 && cn('sticky left-8 z-10 shadow-[1px_0_0_0_var(--border)]', rowBgClass))}
         >
           <div className="flex flex-col gap-1">
             {gi === 0 && cancelled && <CancelledBadge reason={row.cancelReason} />}
             {gi === 0 && held && !cancelled && <HeldBadge reason={row.holdReason} source={row.holdSource} />}
             {gi === 0 && showOnospodHoldFlag(row) && <OnospodHoldBadge />}
-            <GroupCellContent group={g} renderedByKey={renderedByKey} />
+            <DenseGroupCellContent
+              group={g}
+              renderedByKey={renderedByKey}
+              leading={gi === 0 ? <DenseDetails row={row} ctx={ctx} panelCols={panelCols} locked={held} /> : undefined}
+            />
           </div>
         </TableCell>
       ))}
-      <TableCell className={cn('sticky right-0 z-10', rowBgClass)}>
+      <TableCell className={cn('sticky right-0 z-10 py-1', rowBgClass)}>
         <div className="flex items-center justify-end gap-0.5">
           <Button variant="ghost" size="icon" className="h-7 w-7" title={t('tableWorkshop.history')} onClick={() => onHistory(row._id, row.productionId)}>
             <History size={13} className="text-muted-foreground" />
@@ -716,13 +727,18 @@ export function OrderTableClassic() {
 
   useSidebarResetSignal(PATHS.ORDERS_CLASSIC, clearAllFilters);
 
-  const colGroups = useMemo(() => buildColGroups(visibleCols, roleName), [visibleCols, roleName]);
+  const colGroups = useMemo(() => buildColGroups(visibleCols, roleName, true), [visibleCols, roleName]);
+  const panelCols = useMemo(() => {
+    const byKey = new Map(visibleCols.map((c) => [c.key, c]));
+    return DENSE_PANEL_KEYS.map((k) => byKey.get(k)).filter((c): c is WorkshopColMeta => !!c);
+  }, [visibleCols]);
   const fullColSpan = colGroups.length + 2;
 
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-4 pb-24">
         <OrderFilterBar
+          foldFacets
           search={search}
           onSearchChange={(v) => {
             setSearch(v);
@@ -872,6 +888,15 @@ export function OrderTableClassic() {
         <LoadingOverlay active={loading && items.length > 0} className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="overflow-x-auto">
             <Table className="table-fixed" style={{ minWidth: '100%' }}>
+              {/* Fixed layout needs real widths, otherwise every column gets an equal share and the dense row's
+                  production ID / chips overflow into the next one. */}
+              <colgroup>
+                <col style={{ width: 32 }} />
+                {colGroups.map((g) => (
+                  <col key={g.key} style={{ width: g.width }} />
+                ))}
+                <col style={{ width: 64 }} />
+              </colgroup>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8 sticky left-0 z-30 bg-card">
@@ -918,6 +943,7 @@ export function OrderTableClassic() {
                     key={row._id}
                     row={row}
                     groups={colGroups}
+                    panelCols={panelCols}
                     ctx={renderCtx}
                     isSelected={selected.has(row._id)}
                     noTool={isNoTool(row.toolResult)}

@@ -31,10 +31,14 @@ import { OrderLogTimelineDialog } from '@/components/orders/OrderLogTimelineDial
 import { OrderRowActionsMenu } from '@/components/orders/OrderRowActionsMenu';
 import {
   buildColGroups,
-  GroupCellContent,
+  DENSE_PANEL_KEYS,
+  DenseDetails,
+  DenseGroupCellContent,
   groupTitle,
+  renderMember,
   type ResolvedColGroup,
   WORKSHOP_COLS,
+  type WorkshopColMeta,
   type WorkshopOrderRow,
   type WorkshopRenderCtx,
 } from '@/components/orders/workshopTableConfig';
@@ -131,6 +135,8 @@ const getScrollParent = (node: HTMLElement | null): HTMLElement => {
 interface ProductRowProps {
   row: OrderRow;
   groups: ResolvedColGroup[];
+  /** Fields that left the one-line row — shown in the details popover. */
+  panelCols: WorkshopColMeta[];
   ctx: RenderCtx;
   comboN: number;
   isHeaviest: boolean;
@@ -154,6 +160,7 @@ interface ProductRowProps {
 const ProductRow = React.memo(function ProductRow({
   row,
   groups,
+  panelCols,
   ctx,
   comboN,
   isHeaviest,
@@ -180,7 +187,7 @@ const ProductRow = React.memo(function ProductRow({
     const effectiveCtx = held ? { ...ctx, canEditField: () => false } : ctx;
     const map = new Map<string, React.ReactNode>();
     for (const g of groups) {
-      for (const c of g.members) map.set(c.key, c.render(row, effectiveCtx));
+      for (const c of g.members) map.set(c.key, renderMember(c, row, effectiveCtx, true));
     }
     return map;
   }, [groups, row, ctx, held]);
@@ -206,7 +213,7 @@ const ProductRow = React.memo(function ProductRow({
         dim && 'opacity-60',
       )}
     >
-      <TableCell className={cn('sticky left-0 z-10', rowBgClass)}>
+      <TableCell className={cn('sticky left-0 z-10 py-1', rowBgClass)}>
         <input
           type="checkbox"
           checked={isSelected}
@@ -220,7 +227,7 @@ const ProductRow = React.memo(function ProductRow({
         <TableCell
           key={g.key}
           className={cn(
-            'py-1.5 align-top',
+            'py-1 align-middle',
             gi === 0 && cn('sticky left-8 z-10 shadow-[1px_0_0_0_var(--border)]', rowBgClass),
           )}
         >
@@ -228,9 +235,10 @@ const ProductRow = React.memo(function ProductRow({
             {gi === 0 && cancelled && <CancelledBadge reason={row.cancelReason} />}
             {gi === 0 && held && !cancelled && <HeldBadge reason={row.holdReason} source={row.holdSource} />}
             {gi === 0 && showOnospodHoldFlag(row) && <OnospodHoldBadge />}
-            <GroupCellContent
+            <DenseGroupCellContent
               group={g}
               renderedByKey={renderedByKey}
+              leading={gi === 0 ? <DenseDetails row={row} ctx={ctx} panelCols={panelCols} locked={held} /> : undefined}
               extra={(key) =>
                 key === 'mockupTypeSize' && comboN > 1 ? (
                   <Badge
@@ -246,7 +254,7 @@ const ProductRow = React.memo(function ProductRow({
           </div>
         </TableCell>
       ))}
-      <TableCell className={cn('sticky right-0 z-10', rowBgClass)}>
+      <TableCell className={cn('sticky right-0 z-10 py-1', rowBgClass)}>
         {/* Thao tác hàng chỉ hiện khi rê chuột / focus — bảng đỡ rối; menu "..." mở ra vẫn giữ. */}
         <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 [&:has([data-state=open])]:opacity-100">
           <Button
@@ -717,7 +725,11 @@ export function OrderTableWorkshop() {
   // workshopTableConfig.tsx — dùng chung với OrdersMiniTable/OrderFactoryTab) —
   // chỉ giữ member nào còn trong visibleCols (đã lọc quyền), bỏ hẳn group nào
   // rỗng (mọi member đều bị ẩn quyền).
-  const colGroups = useMemo(() => buildColGroups(visibleCols, roleName), [visibleCols, roleName]);
+  const colGroups = useMemo(() => buildColGroups(visibleCols, roleName, true), [visibleCols, roleName]);
+  const panelCols = useMemo(() => {
+    const byKey = new Map(visibleCols.map((c) => [c.key, c]));
+    return DENSE_PANEL_KEYS.map((k) => byKey.get(k)).filter((c): c is WorkshopColMeta => !!c);
+  }, [visibleCols]);
 
   // Width cố định (table-fixed) tính theo GROUP (không phải field lẻ) + tổng
   // width bảng cho horizontal scroll — đây là phần giảm scroll ngang chính:
@@ -781,7 +793,7 @@ export function OrderTableWorkshop() {
     // group (group đầy nhất — "Mã đơn/Ưu tiên" — có tới 4 dòng) nên cao hơn
     // trước (~68px/2-3 dòng) → estimate ~130px. measureElement vẫn tự đo lại
     // chính xác sau khi render.
-    estimateSize: (i) => (flatItems[i]?.kind === 'header' ? 42 : 130),
+    estimateSize: (i) => (flatItems[i]?.kind === 'header' ? 42 : 56),
     overscan: 12,
     scrollMargin,
     getItemKey: (i) => flatItems[i]?.key ?? i,
@@ -1456,6 +1468,7 @@ export function OrderTableWorkshop() {
                       dataIndex={vi.index}
                       row={item.row}
                       groups={colGroups}
+                      panelCols={panelCols}
                       ctx={renderCtx}
                       comboN={item.comboN}
                       isHeaviest={item.isHeaviest}
