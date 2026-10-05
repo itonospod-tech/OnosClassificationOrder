@@ -7,6 +7,9 @@ export type OrderView = 'grouped' | 'flat';
 interface OrderViewStore {
   view: OrderView;
   setView: (view: OrderView) => void;
+  /** Stage funnel above the order list: compact one-line chips (default) or the full 8 tiles. */
+  funnelExpanded: boolean;
+  toggleFunnel: () => void;
 }
 
 /**
@@ -18,6 +21,8 @@ export const useOrderViewStore = create<OrderViewStore>()(
     (set) => ({
       view: 'grouped',
       setView: (view) => set({ view }),
+      funnelExpanded: false,
+      toggleFunnel: () => set((state) => ({ funnelExpanded: !state.funnelExpanded })),
     }),
     { name: 'onosfactory-order-view' },
   ),

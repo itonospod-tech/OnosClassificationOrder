@@ -164,8 +164,10 @@ export function WorkshopToolbar({
   const pillCount = (k: WorkshopPillKey) => (k === 'held' ? heldCount : (pillCounts?.[k] ?? 0));
 
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-2 rounded-lg border border-border bg-card p-3">
+      {/* One row since 05/10/2026: tools and status pills are all filters, so they share a wrapping line
+          (`contents` dissolves the two former rows into this one). */}
+      <div className="contents">
         <OrderViewSwitch current="grouped" />
 
         {/* Ô tìm kiếm lớn đã bỏ (07/09/2026) — tra theo mã đơn qua "Nhiều mã", lọc loại SP ở rail. */}
@@ -268,8 +270,8 @@ export function WorkshopToolbar({
       </div>
 
       {/* Hàng 2: chỉ còn pill trạng thái + Đã hủy (chip "Đang lọc"/tổng đã bỏ 07/09/2026 — trùng lặp; xưởng hiện ở tiêu đề bảng phải). */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <div className="contents">
+        <div className="contents">
           {pillKeys.map((k) => {
             const meta = PILL_META[k];
             const Icon = meta.icon;

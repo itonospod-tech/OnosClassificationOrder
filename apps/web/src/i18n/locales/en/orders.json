@@ -851,7 +851,9 @@
       "allHeader": "{{orders}} orders · {{types}} product types",
       "viewing": "Showing {{shown}} / {{total}} orders of this type",
       "empty": "No product type matches"
-    }
+    },
+    "funnelExpand": "Show stage tiles",
+    "funnelCollapse": "Compact stages"
   },
   "printCard": {
     "details": "Details"

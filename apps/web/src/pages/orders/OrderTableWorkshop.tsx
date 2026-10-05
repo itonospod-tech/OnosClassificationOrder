@@ -1127,7 +1127,7 @@ export function OrderTableWorkshop() {
   return (
     <TooltipProvider delayDuration={200}>
       {/* Khung cột cố định: phễu + thanh công cụ đứng yên, vùng rail|bảng chiếm phần còn lại, CHỈ thân bảng cuộn. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-4" ref={rootRef}>
+      <div className="flex min-h-0 flex-1 flex-col gap-3" ref={rootRef}>
         <WorkshopStageStrip
           filters={workshopFilters}
           activeStage={filterStage}
