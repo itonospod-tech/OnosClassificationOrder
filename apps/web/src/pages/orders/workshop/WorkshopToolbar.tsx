@@ -80,6 +80,8 @@ export interface WorkshopToolbarProps {
   onReload: () => void;
   loading?: boolean;
 
+  /** Drawn inside a card the caller owns (no border, background or padding of its own). */
+  embedded?: boolean;
   /** Chip for open orders outside the default window (product-line views); rendered at the end of the line. */
   windowChip?: React.ReactNode;
   pillCounts: WorkshopAvailableFilters['pillCounts'] | undefined;
@@ -121,6 +123,7 @@ export function WorkshopToolbar({
   loading = false,
   pillCounts,
   windowChip,
+  embedded,
   heldCount,
   activePills,
   onTogglePill,
@@ -167,7 +170,7 @@ export function WorkshopToolbar({
   const pillCount = (k: WorkshopPillKey) => (k === 'held' ? heldCount : (pillCounts?.[k] ?? 0));
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-2 rounded-lg border border-border bg-card p-3">
+    <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-2', !embedded && 'rounded-lg border border-border bg-card p-3')}>
       {/* One row since 05/10/2026: tools and status pills are all filters, so they share a wrapping line
           (`contents` dissolves the two former rows into this one). */}
       <div className="contents">

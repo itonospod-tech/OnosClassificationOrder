@@ -1187,8 +1187,11 @@ export function OrderTableWorkshop() {
   return (
     <TooltipProvider delayDuration={200}>
       {/* Khung cột cố định: phễu + thanh công cụ đứng yên, vùng rail|bảng chiếm phần còn lại, CHỈ thân bảng cuộn. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3" ref={rootRef}>
+      <div className="flex min-h-0 flex-1 flex-col gap-2" ref={rootRef}>
+        {/* One card for the stage funnel and the toolbar: both are filters, so they share one frame. */}
+        <div className="space-y-1.5 rounded-lg border border-border bg-card p-2">
         <WorkshopStageStrip
+          embedded
           filters={workshopFilters}
           activeStage={filterStage}
           onStageChange={(st) => {
@@ -1200,6 +1203,7 @@ export function OrderTableWorkshop() {
         />
 
         <WorkshopToolbar
+          embedded
           windowChip={windowChip}
           onBulkApply={(ids) => {
             setSearch(''); // bulk và search thường loại trừ nhau
@@ -1236,6 +1240,7 @@ export function OrderTableWorkshop() {
           showDesignerSummary={canSeeDesignerSummary ? showDesignerSummary : undefined}
           onToggleDesignerSummary={canSeeDesignerSummary ? () => setShowDesignerSummary((v) => !v) : undefined}
         />
+        </div>
 
         {canSeeDesignerSummary && showDesignerSummary && (
           <div className="space-y-2">

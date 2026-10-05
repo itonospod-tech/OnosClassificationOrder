@@ -63,8 +63,12 @@ function Header({ changeCollapsed, isMobile }: HeaderProps) {
         )}
         {pageTitle && (
           <div className="min-w-0 leading-tight">
-            <h1 className="truncate text-sm font-semibold text-foreground">{pageTitle}</h1>
-            {pageSubtitle && <p className="hidden truncate text-[11px] text-muted-foreground sm:block">{pageSubtitle}</p>}
+            {/* The subtitle repeats what the page itself shows, so it is a tooltip on the title and only drawn
+                as a line where there is room to spare. */}
+            <h1 className="truncate text-sm font-semibold text-foreground" title={pageSubtitle || undefined}>
+              {pageTitle}
+            </h1>
+            {pageSubtitle && <p className="hidden truncate text-[11px] text-muted-foreground min-[1700px]:block">{pageSubtitle}</p>}
           </div>
         )}
         {/* Bộ chọn xưởng toàn cục — chỉ hiện ở /ffm/* (thay 5 cụm menu xưởng ở sidebar). */}

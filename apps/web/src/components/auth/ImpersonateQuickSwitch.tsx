@@ -74,10 +74,14 @@ export function ImpersonateQuickSwitch() {
           aria-label={t('impersonate.quickSwitch.tooltip', { name: displayName, email: displayEmail })}
         >
           <UserCog size={16} className={impersonating ? 'text-amber-500' : undefined} />
-          <span className="hidden w-[168px] shrink-0 flex-col text-left leading-tight lg:flex">
-            <span className="truncate text-xs font-medium text-foreground">{displayName}</span>
-            <span className="truncate text-[11px] text-muted-foreground">{displayEmail}</span>
-          </span>
+          {/* Name and email only while impersonating: the account block next to it already shows the signed-in
+              user, so for a SuperAdmin who is not impersonating anyone this is just the icon (with its tooltip). */}
+          {impersonating && (
+            <span className="hidden w-[168px] shrink-0 flex-col text-left leading-tight lg:flex">
+              <span className="truncate text-xs font-medium text-foreground">{displayName}</span>
+              <span className="truncate text-[11px] text-muted-foreground">{displayEmail}</span>
+            </span>
+          )}
         </Button>
       </PopoverTrigger>
 
