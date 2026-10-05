@@ -22,7 +22,7 @@ import { beepError, beepScan, beepSuccess } from '@/utils/scanCodes';
  * lệnh in label được gửi; chỉ trừ khi đơn CHƯA trừ lần nào (không bao giờ tự
  * trừ rework), lỗi thì im lặng — đối soát ngày sẽ bắt sót.
  */
-export function useScanStockOut(order: { productionId?: string }) {
+export function useScanStockOut(order: { productionId?: string; heldAt?: Date | string | null }) {
   const { t } = useTranslation('scanError');
   const [preview, setPreview] = useState<ScanOutPreview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,8 +30,15 @@ export function useScanStockOut(order: { productionId?: string }) {
 
   const productionId = order.productionId || '';
 
+  const held = !!order.heldAt;
   const openStockOut = useCallback(async () => {
     if (busyRef.current || !productionId) return;
+    // A held order is not being produced: no stock leaves for it (Orders.md §9b).
+    if (held) {
+      beepError();
+      toast.error(t('held.blocked', { productionId }));
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     try {
@@ -51,7 +58,7 @@ export function useScanStockOut(order: { productionId?: string }) {
       busyRef.current = false;
       setBusy(false);
     }
-  }, [productionId, t]);
+  }, [held, productionId, t]);
 
   const confirmStockOut = useCallback(async () => {
     if (busyRef.current || !preview) return;

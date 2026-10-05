@@ -48,6 +48,7 @@ import { getStageLabel } from '@/utils/fulfillmentStageLabel';
 import { beepError, beepSuccess, parseScanCode } from '@/utils/scanCodes';
 
 import { GuideStep, GuideZone } from './ScanGuide';
+import { ScanHeldBanner } from './ScanHeldBanner';
 import { useScanPrint } from './useScanPrint';
 import { useScanStockOut } from './useScanStockOut';
 
@@ -170,17 +171,20 @@ export function FulfillmentScanActionDialog({
     stageStatus === FulfillmentStageStatus.Waiting ||
     stageStatus === FulfillmentStageStatus.InProgress ||
     stageStatus === FulfillmentStageStatus.Rework;
-  const isMyTask = sameStage && sameFactory && workable;
+  // A held order is never a task to do here (Orders.md §9b): the server refuses the transition anyway.
+  const held = !!order.heldAt;
+  const isMyTask = !held && sameStage && sameFactory && workable;
 
   // Lý do khi không phải task — để hiển thị banner rõ ràng.
   const blockReason = useMemo(() => {
     if (isMyTask) return null;
+    if (held) return t('held.blocked', { productionId: order.productionId });
     if (!sameFactory) return t('fulfillmentDialog.blockDifferentFactory');
     if (stageStatus === FulfillmentStageStatus.Done) return t('fulfillmentDialog.blockAlreadyDone');
     if (!currentStage) return t('fulfillmentDialog.blockNotInFulfillment');
     if (!sameStage) return t('fulfillmentDialog.blockWrongStage', { stage: getStageLabel(t, currentStage) });
     return t('fulfillmentDialog.blockNotOperable');
-  }, [isMyTask, currentStage, sameStage, sameFactory, stageStatus, t]);
+  }, [isMyTask, held, order.productionId, currentStage, sameStage, sameFactory, stageStatus, t]);
 
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -302,6 +306,9 @@ export function FulfillmentScanActionDialog({
         // Lần 1 mở khối xác nhận; đang mở → quét lặp = chốt trừ.
         if (stockOutOpen) void confirmStockOut();
         else void openStockOut();
+      } else if (held) {
+        beepError();
+        toast.error(blockReason ?? t('fulfillmentDialog.notYourTask'));
       } else onReportError(); // report-error → chuyển sang dialog gán lỗi
       return;
     }
@@ -319,6 +326,11 @@ export function FulfillmentScanActionDialog({
       return;
     }
     if (action.kind === 'error') {
+      if (held) {
+        beepError();
+        toast.error(blockReason ?? t('fulfillmentDialog.notYourTask'));
+        return;
+      }
       doErrorScan(action.code);
       return;
     }
@@ -395,6 +407,7 @@ export function FulfillmentScanActionDialog({
             {t('fulfillmentDialog.dialogTitle', { stage: myStageLabel })}
           </DialogTitle>
         </DialogHeader>
+        {held && <ScanHeldBanner holdReason={order.holdReason} />}
 
         <div className="flex-1 min-h-0 grid gap-6 md:grid-cols-2 max-md:gap-4">
           {/* Mockup — chiếm 1 nửa, cao hết modal + nút mở ảnh gốc to */}
@@ -560,7 +573,7 @@ export function FulfillmentScanActionDialog({
               </GuideZone>
             </div>
           </div>
-        ) : (
+        ) : held ? null : (
           <div className="shrink-0 space-y-3 max-md:hidden">
             <div className="rounded-md border border-rose-300/50 bg-rose-50/50 dark:bg-rose-500/5 p-3 text-lg font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-2.5">
               <ShieldAlert size={22} className="shrink-0" />
@@ -601,14 +614,14 @@ export function FulfillmentScanActionDialog({
 
         {stockOutElement}
         <DialogFooter className="gap-3 shrink-0 max-md:before:pointer-events-none max-md:before:absolute max-md:before:inset-x-0 max-md:before:-top-5 max-md:before:h-5 max-md:before:bg-gradient-to-t max-md:before:from-background max-md:before:to-transparent max-md:sticky max-md:bottom-0 max-md:-mx-4 max-md:grid max-md:grid-cols-3 max-md:gap-2 max-md:border-t max-md:bg-background max-md:px-4 max-md:pt-3">
-          <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight">
+          <Button variant="outline" onClick={printTem} disabled={saving || held} className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight">
             <Printer size={20} className="mr-2" />
             {t('printActions.printTemBtn')}
           </Button>
           <Button
             variant="outline"
             onClick={() => void printLabel()}
-            disabled={saving || loadingLabel}
+            disabled={saving || loadingLabel || held}
             className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight"
           >
             <Tag size={20} className="mr-2" />
@@ -617,7 +630,7 @@ export function FulfillmentScanActionDialog({
           <Button
             variant="outline"
             onClick={() => void (stockOutOpen ? confirmStockOut() : openStockOut())}
-            disabled={saving || stockOutBusy}
+            disabled={saving || stockOutBusy || held}
             className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight"
           >
             <Boxes size={20} className="mr-2" />
@@ -638,7 +651,7 @@ export function FulfillmentScanActionDialog({
             </>
           ) : (
             <>
-              <Button variant="outline" onClick={onReportError} disabled={saving} className="h-14 px-6 text-lg max-md:col-span-3">
+              <Button variant="outline" onClick={onReportError} disabled={saving || held} className="h-14 px-6 text-lg max-md:col-span-3">
                 <MessageSquareWarning size={20} className="mr-2 text-rose-500" />
                 {t('fulfillmentDialog.reportThisOrderBtn')}
               </Button>

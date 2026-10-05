@@ -1542,7 +1542,17 @@ export const BarcodeLabelZod = z.object({
   itemTotal: z.number(),
 });
 export type BarcodeLabel = z.infer<typeof BarcodeLabelZod>;
-export const GetBarcodeLabelsResZod = ResZod.extend({ data: z.array(BarcodeLabelZod) });
+/**
+ * An order left out of a print batch because it is ON HOLD (Orders.md §9b): printing a held order
+ * wastes ink and fabric on work that may never ship. The rest of the batch still prints.
+ */
+export const HeldPrintSkipZod = z.object({ productionId: z.string(), holdReason: z.string().optional() });
+export type HeldPrintSkip = z.infer<typeof HeldPrintSkipZod>;
+export const GetBarcodeLabelsResZod = ResZod.extend({
+  data: z.array(BarcodeLabelZod),
+  /** Held orders left out of `data`. When EVERY requested order is held the request fails with 400 instead. */
+  skippedHeld: z.array(HeldPrintSkipZod).optional(),
+});
 export class GetBarcodeLabelsResDto extends createZodDto(extendApi(GetBarcodeLabelsResZod)) {}
 
 /**
@@ -1576,7 +1586,11 @@ export const ShippingLabelZod = z.object({
   shippingAddress: ProductionOrderShippingAddressZod.optional(),
 });
 export type ShippingLabel = z.infer<typeof ShippingLabelZod>;
-export const GetShippingLabelsResZod = ResZod.extend({ data: z.array(ShippingLabelZod) });
+export const GetShippingLabelsResZod = ResZod.extend({
+  data: z.array(ShippingLabelZod),
+  /** Held orders left out of `data` (same rule as barcode labels). */
+  skippedHeld: z.array(HeldPrintSkipZod).optional(),
+});
 export class GetShippingLabelsResDto extends createZodDto(extendApi(GetShippingLabelsResZod)) {}
 
 /**
@@ -1590,7 +1604,7 @@ export const ExportShippingLabelsZod = z.object({
   ids: z.array(IDZod).min(1).max(200),
 });
 export class ExportShippingLabelsDto extends createZodDto(extendApi(ExportShippingLabelsZod)) {}
-export const LabelSkipReasonZod = z.enum(['not-found', 'no-label', 'fetch-failed', 'unsupported-format']);
+export const LabelSkipReasonZod = z.enum(['not-found', 'no-label', 'fetch-failed', 'unsupported-format', 'held']);
 export const ExportShippingLabelsResDataZod = z.object({
   /** null = không đơn nào có label dùng được (xem `skipped`). */
   pdfBase64: z.string().nullable(),

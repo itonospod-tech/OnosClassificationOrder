@@ -39,6 +39,7 @@ import { isCancelled } from '@/utils/orderActions';
 import { beepError, beepScan, beepSuccess, parseScanCode, resolveErrorScan } from '@/utils/scanCodes';
 
 import { GuideStep, GuideZone } from './ScanGuide';
+import { ScanHeldBanner } from './ScanHeldBanner';
 import { useScanPrint } from './useScanPrint';
 import { useScanStockOut } from './useScanStockOut';
 
@@ -127,7 +128,9 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
   // Đơn đã hủy → chặn báo lỗi / đẩy về công đoạn trước (mirror guard BE).
   const orderCancelled = isCancelled(order);
 
-  const canSubmit = !!selectedCfg && !!resolution?.ok && !orderCancelled && !saving;
+  // Held order: no error report either (the server refuses it); the banner says why (Orders.md §9b).
+  const held = !!order.heldAt;
+  const canSubmit = !!selectedCfg && !!resolution?.ok && !orderCancelled && !held && !saving;
 
   const submitError = async (cfg: WorkshopConfig) => {
     const resolved = resolveErrorScan(cfg, furthest, t);
@@ -217,6 +220,11 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
       return true;
     }
     if (action.kind === 'error') {
+      if (held) {
+        beepError();
+        toast.error(t('held.blocked', { productionId: order.productionId }));
+        return true;
+      }
       handleErrorScan(action.code);
       return true;
     }
@@ -342,6 +350,7 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
             {t('orderErrorDialog.dialogTitle', { productionId: order.productionId })}
           </DialogTitle>
         </DialogHeader>
+        {held && <ScanHeldBanner holdReason={order.holdReason} />}
 
         <div className="flex-1 min-h-0 grid gap-6 md:grid-cols-2 max-md:gap-4">
           {/* Trái: mockup chiếm 1 nửa, cao hết modal + thông tin đơn chữ to */}
@@ -576,14 +585,14 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
 
         {stockOutElement}
         <DialogFooter className="gap-3 shrink-0 max-md:sticky max-md:bottom-0 max-md:-mx-4 max-md:grid max-md:grid-cols-3 max-md:gap-2 max-md:border-t max-md:bg-background max-md:px-4 max-md:pt-3">
-          <Button variant="outline" onClick={printTem} disabled={saving} className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight">
+          <Button variant="outline" onClick={printTem} disabled={saving || held} className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight">
             <Printer size={20} className="mr-2 max-md:mr-0" />
             {t('printActions.printTemBtn')}
           </Button>
           <Button
             variant="outline"
             onClick={() => void printLabel()}
-            disabled={saving || loadingLabel}
+            disabled={saving || loadingLabel || held}
             className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight"
           >
             <Tag size={20} className="mr-2 max-md:mr-0" />
@@ -592,7 +601,7 @@ export function OrderErrorScanDialog({ order, onClose, onSaved, onScanOrder, ini
           <Button
             variant="outline"
             onClick={() => void (stockOutOpen ? confirmStockOut() : openStockOut())}
-            disabled={saving || stockOutBusy}
+            disabled={saving || stockOutBusy || held}
             className="h-14 px-5 text-lg max-md:h-16 max-md:flex-col max-md:gap-1 max-md:whitespace-normal max-md:px-1 max-md:text-center max-md:text-xs max-md:leading-tight"
           >
             <Boxes size={20} className="mr-2 max-md:mr-0" />

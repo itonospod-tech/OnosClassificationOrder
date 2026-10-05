@@ -251,7 +251,8 @@ export class OrderController {
     this.logger.info({
       message: JSON.stringify({ method: 'POST', url: '/orders/barcode-labels', userId: user._id, count: dto.ids.length }),
     });
-    return { success: true, data: await this.orderService.getBarcodeLabels(dto.ids) };
+    const { labels, skippedHeld } = await this.orderService.getBarcodeLabels(dto.ids);
+    return { success: true, data: labels, skippedHeld };
   }
 
   /**
@@ -274,7 +275,8 @@ export class OrderController {
     this.logger.info({
       message: JSON.stringify({ method: 'POST', url: '/orders/shipping-labels', userId: user._id, count: dto.ids.length }),
     });
-    return { success: true, data: await this.orderService.getShippingLabels(dto.ids) };
+    const { labels, skippedHeld } = await this.orderService.getShippingLabels(dto.ids);
+    return { success: true, data: labels, skippedHeld };
   }
 
   /**

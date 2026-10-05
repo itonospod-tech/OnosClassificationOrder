@@ -322,6 +322,7 @@
     "printLabelBtn": "In tem nhỏ",
     "noLabel": "Không có đơn nào để in tem",
     "labelPartial": "Chỉ in được {{count}}/{{total}} tem — {{total}} đơn đang chọn nhưng chỉ {{count}} đơn còn hợp lệ để in",
+    "heldSkipped": "Đã bỏ qua {{count}} đơn đang bị giữ, không in: {{list}}",
     "labelTooMany": "Đang chọn {{count}} đơn — 1 lệnh in chỉ chịu được {{max}} tem. Hãy chia nhỏ lô rồi in lại.",
     "exportTitle": "Xuất Excel các đơn đang chọn",
     "exportBtn": "Xuất Excel",
@@ -346,7 +347,7 @@
     "exportLabelPdfBtn": "Xuất PDF label",
     "exportLabelPdfTitle": "Gộp label thật của đơn vị vận chuyển (đã mua qua VNP / khách tự cấp) thành 1 file PDF — mỗi label 1 trang",
     "exportLabelPdfSuccess": "Đã xuất {{count}} label ({{pages}} trang) vào 1 file PDF.",
-    "exportLabelPdfSkipped": "{{count}} đơn bị bỏ qua (chưa có label / tải label lỗi): {{list}}…",
+    "exportLabelPdfSkipped": "{{count}} đơn bị bỏ qua (chưa có label / tải label lỗi / đang bị giữ): {{list}}…",
     "exportLabelPdfMerged": "{{count}} item chung kiện đã gộp chung trang label.",
     "exportLabelPdfEmpty": "Không đơn nào có label carrier dùng được — cần mua label VNP hoặc đơn có label khách tự cấp."
   },
