@@ -7,7 +7,8 @@
     "product": "Product",
     "customer": "Customer",
     "machine": "Machine",
-    "priority": "Priority"
+    "priority": "Priority",
+    "lineAll": "All lines"
   },
   "dailyStrip": {
     "title": "Daily overview",

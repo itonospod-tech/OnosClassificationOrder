@@ -23,6 +23,7 @@ import { RepositoryRemote } from '@/services';
 
 import { useConfirm } from '@/components/common/ConfirmDialog';
 import { LoadingOverlay } from '@/components/common/LoadingOverlay';
+import { PageHeader } from '@/components/common/PageHeader';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { Spinner } from '@/components/common/Spinner';
 import { TierBadge } from '@/components/common/TierBadge';
@@ -237,18 +238,19 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-          <Contact size={20} className="text-indigo-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('page.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('page.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Contact size={20} />}
+        title={t('page.title')}
+        description={t('page.subtitle')}
+        actions={
+          <Button size="sm" onClick={openCreate}>
+            <Plus size={14} /> {t('page.addButton')}
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px] max-w-sm">
+        <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[220px] sm:max-w-sm">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <Input
             value={search}
@@ -294,7 +296,7 @@ export default function CustomersPage() {
             setPage(1);
           }}
           className={cn(
-            'inline-flex items-center gap-1.5 h-9 px-3 rounded-md border text-sm font-medium transition-colors',
+            'inline-flex items-center gap-1.5 h-9 touch:min-h-11 px-3 rounded-md border text-sm font-medium transition-colors',
             showDeleted
               ? 'border-rose-300 bg-rose-50 text-rose-600 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-400'
               : 'border-input text-muted-foreground hover:bg-muted/50',
@@ -304,15 +306,19 @@ export default function CustomersPage() {
           {t('page.showDeleted')}
         </button>
         <div className="flex-1" />
-        <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing}>
-          {syncing ? <Spinner size={13} className="mr-1.5" /> : <RefreshCw size={14} />}
-          {t('page.sync')}
+        {/* Secondary actions: icon-only on phones (label as aria-label + tooltip), labeled from sm up. */}
+        <Button size="sm" variant="outline" onClick={handleSync} disabled={syncing} aria-label={t('page.sync')} title={t('page.sync')}>
+          {syncing ? <Spinner size={13} className="sm:mr-1.5" /> : <RefreshCw size={14} />}
+          <span className="hidden sm:inline">{t('page.sync')}</span>
         </Button>
-        <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
-          <FileUp size={14} /> {t('page.importTier')}
-        </Button>
-        <Button size="sm" onClick={openCreate}>
-          <Plus size={14} /> {t('page.addButton')}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setImportOpen(true)}
+          aria-label={t('page.importTier')}
+          title={t('page.importTier')}
+        >
+          <FileUp size={14} /> <span className="hidden sm:inline">{t('page.importTier')}</span>
         </Button>
       </div>
 

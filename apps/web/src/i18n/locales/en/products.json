@@ -26,7 +26,9 @@
       "config": "Config",
       "category": "Categories",
       "factory": "Factories",
-      "collection": "Collections"
+      "collection": "Collections",
+      "tag": "Tags",
+      "technique": "Techniques"
     }
   },
   "configTab": {
@@ -183,11 +185,12 @@
       "autoPack": {
         "label": "Auto-complete Packing",
         "hint": "On: orders reaching the Packing stage complete automatically (production finished, notifications/webhooks fire as with manual packing). Only applies to NEW arrivals — use the button below for the current backlog.",
-        "sweepBtn": "Complete Packing backlog",
-        "sweepConfirm": "Complete ALL orders currently waiting at the Packing stage of factory {{name}}?",
-        "sweepEmpty": "No orders waiting at Packing.",
-        "sweepDone": "Completed {{ok}} orders at Packing.",
-        "sweepPartial": "Completed {{ok}} orders, {{fail}} failed (held orders / invalid state)."
+        "sweepBtn": "Complete backlog",
+        "sweepConfirm": "Complete {{total}} orders stuck at auto-complete stages of factory {{name}}?",
+        "sweepEmpty": "No orders stuck at auto-complete stages.",
+        "sweepDone": "Completed {{ok}} backlog orders.",
+        "sweepPartial": "Completed {{ok}} orders, {{fail}} failed (held orders / invalid state).",
+        "sweepWarning": "Each order is marked production-completed AT CLICK TIME, a package is created and the customer is notified (webhook). This cannot be undone."
       },
       "skipToolCheck": {
         "label": "Skip tool check",
@@ -546,6 +549,14 @@
       "allOf": "All - {{name}}",
       "someOf": "{{count}} - {{name}}",
       "clear": "Clear"
+    },
+    "tagsField": {
+      "label": "Tags (select many)",
+      "empty": "No tags yet — create them in the Tags tab of the Products page."
+    },
+    "techniquesField": {
+      "label": "Techniques (select many)",
+      "empty": "No techniques yet — create them in the Techniques tab of the Products page."
     }
   },
   "collectionTab": {
@@ -620,11 +631,12 @@
   "productLines": {
     "3d": "3D",
     "2d": "2D",
-    "wood": "Wood",
+    "wood": "Wood & laser cut",
     "embroidery": "Embroidery",
     "led": "LED",
     "canvas": "Canvas",
-    "none": "No line"
+    "none": "No line",
+    "dropship": "Dropship"
   },
   "productLineSources": {
     "manual": "set manually",
@@ -633,5 +645,67 @@
     "machineType": "from department",
     "printMethod": "from print method",
     "default": "auto default — please review"
+  },
+  "productTagTab": {
+    "title": "Product tags",
+    "description": "Labels attached to products (many tags per product) — pick them on the product detail page.",
+    "table": {
+      "image": "Image",
+      "name": "Name",
+      "shortName": "Short name",
+      "sortOrder": "Order",
+      "status": "Status",
+      "empty": "No tags yet.",
+      "active": "Active",
+      "inactive": "Off"
+    },
+    "dialog": {
+      "createTitle": "Add tag",
+      "editTitle": "Edit tag"
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "e.g. Christmas",
+      "shortName": "Short name",
+      "shortNamePlaceholder": "e.g. XMAS",
+      "image": "Image (URL)",
+      "description": "Description",
+      "sortOrder": "Sort order",
+      "active": "Active",
+      "nameRequired": "Name and short name are required",
+      "createSuccess": "Tag created",
+      "updateSuccess": "Updated"
+    }
+  },
+  "productTechniqueTab": {
+    "title": "Product techniques",
+    "description": "Finishing/application techniques (UV, Sublimation…) — separate from the print method, picked on the product detail page.",
+    "table": {
+      "image": "Image",
+      "name": "Name",
+      "shortName": "Short name",
+      "sortOrder": "Order",
+      "status": "Status",
+      "empty": "No techniques yet.",
+      "active": "Active",
+      "inactive": "Off"
+    },
+    "dialog": {
+      "createTitle": "Add technique",
+      "editTitle": "Edit technique"
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "e.g. Sublimation",
+      "shortName": "Short name",
+      "shortNamePlaceholder": "e.g. SUBLIMATION",
+      "image": "Image (URL)",
+      "description": "Description",
+      "sortOrder": "Sort order",
+      "active": "Active",
+      "nameRequired": "Name and short name are required",
+      "createSuccess": "Technique created",
+      "updateSuccess": "Updated"
+    }
   }
 }

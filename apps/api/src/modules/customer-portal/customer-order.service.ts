@@ -1,5 +1,5 @@
 import type { OnModuleInit } from '@nestjs/common';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cron } from '@nestjs/schedule';
@@ -41,6 +41,7 @@ import type {
   PushCustomerOrdersResDto,
   ResolveImportSkusDto,
   ResolveImportSkusResDto,
+  TrashCustomerOrdersResDto,
   UpdateCustomerOrderDto,
   UpdateCustomerOrderResDto,
   UpdateCustomerStagingOrderDto,
@@ -62,6 +63,7 @@ import {
   hasProductionOrderTracking,
   LIFECYCLE_STAGE_KEYS,
   normalizeProductionOrderTracking,
+  ORDER_PRIORITIES,
   PRODUCT_LINES,
   PRODUCT_PRINT_AREA_LABEL_MAP,
   RoleType,
@@ -83,6 +85,9 @@ import { workshopStageSwitchExpr } from '@/utils/workshop-stage';
 import type { CustomerOrderItem } from './customer-order.entity';
 import { CustomerOrderEntity } from './customer-order.entity';
 import { CustomerPaymentEntity } from './customer-payment.entity';
+import type { ProductionCostInput } from './production-cost';
+import { buildProductionCostRows } from './production-cost';
+import { PRODUCTION_COST_PRODUCTION_ID_INDEX, ProductionCostEntryEntity } from './production-cost.entity';
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -200,18 +205,25 @@ export function isReworkBadge(p: ProdDeriveFields): boolean {
 }
 
 /**
- * Trạng thái khách của 1 item đã push — plan §1: Processing = chưa từng vào
- * In; In Production = `currentFulfillmentStage` set; Fulfilled = đóng hàng
- * xong; Completed = Fulfilled + N ngày (cutoff tính sẵn từ system_configs).
- * MIRROR với `buildDerivePipeline()`.
+ * Customer status of one PUSHED item: In Production = pushed and not fulfilled yet, whatever
+ * the stage (tool check, design or any fulfillment stage); Fulfilled = packed; Completed =
+ * Fulfilled + N days (cutoff from system_configs). MIRROR of `buildDerivePipeline()`.
+ *
+ * "In Production" = pushed to production, decided 2026-10-04 (LegacyClone-Orders.md §7): the
+ * legacy `process_order` step is the single event "the order leaves the seller for the
+ * factory", which is our push. A pushed item is therefore NEVER "Processing": the push is
+ * atomic, there is no "submitted, waiting" step. Processing stays in the ladder (and stays
+ * empty) for a future pay-before-production gate.
  */
 export function deriveItemStatus(p: ProdDeriveFields, completedCutoff: Date): CustomerOrderStatus {
   if (p.cancelledAt) return CustomerOrderStatus.Cancelled;
   if (p.fulfillmentCompletedAt)
     return p.fulfillmentCompletedAt <= completedCutoff ? CustomerOrderStatus.Completed : CustomerOrderStatus.Fulfilled;
-  if (p.currentFulfillmentStage) return CustomerOrderStatus.InProduction;
-  return CustomerOrderStatus.Processing;
+  return CustomerOrderStatus.InProduction;
 }
+
+// Module-level (not a class field): specs build the service with Object.create(), which skips field initialisers.
+const productionCostLogger = new Logger('ProductionCostShadow');
 
 /** Config + variation resolve được từ SKU / type — context chốt giá dùng chung import/preview/push. */
 interface PricingConfig {
@@ -232,6 +244,8 @@ interface PricingConfig {
     status?: string;
     retailPrice?: number;
     nonShipCost?: number;
+    /** Our production cost per unit (legacy base_price). Shadow ledger only — never shown to the seller. */
+    cost?: number;
     /** Cân nặng gram + kích thước đóng gói cm — đi theo đơn tới xưởng và tới bước mua vận đơn. */
     weight?: number;
     width?: number;
@@ -276,6 +290,13 @@ interface QuoteResult {
   length?: number;
   /** Cước ship của biến thể theo `shipMethod` (`expUsShipCost`/`tiktokShipCost`). */
   shipCost?: number;
+  /**
+   * INTERNAL: production cost per unit + variation SKU, for the shadow cost ledger.
+   * Quotes are mapped field by field into responses, so these never reach a seller;
+   * keep it that way — never spread a QuoteResult into a response.
+   */
+  unitCost?: number;
+  variationSku?: string;
 }
 
 /** Lấy value thuộc tính variation theo tên label (size/color) — attributes tự do key-value. */
@@ -300,6 +321,8 @@ export class CustomerOrderService implements OnModuleInit {
     @InjectModel(OrderEntity.name) private readonly orderModel: Model<OrderEntity>,
     @InjectModel(CustomerOrderEntity.name) private readonly customerOrderModel: Model<CustomerOrderEntity>,
     @InjectModel(CustomerPaymentEntity.name) private readonly customerPaymentModel: Model<CustomerPaymentEntity>,
+    @InjectModel(ProductionCostEntryEntity.name)
+    private readonly productionCostModel: Model<ProductionCostEntryEntity>,
     @InjectModel(ProductConfigEntity.name) private readonly productConfigModel: Model<ProductConfigEntity>,
     private readonly orderService: OrderService,
     private readonly promotionService: PromotionService,
@@ -318,6 +341,17 @@ export class CustomerOrderService implements OnModuleInit {
 
   async onModuleInit() {
     this.warmAdminCache();
+    // First on purpose: the backfill below returns early once its marker is set, and
+    // the index must be (re)asserted on EVERY boot. Not awaited so the build cannot
+    // block startup; a failure must reach the log (autoIndex would swallow it).
+    void this.productionCostModel.collection
+      .createIndex(PRODUCTION_COST_PRODUCTION_ID_INDEX.keys, {
+        name: PRODUCTION_COST_PRODUCTION_ID_INDEX.name,
+        unique: true,
+      })
+      .catch((err: Error) =>
+        productionCostLogger.error(`production_cost_entries unique index build failed: ${err.message?.slice(0, 1000)}`),
+      );
     const MARKER = 'customer_orders_backfill_v1';
     try {
       const done = await this.systemConfigService.get<string>(MARKER);
@@ -598,7 +632,7 @@ export class CustomerOrderService implements OnModuleInit {
    * đổi 1 nơi nhớ đổi nơi kia.
    */
   /** `customerId = null` → không scope theo khách (khu quản trị `/hub` đọc MỌI seller — chỉ Admin gọi). */
-  private buildDerivePipeline(customerId: string | null, completedCutoff: Date): Record<string, unknown>[] {
+  private buildDerivePipeline(customerId: string | null, completedCutoff: Date, trash = false): Record<string, unknown>[] {
     const progressExpr = {
       $switch: {
         branches: [
@@ -606,9 +640,8 @@ export class CustomerOrderService implements OnModuleInit {
             case: { $ne: [{ $ifNull: ['$$p.fulfillmentCompletedAt', null] }, null] },
             then: { $cond: [{ $lte: ['$$p.fulfillmentCompletedAt', completedCutoff] }, 4, 3] },
           },
-          { case: { $ne: [{ $ifNull: ['$$p.currentFulfillmentStage', null] }, null] }, then: 2 },
         ],
-        default: 1,
+        default: 2 /* pushed, not fulfilled = In Production (see deriveItemStatus) */,
       },
     };
     const reworkCond = {
@@ -623,7 +656,8 @@ export class CustomerOrderService implements OnModuleInit {
       ],
     };
     return [
-      ...(customerId ? [{ $match: { customerId } }] : []),
+      // Trashed orders (hub Trashed tab) are out of every number unless `trash` asks for them.
+      { $match: { ...(customerId ? { customerId } : {}), ...CustomerOrderService.trashMatch(trash) } },
       {
         // Nối bằng localField/foreignField để DÙNG ĐƯỢC index `productionId_1`.
         // Bản cũ lọc bằng `$expr: { $in: ['$productionId', '$$pids'] }` — `$expr`
@@ -679,7 +713,6 @@ export class CustomerOrderService implements OnModuleInit {
                   in: {
                     $switch: {
                       branches: [
-                        { case: { $eq: ['$$minP', 1] }, then: CustomerOrderStatus.Processing },
                         { case: { $eq: ['$$minP', 2] }, then: CustomerOrderStatus.InProduction },
                         { case: { $eq: ['$$minP', 3] }, then: CustomerOrderStatus.Fulfilled },
                       ],
@@ -826,7 +859,7 @@ export class CustomerOrderService implements OnModuleInit {
       if (active.length === 0) status = CustomerOrderStatus.Cancelled;
       else {
         let min = Number.POSITIVE_INFINITY;
-        let minStatus = CustomerOrderStatus.Processing;
+        let minStatus = CustomerOrderStatus.InProduction;
         for (const i of active) {
           const p = CUSTOMER_ORDER_STATUS_PROGRESS[i.status as CustomerOrderStatus] ?? 1;
           if (p < min) {
@@ -859,6 +892,7 @@ export class CustomerOrderService implements OnModuleInit {
       createdAt: doc.createdAt as Date | undefined,
       cancelledAt: (doc.cancelledAt as Date | null) ?? undefined,
       cancelReason: doc.cancelReason as string | undefined,
+      trashedAt: (doc.trashedAt as Date | null) ?? undefined,
     };
   }
 
@@ -987,6 +1021,8 @@ export class CustomerOrderService implements OnModuleInit {
       height: variation.height,
       length: variation.length,
       shipCost: shipMethod === 'cod' || shipMethod === 'tiktok' ? variation.tiktokShipCost : variation.expUsShipCost,
+      unitCost: variation.cost,
+      variationSku: variation.sku,
       snapshot: {
         shipMethod,
         unitPrice,
@@ -1208,9 +1244,15 @@ export class CustomerOrderService implements OnModuleInit {
   ): [Record<string, unknown>[], Record<string, unknown>[]] {
     // Cùng luật với listing: chỉ `items.productLine` (đã stamp/backfill) — không fallback `prodOrders`, kẻo tab đếm lệch danh sách.
     const lineMatch: Record<string, unknown>[] = [...extraStages, ...(productLine ? [{ $match: { 'items.productLine': productLine } }] : [])];
+    // Every stage in `lineMatch` reads only the order document (dates, items.productLine,
+    // items.productionId), never a derived field, so it runs BEFORE the `$lookup`: derive then
+    // touches only the orders in scope instead of all of them. `derive[0]` is its own
+    // customer + trash `$match`; the rest is `$lookup` + `$addFields`, which drop no document.
+    const derive = this.buildDerivePipeline(customerId, cutoff);
     const byStatus = [
-      ...this.buildDerivePipeline(customerId, cutoff),
+      derive[0],
       ...lineMatch,
+      ...derive.slice(1),
       {
         $group: {
           _id: '$statusDerived',
@@ -1220,8 +1262,10 @@ export class CustomerOrderService implements OnModuleInit {
         },
       },
     ];
+    // Line counts read `items.productLine` only, so they need no derive at all (it used to run
+    // the full `$lookup` a second time; hub counts were ~5 s, see SellerPortal.md §9.2b).
     const byLine = [
-      ...this.buildDerivePipeline(customerId, cutoff),
+      derive[0],
       ...lineMatch,
       { $project: { lines: { $setUnion: [{ $ifNull: ['$items.productLine', []] }, []] } } },
       { $unwind: '$lines' },
@@ -1259,6 +1303,57 @@ export class CustomerOrderService implements OnModuleInit {
    * Nhiều điều kiện → giao tập. Trả null khi không có điều kiện áp dụng được hoặc tập quá lớn
    * (completed/cancelled/refunded → đường đầy đủ).
    */
+  /** Document condition for the hub Trashed tab: only trashed, or (default) none of them. */
+  private static trashMatch(trash: boolean): Record<string, unknown> {
+    return { trashedAt: trash ? { $ne: null } : null };
+  }
+
+  /**
+   * Hub: move orders to the Trashed tab. ONE conditional update, so it cannot race a push:
+   * `claimPush` only claims `trashedAt: null` and this only trashes `pushedAt: null` +
+   * `pushingAt: null` — whichever lands first wins, the other matches nothing. A stale
+   * `pushingAt` (crashed push) blocks trashing until the push claim is released or retried.
+   */
+  async trashOrdersAdmin(ids: string[], by: string): Promise<TrashCustomerOrdersResDto> {
+    const notPushed = { trashedAt: null, pushedAt: null, $or: [{ pushingAt: null }, { pushingAt: { $exists: false } }] };
+    return this.applyPerId(ids, (_id) => this.customerOrderModel.updateOne({ _id, ...notPushed }, { $set: { trashedAt: new Date(), trashedBy: by } }));
+  }
+
+  /** Hub: bring trashed orders back to where they were (pending / cancelled — nothing else changed while trashed). */
+  async restoreOrdersAdmin(ids: string[]): Promise<TrashCustomerOrdersResDto> {
+    return this.applyPerId(ids, (_id) =>
+      this.customerOrderModel.updateOne({ _id, trashedAt: { $ne: null } }, { $set: { trashedAt: null }, $unset: { trashedBy: 1 } }),
+    );
+  }
+
+  /** One conditional update per id (≤ 200): the reported result is exactly what changed, even under a concurrent push. */
+  private async applyPerId(ids: string[], update: (id: string) => Promise<{ modifiedCount: number }>): Promise<TrashCustomerOrdersResDto> {
+    const changed: string[] = [];
+    for (const id of new Set(ids)) if ((await update(id)).modifiedCount > 0) changed.push(id);
+    return this.trashResult([...new Set(ids)], changed);
+  }
+
+  private trashResult(ids: string[], changed: string[]): TrashCustomerOrdersResDto {
+    this.adminCache.clear(); // counts/stats are cached 60 s; the tab numbers must move now
+    const done = new Set(changed);
+    return { success: true, data: { ok: changed.length, skipped: ids.filter((id) => !done.has(id)) } };
+  }
+
+  /**
+   * Hub item-level scope (`factoryId` / `priority`, `AdminOrderItemScopeZod`) as a document
+   * stage: the order matches iff one of its `items.productionId` is a non-cancelled production
+   * order in scope. That is EXACT (necessary and sufficient), so unlike `loadCandidatePids` it
+   * has no size cap: falling back to "no filter" past a cap would silently list every factory.
+   */
+  private async adminItemScopeStages(dto: { factoryId?: string; priority?: boolean }): Promise<Record<string, unknown>[]> {
+    if (!dto.factoryId && dto.priority !== true) return [];
+    const q: Record<string, unknown> = { cancelledAt: null, productionId: { $ne: null } };
+    if (dto.factoryId) q.factoryId = dto.factoryId;
+    if (dto.priority === true) q.priority = { $in: ORDER_PRIORITIES };
+    const pids = (await this.customerOrderModel.db.collection('orders').distinct('productionId', q)) as string[];
+    return [{ $match: { 'items.productionId': { $in: pids } } }];
+  }
+
   private async loadCandidatePids(opts: { stage?: string; status?: CustomerOrderStatus; held: boolean; cutoff: Date }): Promise<string[] | null> {
     const col = this.customerOrderModel.db.collection('orders');
     const sets: Array<Set<string>> = [];
@@ -1279,12 +1374,12 @@ export class CustomerOrderService implements OnModuleInit {
     }
     const statusFilter: Record<string, unknown> | null =
       opts.status === CustomerOrderStatus.InProduction
-        ? { cancelledAt: null, fulfillmentCompletedAt: null, currentFulfillmentStage: { $ne: null } }
-        : opts.status === CustomerOrderStatus.Processing
-          ? { cancelledAt: null, fulfillmentCompletedAt: null, currentFulfillmentStage: null }
-          : opts.status === CustomerOrderStatus.Fulfilled
+        ? { cancelledAt: null, fulfillmentCompletedAt: null }
+        : opts.status === CustomerOrderStatus.Fulfilled
             ? { cancelledAt: null, fulfillmentCompletedAt: { $gt: opts.cutoff } }
             : null;
+    // No pushed item is ever Processing (deriveItemStatus): an empty candidate set, not "no filter".
+    if (opts.status === CustomerOrderStatus.Processing) sets.push(new Set());
     if (statusFilter) await collect(col.find<{ productionId?: string }>(statusFilter, { projection: { _id: 0, productionId: 1 } }));
     if (opts.held) await collect(col.find<{ productionId?: string }>({ cancelledAt: null, heldAt: { $ne: null } }, { projection: { _id: 0, productionId: 1 } }));
     if (sets.length === 0) return null;
@@ -1304,16 +1399,18 @@ export class CustomerOrderService implements OnModuleInit {
     pageTail?: Record<string, unknown>[];
     /** Tập `productionId` ứng viên (từ `loadCandidatePids`) — thu hẹp Ở MỨC DOCUMENT trước khi derive. null = không thu hẹp. */
     candidatePids?: string[] | null;
+    /** Hub Trashed tab: only trashed orders. Default excludes them (the fast path derives after paging, so this must be a document match). */
+    trash?: boolean;
     skip: number;
     limit: number;
   }): Record<string, unknown>[] {
     const docMatch: Record<string, unknown>[] = [
-      ...(opts.customerId ? [{ $match: { customerId: opts.customerId } }] : []),
+      { $match: { ...(opts.customerId ? { customerId: opts.customerId } : {}), ...CustomerOrderService.trashMatch(!!opts.trash) } },
       ...opts.preStages,
       ...(opts.productLine ? [{ $match: { 'items.productLine': opts.productLine } }] : []),
     ];
     const sortStages = [{ $addFields: { sortAt: { $ifNull: ['$pushedAt', '$createdAt'] } } }, { $sort: { sortAt: -1, _id: -1 } }];
-    const derive = this.buildDerivePipeline(null, opts.cutoff);
+    const derive = this.buildDerivePipeline(null, opts.cutoff, !!opts.trash);
     // `pending` suy được ở mức document (mirror `statusDerived`: chưa hủy, chưa hoàn tiền, chưa push) → đường nhanh.
     if (opts.status === CustomerOrderStatus.Pending) {
       docMatch.push({ $match: { status: { $ne: 'cancelled' }, refundedAt: null, pushedAt: null } });
@@ -1535,15 +1632,21 @@ export class CustomerOrderService implements OnModuleInit {
           },
         ]
       : [];
-    const candidatePids = await this.loadCandidatePids({ stage: dto.stage, status: dto.status, held: !!dto.held, cutoff });
+    preStages.push(...(await this.adminItemScopeStages(dto)));
+    // The Trashed tab is its own view: status/held filters do not apply to it.
+    const trash = dto.trashed === true;
+    const status = trash ? undefined : dto.status;
+    const held = !trash && !!dto.held;
+    const candidatePids = await this.loadCandidatePids({ stage: dto.stage, status, held, cutoff });
     const pipeline = this.buildPagedListPipeline({
       customerId: dto.customerId ?? null,
       candidatePids,
       cutoff,
       preStages,
       productLine: dto.productLine,
-      status: dto.status,
-      held: !!dto.held,
+      status,
+      held,
+      trash,
       postDeriveStages: stageStage,
       pageTail: CustomerOrderService.CUSTOMER_LOOKUP,
       skip: (dto.page - 1) * dto.limit,
@@ -1565,12 +1668,20 @@ export class CustomerOrderService implements OnModuleInit {
 
   private async computeCountsAdmin(dto: GetAdminCustomerOrderCountsDto): Promise<GetCustomerOrderCountsResDto> {
     const cutoff = await this.getCompletedCutoff();
-    const [byStatus, byLine] = this.countsPipelines(dto.customerId ?? null, cutoff, dto.productLine, CustomerOrderService.dateRangeStages(dto.dateFrom, dto.dateTo));
-    const [rows, lineRows] = await Promise.all([
+    const docStages = [...CustomerOrderService.dateRangeStages(dto.dateFrom, dto.dateTo), ...(await this.adminItemScopeStages(dto))];
+    const [byStatus, byLine] = this.countsPipelines(dto.customerId ?? null, cutoff, dto.productLine, docStages);
+    const trashedPipeline = [
+      { $match: { ...(dto.customerId ? { customerId: dto.customerId } : {}), ...CustomerOrderService.trashMatch(true) } },
+      ...docStages,
+      ...(dto.productLine ? [{ $match: { 'items.productLine': dto.productLine } }] : []),
+      { $count: 'n' },
+    ];
+    const [rows, lineRows, trashedRows] = await Promise.all([
       this.customerOrderModel.aggregate<{ _id: string; count: number; held: number; rework: number }>(byStatus as never[]),
       this.customerOrderModel.aggregate<{ _id: ProductLine; count: number }>(byLine as never[]),
+      this.customerOrderModel.aggregate<{ n: number }>(trashedPipeline as never[]),
     ]);
-    return { success: true, data: this.assembleCounts(rows, lineRows) };
+    return { success: true, data: { ...this.assembleCounts(rows, lineRows), trashed: trashedRows[0]?.n ?? 0 } };
   }
 
   async getStatsAdmin(): Promise<GetAdminCustomerOrderStatsResDto> {
@@ -1669,7 +1780,7 @@ export class CustomerOrderService implements OnModuleInit {
     if (dto.externalRefs?.length) {
       const keys = dto.externalRefs.map((r) => customerOrderKey(r, undefined));
       const docs = await this.customerOrderModel
-        .find({ customerId: String(customer._id), orderKey: { $in: keys } })
+        .find({ customerId: String(customer._id), orderKey: { $in: keys }, trashedAt: null })
         .select('_id')
         .lean();
       ids.push(...docs.map((d) => String(d._id)));
@@ -1726,7 +1837,8 @@ export class CustomerOrderService implements OnModuleInit {
   // -------------------------------------------------------------------------
 
   private async getPendingStagingOrder(customer: CustomerDocument, id: string) {
-    const doc = await this.customerOrderModel.findOne({ _id: id, customerId: String(customer._id) });
+    // Trashed = gone for the seller: same answer as a missing order.
+    const doc = await this.customerOrderModel.findOne({ _id: id, customerId: String(customer._id), trashedAt: null });
     if (!doc) throw new NotFoundException(customerMessage('orderNotFoundDot'));
     if (doc.status === 'cancelled') throw new BadRequestException(customerMessage('orderCancelled'));
     if (doc.pushedAt) throw new BadRequestException(customerMessage('orderPushedEditLimited'));
@@ -1931,7 +2043,16 @@ export class CustomerOrderService implements OnModuleInit {
       } catch (err) {
         if ((err as { code?: number }).code === 11000) {
           duplicated++;
-          results.push({ ...base, status: 'duplicated', error: 'Đơn đã tồn tại — sửa/xóa trên portal rồi import lại' });
+          // The clashing order may be in the hub trash, invisible to the seller: say so, or they
+          // look for an order that is not on their list and conclude the import is broken.
+          const inTrash = await this.customerOrderModel.exists({ customerId: String(customer._id), orderKey, trashedAt: { $ne: null } });
+          results.push({
+            ...base,
+            status: 'duplicated',
+            error: inTrash
+              ? 'Đơn này đã bị quản trị viên đưa vào thùng rác — liên hệ hỗ trợ để khôi phục, hoặc đổi mã đơn'
+              : 'Đơn đã tồn tại — sửa/xóa trên portal rồi import lại',
+          });
         } else {
           failed++;
           results.push({ ...base, status: 'failed', error: (err as Error).message });
@@ -1977,6 +2098,7 @@ export class CustomerOrderService implements OnModuleInit {
         _id: stagingId,
         customerId,
         pushedAt: null,
+        trashedAt: null, // a trashed order can never be pushed (trash requires pushingAt null: see trashOrdersAdmin)
         $or: [{ pushingAt: null }, { pushingAt: { $exists: false } }, { pushingAt: { $lt: new Date(now - PUSH_CLAIM_STALE_MS) } }],
       },
       { $set: { pushingAt: new Date(now) } },
@@ -2000,7 +2122,7 @@ export class CustomerOrderService implements OnModuleInit {
   }
 
   private validatePushable(doc: Record<string, unknown> | undefined): string | undefined {
-    if (!doc) return 'Không tìm thấy đơn';
+    if (!doc || doc.trashedAt) return 'Không tìm thấy đơn'; // trashed (hub) = gone for the seller
     if (doc.status === 'cancelled') return 'Đơn đã hủy';
     if (doc.pushedAt) return 'Đơn đã đẩy sản xuất trước đó';
     const items = (doc.items || []) as CustomerOrderItem[];
@@ -2076,6 +2198,7 @@ export class CustomerOrderService implements OnModuleInit {
     const results: PushCustomerOrdersResDto['data']['results'] = [];
     const importRows: ImportProductionOrderRow[] = [];
     const pendingUpdates: Array<{ stagingId: string; items: CustomerOrderItem[]; orderTotal: number }> = [];
+    const costInputs: ProductionCostInput[] = [];
     let totalAmount = 0;
     /**
      * Mốc "đơn vào sản xuất" của cả lô đẩy này.
@@ -2158,6 +2281,14 @@ export class CustomerOrderService implements OnModuleInit {
         // xuyên suốt). Fallback sinh mới cho staging doc cũ tạo trước cơ chế này.
         const productionId = it.productionId ?? (await this.generateUniqueProductionId());
         productionIds.push(productionId);
+        costInputs.push({
+          productionId,
+          stagingOrderId: id,
+          productConfigId: q.productConfigId ?? it.productConfigId,
+          variationSku: q.variationSku,
+          unitCost: q.unitCost,
+          quantity: it.quantity ?? 1,
+        });
         updatedItems.push({
           ...it,
           productConfigId: q.productConfigId ?? it.productConfigId,
@@ -2257,6 +2388,10 @@ export class CustomerOrderService implements OnModuleInit {
       throw e;
     }
 
+    // Outside the try above on purpose: the order is already in production, so a
+    // ledger problem must never release the push claims or fail the push.
+    await this.recordProductionCosts(String(customer._id), pushedAt, costInputs);
+
     await Promise.all(
       pendingUpdates.map((u) =>
         this.customerOrderModel.updateOne(
@@ -2330,6 +2465,30 @@ export class CustomerOrderService implements OnModuleInit {
     await this.designStorageService.touchUsageForUrls(cdnUrls);
 
     return { success: true, data: { results, totalAmount: Math.round(totalAmount * 100) / 100 } };
+  }
+
+  /**
+   * Shadow production-cost ledger (money plan §5.3 #1): records, never charges.
+   * Idempotent per `productionId` (upsert with `$setOnInsert`), so a retried push
+   * cannot double-count. Failures are logged and swallowed — see the call site.
+   */
+  private async recordProductionCosts(
+    customerId: string,
+    pushedAt: Date,
+    inputs: ProductionCostInput[],
+  ): Promise<void> {
+    try {
+      const rows = buildProductionCostRows(customerId, pushedAt, inputs);
+      if (rows.length === 0) return;
+      await this.productionCostModel.bulkWrite(
+        rows.map((row) => ({
+          updateOne: { filter: { productionId: row.productionId }, update: { $setOnInsert: row }, upsert: true },
+        })),
+        { ordered: false },
+      );
+    } catch (e) {
+      productionCostLogger.error(`Could not record production cost: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   // -------------------------------------------------------------------------

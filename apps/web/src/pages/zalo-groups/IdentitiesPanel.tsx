@@ -9,6 +9,7 @@ import { RepositoryRemote } from '@/services';
 
 import { LoadingOverlay } from '@/components/common/LoadingOverlay';
 import { PaginationBar } from '@/components/common/PaginationBar';
+import { StatCards } from '@/components/common/StatCards';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -131,18 +132,21 @@ export default function IdentitiesPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-slate-200 dark:bg-slate-700 sm:grid-cols-4">
-        <Stat label={t('identity.kind.ai-support')} value={counts[ZaloIdentityKind.AiSupport] ?? 0} />
-        <Stat label={t('identity.kind.staff')} value={counts[ZaloIdentityKind.Staff] ?? 0} />
-        <Stat label={t('identity.kind.customer')} value={counts[ZaloIdentityKind.Customer] ?? 0} />
-        <Stat label={t('identity.pending')} value={counts.chuaXacNhan ?? 0} warn />
-      </div>
+      <StatCards
+        cols={4}
+        items={[
+          { label: t('identity.kind.ai-support'), value: counts[ZaloIdentityKind.AiSupport] ?? 0 },
+          { label: t('identity.kind.staff'), value: counts[ZaloIdentityKind.Staff] ?? 0 },
+          { label: t('identity.kind.customer'), value: counts[ZaloIdentityKind.Customer] ?? 0 },
+          { label: t('identity.pending'), value: counts.chuaXacNhan ?? 0, tone: (counts.chuaXacNhan ?? 0) > 0 ? 'warning' : 'neutral' },
+        ]}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            className="w-56 pl-8"
+            className="w-full pl-8 sm:w-56"
             placeholder={t('identity.searchName')}
             value={search}
             onChange={(e) => {
@@ -188,7 +192,7 @@ export default function IdentitiesPanel() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('identity.person')}</TableHead>
+              <TableHead className="sticky left-0 z-10 min-w-[10rem] max-w-[12rem] bg-card">{t('identity.person')}</TableHead>
               <TableHead className="w-24 text-right">{t('identity.groupCount')}</TableHead>
               <TableHead className="w-24 text-right">{t('identity.msgCount')}</TableHead>
               <TableHead>{t('identity.classify')}</TableHead>
@@ -208,11 +212,11 @@ export default function IdentitiesPanel() {
 
               return (
                 <TableRow key={r._id}>
-                  <TableCell>
+                  <TableCell className="sticky left-0 z-10 min-w-[10rem] max-w-[12rem] bg-card">
                     <div className="flex items-center gap-2">
                       <Icon className="h-4 w-4 shrink-0 text-slate-400" />
                       <div className="min-w-0">
-                        <div className="truncate font-medium">{r.displayName || r.zaloUid}</div>
+                        <div className="break-words font-medium">{r.displayName || r.zaloUid}</div>
                         {!r.confirmedAt && r.suggestedKind && r.suggestedKind !== ZaloIdentityKind.Unknown && (
                           <div className="text-xs text-slate-400">
                             {t('identity.suggested', { kind: t(`identity.kind.${r.suggestedKind}`) })}
@@ -224,17 +228,18 @@ export default function IdentitiesPanel() {
                   <TableCell className="text-right font-medium tabular-nums">{r.groupCount}</TableCell>
                   <TableCell className="text-right tabular-nums text-slate-500">{r.messageCount}</TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
+                    {/* No wrapping: in a narrow cell the buttons stacked into a 180px-tall row; the frame scrolls sideways instead. */}
+                    <div className="flex gap-1 whitespace-nowrap">
                       {ZALO_IDENTITY_KINDS.filter((k) => k !== ZaloIdentityKind.Unknown).map((k) => (
                         <button
                           key={k}
                           type="button"
                           onClick={() => void setKindFor(r, k)}
                           className={cn(
-                            'rounded border px-2 py-0.5 text-xs transition-colors',
+                            'rounded border px-2 py-0.5 text-xs transition-colors touch:min-h-9 touch:px-3',
                             r.kind === k
-                              ? 'border-primary-500 bg-primary-500 text-white'
-                              : 'border-slate-200 hover:border-primary-400 dark:border-slate-700',
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-slate-200 hover:border-primary/60 dark:border-slate-700',
                           )}
                         >
                           {t(`identity.kind.${k}`)}
@@ -248,7 +253,7 @@ export default function IdentitiesPanel() {
                   <TableCell>
                     {r.kind === ZaloIdentityKind.Staff || r.kind === ZaloIdentityKind.AiSupport ? (
                       <select
-                        className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+                        className="w-full rounded border border-slate-200 bg-white px-2 py-1 text-sm touch:h-11 dark:border-slate-700 dark:bg-slate-900"
                         value={r.userId ?? ''}
                         onChange={(e) => void noiTaiKhoan(r, e.target.value)}
                       >
@@ -278,22 +283,6 @@ export default function IdentitiesPanel() {
         loading={loading}
         onChange={(p) => setPage(p)}
       />
-    </div>
-  );
-}
-
-function Stat({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
-  return (
-    <div className="bg-white p-3 dark:bg-slate-900">
-      <div
-        className={cn(
-          'text-2xl font-semibold tabular-nums',
-          warn && value > 0 && 'text-amber-600 dark:text-amber-400',
-        )}
-      >
-        {value}
-      </div>
-      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{label}</div>
     </div>
   );
 }

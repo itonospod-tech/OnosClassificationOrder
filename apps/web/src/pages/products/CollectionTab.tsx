@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
 
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 
 import { handleAxiosError } from '@/utils';
@@ -32,7 +32,15 @@ interface CollectionRow {
 interface FormState {
   open: boolean;
   mode: 'create' | 'edit';
-  data: { _id?: string; name: string; shortName: string; image: string; description: string; sortOrder: string; isActive: boolean };
+  data: {
+    _id?: string;
+    name: string;
+    shortName: string;
+    image: string;
+    description: string;
+    sortOrder: string;
+    isActive: boolean;
+  };
 }
 
 const DEFAULT_FORM: FormState = {
@@ -132,70 +140,89 @@ export function CollectionTab() {
             </Button>
           )}
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-16">{t('collectionTab.table.image')}</TableHead>
-              <TableHead>{t('collectionTab.table.name')}</TableHead>
-              <TableHead>{t('collectionTab.table.shortName')}</TableHead>
-              <TableHead>{t('collectionTab.table.sortOrder')}</TableHead>
-              <TableHead>{t('collectionTab.table.status')}</TableHead>
-              <TableHead className="w-20"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
-                  <Spinner size={20} className="text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground text-sm">
-                  {t('collectionTab.table.empty')}
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading &&
-              items.map((it) => (
-                <TableRow key={it._id}>
-                  <TableCell>
-                    {it.image ? (
-                      <img src={it.image} alt={it.name} className="w-10 h-10 rounded object-cover border border-border" />
-                    ) : (
-                      <div className="w-10 h-10 rounded border border-dashed border-border flex items-center justify-center text-muted-foreground">
-                        <ImageIcon size={14} />
-                      </div>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Spinner size={20} className="text-muted-foreground" />
+          </div>
+        ) : (
+          <ResponsiveList<CollectionRow>
+            rows={items}
+            rowKey={(it) => it._id}
+            onRowClick={canManageProducts ? openEdit : undefined}
+            empty={t('collectionTab.table.empty')}
+            columns={[
+              {
+                key: 'image',
+                header: t('collectionTab.table.image'),
+                className: 'w-16',
+                mobile: 'hidden',
+                cell: (it) =>
+                  it.image ? (
+                    <img src={it.image} alt={it.name} className="h-10 w-10 rounded border border-border object-cover" />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded border border-dashed border-border text-muted-foreground">
+                      <ImageIcon size={14} />
+                    </div>
+                  ),
+              },
+              {
+                key: 'name',
+                header: t('collectionTab.table.name'),
+                mobile: 'title',
+                cell: (it) => (
+                  <div>
+                    <span className="font-medium">{it.name}</span>
+                    {it.description && (
+                      <div className="max-w-[280px] truncate text-xs text-muted-foreground">{it.description}</div>
                     )}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div>{it.name}</div>
-                    {it.description && <div className="text-xs text-muted-foreground truncate max-w-[280px]">{it.description}</div>}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{it.shortName}</Badge>
-                  </TableCell>
-                  <TableCell className="tabular-nums">{it.sortOrder}</TableCell>
-                  <TableCell>
-                    {it.isActive ? (
-                      <Badge variant="success">{t('collectionTab.table.active')}</Badge>
-                    ) : (
-                      <Badge variant="secondary">{t('collectionTab.table.inactive')}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {canManageProducts && (
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(it)}>
-                        {t('common:actions.edit')}
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
+                  </div>
+                ),
+              },
+              {
+                key: 'shortName',
+                header: t('collectionTab.table.shortName'),
+                mobile: 'subtitle',
+                cell: (it) => <Badge variant="outline">{it.shortName}</Badge>,
+              },
+              {
+                key: 'sortOrder',
+                header: t('collectionTab.table.sortOrder'),
+                mobile: 'hidden',
+                cell: (it) => <span className="tabular-nums">{it.sortOrder}</span>,
+              },
+              {
+                key: 'status',
+                header: t('collectionTab.table.status'),
+                mobile: 'trailing',
+                cell: (it) =>
+                  it.isActive ? (
+                    <Badge variant="success">{t('collectionTab.table.active')}</Badge>
+                  ) : (
+                    <Badge variant="secondary">{t('collectionTab.table.inactive')}</Badge>
+                  ),
+              },
+              {
+                key: 'actions',
+                header: '',
+                className: 'w-20',
+                mobile: 'hidden',
+                cell: (it) =>
+                  canManageProducts && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEdit(it);
+                      }}
+                    >
+                      {t('common:actions.edit')}
+                    </Button>
+                  ),
+              },
+            ]}
+          />
+        )}
       </div>
 
       <Dialog open={form.open} onOpenChange={(open) => !open && setForm(DEFAULT_FORM)}>

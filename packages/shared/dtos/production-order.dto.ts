@@ -233,6 +233,8 @@ export const ProductionOrderZod = BaseEntityZod.extend({
    */
   tracking: ProductionOrderTrackingZod.optional(),
   orderId: z.string().optional(),
+  /** Mongo `_id` of the parent OnosPod order (MRP `order_id`) — OnosPod imports only. */
+  onospodOrderId: z.string().optional(),
   externalId: z.string().optional(),
   referent: z.string().optional(),
   orderAt: z.date().optional(),
@@ -409,6 +411,41 @@ export const WORKSHOP_STAGE_FILTER_KEYS = [
   'done',
 ] as const;
 export type WorkshopStageFilterKey = (typeof WORKSHOP_STAGE_FILTER_KEYS)[number];
+/**
+ * `workshopStage` token for every stage EXCEPT `done` (not packed yet) — the default
+ * "open orders" view of the product-line pages, and exactly what the sidebar
+ * `productLineCounts` badge counts. Kept OUT of `WORKSHOP_STAGE_FILTER_KEYS` because
+ * that list is the set of funnel cells, and this is not a cell.
+ */
+export const WORKSHOP_STAGE_OPEN = '__open__' as const;
+export type WorkshopStageFilter = WorkshopStageFilterKey | typeof WORKSHOP_STAGE_OPEN;
+/**
+ * Day window of the product-line pages and of their sidebar badge (VN calendar days,
+ * today included). One constant for both sides so the badge and the list cannot drift.
+ */
+export const PRODUCT_LINE_WINDOW_DAYS = 7;
+/**
+ * An order still open this many VN days after `inProductionAt` is treated as stale: data debt
+ * (finished on the floor, never closed in the system), not real work. One boundary for the CEO
+ * Dashboard `staleOpen` and the product-line "older open orders" indicator, so they cannot disagree.
+ */
+export const OPEN_ORDER_STALE_DAYS = 45;
+/** Stale-order cleanup (Orders.md §23b): max orders per run. */
+export const STALE_CLEANUP_BATCH_MAX = 200;
+/** Stale-order cleanup: an order with no production activity is recorded finished this many days after `inProductionAt` (SLA N2). */
+export const STALE_CLEANUP_NO_ACTIVITY_DAYS = 3;
+
+/**
+ * CSV product-line filter (`ProductLine` codes, `__none__` = orders with no line yet).
+ * Shared by every list that the "Production" / "Tool" menus open per line, so the
+ * accepted values and the 400 on unknown ones stay identical everywhere.
+ */
+export const ProductLineFilterZod = z
+  .string()
+  .refine((s) => s.split(',').every((v) => !v || v === '__none__' || (PRODUCT_LINES as string[]).includes(v)), {
+    message: `productLine phải thuộc ${PRODUCT_LINES.join('|')}|__none__`,
+  })
+  .optional();
 
 export const GetProductionOrdersZod = PageQueryZod.extend({
   /**
@@ -472,6 +509,15 @@ export const GetProductionOrdersZod = PageQueryZod.extend({
   userSku: z.string().optional(),
   /** Exact match (case-insensitive) — cặp với userSku cho drill-down "Đơn hàng của khách" (/adm/customers). */
   userEmail: z.string().optional(),
+  /**
+   * CSV product line (`ProductLine`: 3d|2d|wood|embroidery|led|canvas) — the
+   * "Production" group of the new menu (MenuRestructure-CEO.md 1A). The
+   * `__none__` token selects orders that have NO `productLine` yet (imported
+   * before PRD-8, or no config match). An unknown value returns 400 rather than
+   * being silently ignored: filtering by the wrong line would return a wrong
+   * list with no sign that anything went wrong.
+   */
+  productLine: ProductLineFilterZod,
   /** Comma-separated workshop_config codes for fabric_type. */
   fabricType: z.string().optional(),
   /** Comma-separated workshop_config codes for tool_result. */
@@ -616,13 +662,13 @@ export const GetProductionOrdersZod = PageQueryZod.extend({
    *   fixed                           — stage đã completedAt + đã rời stage, TỪNG bị đẩy về (reworkCount>0) = "Đã sửa".
    *   watching                        — user đã rework-back, đang chờ quay lại.
    */
-  fulfillmentStatus: z.enum(['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching']).optional(),
+  fulfillmentStatus: z.enum(['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching', 'held']).optional(),
   /**
    * Lọc theo CHẶNG HIỆN TẠI của đơn — ô phễu trang "Đơn hàng theo xưởng" (Orders.md §10.2b).
    * Chặng suy ra trong Mongo bằng ĐÚNG luật `computeCurrentStage()` (customer-order.service.ts)
    * / `getOrderStatusInfo()` (FE) — xem `OrderService.workshopStageExpr()`. `done` = đã đóng hàng.
    */
-  workshopStage: z.enum(WORKSHOP_STAGE_FILTER_KEYS).optional(),
+  workshopStage: z.enum([...WORKSHOP_STAGE_FILTER_KEYS, WORKSHOP_STAGE_OPEN]).optional(),
 
   // Date range on `orderAt` — thời gian khách lên đơn (yyyy-mm-dd). Tên giữ
   // là `createdFrom/createdTo` để URL/bookmark cũ không vỡ. Designer/Fulfillment
@@ -666,6 +712,8 @@ export const FulfillmentStatusCountsResZod = ResZod.extend({
     done: z.number(),
     fixed: z.number(),
     watching: z.number(),
+    /** Held orders cut out of `waiting` (same rule as the kanban `held` tab, Orders.md §9b). */
+    held: z.number(),
   }),
 });
 export class FulfillmentStatusCountsResDto extends createZodDto(extendApi(FulfillmentStatusCountsResZod)) {}
@@ -692,6 +740,8 @@ export const ImportProductionOrderRowZod = z.object({
   designs: DesignFieldsZod.optional(),
   status: z.string().optional(),
   orderId: z.string().optional(),
+  /** Mongo `_id` of the parent OnosPod order (MRP `order_id`) — OnosPod imports only. */
+  onospodOrderId: z.string().optional(),
   externalId: z.string().optional(),
   referent: z.string().optional(),
   orderAt: z.string().optional(),
@@ -766,6 +816,34 @@ export const ImportFromOnosPodZod = z.object({
 });
 export class ImportFromOnosPodDto extends createZodDto(extendApi(ImportFromOnosPodZod)) {}
 
+/**
+ * One-off backfill of `shippingAddress` for OnosPod orders imported before the address lookup
+ * existed (2026-09-16). Window on the MRP creation time, at most 7 days per call so one call
+ * stays bounded; `dryRun` is the DEFAULT — pass `dryRun=false` explicitly to write.
+ */
+export const BackfillOnospodShippingZod = z.object({
+  start: z.string().datetime({ offset: true }),
+  end: z.string().datetime({ offset: true }),
+  dryRun: BooleanFlagZod,
+});
+export class BackfillOnospodShippingDto extends createZodDto(extendApi(BackfillOnospodShippingZod)) {}
+export const BackfillOnospodShippingResZod = ResZod.extend({
+  data: z.object({
+    dryRun: z.boolean(),
+    period: z.object({ start: z.string(), end: z.string() }),
+    /** MRP items fetched per status — a 0 on a status that should have items means a wrong status name. */
+    fetchedByStatus: z.record(z.number()),
+    /** Our orders in those items that still miss an address (address-waiting holds excluded). */
+    missingInWindow: z.number(),
+    orderIdsLookedUp: z.number(),
+    addressesFound: z.number(),
+    /** Orders written (0 on a dry run). */
+    ordersUpdated: z.number(),
+    failedBatches: z.number(),
+  }),
+});
+export class BackfillOnospodShippingResDto extends createZodDto(extendApi(BackfillOnospodShippingResZod)) {}
+
 // ─── Đồng bộ giữ đơn theo OnosPod (Orders.md §9d) ──────────────────────────
 // Kết quả 1 lượt đồng bộ. `status='aborted'` = KHÔNG ghi gì cả (lỗi fetch,
 // thiếu config, nghi ngờ dữ liệu, vượt trần nhả) — `reason` nói lý do.
@@ -809,6 +887,9 @@ export const ImportFromOnosPodResZod = ResZod.extend({
     // ONOSPOD_API_* (import vẫn chạy, chỉ thiếu địa chỉ — xem log
     // `onospodShippingBatch`).
     shippingAttached: z.number().optional(),
+    // Address lookup batches that FAILED this run (OnosPod down / token dead). >0 also raises a
+    // Telegram alert: those orders came in without an address and nothing else would say so.
+    shippingLookupFailedBatches: z.number().optional(),
     // Pull từ TẤT CẢ manufacture của account trong 1 lượt phân trang duy
     // nhất (không truyền `manufacture_id`) — group lại từ field `manufacture`
     // có sẵn trên mỗi item, KHÔNG loop gọi riêng từng manufacture nữa nên
@@ -1408,6 +1489,95 @@ export class CancelOrderResDto extends createZodDto(extendApi(CancelOrderResZod)
 export const ForceCompleteOrderResZod = ResZod.extend({ data: ProductionOrderZod });
 export class ForceCompleteOrderResDto extends createZodDto(extendApi(ForceCompleteOrderResZod)) {}
 
+// ─── Stale-order cleanup (Orders.md §23b, SuperAdmin) ────────────────────────
+export const STALE_AGE_BUCKETS = ['45-90', '90-180', '180+'] as const;
+export const StaleBlockReasonZod = z.enum(['not-found', 'cancelled', 'completed', 'held', 'not-stale', 'recent-activity', 'unmapped', 'excluded-factory']);
+export type StaleBlockReasonKey = z.infer<typeof StaleBlockReasonZod>;
+
+export const GetStaleOpenOrdersZod = PageQueryZod.extend({
+  factoryId: IDZod.optional(),
+  productLine: z.string().optional(),
+  userSku: z.string().optional(),
+  type: z.string().optional(),
+  age: z.enum(STALE_AGE_BUCKETS).optional(),
+  /** Group view: one row per product (`type`) or per customer (`userSku`) with counts, no orders. */
+  groupBy: z.enum(['type', 'userSku']).optional(),
+});
+export class GetStaleOpenOrdersDto extends createZodDto(extendApi(GetStaleOpenOrdersZod)) {}
+
+/** Evidence shown on every row: what the system knows about whether the order was really finished. */
+export const StaleOpenOrderRowZod = z.object({
+  _id: z.string(),
+  productionId: z.string(),
+  orderId: z.string().optional(),
+  userSku: z.string().optional(),
+  type: z.string().optional(),
+  productLine: z.string().optional(),
+  factoryId: z.string().optional(),
+  factoryShortName: z.string().optional(),
+  inProductionAt: z.coerce.date(),
+  ageDays: z.number(),
+  /** Workshop stage key the order is stuck at (`WORKSHOP_STAGE_FILTER_KEYS`). */
+  stage: z.string(),
+  /** Latest production activity (never order logs) and the field it came from; null = none at all. */
+  lastActivityAt: z.coerce.date().nullable(),
+  lastActivitySource: z.string().nullable(),
+  /** Latest order-log entry, shown for context only (sync jobs write there too). */
+  lastLogAt: z.coerce.date().nullable(),
+  lastLogAction: z.string().nullable(),
+  shipping: z.object({
+    vnpTracking: z.string().optional(),
+    customerTracking: z.string().optional(),
+    packageCode: z.string().optional(),
+  }),
+  held: z.boolean(),
+  selectable: z.boolean(),
+  blockReason: StaleBlockReasonZod.nullable(),
+});
+export type StaleOpenOrderRow = z.infer<typeof StaleOpenOrderRowZod>;
+export const StaleOpenGroupZod = z.object({ key: z.string(), count: z.number(), selectable: z.number() });
+export type StaleOpenGroup = z.infer<typeof StaleOpenGroupZod>;
+export const GetStaleOpenOrdersResZod = ResZod.extend({
+  data: z.array(StaleOpenOrderRowZod),
+  groups: z.array(StaleOpenGroupZod).optional(),
+  total: z.number(),
+  /** Whole stale set (ignores filters): the headline numbers. */
+  summary: z.object({
+    total: z.number(),
+    byFactory: z.array(z.object({ factoryId: z.string(), shortName: z.string().optional(), count: z.number() })),
+    withShippingEvidence: z.number(),
+    noActivity: z.number(),
+    neverProduced: z.number(),
+  }),
+});
+export class GetStaleOpenOrdersResDto extends createZodDto(extendApi(GetStaleOpenOrdersResZod)) {}
+
+export const StaleCleanupIdsZod = z.object({ ids: z.array(IDZod).min(1).max(STALE_CLEANUP_BATCH_MAX) });
+export class StaleCleanupPreviewDto extends createZodDto(extendApi(StaleCleanupIdsZod)) {}
+export const StaleCleanupRunZod = StaleCleanupIdsZod.extend({ reason: z.string().trim().min(10).max(500) });
+export class StaleCleanupRunDto extends createZodDto(extendApi(StaleCleanupRunZod)) {}
+
+export const StaleCleanupSkipZod = z.object({ id: z.string(), productionId: z.string().optional(), reason: z.string() });
+export const StaleCleanupPreviewZod = z.object({
+  eligible: z.number(),
+  skipped: z.array(StaleCleanupSkipZod),
+  byFactory: z.array(z.object({ shortName: z.string(), count: z.number() })),
+  byStage: z.array(z.object({ stage: z.string(), count: z.number() })),
+  /** Orders that never passed design on this system: completing them fills every step, print/press/sew included. */
+  neverProduced: z.number(),
+  /** Per step key (tool-check, designer, 6 stages): how many orders get it filled. */
+  stepsFilled: z.array(z.object({ key: z.string(), count: z.number() })),
+  /** Range of the completion dates that will be recorded (never today). */
+  completedFrom: z.coerce.date().nullable(),
+  completedTo: z.coerce.date().nullable(),
+  withShippingEvidence: z.number(),
+});
+export type StaleCleanupPreview = z.infer<typeof StaleCleanupPreviewZod>;
+export class StaleCleanupPreviewResDto extends createZodDto(extendApi(ResZod.extend({ data: StaleCleanupPreviewZod }))) {}
+export const StaleCleanupRunResultZod = z.object({ runId: z.string(), done: z.number(), skipped: z.array(StaleCleanupSkipZod) });
+export type StaleCleanupRunResult = z.infer<typeof StaleCleanupRunResultZod>;
+export class StaleCleanupRunResDto extends createZodDto(extendApi(ResZod.extend({ data: StaleCleanupRunResultZod }))) {}
+
 // ─── Giữ đơn (hold / unhold) ────────────────────────────────────────
 // Hold: tạm dừng đơn — set heldAt + holdReason, khóa mọi thao tác cho tới khi
 // mở lại (unhold). REVERSIBLE (khác cancel). Bulk: hold/unhold nhiều đơn 1 lần.
@@ -1467,7 +1637,17 @@ export const BarcodeLabelZod = z.object({
   itemTotal: z.number(),
 });
 export type BarcodeLabel = z.infer<typeof BarcodeLabelZod>;
-export const GetBarcodeLabelsResZod = ResZod.extend({ data: z.array(BarcodeLabelZod) });
+/**
+ * An order left out of a print batch because it is ON HOLD (Orders.md §9b): printing a held order
+ * wastes ink and fabric on work that may never ship. The rest of the batch still prints.
+ */
+export const HeldPrintSkipZod = z.object({ productionId: z.string(), holdReason: z.string().optional() });
+export type HeldPrintSkip = z.infer<typeof HeldPrintSkipZod>;
+export const GetBarcodeLabelsResZod = ResZod.extend({
+  data: z.array(BarcodeLabelZod),
+  /** Held orders left out of `data`. When EVERY requested order is held the request fails with 400 instead. */
+  skippedHeld: z.array(HeldPrintSkipZod).optional(),
+});
 export class GetBarcodeLabelsResDto extends createZodDto(extendApi(GetBarcodeLabelsResZod)) {}
 
 /**
@@ -1501,7 +1681,11 @@ export const ShippingLabelZod = z.object({
   shippingAddress: ProductionOrderShippingAddressZod.optional(),
 });
 export type ShippingLabel = z.infer<typeof ShippingLabelZod>;
-export const GetShippingLabelsResZod = ResZod.extend({ data: z.array(ShippingLabelZod) });
+export const GetShippingLabelsResZod = ResZod.extend({
+  data: z.array(ShippingLabelZod),
+  /** Held orders left out of `data` (same rule as barcode labels). */
+  skippedHeld: z.array(HeldPrintSkipZod).optional(),
+});
 export class GetShippingLabelsResDto extends createZodDto(extendApi(GetShippingLabelsResZod)) {}
 
 /**
@@ -1515,7 +1699,7 @@ export const ExportShippingLabelsZod = z.object({
   ids: z.array(IDZod).min(1).max(200),
 });
 export class ExportShippingLabelsDto extends createZodDto(extendApi(ExportShippingLabelsZod)) {}
-export const LabelSkipReasonZod = z.enum(['not-found', 'no-label', 'fetch-failed', 'unsupported-format']);
+export const LabelSkipReasonZod = z.enum(['not-found', 'no-label', 'fetch-failed', 'unsupported-format', 'held']);
 export const ExportShippingLabelsResDataZod = z.object({
   /** null = không đơn nào có label dùng được (xem `skipped`). */
   pdfBase64: z.string().nullable(),
@@ -1790,6 +1974,12 @@ export const WorkshopAvailableFiltersResZod = ResZod.extend({
       .optional(),
     /** Tổng đơn + số loại sản phẩm khớp TOÀN BỘ filter hiện tại (dòng tổng dưới phễu). */
     totalOrders: z.number().optional(),
+    /**
+     * Product-line views only: orders matching every current filter EXCEPT the date range, which
+     * is replaced by [today − (OPEN_ORDER_STALE_DAYS − 1), today − PRODUCT_LINE_WINDOW_DAYS] (VN
+     * days, inclusive). Setting createdFrom/createdTo to `from`/`to` lists exactly `count` orders.
+     */
+    outOfWindow: z.object({ from: z.string(), to: z.string(), count: z.number() }).optional(),
     totalTypes: z.number().optional(),
   }),
 });
@@ -1950,17 +2140,23 @@ export const BulkFulfillmentTransitionResZod = ResZod.extend({
 export class BulkFulfillmentTransitionResDto extends createZodDto(extendApi(BulkFulfillmentTransitionResZod)) {}
 
 /**
- * POST `/v1/fulfillment/complete-pack-backlog` — nút "Hoàn thành đơn tồn" đi
- * kèm toggle `FactoryEntity.autoCompletePack` (toggle chỉ áp đơn MỚI chảy tới
- * Đóng hàng; đơn tồn cũ dọn 1 lần bằng nút này). CHỈ Admin/SuperAdmin.
+ * POST `/v1/fulfillment/complete-pack-backlog` — the "Complete backlog" button:
+ * sweeps orders sitting at the factory's AUTO-COMPLETE stages (auto-stages of
+ * `flowType` + Pack). flowType/`autoCompletePack` only apply to orders that
+ * flow in NEW; the old backlog is cleared once with this button. Admin/SuperAdmin ONLY.
+ * `dryRun` DEFAULTS to true = count only; `false` must be sent explicitly for
+ * the real run (it fires real `production_completed` webhooks to customers).
  */
-export const CompletePackBacklogZod = z.object({ factoryId: IDZod });
+export const CompletePackBacklogZod = z.object({ factoryId: IDZod, dryRun: z.boolean().default(true) });
 export class CompletePackBacklogDto extends createZodDto(extendApi(CompletePackBacklogZod)) {}
 
 export const CompletePackBacklogResZod = ResZod.extend({
   data: z.object({
-    /** Số đơn đang tồn ở Đóng hàng lúc bấm. */
+    dryRun: z.boolean(),
+    /** Backlog orders at the auto-complete stages at click time. */
     total: z.number(),
+    /** Order count per stage they sit at (key = FulfillmentStage). */
+    byStage: z.record(z.string(), z.number()),
     ok: z.number(),
     fail: z.number(),
     failures: z.array(z.object({ orderId: z.string(), message: z.string() })),
@@ -1988,6 +2184,13 @@ export const FULFILLMENT_TASK_TABS = [
    * vào Designer cụ thể → đơn theo flow chuẩn (designer.complete → Print stage).
    */
   'unassigned',
+  /**
+   * Held orders that would otherwise sit in `waiting` (Orders.md §9b): "waiting" is the list a
+   * worker PICKS from, so a held order there only gets picked by mistake. Exactly the part cut out
+   * of `waiting` — waiting ∪ held = the old waiting column. Held orders already in progress /
+   * rework stay in their column with the hold badge (hiding work in hand looks like lost work).
+   */
+  'held',
 ] as const;
 export type FulfillmentTaskTab = (typeof FULFILLMENT_TASK_TABS)[number];
 export const FulfillmentTaskTabZod = z.enum(FULFILLMENT_TASK_TABS);
@@ -1996,6 +2199,12 @@ export const GetFulfillmentMyTasksZod = PageQueryZod.extend({
   tab: FulfillmentTaskTabZod.default('waiting'),
   /** Page size — kanban load full queue per cột (default 50, tối đa 5000). */
   size: z.coerce.number().optional(),
+  /**
+   * Opt-in: also count every tab (`tabCounts`, ~8 extra countDocuments). Off by default:
+   * the kanban calls this endpoint once per tab in parallel and never read the counts,
+   * so each refresh ran the same 8 counts six times.
+   */
+  withCounts: BooleanFlagZod,
   /** Override (Manager/Admin). User Fulfillment không cần set. */
   stage: FulfillmentStageZod.optional(),
   factoryId: IDZod.optional(),
@@ -2093,16 +2302,19 @@ export class FulfillmentDailyOverviewResDto extends createZodDto(extendApi(Fulfi
 export const GetFulfillmentMyTasksResZod = PageResZod.extend({
   data: ProductionOrderZod.array(),
   /** Tab counters (6 tab) — bỏ qua pagination. `unassigned` = 0 với worker
-   *  fulfillment (chỉ admin/manager thấy). */
-  tabCounts: z.object({
-    waiting: z.number(),
-    inProgress: z.number(),
-    rework: z.number(),
-    done: z.number(),
-    fixed: z.number(),
-    watching: z.number(),
-    unassigned: z.number(),
-  }),
+   *  fulfillment (chỉ admin/manager thấy). Present only with `withCounts`. */
+  tabCounts: z
+    .object({
+      waiting: z.number(),
+      inProgress: z.number(),
+      rework: z.number(),
+      done: z.number(),
+      fixed: z.number(),
+      watching: z.number(),
+      unassigned: z.number(),
+      held: z.number(),
+    })
+    .optional(), // only when the request sets `withCounts`
 });
 export class GetFulfillmentMyTasksResDto extends createZodDto(extendApi(GetFulfillmentMyTasksResZod)) {}
 
@@ -2480,6 +2692,8 @@ export const GetToolCheckOverviewZod = z.object({
   machineNumber: z.string().optional(),
   /** Lọc theo mức ưu tiên (`order.priority`) — '1'|'2'|'3'. */
   priority: z.enum(['1', '2', '3']).optional(),
+  /** Product line from the "Tool" menu (Tool 3D / Tool 2D–DTF) — same CSV contract as `GET /orders`. */
+  productLine: ProductLineFilterZod,
 });
 export class GetToolCheckOverviewDto extends createZodDto(extendApi(GetToolCheckOverviewZod)) {}
 

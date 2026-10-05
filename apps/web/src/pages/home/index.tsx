@@ -3,9 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { BarChart3 } from 'lucide-react';
 
+import { PageHeader } from '@/components/common/PageHeader';
+
 import { usePermission } from '@/hooks/usePermission';
 
 import DesignerStatsTab from './DesignerStatsTab';
+import GettingStartedCard from './GettingStartedCard';
 import LifecycleStrip from './LifecycleStrip';
 import LifecycleTab from './LifecycleTab';
 import OrderFactoryTab from './OrderFactoryTab';
@@ -72,16 +75,15 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-          <BarChart3 size={20} className="text-indigo-600" />
-        </div>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-foreground">{t('page.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('page.subtitle')}</p>
-        </div>
-        {isAdmin && <SendTelegramReportButton />}
-      </div>
+      <PageHeader
+        icon={<BarChart3 size={20} />}
+        title={t('page.title')}
+        description={t('page.subtitle')}
+        actions={isAdmin ? <SendTelegramReportButton /> : undefined}
+      />
+
+      {/* Guides live here instead of the sidebar (MenuRestructure-CEO.md §9.1). */}
+      <GettingStartedCard />
 
       {/* Strip vòng đời đơn — gọn, hiện trên đầu mọi tab, cho mọi tài khoản */}
       <LifecycleStrip />

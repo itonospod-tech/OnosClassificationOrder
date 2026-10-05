@@ -300,6 +300,15 @@ export class OrderEntity extends DatabaseEntityAbstract {
   @Prop({ index: true })
   orderId?: string;
 
+  /**
+   * Mongo `_id` of the parent OnosPod order (MRP `item.order_id`), stored at import. Lets the
+   * shipping-address backfill look addresses up in batches of 50 (`lookupShippingByOrderIds`)
+   * instead of one search per order. Absent on orders imported before 2026-10-04 and on
+   * non-OnosPod orders.
+   */
+  @Prop({ trim: true })
+  onospodOrderId?: string;
+
   @Prop({ index: true })
   externalId?: string;
 
@@ -596,6 +605,16 @@ OrderSchema.index({ 'onospodHold.onHoldAt': 1 }, { sparse: true });
 // Sort mặc định của Danh sách đơn (getOrders: `{priority: -1, inProductionAt: -1}`)
 // — thiếu compound index này Mongo phải in-memory sort toàn tập kết quả mỗi request.
 OrderSchema.index({ priority: -1, inProductionAt: -1 });
+
+// Order list by product line — the DEFAULT filter of the six "Production" pages
+// (MenuRestructure-CEO.md 1A). ESR order: productLine (equality) → default sort
+// priority/inProductionAt → inProductionAt range. OrderService.onModuleInit creates
+// it explicitly because autoIndex builds in the background and swallows errors.
+export const ORDER_PRODUCT_LINE_INDEX = {
+  keys: { productLine: 1, priority: -1, inProductionAt: -1 },
+  name: 'productLine_priority_inProductionAt',
+} as const;
+OrderSchema.index(ORDER_PRODUCT_LINE_INDEX.keys, { name: ORDER_PRODUCT_LINE_INDEX.name });
 
 OrderSchema.virtual('factory', {
   ref: 'FactoryEntity',

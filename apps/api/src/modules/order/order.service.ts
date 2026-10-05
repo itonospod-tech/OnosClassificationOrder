@@ -67,6 +67,8 @@ import type {
   GetOrderStatusOverviewResDto,
   GetProductionOrdersDto,
   GetProductionOrdersResDto,
+  GetStaleOpenOrdersDto,
+  GetStaleOpenOrdersResDto,
   HoldOrderDto,
   HoldOrderResDto,
   ImportProductionOrdersDto,
@@ -111,7 +113,7 @@ import type {
   ProductPrintArea,
   ProductVariation,
 } from 'shared';
-import type { WorkshopStageFilterKey } from 'shared';
+import type { HeldPrintSkip, ProductLineCounts, StaleCleanupPreview, StaleCleanupRunResult, WorkshopStageFilter } from 'shared';
 import {
   customerMatchKey,
   DESIGNER_ACTIVE_STATUSES,
@@ -131,12 +133,16 @@ import {
   LIFECYCLE_STAGE_KEYS,
   normalizeProductionOrderTracking,
   normalizeVariationText,
+  OPEN_ORDER_STALE_DAYS,
   parseProductionIdFromCuttingFilename,
+  PRODUCT_LINE_WINDOW_DAYS,
+  PRODUCT_LINES,
   PRODUCT_PRINT_AREA_LABEL_MAP,
   redirectAutoTarget,
   resolveVariationSizeLabel,
   RoleType,
   Status,
+  WORKSHOP_STAGE_OPEN,
   WorkshopConfigCategory,
 } from 'shared';
 import { Logger } from 'winston';
@@ -169,16 +175,28 @@ import { ShipmentIngestService } from '../shipping-vnp/shipment-ingest.service';
 import { SystemConfigService } from '../system-config/system-config.service';
 import { UserEntity } from '../user/user.entity';
 import { WorkshopConfigRepository } from '../workshop-config/workshop-config.repository';
+import { andWith } from './and-with';
 import { resolveBarcodeSkuBase } from './barcode-label';
 import { resolveDesignReviewCodeByDesigns } from './design-review-code-rule';
 import { DriveFileNameService } from './drive-file-name.service';
 import { planForceComplete } from './force-complete-plan';
 import { shouldNotifyCustomerOnManualUnhold } from './onospod-hold-sync.plan';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
-import { OrderDocument, OrderEntity } from './order.entity';
+import { ORDER_PRODUCT_LINE_INDEX, OrderDocument, OrderEntity } from './order.entity';
 import { OrderRepository } from './order.repository';
 import { parseTypeFilter, TYPE_NONE_TOKEN } from './parse-type-filter';
+import { productLineCondition } from './product-line-filter';
 import { resolveShippingLabelInfo } from './shipping-label';
+import {
+  lastProductionActivity,
+  lastProductionActivityExpr,
+  PRODUCTION_ACTIVITY_PATHS,
+  staleCleanupEnd,
+  staleCutoff,
+  staleEligibility,
+  staleStageKey,
+  TIMELINE_PATH,
+} from './stale-cleanup.logic';
 
 const FIELD_CONFIG_CATEGORY: Record<OrderWorkshopField, WorkshopConfigCategory | null> = {
   printStatus: WorkshopConfigCategory.PrintStatus,
@@ -394,6 +412,15 @@ function vnTodayString(): string {
 function vnTodayStart(): Date {
   return vnDayStart(vnTodayString());
 }
+/**
+ * VN-day range of a product-line view's "older open orders" indicator: from the oldest day that
+ * is not yet stale (`OPEN_ORDER_STALE_DAYS`) to the day before the line window
+ * (`PRODUCT_LINE_WINDOW_DAYS`). Together with the window it covers exactly the stale horizon.
+ */
+export function productLineOutOfWindowRange(today: string = vnTodayString()): { from: string; to: string } {
+  const dayOffset = (days: number) => new Date(Date.parse(`${today}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
+  return { from: dayOffset(OPEN_ORDER_STALE_DAYS - 1), to: dayOffset(PRODUCT_LINE_WINDOW_DAYS) };
+}
 
 /**
  * Parse string ngày-giờ từ sheet import. Interpret là **VN local time** nếu
@@ -531,6 +558,15 @@ export class OrderService implements OnModuleInit {
     await loadExcludedFactoryId(this.orderModel.db).catch(() => undefined);
     // Cache xưởng luồng rút gọn (flowType='merged') — transition/rework đọc sync.
     await loadFactoryFlowTypes(this.orderModel.db).catch(() => undefined);
+    // Not awaited: an index build must not block boot. Failures must reach the log
+    // (autoIndex swallows them — same pattern as shipping-vnp.service.ts onModuleInit).
+    void this.orderModel.collection
+      .createIndex(ORDER_PRODUCT_LINE_INDEX.keys, { name: ORDER_PRODUCT_LINE_INDEX.name })
+      .catch((err: Error) =>
+        this.logger.error({
+          message: JSON.stringify({ action: 'orderProductLineIndexBuildFail', error: err.message?.slice(0, 1000) }),
+        }),
+      );
 
     const result = await this.orderModel.updateMany(
       { originalFactoryId: { $exists: false }, factoryId: { $exists: true, $ne: null } },
@@ -970,7 +1006,7 @@ export class OrderService implements OnModuleInit {
 
   private applyFulfillmentStatusFilter(
     filter: Record<string, unknown>,
-    status: 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching',
+    status: 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'held',
     stage?: string,
     userId?: string,
   ): void {
@@ -982,6 +1018,7 @@ export class OrderService implements OnModuleInit {
     };
     switch (status) {
       case 'waiting':
+      case 'held':
         filter.currentFulfillmentStage = stg;
         filter[`fulfillmentStages.${stg}.status`] = FulfillmentStageStatus.Waiting;
         filter.designerStatus = { $ne: 'rework' };
@@ -990,6 +1027,10 @@ export class OrderService implements OnModuleInit {
         pushAnd({
           $nor: [{ productionErrorSource: 'tool-check', toolResultNote: 'error' }],
         });
+        // "Waiting" is the pick list: held orders go to `held`, its exact complement.
+        // Mirror of FulfillmentTaskService.applyTabFilter (Orders.md §9b).
+        // ANDed, not assigned: the page's own "held" toggle may already set `heldAt`.
+        pushAnd({ heldAt: { $exists: status === 'held' } });
         break;
       case 'in-progress':
         filter.currentFulfillmentStage = stg;
@@ -1238,12 +1279,13 @@ export class OrderService implements OnModuleInit {
       done: number;
       fixed: number;
       watching: number;
+      held: number;
     };
   }> {
     const baseDto = { ...dto, fulfillmentStatus: undefined } as GetProductionOrdersDto;
     const base = this.buildOrderListFilter(baseDto, roleName, assigneeCode, fulfillmentFactoryId, fulfillmentStage);
-    const statuses = ['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching'] as const;
-    const [all, waiting, inProgress, rework, done, fixed, watching] = await Promise.all([
+    const statuses = ['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching', 'held'] as const;
+    const [all, waiting, inProgress, rework, done, fixed, watching, held] = await Promise.all([
       // "Tất cả" = tổng đơn theo filter hiện tại (không kèm fulfillmentStatus).
       this.orderModel.countDocuments(base),
       ...statuses.map((s) => {
@@ -1258,7 +1300,7 @@ export class OrderService implements OnModuleInit {
     ]);
     return {
       success: true,
-      data: { all, waiting, inProgress, rework, done, fixed, watching },
+      data: { all, waiting, inProgress, rework, done, fixed, watching, held },
     };
   }
 
@@ -1440,13 +1482,16 @@ export class OrderService implements OnModuleInit {
    * (biểu thức chỉ dùng được trong aggregate). Hai hàm phải cho cùng kết quả: tổng khi
    * lọc `workshopStage=X` phải bằng đúng số ô X của phễu. Đổi một hàm thì đổi cả hai.
    */
-  private workshopStageMatch(stage: WorkshopStageFilterKey): Record<string, unknown> {
+  private workshopStageMatch(stage: WorkshopStageFilter): Record<string, unknown> {
     const notCompleted = { fulfillmentCompletedAt: { $in: [null] } }; // missing hoặc null
     const noStage = { currentFulfillmentStage: { $in: [null, ''] } };
     const unassigned = { designerStatus: { $in: [null, '', DesignerStatus.Unassigned] } };
     switch (stage) {
       case 'done':
         return { fulfillmentCompletedAt: { $exists: true, $ne: null } };
+      case WORKSHOP_STAGE_OPEN:
+        // Exact complement of `done`: every order not packed yet, whatever its stage.
+        return notCompleted;
       case 'print':
         // Đang ở chặng In, HOẶC designer đã xong nhưng chưa vào công đoạn nào.
         return {
@@ -1472,6 +1517,25 @@ export class OrderService implements OnModuleInit {
     }
   }
 
+  /**
+   * Apply an explicit `factoryId` (header factory scope / factory menu) to a filter that
+   * already carries the role's visibility scope.
+   *
+   * Fulfillment is locked to its own factory by `buildVisibilityFilter` — as `factoryId`
+   * equality (print stage, or `__no_factory__` when the user has no factory) or as an
+   * `$or` with `originalFactoryId`. An explicit factory may only NARROW that scope, so it
+   * is ANDed: picking another factory in the header returns nothing instead of that
+   * factory's orders. Assigning it used to replace the lock, and `GET /factories/options`
+   * hands every staff member the full factory list, so one click leaked another factory.
+   *
+   * Other roles are not factory-locked: the explicit factory replaces the default factory
+   * clause on purpose, which is what lets the US factory be viewed when chosen (Orders.md §21).
+   */
+  private applyExplicitFactory(filter: Record<string, unknown>, factoryId: string, roleName?: RoleType): void {
+    if (roleName === RoleType.Fulfillment) andWith(filter, { factoryId });
+    else filter.factoryId = factoryId;
+  }
+
   /** Compose the Mongo filter for getOrders + getOrdersGroupedByType. */
   private buildOrderListFilter(
     dto: GetProductionOrdersDto,
@@ -1492,7 +1556,7 @@ export class OrderService implements OnModuleInit {
     );
     if (dto.search) {
       const searchOr = buildSearchOr(dto.search);
-      if (searchOr.length) filter.$or = searchOr;
+      if (searchOr.length) andWith(filter, { $or: searchOr });
     }
     if (dto.productionIds) {
       const ids = dto.productionIds
@@ -1524,7 +1588,7 @@ export class OrderService implements OnModuleInit {
     // hủy khỏi list + mọi facet. Đơn hủy chỉ xem qua toggle "Đã hủy" (hoặc dialog
     // "Đơn đã hủy" riêng). Áp cho mọi caller của buildOrderListFilter.
     filter.cancelledAt = { $exists: dto.cancelled === true };
-    if (dto.factoryId) filter.factoryId = dto.factoryId;
+    if (dto.factoryId) this.applyExplicitFactory(filter, dto.factoryId, roleName);
     if (dto.machineTypeId) filter.machineTypeId = dto.machineTypeId;
     if (dto.status) filter.status = dto.status;
     if (dto.printStatus) filter.printStatus = { $in: dto.printStatus.split(',').filter(Boolean) };
@@ -1544,11 +1608,7 @@ export class OrderService implements OnModuleInit {
       } else if (hasNone && real.length === 0) {
         filter.toolResultNote = { $in: [null, ''] };
       } else if (hasNone) {
-        filter.$or = [
-          ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-          { toolResultNote: { $in: [null, ''] } },
-          { toolResultNote: { $in: real } },
-        ];
+        andWith(filter, { $or: [{ toolResultNote: { $in: [null, ''] } }, { toolResultNote: { $in: real } }] });
       } else {
         filter.toolResultNote = { $in: real };
       }
@@ -1569,11 +1629,7 @@ export class OrderService implements OnModuleInit {
       if (hasNone && names.length === 0) {
         filter.type = { $in: [null, ''] };
       } else if (hasNone) {
-        filter.$or = [
-          ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-          { type: { $in: [null, ''] } },
-          { type: { $in: names } },
-        ];
+        andWith(filter, { $or: [{ type: { $in: [null, ''] } }, { type: { $in: names } }] });
       } else if (names.length > 0) {
         filter.type = { $in: names };
       }
@@ -1585,6 +1641,8 @@ export class OrderService implements OnModuleInit {
       filter.userEmail = { $regex: `^${escapeRegex(dto.userEmail.trim())}$`, $options: 'i' };
     }
     if (dto.fabricType) filter.fabricType = { $in: dto.fabricType.split(',').filter(Boolean) };
+    const productLine = productLineCondition(dto.productLine);
+    if (productLine) filter.productLine = productLine;
     if (dto.toolResult) {
       // Token đặc biệt __none__ ↔ "Chưa xác định" (chưa soát toolResult) — mirror
       // logic toolResultNote/assignee ở trên.
@@ -1594,11 +1652,7 @@ export class OrderService implements OnModuleInit {
       if (hasNone && real.length === 0) {
         filter.toolResult = { $in: [null, ''] };
       } else if (hasNone) {
-        filter.$or = [
-          ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-          { toolResult: { $in: [null, ''] } },
-          { toolResult: { $in: real } },
-        ];
+        andWith(filter, { $or: [{ toolResult: { $in: [null, ''] } }, { toolResult: { $in: real } }] });
       } else {
         filter.toolResult = { $in: real };
       }
@@ -1635,11 +1689,7 @@ export class OrderService implements OnModuleInit {
         if (hasNone && real.length === 0) {
           filter.designerStatus = { $exists: false };
         } else if (hasNone) {
-          filter.$or = [
-            ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-            { designerStatus: { $exists: false } },
-            { designerStatus: { $in: real } },
-          ];
+          andWith(filter, { $or: [{ designerStatus: { $exists: false } }, { designerStatus: { $in: real } }] });
         } else {
           filter.designerStatus = { $in: real };
         }
@@ -1668,11 +1718,7 @@ export class OrderService implements OnModuleInit {
       } else if (hasNone && real.length === 0) {
         filter.assignee = { $in: [null, ''] };
       } else if (hasNone) {
-        filter.$or = [
-          ...(Array.isArray(filter.$or) ? (filter.$or as unknown[]) : []),
-          { assignee: { $in: [null, ''] } },
-          { assignee: { $in: real } },
-        ];
+        andWith(filter, { $or: [{ assignee: { $in: [null, ''] } }, { assignee: { $in: real } }] });
       } else {
         filter.assignee = { $in: real };
       }
@@ -1680,14 +1726,7 @@ export class OrderService implements OnModuleInit {
     if (dto.unmapped === true) {
       // Đơn chưa map xưởng — factoryId null hoặc không tồn tại.
       const unmappedClause = [{ factoryId: { $exists: false } }, { factoryId: null }];
-      if (filter.$or) {
-        // Đã có $or từ filter khác (vd printStage=not-printed) — chuyển sang $and
-        // để cả hai điều kiện cùng phải đúng.
-        filter.$and = [{ $or: filter.$or }, { $or: unmappedClause }];
-        delete filter.$or;
-      } else {
-        filter.$or = unmappedClause;
-      }
+      andWith(filter, { $or: unmappedClause });
     }
     if (dto.productionError) {
       filter.productionError = { $in: dto.productionError.split(',').filter(Boolean) };
@@ -1827,7 +1866,7 @@ export class OrderService implements OnModuleInit {
       } else if (dto.printStage === 'printing') {
         filter.printStatus = { $exists: true, $nin: [null, '', ...PRINTED_MACHINE_CODES] };
       } else if (dto.printStage === 'not-printed') {
-        filter.$or = [{ printStatus: { $exists: false } }, { printStatus: { $in: [null, ''] } }];
+        andWith(filter, { $or: [{ printStatus: { $exists: false } }, { printStatus: { $in: [null, ''] } }] });
       }
     }
     return filter;
@@ -2002,9 +2041,10 @@ export class OrderService implements OnModuleInit {
    *   vì `orderId` chỉ unique theo nguồn đơn, hai khách khác nhau có thể trùng.
    *   Thứ tự item cố định theo `productionId` để in lại tem không đổi số.
    */
-  async getBarcodeLabels(ids: string[]): Promise<BarcodeLabel[]> {
+  async getBarcodeLabels(ids: string[]): Promise<{ labels: BarcodeLabel[]; skippedHeld: HeldPrintSkip[] }> {
     const clean = [...new Set(ids.map((s) => s.trim()).filter(Boolean))];
-    if (clean.length === 0) return [];
+    if (clean.length === 0) return { labels: [], skippedHeld: [] };
+    const skippedHeld = await this.findHeldForPrint(clean);
     type Row = {
       _id: unknown;
       productionId?: string;
@@ -2018,7 +2058,7 @@ export class OrderService implements OnModuleInit {
     };
     const select = ['productionId', 'userSku', 'userEmail', 'orderId', 'inProductionAt', 'size', 'color', 'productConfigId'];
     const orders = await this.orderRepository.findAll<Row>(
-      { _id: { $in: clean }, cancelledAt: { $exists: false } },
+      { _id: { $in: clean }, cancelledAt: { $exists: false }, heldAt: { $exists: false } },
       { select },
     );
 
@@ -2070,7 +2110,8 @@ export class OrderService implements OnModuleInit {
         itemTotal: pos?.total ?? 1,
       });
     }
-    return out;
+    this.assertSomethingPrintable(out.length, skippedHeld);
+    return { labels: out, skippedHeld };
   }
 
   /**
@@ -2087,9 +2128,10 @@ export class OrderService implements OnModuleInit {
    *   `order.weight` → biến thể → default sản phẩm.
    * - `factoryName`: đọc thẳng bảng `factories` theo `factoryId`.
    */
-  async getShippingLabels(ids: string[]): Promise<ShippingLabel[]> {
+  async getShippingLabels(ids: string[]): Promise<{ labels: ShippingLabel[]; skippedHeld: HeldPrintSkip[] }> {
     const clean = [...new Set(ids.map((s) => s.trim()).filter(Boolean))];
-    if (clean.length === 0) return [];
+    if (clean.length === 0) return { labels: [], skippedHeld: [] };
+    const skippedHeld = await this.findHeldForPrint(clean);
     type Row = {
       _id: unknown;
       productionId?: string;
@@ -2105,7 +2147,7 @@ export class OrderService implements OnModuleInit {
       productConfigId?: unknown;
     };
     const orders = await this.orderRepository.findAll<Row>(
-      { _id: { $in: clean }, cancelledAt: { $exists: false } },
+      { _id: { $in: clean }, cancelledAt: { $exists: false }, heldAt: { $exists: false } },
       {
         select: [
           'productionId',
@@ -2169,7 +2211,8 @@ export class OrderService implements OnModuleInit {
         shippingAddress: o.shippingAddress as ShippingLabel['shippingAddress'],
       });
     }
-    return out;
+    this.assertSomethingPrintable(out.length, skippedHeld);
+    return { labels: out, skippedHeld };
   }
 
   /**
@@ -2836,12 +2879,12 @@ export class OrderService implements OnModuleInit {
     } else if (dto.hasError === true) {
       baseMatch.productionError = { $exists: true, $nin: [null, ''] };
     }
-    if (dto.factoryId) baseMatch.factoryId = dto.factoryId;
+    if (dto.factoryId) this.applyExplicitFactory(baseMatch, dto.factoryId, roleName);
     if (dto.machineTypeId) baseMatch.machineTypeId = dto.machineTypeId;
     if (typeof dto.readyForFulfill === 'boolean') baseMatch.readyForFulfill = dto.readyForFulfill;
     if (dto.search) {
       const searchOr = buildSearchOr(dto.search);
-      if (searchOr.length) baseMatch.$or = searchOr;
+      if (searchOr.length) andWith(baseMatch, { $or: searchOr });
     }
 
     const startOfToday = vnTodayStart();
@@ -4236,14 +4279,10 @@ export class OrderService implements OnModuleInit {
     // filters EXCEPT its own field, so the user can switch values within that
     // facet while other facets reflect the narrowed subset. Cards + flow
     // totals stay unscoped (global view).
-    const scopeMatch: Record<string, unknown> =
-      dto.unmapped === true
-        ? {
-            ...match,
-            $or: [{ factoryId: { $exists: false } }, { factoryId: null }],
-          }
-        : { ...matchMapped };
-    if (dto.factoryId && dto.unmapped !== true) scopeMatch.factoryId = dto.factoryId;
+    const scopeMatch: Record<string, unknown> = dto.unmapped === true ? { ...match } : { ...matchMapped };
+    // AND, never `$or =`: `match.$or` may hold the Fulfillment factory scope.
+    if (dto.unmapped === true) andWith(scopeMatch, { $or: [{ factoryId: { $exists: false } }, { factoryId: null }] });
+    if (dto.factoryId && dto.unmapped !== true) this.applyExplicitFactory(scopeMatch, dto.factoryId, roleName);
     if (dto.printStage === 'printed') {
       scopeMatch.printStatus = { $in: PRINTED_MACHINE_CODES };
     } else if (dto.printStage === 'printing') {
@@ -4471,6 +4510,7 @@ export class OrderService implements OnModuleInit {
       typeStats: Array<{ type: string; orders: number; qty: number; stages: Record<string, number> }>;
       totalOrders: number;
       totalTypes: number;
+      outOfWindow?: { from: string; to: string; count: number };
     };
   }> {
     type FacetKey =
@@ -4557,18 +4597,18 @@ export class OrderService implements OnModuleInit {
     // toolResultNote filter (cùng pattern faceted với aggregateFacet).
     const toolResultNoteNoneCount = await (async () => {
       const sanitizedDto = { ...dto, toolResultNote: undefined } as GetProductionOrdersDto;
-      const baseFilter = this.buildOrderListFilter(sanitizedDto, roleName, assigneeCode);
+      const baseFilter = this.buildOrderListFilter(
+        sanitizedDto,
+        roleName,
+        assigneeCode,
+        fulfillmentFactoryId,
+        fulfillmentStage,
+      );
       const noneClauses = [{ toolResultNote: { $exists: false } }, { toolResultNote: null }, { toolResultNote: '' }];
-      let noneMatch: Record<string, unknown>;
-      if (Array.isArray(baseFilter.$or)) {
-        // Đã có $or từ filter khác — chuyển sang $and để giữ semantics AND.
-        const { $or: existingOr, ...rest } = baseFilter as Record<string, unknown> & {
-          $or: unknown[];
-        };
-        noneMatch = { ...rest, ...excludeCancelled, $and: [{ $or: existingOr }, { $or: noneClauses }] };
-      } else {
-        noneMatch = { ...baseFilter, ...excludeCancelled, $or: noneClauses };
-      }
+      // AND the "none" clauses in via `$and`, keeping every existing `$and` and the
+      // Fulfillment scope `$or` (andWith copies the array, so baseFilter is untouched).
+      const noneMatch: Record<string, unknown> = { ...baseFilter, ...excludeCancelled };
+      andWith(noneMatch, { $or: noneClauses });
       return this.orderModel.countDocuments(noneMatch);
     })();
 
@@ -4576,17 +4616,18 @@ export class OrderService implements OnModuleInit {
     // null / empty string) — mirror toolResultNoteNoneCount ở trên.
     const toolResultNoneCount = await (async () => {
       const sanitizedDto = { ...dto, toolResult: undefined } as GetProductionOrdersDto;
-      const baseFilter = this.buildOrderListFilter(sanitizedDto, roleName, assigneeCode);
+      const baseFilter = this.buildOrderListFilter(
+        sanitizedDto,
+        roleName,
+        assigneeCode,
+        fulfillmentFactoryId,
+        fulfillmentStage,
+      );
       const noneClauses = [{ toolResult: { $exists: false } }, { toolResult: null }, { toolResult: '' }];
-      let noneMatch: Record<string, unknown>;
-      if (Array.isArray(baseFilter.$or)) {
-        const { $or: existingOr, ...rest } = baseFilter as Record<string, unknown> & {
-          $or: unknown[];
-        };
-        noneMatch = { ...rest, ...excludeCancelled, $and: [{ $or: existingOr }, { $or: noneClauses }] };
-      } else {
-        noneMatch = { ...baseFilter, ...excludeCancelled, $or: noneClauses };
-      }
+      // AND the "none" clauses in via `$and`, keeping every existing `$and` and the
+      // Fulfillment scope `$or` (andWith copies the array, so baseFilter is untouched).
+      const noneMatch: Record<string, unknown> = { ...baseFilter, ...excludeCancelled };
+      andWith(noneMatch, { $or: noneClauses });
       return this.orderModel.countDocuments(noneMatch);
     })();
 
@@ -4596,17 +4637,18 @@ export class OrderService implements OnModuleInit {
     // $ifNull nên VẪN hiện nhóm "đơn không tên" → 2 trang lệch (ORD-1 AC-05/AC-08).
     const typeNoneCount = await (async () => {
       const sanitizedDto = { ...dto, type: undefined } as GetProductionOrdersDto;
-      const baseFilter = this.buildOrderListFilter(sanitizedDto, roleName, assigneeCode);
+      const baseFilter = this.buildOrderListFilter(
+        sanitizedDto,
+        roleName,
+        assigneeCode,
+        fulfillmentFactoryId,
+        fulfillmentStage,
+      );
       const noneClauses = [{ type: { $exists: false } }, { type: null }, { type: '' }];
-      let noneMatch: Record<string, unknown>;
-      if (Array.isArray(baseFilter.$or)) {
-        const { $or: existingOr, ...rest } = baseFilter as Record<string, unknown> & {
-          $or: unknown[];
-        };
-        noneMatch = { ...rest, ...excludeCancelled, $and: [{ $or: existingOr }, { $or: noneClauses }] };
-      } else {
-        noneMatch = { ...baseFilter, ...excludeCancelled, $or: noneClauses };
-      }
+      // AND the "none" clauses in via `$and`, keeping every existing `$and` and the
+      // Fulfillment scope `$or` (andWith copies the array, so baseFilter is untouched).
+      const noneMatch: Record<string, unknown> = { ...baseFilter, ...excludeCancelled };
+      andWith(noneMatch, { $or: noneClauses });
       return this.orderModel.countDocuments(noneMatch);
     })();
 
@@ -4755,7 +4797,10 @@ export class OrderService implements OnModuleInit {
       const and = [...(Array.isArray(base.$and) ? (base.$and as Record<string, unknown>[]) : []), extra];
       return this.orderModel.countDocuments({ ...base, $and: and });
     };
-    const [stageRows, factoryRows, totalRows, pillErrorFile, pillNoTool, pillPriority, pillDesignBacklog, typeRowsStat] =
+    // Product-line views: same filters, date range swapped for the older-but-not-stale range, so
+    // opening `from`..`to` on the page lists exactly this count (Orders.md, product-line views).
+    const outOfWindowRange = dto.productLine ? productLineOutOfWindowRange() : null;
+    const [stageRows, factoryRows, totalRows, pillErrorFile, pillNoTool, pillPriority, pillDesignBacklog, typeRowsStat, outOfWindowCount] =
       await Promise.all([
         this.orderModel.aggregate<{ _id: string; count: number }>([
           { $match: baseWithout({ workshopStage: undefined }) },
@@ -4808,6 +4853,11 @@ export class OrderService implements OnModuleInit {
           { $addFields: { stages: { $arrayToObject: '$stages' } } },
           { $sort: { orders: -1, _id: 1 } },
         ]),
+        outOfWindowRange
+          ? this.orderModel.countDocuments(
+              baseWithout({ createdFrom: outOfWindowRange.from, createdTo: outOfWindowRange.to }),
+            )
+          : Promise.resolve(null),
       ]);
     const factoryIds = factoryRows.map((r) => String(r._id));
     const factoryDocs = factoryIds.length
@@ -4843,6 +4893,7 @@ export class OrderService implements OnModuleInit {
         typeStats,
         totalOrders: totalRows[0]?.orders ?? 0,
         totalTypes: totalRows[0]?.types ?? 0,
+        ...(outOfWindowRange && outOfWindowCount != null ? { outOfWindow: { ...outOfWindowRange, count: outOfWindowCount } } : {}),
         printStatus: printStatusRows.map(toOption(printStatusMap)),
         toolResultNote: [
           // Prepend "Chưa soát" option. Token __none__ — FE injects nothing nữa.
@@ -5099,10 +5150,36 @@ export class OrderService implements OnModuleInit {
    * đầu updateField / setProductionError / transition designer + fulfillment.
    * Đơn giữ = tạm dừng — phải mở lại (unhold) trước khi thao tác tiếp.
    */
-  private assertNotHeld(order: { heldAt?: Date | null }): void {
-    if (order?.heldAt) {
-      throw new BadRequestException('Đơn đang bị giữ — mở lại (bỏ giữ) trước khi thao tác tiếp.');
-    }
+  private assertNotHeld(
+    order: { heldAt?: Date | null; productionId?: string; holdReason?: string },
+    /** Print paths: name the order and the hold reason, the worker at the printer needs both. */
+    opts?: { action: string },
+  ): void {
+    if (!order?.heldAt) return;
+    if (!opts) throw new BadRequestException('Đơn đang bị giữ — mở lại (bỏ giữ) trước khi thao tác tiếp.');
+    const who = order.productionId ? `Đơn ${order.productionId}` : 'Đơn';
+    const why = order.holdReason ? ` (${order.holdReason})` : '';
+    throw new BadRequestException(`${who} đang bị giữ${why} — mở lại (bỏ giữ) trước khi ${opts.action}.`);
+  }
+
+  /**
+   * Print guard (Orders.md §9b): held orders never get print data. Returns the held ones among
+   * `ids` so the batch can report "skipped N held orders"; the caller excludes them from its
+   * query. When every printable order is held, throws with the hold reason instead, so a
+   * single-order print (scan station, row menu) fails loudly rather than printing nothing.
+   */
+  private async findHeldForPrint(ids: string[]): Promise<HeldPrintSkip[]> {
+    const held = await this.orderRepository.findAll<{ productionId?: string; holdReason?: string }>(
+      { _id: { $in: ids }, cancelledAt: { $exists: false }, heldAt: { $exists: true } },
+      { select: ['productionId', 'holdReason'] },
+    );
+    return held.map((h) => ({ productionId: h.productionId || '', holdReason: h.holdReason || undefined }));
+  }
+
+  private assertSomethingPrintable(printed: number, held: HeldPrintSkip[]): void {
+    if (printed > 0 || held.length === 0) return;
+    if (held.length === 1) this.assertNotHeld({ heldAt: new Date(), ...held[0] }, { action: 'in' });
+    throw new BadRequestException(`${held.length} đơn đều đang bị giữ — mở lại (bỏ giữ) trước khi in.`);
   }
 
   /**
@@ -5208,6 +5285,301 @@ export class OrderService implements OnModuleInit {
   }
 
   // ─── Chuyển hoàn thành (SuperAdmin) — Orders.md §23 ────────────────
+  // ─── Stale-order cleanup (Orders.md §23b, SuperAdmin only) ─────────────────
+  /** One cleanup run at a time: two overlapping runs on the same ids would double the order logs. */
+  private staleCleanupRunning = false;
+
+  private assertSuperAdmin(roleName?: RoleType): void {
+    if (roleName !== RoleType.SuperAdmin) throw new ForbiddenException('Chỉ SuperAdmin được dọn đơn tồn quá hạn.');
+  }
+
+  /** Stale = open, mapped to a production factory (not US), not deleted, entered production > OPEN_ORDER_STALE_DAYS ago. */
+  private staleBaseMatch(now: Date): Record<string, unknown> {
+    return {
+      cancelledAt: { $exists: false },
+      fulfillmentCompletedAt: null,
+      deletedAt: { $exists: false },
+      factoryId: productionFactoryClause(this.orderModel.db),
+      inProductionAt: { $lt: staleCutoff(now) },
+    };
+  }
+
+  private static readonly STALE_SHIPPING_EVIDENCE = {
+    $or: [
+      { 'vnpShipment.trackingCode': { $nin: [null, ''] } },
+      { 'tracking.trackingNumber': { $nin: [null, ''] } },
+      { 'tracking.labelUrl': { $nin: [null, ''] } },
+    ],
+  };
+
+  async getStaleOpenOrders(dto: GetStaleOpenOrdersDto, roleName?: RoleType): Promise<GetStaleOpenOrdersResDto> {
+    this.assertSuperAdmin(roleName);
+    const now = new Date();
+    const cutoff = staleCutoff(now);
+    const base = this.staleBaseMatch(now);
+    const DAY = 86_400_000;
+    const ageRange: Record<string, Record<string, Date>> = {
+      '45-90': { $lt: cutoff, $gte: new Date(now.getTime() - 90 * DAY) },
+      '90-180': { $lt: new Date(now.getTime() - 90 * DAY), $gte: new Date(now.getTime() - 180 * DAY) },
+      '180+': { $lt: new Date(now.getTime() - 180 * DAY) },
+    };
+    const filtered: Record<string, unknown> = { ...base };
+    const and: Record<string, unknown>[] = [];
+    if (dto.factoryId) and.push({ factoryId: dto.factoryId }); // ANDed: an explicit US id still matches nothing
+    if (dto.productLine) filtered.productLine = dto.productLine;
+    if (dto.userSku) filtered.userSku = dto.userSku;
+    if (dto.type) filtered.type = dto.type;
+    if (dto.age) and.push({ inProductionAt: ageRange[dto.age] });
+    if (and.length) filtered.$and = and;
+
+    const lastAct = lastProductionActivityExpr();
+    const selectableExpr = {
+      $and: [
+        { $eq: [{ $ifNull: ['$heldAt', null] }, null] },
+        { $or: [{ $eq: [lastAct, null] }, { $lt: [lastAct, cutoff] }] },
+      ],
+    };
+
+    const [summaryRows, factoryDocs] = await Promise.all([
+      this.orderModel.aggregate<{
+        total: Array<{ n: number }>;
+        byFactory: Array<{ _id: string; n: number }>;
+        evidence: Array<{ n: number }>;
+        noActivity: Array<{ n: number }>;
+        neverProduced: Array<{ n: number }>;
+      }>([
+        { $match: base },
+        {
+          $facet: {
+            total: [{ $count: 'n' }],
+            byFactory: [{ $group: { _id: '$factoryId', n: { $sum: 1 } } }, { $sort: { n: -1 } }],
+            evidence: [{ $match: OrderService.STALE_SHIPPING_EVIDENCE }, { $count: 'n' }],
+            noActivity: [{ $match: { $expr: { $eq: [lastAct, null] } } }, { $count: 'n' }],
+            neverProduced: [
+              { $match: { $expr: { $in: [workshopStageSwitchExpr(), ['tool-check', 'designer']] } } },
+              { $count: 'n' },
+            ],
+          },
+        },
+      ]),
+      this.factoryRepository.findAll<{ _id: unknown; shortName?: string }>({}, { select: ['shortName'] }),
+    ]);
+    const shortOf = new Map(factoryDocs.map((f) => [String(f._id), f.shortName]));
+    const sr = summaryRows[0];
+    const summary = {
+      total: sr?.total[0]?.n ?? 0,
+      byFactory: (sr?.byFactory ?? []).map((r) => ({ factoryId: String(r._id), shortName: shortOf.get(String(r._id)), count: r.n })),
+      withShippingEvidence: sr?.evidence[0]?.n ?? 0,
+      noActivity: sr?.noActivity[0]?.n ?? 0,
+      neverProduced: sr?.neverProduced[0]?.n ?? 0,
+    };
+
+    if (dto.groupBy) {
+      const groups = await this.orderModel.aggregate<{ _id: string | null; count: number; selectable: number }>([
+        { $match: filtered },
+        { $group: { _id: `$${dto.groupBy}`, count: { $sum: 1 }, selectable: { $sum: { $cond: [selectableExpr, 1, 0] } } } },
+        { $sort: { count: -1, _id: 1 } },
+      ]);
+      return {
+        success: true,
+        data: [],
+        groups: groups.map((g) => ({ key: g._id ?? '', count: g.count, selectable: g.selectable })),
+        total: groups.length,
+        summary,
+      };
+    }
+
+    const page = Math.max(1, Number(dto.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(dto.limit) || 50));
+    const activityProjection = Object.fromEntries([...PRODUCTION_ACTIVITY_PATHS, `${TIMELINE_PATH}.at`, `${TIMELINE_PATH}.stage`, `${TIMELINE_PATH}.action`].map((p) => [p, 1]));
+    const [rows, total] = await Promise.all([
+      this.orderModel.aggregate<Record<string, unknown>>([
+        { $match: filtered },
+        { $sort: { inProductionAt: 1, _id: 1 } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+        { $addFields: { stage: workshopStageSwitchExpr() } },
+        {
+          $project: {
+            productionId: 1, orderId: 1, userSku: 1, type: 1, productLine: 1, factoryId: 1, inProductionAt: 1, heldAt: 1,
+            cancelledAt: 1, fulfillmentCompletedAt: 1, stage: 1, 'vnpShipment.trackingCode': 1, 'tracking.trackingNumber': 1,
+            ...activityProjection,
+          },
+        },
+      ]),
+      this.orderModel.countDocuments(filtered),
+    ]);
+    const ids = rows.map((r) => String(r._id));
+    const pids = rows.map((r) => String(r.productionId));
+    const db = this.orderModel.db;
+    const [logs, packages] = await Promise.all([
+      db
+        .collection('orderLogs')
+        .aggregate<{ _id: string; at: Date; action: string }>([
+          { $match: { orderId: { $in: ids } } },
+          { $sort: { createdAt: -1 } },
+          { $group: { _id: '$orderId', at: { $first: '$createdAt' }, action: { $first: '$action' } } },
+        ])
+        .toArray(),
+      db
+        .collection('shipping_packages')
+        .find<{ code?: string; productionIds?: string[] }>({ productionIds: { $in: pids } }, { projection: { code: 1, productionIds: 1 } })
+        .toArray(),
+    ]);
+    const logOf = new Map(logs.map((l) => [String(l._id), l]));
+    const pkgOf = new Map<string, string>();
+    for (const p of packages) for (const pid of p.productionIds ?? []) if (p.code) pkgOf.set(pid, p.code);
+    const excludedId = getExcludedFactoryIdSync(db);
+
+    const data = rows.map((r) => {
+      const act = lastProductionActivity(r);
+      const block = staleEligibility(r, now, excludedId);
+      const log = logOf.get(String(r._id));
+      const inProd = r.inProductionAt as Date;
+      return {
+        _id: String(r._id),
+        productionId: String(r.productionId),
+        orderId: (r.orderId as string) || undefined,
+        userSku: (r.userSku as string) || undefined,
+        type: (r.type as string) || undefined,
+        productLine: (r.productLine as string) || undefined,
+        factoryId: r.factoryId ? String(r.factoryId) : undefined,
+        factoryShortName: r.factoryId ? shortOf.get(String(r.factoryId)) : undefined,
+        inProductionAt: inProd,
+        ageDays: Math.floor((now.getTime() - inProd.getTime()) / DAY),
+        stage: String(r.stage),
+        lastActivityAt: act?.at ?? null,
+        lastActivitySource: act?.field ?? null,
+        lastLogAt: log?.at ?? null,
+        lastLogAction: log?.action ?? null,
+        shipping: {
+          vnpTracking: ((r.vnpShipment as { trackingCode?: string } | undefined)?.trackingCode as string) || undefined,
+          customerTracking: ((r.tracking as { trackingNumber?: string } | undefined)?.trackingNumber as string) || undefined,
+          packageCode: pkgOf.get(String(r.productionId)),
+        },
+        held: !!r.heldAt,
+        selectable: block === null,
+        blockReason: block,
+      };
+    });
+    return { success: true, data, total, summary } as GetStaleOpenOrdersResDto;
+  }
+
+  /** Load the requested orders with every field the eligibility check and the plan need. */
+  private async loadForStaleCleanup(ids: string[]): Promise<Map<string, Record<string, unknown>>> {
+    const docs = await this.orderModel.find({ _id: { $in: ids } }).lean();
+    return new Map(docs.map((d) => [String(d._id), d as unknown as Record<string, unknown>]));
+  }
+
+  /** Read-only: what a run on `ids` would do. Re-checks every order; nothing is trusted from the list. */
+  async previewStaleCleanup(ids: string[], roleName?: RoleType): Promise<StaleCleanupPreview> {
+    this.assertSuperAdmin(roleName);
+    const now = new Date();
+    const unique = [...new Set(ids)];
+    const byId = await this.loadForStaleCleanup(unique);
+    const excludedId = getExcludedFactoryIdSync(this.orderModel.db);
+    const factoryDocs = await this.factoryRepository.findAll<{ _id: unknown; shortName?: string }>({}, { select: ['shortName'] });
+    const shortOf = new Map(factoryDocs.map((f) => [String(f._id), f.shortName || String(f._id)]));
+    const skipped: Array<{ id: string; productionId?: string; reason: string }> = [];
+    const count = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
+    const byFactory = new Map<string, number>();
+    const byStage = new Map<string, number>();
+    const stepsFilled = new Map<string, number>();
+    let eligible = 0;
+    let neverProduced = 0;
+    let withShippingEvidence = 0;
+    let from: Date | null = null;
+    let to: Date | null = null;
+    for (const id of unique) {
+      const d = byId.get(id);
+      const block = staleEligibility(d, now, excludedId);
+      if (block || !d) {
+        skipped.push({ id, productionId: d?.productionId as string | undefined, reason: block ?? 'not-found' });
+        continue;
+      }
+      eligible++;
+      const stage = staleStageKey(d);
+      count(byStage, stage);
+      if (stage === 'tool-check' || stage === 'designer') neverProduced++;
+      count(byFactory, shortOf.get(String(d.factoryId)) ?? String(d.factoryId));
+      const vnp = (d.vnpShipment as { trackingCode?: string } | undefined)?.trackingCode;
+      const tr = d.tracking as { trackingNumber?: string; labelUrl?: string } | undefined;
+      if (vnp || tr?.trackingNumber || tr?.labelUrl) withShippingEvidence++;
+      const end = staleCleanupEnd(d);
+      if (!from || end < from) from = end;
+      if (!to || end > to) to = end;
+      const plan = planForceComplete({
+        now: end,
+        inProductionAt: d.inProductionAt as Date,
+        orderAt: d.orderAt as Date,
+        createdAt: d.createdAt as Date,
+        flowType: getFactoryFlowTypeSync(this.orderModel.db, d.factoryId as string),
+        autoPack: getFactoryAutoPackSync(this.orderModel.db, d.factoryId as string),
+        toolCheckedAt: d.toolCheckedAt as Date,
+        toolResultNote: d.toolResultNote as string,
+        designerStatus: d.designerStatus as string,
+        designerCompletedAt: d.designerCompletedAt as Date,
+        fulfillmentStages: d.fulfillmentStages as Record<string, { completedAt?: Date }>,
+      });
+      for (const st of plan.steps) count(stepsFilled, st.key);
+    }
+    const toArr = <K extends string>(m: Map<string, number>, key: K) =>
+      [...m.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ [key]: k, count: n }) as Record<K, string> & { count: number });
+    return {
+      eligible,
+      skipped,
+      byFactory: toArr(byFactory, 'shortName'),
+      byStage: toArr(byStage, 'stage'),
+      neverProduced,
+      // Flow order (tool check → design → the 6 stages), not by count: it reads as the order's path.
+      stepsFilled: ['tool-check', 'designer', ...FULFILLMENT_STAGES]
+        .filter((k) => stepsFilled.has(k))
+        .map((k) => ({ key: k, count: stepsFilled.get(k) ?? 0 })),
+      completedFrom: from,
+      completedTo: to,
+      withShippingEvidence,
+    };
+  }
+
+  /**
+   * Complete up to STALE_CLEANUP_BATCH_MAX stale orders, one by one through the same core as the
+   * single-order button (`applyForceComplete`, mode `cleanup`): past completion date, no customer
+   * event, order log per order with the actor, the reason and the run id. One order failing does
+   * not stop the run. Irreversible.
+   */
+  async runStaleCleanup(ids: string[], reason: string, roleName?: RoleType, ctx?: AuditContext): Promise<StaleCleanupRunResult> {
+    this.assertSuperAdmin(roleName);
+    if (this.staleCleanupRunning) throw new BadRequestException('Đang có một lượt dọn khác chạy — đợi lượt đó xong.');
+    this.staleCleanupRunning = true;
+    const runId = `stale-${Date.now().toString(36)}`;
+    const skipped: Array<{ id: string; productionId?: string; reason: string }> = [];
+    let done = 0;
+    try {
+      const now = new Date();
+      const unique = [...new Set(ids)];
+      const byId = await this.loadForStaleCleanup(unique);
+      const excludedId = getExcludedFactoryIdSync(this.orderModel.db);
+      for (const id of unique) {
+        const d = byId.get(id);
+        const block = staleEligibility(d, now, excludedId);
+        if (block || !d) {
+          skipped.push({ id, productionId: d?.productionId as string | undefined, reason: block ?? 'not-found' });
+          continue;
+        }
+        try {
+          await this.applyForceComplete(id, d, ctx, { kind: 'cleanup', end: staleCleanupEnd(d), reason, runId });
+          done++;
+        } catch (err) {
+          skipped.push({ id, productionId: d.productionId as string, reason: (err as Error).message || 'error' });
+        }
+      }
+    } finally {
+      this.staleCleanupRunning = false;
+    }
+    this.logger.info({ message: JSON.stringify({ staleCleanup: runId, done, skipped: skipped.length, by: ctx?.user?._id }) });
+    return { runId, done, skipped };
+  }
+
   /**
    * Ép 1 đơn về trạng thái **đã hoàn thành sản xuất**, và điền mốc thời gian
    * cho các khâu chưa xong bằng cách CHIA ĐỀU khoảng
@@ -5242,11 +5614,35 @@ export class OrderService implements OnModuleInit {
     const order = await this.orderModel.findById(id).lean();
     if (!order) throw new NotFoundException('Order not found');
 
-    const o = order as unknown as {
-      cancelledAt?: Date | null;
-      heldAt?: Date | null;
-      fulfillmentCompletedAt?: Date | null;
-      currentFulfillmentStage?: FulfillmentStage | null;
+    const o = order as unknown as { cancelledAt?: Date | null; heldAt?: Date | null; fulfillmentCompletedAt?: Date | null };
+
+    if (o.cancelledAt) throw new BadRequestException('Đơn đã hủy — không thể chuyển hoàn thành.');
+    // Đơn giữ = đang tạm dừng có chủ đích; mở giữ trước rồi mới chốt hoàn thành.
+    this.assertNotHeld(o);
+    if (o.fulfillmentCompletedAt) throw new BadRequestException('Đơn đã hoàn thành sản xuất rồi.');
+
+    const updated = await this.applyForceComplete(id, order as Record<string, unknown>, ctx, { kind: 'manual' });
+    return { success: true, data: updated } as unknown as ForceCompleteOrderResDto;
+  }
+
+  /**
+   * Shared core of "Chuyển hoàn thành": the single-order button and the stale-order cleanup
+   * (Orders.md §23b) go through the same writes, timeline and order log. The two differ only by
+   * `mode`, which is deliberately not a set of flags:
+   *  - `manual`: finished NOW, and the customer is told (`order.production_completed`), exactly as
+   *    when the floor finishes an order.
+   *  - `cleanup`: finished at a PAST moment (`end`, see `staleCleanupEnd`) and the customer is NOT
+   *    told: telling a seller (and, through their integration, the buyer) that a months-old order
+   *    "was just produced" is false, and cannot be recalled. Only the cleanup run builds this mode.
+   * Callers validate the order first.
+   */
+  private async applyForceComplete(
+    id: string,
+    order: Record<string, unknown>,
+    ctx: AuditContext | undefined,
+    mode: { kind: 'manual' } | { kind: 'cleanup'; end: Date; reason: string; runId: string },
+  ): Promise<unknown> {
+    const o = order as {
       factoryId?: string;
       inProductionAt?: Date;
       orderAt?: Date;
@@ -5258,15 +5654,10 @@ export class OrderService implements OnModuleInit {
       designerStartedAt?: Date;
       designerFirstStartedAt?: Date;
       designerCompletedAt?: Date;
+      currentFulfillmentStage?: FulfillmentStage | null;
       fulfillmentStages?: Record<string, { status?: FulfillmentStageStatus; completedAt?: Date } | undefined>;
     };
-
-    if (o.cancelledAt) throw new BadRequestException('Đơn đã hủy — không thể chuyển hoàn thành.');
-    // Đơn giữ = đang tạm dừng có chủ đích; mở giữ trước rồi mới chốt hoàn thành.
-    this.assertNotHeld(o);
-    if (o.fulfillmentCompletedAt) throw new BadRequestException('Đơn đã hoàn thành sản xuất rồi.');
-
-    const now = new Date();
+    const now = mode.kind === 'cleanup' ? mode.end : new Date();
     const plan = planForceComplete({
       now,
       inProductionAt: o.inProductionAt,
@@ -5328,7 +5719,12 @@ export class OrderService implements OnModuleInit {
         byUserId,
         byUserName,
         at: step.to,
-        reason: step.auto ? 'Chuyển hoàn thành (luồng rút gọn)' : 'Chuyển hoàn thành',
+        reason:
+          mode.kind === 'cleanup'
+            ? `Dọn đơn tồn quá hạn: ${mode.reason}`
+            : step.auto
+              ? 'Chuyển hoàn thành (luồng rút gọn)'
+              : 'Chuyển hoàn thành',
       });
     }
 
@@ -5353,14 +5749,18 @@ export class OrderService implements OnModuleInit {
         completedAt: now,
         start: plan.start,
         steps: plan.steps.map((s) => ({ key: s.key, from: s.from, to: s.to, auto: s.auto })),
+        ...(mode.kind === 'cleanup'
+          ? { mode: 'stale-cleanup', reason: mode.reason, runId: mode.runId, customerNotified: false }
+          : {}),
       },
       ctx,
     });
     // Cùng sự kiện với lúc xưởng bấm xong thật — webhook khách (ORD-4) + chuông
     // portal (ORD-5) không được phân biệt đơn xong thật với đơn được chốt tay.
-    this.emitCustomerOrderEvent('order.production_completed', [updated]);
+    // Cleanup: no customer event, on purpose (see the method comment).
+    if (mode.kind === 'manual') this.emitCustomerOrderEvent('order.production_completed', [updated]);
     void this.invalidateListCache();
-    return { success: true, data: updated } as unknown as ForceCompleteOrderResDto;
+    return updated;
   }
 
   /**
@@ -5618,6 +6018,56 @@ export class OrderService implements OnModuleInit {
    *   chỉ SNAPSHOT (không tự mở giữ); từ lần thứ 2 mới thực sự so sánh + mở
    *   giữ khi khác snapshot đã lưu.
    */
+  /**
+   * Address backfill (Orders.md §3.6): which of these production ids still miss an address.
+   * Orders HELD waiting for an address are excluded on purpose: their `shippingAddress` is the
+   * baseline `recoverHeldOrders` compares OnosPod against — filling it here could swallow the
+   * customer's fix and keep the order held forever. That cron fills them itself.
+   */
+  async findProductionIdsMissingAddress(productionIds: string[]): Promise<Set<string>> {
+    const missing = new Set<string>();
+    for (let i = 0; i < productionIds.length; i += 5000) {
+      const docs = await this.orderModel
+        .find(
+          {
+            productionId: { $in: productionIds.slice(i, i + 5000) },
+            $or: [{ shippingAddress: { $exists: false } }, { shippingAddress: null }],
+            holdReason: { $ne: HOLD_REASON_WAITING_ADDRESS },
+          },
+          { productionId: 1 },
+        )
+        .lean();
+      for (const d of docs) missing.add(d.productionId);
+    }
+    return missing;
+  }
+
+  /**
+   * Address backfill writes: `$set` ONLY `shippingAddress` (+ the OnosPod order id) and ONLY on
+   * orders still missing one — re-checked in the filter, so a concurrent import or a manual
+   * edit that filled it first wins. Never goes through `importOrders` (its `$set` would also
+   * reset `factoryId` and designs).
+   */
+  async fillMissingShippingAddresses(
+    writes: Array<{ onospodOrderId: string; productionIds: string[]; address: ProductionOrderShippingAddress }>,
+  ): Promise<number> {
+    if (writes.length === 0) return 0;
+    const res = await this.orderModel.bulkWrite(
+      writes.map((w) => ({
+        updateMany: {
+          filter: {
+            productionId: { $in: w.productionIds },
+            $or: [{ shippingAddress: { $exists: false } }, { shippingAddress: null }],
+            holdReason: { $ne: HOLD_REASON_WAITING_ADDRESS },
+          },
+          update: { $set: { shippingAddress: w.address, onospodOrderId: w.onospodOrderId } },
+        },
+      })),
+      { ordered: false },
+    );
+    return res.modifiedCount;
+  }
+
   async recoverHeldOrders(ctx?: AuditContext): Promise<RecoverHeldOrdersResDto> {
     const skipped: Array<{ productionId: string; reason: string }> = [];
     let checkedDesign = 0;
@@ -7527,9 +7977,19 @@ export class OrderService implements OnModuleInit {
         let productLine: ProductLine | undefined = row.productLine;
 
         if (row.type?.trim()) {
-          const pc = await this.productConfigRepository.findOne({
-            fullName: { $regex: '^' + escapeRegex(row.type.trim()) + '$', $options: 'i' },
-          });
+          // limit 2 in the same natural order as findOne → still picks exactly the
+          // record findOne would pick; it only adds the ability to see a same-name
+          // duplicate so we can warn about it.
+          const [pc, dup] = await this.productConfigRepository.findAll(
+            { fullName: { $regex: '^' + escapeRegex(row.type.trim()) + '$', $options: 'i' } },
+            { paging: { limit: 2, skip: 0 } },
+          );
+          if (dup) {
+            // .info + [WARN]: the prod logger has no warn level (see import-rework).
+            this.logger.info({
+              message: `[import][WARN] type "${row.type.trim()}" matches multiple ProductConfigs (${pc._id}, ${dup._id}, ...) — using ${pc._id} (factory ${pc.factoryId})`,
+            });
+          }
           if (pc) {
             isMapped = true;
             productConfigId = pc._id;
@@ -7589,6 +8049,7 @@ export class OrderService implements OnModuleInit {
           ...designData,
           status: row.status?.trim(),
           orderId: row.orderId?.trim(),
+          onospodOrderId: row.onospodOrderId?.trim(),
           externalId: row.externalId?.trim(),
           referent: row.referent?.trim(),
           orderAt: parseImportDate(row.orderAt),
@@ -7724,7 +8185,9 @@ export class OrderService implements OnModuleInit {
             const b = beforeDoc as unknown as Record<string, unknown>;
             const a = data as unknown as Record<string, unknown>;
             for (const key of Object.keys(data)) {
-              if (key === 'productionId') continue;
+              // onospodOrderId: technical join key, filled on every legacy order's first re-import
+              // after it was introduced — logging it would add one noise row per order.
+              if (key === 'productionId' || key === 'onospodOrderId') continue;
               const beforeVal = b[key] ?? null;
               const afterVal = a[key] ?? null;
               if (stableStringifyForDiff(beforeVal) !== stableStringifyForDiff(afterVal)) {
@@ -8932,6 +9395,65 @@ export class OrderService implements OnModuleInit {
       filter.updatedAt = { $gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) };
     }
     return filter;
+  }
+
+  /**
+   * Sidebar badge of the six "Production" entries: open orders per product line, in
+   * total and per factory (for the header factory scope, `?factoryId=`).
+   *
+   * Must equal the row count the user gets when clicking an entry, so it is built
+   * from the SAME `buildOrderListFilter` the product-line page goes through
+   * (`GET /orders?productLine=X&workshopStage=__open__&createdFrom=<today-6>&createdTo=<today>`,
+   * VN calendar days, same role scope) and groups by `productLine` instead of
+   * filtering on it. `deletedAt` is added because the page count goes through the
+   * repository, which excludes soft-deleted rows; `buildOrderListFilter` does not.
+   *
+   * Per factory: an explicit `factoryId` on the page REPLACES the default factory
+   * clause, so a page scoped to the US factory does list US orders. The per-factory
+   * branch therefore runs on the filter built with `includeExcludedFactory` (only the
+   * US exclusion lifted), while the total keeps the default filter — one aggregate,
+   * two `$facet` branches. Only factories with visible orders appear, so a worker
+   * never receives the list of other factories.
+   */
+  async countOpenOrdersByProductLine(
+    roleName?: RoleType,
+    assigneeCode?: string,
+    fulfillmentFactoryId?: string,
+    fulfillmentStage?: string,
+  ): Promise<{ total: ProductLineCounts; byFactory: Record<string, ProductLineCounts> }> {
+    const vnDaysAgo = (days: number) => new Date(Date.now() + 7 * 3600_000 - days * 86_400_000).toISOString().slice(0, 10);
+    const dto = {
+      createdFrom: vnDaysAgo(PRODUCT_LINE_WINDOW_DAYS - 1),
+      createdTo: vnDaysAgo(0),
+      workshopStage: WORKSHOP_STAGE_OPEN,
+    } as GetProductionOrdersDto;
+    const scope = [roleName, assigneeCode, fulfillmentFactoryId, fulfillmentStage] as const;
+    const totalFilter = this.buildOrderListFilter(dto, ...scope);
+    const perFactoryFilter = this.buildOrderListFilter({ ...dto, includeExcludedFactory: true }, ...scope);
+    const [res] = await this.orderModel.aggregate<{
+      total: Array<{ _id: string | null; n: number }>;
+      byFactory: Array<{ _id: { line: string | null; factoryId: string | null }; n: number }>;
+    }>([
+      // perFactoryFilter ⊇ totalFilter (it only lifts the US exclusion), so one $match feeds both.
+      { $match: { ...perFactoryFilter, deletedAt: { $exists: false } } },
+      {
+        $facet: {
+          total: [{ $match: totalFilter }, { $group: { _id: '$productLine', n: { $sum: 1 } } }],
+          byFactory: [{ $group: { _id: { line: '$productLine', factoryId: '$factoryId' }, n: { $sum: 1 } } }],
+        },
+      },
+    ]);
+    const empty = () => Object.fromEntries([...PRODUCT_LINES, '__none__'].map((k) => [k, 0])) as ProductLineCounts;
+    const keyOf = (line: string | null) =>
+      line && (PRODUCT_LINES as string[]).includes(line) ? (line as ProductLine) : '__none__';
+    const total = empty();
+    for (const r of res?.total ?? []) total[keyOf(r._id)] += r.n;
+    const byFactory: Record<string, ProductLineCounts> = {};
+    for (const r of res?.byFactory ?? []) {
+      if (!r._id.factoryId) continue;
+      (byFactory[r._id.factoryId] ||= empty())[keyOf(r._id.line)] += r.n;
+    }
+    return { total, byFactory };
   }
 
   /**

@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { CustomerEntity, CustomerSchema } from '@/modules/customer/customer.entity';
 
+import { CustomerCreditLimitChangeEntity, CustomerCreditLimitChangeSchema } from './customer-credit-limit-change.entity';
 import { CustomerWalletController } from './customer-wallet.controller';
 import { CustomerWalletRepository } from './customer-wallet.repository';
 import { CustomerWalletService } from './customer-wallet.service';
@@ -20,6 +21,7 @@ import { CustomerWalletTransactionEntity, CustomerWalletTransactionSchema } from
     MongooseModule.forFeature([
       { name: CustomerWalletTransactionEntity.name, schema: CustomerWalletTransactionSchema },
       { name: CustomerEntity.name, schema: CustomerSchema },
+      { name: CustomerCreditLimitChangeEntity.name, schema: CustomerCreditLimitChangeSchema },
     ]),
   ],
   controllers: [CustomerWalletController, CustomerWalletAdminController],

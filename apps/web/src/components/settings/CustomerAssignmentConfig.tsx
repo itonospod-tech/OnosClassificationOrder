@@ -155,9 +155,9 @@ export default function CustomerAssignmentConfig() {
   return (
     <div className="space-y-4">
       {confirmDialog}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
+          <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center">
             <Users size={18} className="text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>

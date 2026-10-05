@@ -39,6 +39,8 @@ export * from './pricing.dto';
 export * from './product.dto';
 export * from './product-category.dto';
 export * from './product-config.dto';
+export * from './product-tag.dto';
+export * from './product-technique.dto';
 export * from './product-variant.dto';
 export * from './production-order.dto';
 export * from './promotion.dto';

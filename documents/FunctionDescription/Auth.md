@@ -212,10 +212,10 @@ interface AuthStore {
 | Login | `pages/login/index.tsx` | Form login + logo + tagline |
 | Register | `pages/register/index.tsx` | (Demo, có thể tắt) |
 | Account | `pages/account/index.tsx` | Profile + đổi password |
-| Users | `pages/users/` | Admin quản lý user |
+| Users | `pages/users/` | Admin quản lý user — mặc định lọc "Đang hoạt động" + chip Đã khóa/Tất cả kèm số đếm + lọc theo vai trò (FE, tải limit=200; cảnh báo khi `total` > 200) |
 | Roles | `pages/roles/` | Hiển thị role mặc định + permission |
-| Custom Roles | `pages/custom-roles/` | CRUD custom role |
-| Departments | `pages/departments/` | CRUD department |
+| Custom Roles | `pages/custom-roles/` | **Trang giữ chỗ** (tiêu đề + "comingSoon", chưa từng làm CRUD) — gỡ khỏi menu 01/10/2026, route vẫn gác `page.roles` qua `ROUTE_ONLY_PAGES` |
+| Departments | `pages/departments/` | **Trang giữ chỗ** (tiêu đề + "comingSoon", chưa từng làm CRUD) — gỡ khỏi menu 01/10/2026, route vẫn gác `page.users` qua `ROUTE_ONLY_PAGES`; BE `departments/` giữ nguyên |
 | Settings | `pages/settings/` | System config (Admin only) |
 | Notifications | `pages/notifications/` | List notification của user |
 
@@ -333,7 +333,9 @@ class RoleEntity {
 - `getUserById` projection thêm `role.permissionCodes` + `role.isSystem` để FE nhận đủ data từ `/v1/auth/me`.
 - **Menu `Dashboard`** (nhóm Tổng quan) là parent bung ra 7 child = 7 tab, mỗi child link `/dashboard?tab=<key>` (`factory/stats/status/lifecycle/tool-check/person-error/designer`). Tab ngang ở page vẫn giữ; bấm submenu chỉ deep-link tới đúng tab. Gating child: `tool-check`→`page.tool_check`, `person-error`→`anyPerm:[page.designer_stats, page.tool_check]`, `designer`→`page.designer_stats`; 4 tab còn lại luôn hiện (theo `page.dashboard` của parent). `home/index.tsx` tự gắn `?tab=<activeTab>` khi vào `/dashboard` trần để submenu highlight đúng.
 - **Menu `Quản lý đơn`** (nhóm Đơn hàng) 5 child: `Danh sách đơn` (`/orders/workshop`), `Nhật ký bù lỗi` (`/orders/error-log`, `hideForRoles:['Support']`), `Quét mã` (`page.scan_error`), `Import Order` + `Import File Cutting` (`order.import`).
-- **Menu `Nhân sự & phân quyền`** (nhóm Quản trị) gộp `Team Designer` (`page.designer_team`) + `Người dùng`/`Phòng ban` (`user.manage`) + `Vai trò`/`Vai trò tùy chỉnh` (`role.manage`); `Cài đặt` để riêng (`role.manage`).
+- **Menu nhóm `HR`** (menu 6 nhóm, MenuRestructure-CEO.md) theo luồng làm việc: `Người dùng` (`user.manage`) → `Vai trò` (`role.manage`) → `Team Designer` (`page.designer_team`) → `Mạo danh` (chỉ SuperAdmin). `Phòng ban`/`Vai trò tùy chỉnh` đã gỡ khỏi menu (trang giữ chỗ). `Cài đặt` ở nhóm Hệ thống (`role.manage`).
+- **Gác route từ cây menu (AUTH-7, `buildPagePermissionMap` → `RequirePagePermission`)**: route chỉ được gác khi mục menu của nó khai mã `page.*` (`perm`/`pagePerm`); trang rời sidebar phải khai vào `ROUTE_ONLY_PAGES` cùng commit, nếu không route MỞ (MenuRestructure-CEO.md §9.1). **Trang khoá-theo-vai nằm NGOÀI bảng này là CÓ CHỦ ĐÍCH**: `CEO Dashboard` (`/adm/ceo`) và `Ví` (`/adm/wallets`) chỉ có `onlyForRoles: [SuperAdmin, Admin]`, không mã `page.*`, nên tầng route không chặn — vẫn an toàn vì (1) chính trang tự đá vai khác về HOME, (2) BE gác `@Auth([Admin])` (`ceo/*`, `admin/customer-wallets*`), dữ liệu không rò. Muốn chặn ở tầng route thì thêm mã `page.*` vào permission-catalog — việc riêng, đụng bảng quyền. Rà bảng quyền thấy hai trang này vắng thì KHÔNG phải sót.
+- `NavChild.defaultQuery`: query menu thêm khi MỞ trang (view mặc định có nghĩa, §8.1), KHÔNG thuộc danh tính mục — sáng menu + tín hiệu reset chỉ so `to`. Dùng khi trạng thái "tắt lọc" của trang là THIẾU param (vd Ví `activeOnly=true`). Chỉ khai giá trị BẬT: `z.coerce.boolean` đọc chuỗi `"false"` thành `true`.
 - Active state detect qua `isLinkActive(linkPath, currentPath, currentSearch)` — so sánh path + query subset, nên link có `?tab=` vẫn highlight đúng.
 
 > ⚠️ Cache Redis `user:${id}` và `user:info:${id}` giữ payload cũ. Sau khi deploy Phase 5, admin gọi `POST /v1/users/:id/clear-user-cache` hoặc đợi TTL để FE thấy permission mới.

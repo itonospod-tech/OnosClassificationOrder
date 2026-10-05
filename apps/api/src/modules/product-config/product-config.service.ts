@@ -23,6 +23,8 @@ import type { ProductLine } from 'shared';
 import { myNanoid, PRODUCT_FABRIC_TYPE_NONE, PRODUCT_LINES, ProductConfigStatus, ProductLine as ProductLineEnum, WorkshopConfigCategory } from 'shared';
 
 import { CollectionService } from '../collection/collection.service';
+import { ProductTagService } from '../product-tag/product-tag.service';
+import { ProductTechniqueService } from '../product-technique/product-technique.service';
 import { FactoryService } from '../factory/factory.service';
 import { MachineTypeService } from '../machine-type/machine-type.service';
 import { PRODUCT_TYPE_CODE_MAP } from '../order/design-review-product-code';
@@ -181,6 +183,8 @@ export class ProductConfigService implements OnModuleInit {
     private readonly machineTypeService: MachineTypeService,
     private readonly productCategoryService: ProductCategoryService,
     private readonly collectionService: CollectionService,
+    private readonly productTagService: ProductTagService,
+    private readonly productTechniqueService: ProductTechniqueService,
     private readonly workshopConfigRepository: WorkshopConfigRepository,
     private readonly systemConfigService: SystemConfigService,
     @InjectModel(ProductConfigEntity.name)
@@ -726,7 +730,23 @@ export class ProductConfigService implements OnModuleInit {
     return { filePath, mimetype };
   }
 
+  /**
+   * Block creating or renaming onto an existing `fullName`, matching EXACTLY the way
+   * `importOrders` does (trim, `^…$`, case-insensitive). With duplicate names
+   * `importOrders` takes the first record while `remapUnmappedOrders` takes the last,
+   * so the two factory-assignment paths silently disagree.
+   */
+  private async assertFullNameFree(fullName: string, exceptId?: string) {
+    const name = fullName.trim();
+    const clash = await this.productConfigRepository.findOne({
+      fullName: { $regex: '^' + escapeRegex(name) + '$', $options: 'i' },
+      ...(exceptId ? { _id: { $ne: exceptId } } : {}),
+    });
+    if (clash) throw new BadRequestException(`Sản phẩm "${name}" đã tồn tại.`);
+  }
+
   async createProductConfig(dto: CreateProductConfigDto) {
+    await this.assertFullNameFree(dto.fullName);
     // factoryId optional — sản phẩm có thể tạo mà chưa gán xưởng, bổ sung sau
     // ở trang Products (đơn import khớp sản phẩm này sẽ rơi vào "Không xác
     // định xưởng", cùng cách xử lý đơn chưa map product config — Orders.md §19).
@@ -736,6 +756,8 @@ export class ProductConfigService implements OnModuleInit {
     }
     if (dto.productCategoryId) await this.productCategoryService.getProductCategory(dto.productCategoryId);
     for (const collectionId of dto.collectionIds || []) await this.collectionService.getCollection(collectionId);
+    for (const tagId of dto.productTagIds || []) await this.productTagService.getProductTag(tagId);
+    for (const techniqueId of dto.productTechniqueIds || []) await this.productTechniqueService.getProductTechnique(techniqueId);
 
     try {
       return await this.productConfigRepository.create({
@@ -758,11 +780,14 @@ export class ProductConfigService implements OnModuleInit {
   }
 
   async updateProductConfig(id: string, dto: UpdateProductConfigDto) {
+    if (dto.fullName) await this.assertFullNameFree(dto.fullName, id);
     // Validate ref khi client đổi Xưởng / Phòng / Danh mục (throw 404 nếu id không tồn tại).
     if (dto.factoryId) await this.factoryService.getFactory(dto.factoryId);
     if (dto.machineTypeId) await this.machineTypeService.getMachineType(dto.machineTypeId);
     if (dto.productCategoryId) await this.productCategoryService.getProductCategory(dto.productCategoryId);
     for (const collectionId of dto.collectionIds || []) await this.collectionService.getCollection(collectionId);
+    for (const tagId of dto.productTagIds || []) await this.productTagService.getProductTag(tagId);
+    for (const techniqueId of dto.productTechniqueIds || []) await this.productTechniqueService.getProductTechnique(techniqueId);
 
     try {
       const p = await this.productConfigRepository.findOneAndUpdate(

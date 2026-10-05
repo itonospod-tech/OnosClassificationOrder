@@ -205,6 +205,10 @@ export const ProductConfigZod = BaseEntityZod.extend({
   images: z.array(z.string().max(1000)).max(20).optional(),
   /** ref CollectionEntity — 1 sản phẩm thuộc nhiều collection (multi-select). */
   collectionIds: IDZod.array().max(20).optional(),
+  /** ref ProductTagEntity — many tags per product (multi-select). */
+  productTagIds: IDZod.array().max(30).optional(),
+  /** ref ProductTechniqueEntity — many techniques per product (multi-select). */
+  productTechniqueIds: IDZod.array().max(20).optional(),
   /** Cấp độ sản phẩm 1..10 (PRODUCT_LEVELS) — hiển thị badge màu. */
   level: z.number().int().min(1).max(10).optional(),
   /** Hướng dẫn / ghi chú sản xuất (HTML từ rich text editor). */
@@ -326,6 +330,8 @@ export const CreateProductConfigZod = z.object({
   mockup: ProductConfigZod.shape.mockup,
   images: ProductConfigZod.shape.images,
   collectionIds: ProductConfigZod.shape.collectionIds,
+  productTagIds: ProductConfigZod.shape.productTagIds,
+  productTechniqueIds: ProductConfigZod.shape.productTechniqueIds,
   level: ProductConfigZod.shape.level,
   guide: ProductConfigZod.shape.guide,
   productCategoryId: ProductConfigZod.shape.productCategoryId,
@@ -374,6 +380,8 @@ export const UpdateProductConfigZod = z.object({
   mockup: ProductConfigZod.shape.mockup,
   images: ProductConfigZod.shape.images,
   collectionIds: ProductConfigZod.shape.collectionIds,
+  productTagIds: ProductConfigZod.shape.productTagIds,
+  productTechniqueIds: ProductConfigZod.shape.productTechniqueIds,
   level: ProductConfigZod.shape.level,
   guide: ProductConfigZod.shape.guide,
   productCategoryId: ProductConfigZod.shape.productCategoryId,
@@ -528,6 +536,12 @@ export const ImportFromOnospodZod = z.object({
    * 2026-08-05: 9 trang × 20 chỉ thu 167 dòng có trùng lặp, thiếu PAOPPOLO).
    */
   limit: z.coerce.number().int().positive().max(500).default(500),
+  /**
+   * Chỉ lấy 1 collection bên OnosPod (vd `dropship`). Bỏ trống = truy vấn không filter,
+   * nhưng truy vấn đó KHÔNG trả collection `dropship` (verify 01/10/2026: 221 dòng,
+   * `x-total` 232) nên muốn nhập dropship phải gọi tường minh với giá trị này.
+   */
+  collection: z.string().trim().min(1).max(60).regex(/^[\w-]+$/).optional(),
 });
 export class ImportFromOnospodDto extends createZodDto(extendApi(ImportFromOnospodZod)) {}
 
@@ -725,6 +739,10 @@ export type CustomerCatalogItem = z.infer<typeof CustomerCatalogItemZod>;
 export const GetCustomerCatalogZod = PageQueryZod.extend({
   productCategoryId: IDZod.optional(),
   collectionId: IDZod.optional(),
+  /** Product tag filter (`ProductConfig.productTagIds`). */
+  productTagId: IDZod.optional(),
+  /** Product technique filter (`ProductConfig.productTechniqueIds`). */
+  productTechniqueId: IDZod.optional(),
   productLine: z.enum(PRODUCT_LINES).optional(),
 });
 export class GetCustomerCatalogDto extends createZodDto(extendApi(GetCustomerCatalogZod)) {}
@@ -787,6 +805,10 @@ export const GetCustomerCatalogFacetsResZod = ResZod.extend({
   data: z.object({
     categories: CustomerCatalogFacetZod.array(),
     collections: CustomerCatalogFacetZod.array(),
+    /** Active product tags with at least one visible product. */
+    tags: CustomerCatalogFacetZod.array(),
+    /** Active product techniques with at least one visible product. */
+    techniques: CustomerCatalogFacetZod.array(),
     /** Số sản phẩm theo dòng (chỉ dòng có ≥1 sản phẩm). */
     productLines: z.object({ code: z.enum(PRODUCT_LINES), count: z.number() }).array(),
   }),

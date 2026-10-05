@@ -34,7 +34,7 @@ export const ordersRegistry: AgentTableSpec = {
     color: plain('string'),
     size: plain('string'),
     printMethod: plain('string'),
-    productLine: plain('enum', 'PRD-8 — dòng sản phẩm (3d/2d/wood/embroidery/led/canvas), stamp từ ProductConfig lúc import'),
+    productLine: plain('enum', 'PRD-8 — dòng sản phẩm (3d/2d/wood/embroidery/led/canvas/dropship), stamp từ ProductConfig lúc import'),
     quantity: numeric('Số lượng của đơn'),
 
     status: plain('string', 'Trạng thái đơn lấy từ hệ thống nguồn'),
@@ -118,6 +118,7 @@ export const ordersRegistry: AgentTableSpec = {
     height: plain('number'),
     length: plain('number'),
     orderId: plain('string', 'Mã đơn ở hệ thống nguồn'),
+    onospodOrderId: plain('string', 'Mã _id đơn bên OnosPod — dùng để lấy lại địa chỉ giao theo lô'),
     externalId: plain('string'),
     referent: plain('string'),
     fabricType: plain('string', 'Mã chất liệu, tra nghĩa ở workshopConfigs'),

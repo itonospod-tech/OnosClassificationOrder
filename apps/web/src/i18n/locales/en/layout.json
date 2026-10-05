@@ -11,7 +11,8 @@
       "catalog": "Catalog",
       "personal": "Personal",
       "admin": "Admin",
-      "ceo": "Executive"
+      "ceo": "Executive",
+      "system": "System"
     },
     "dashboard": {
       "title": "Dashboard",
@@ -31,13 +32,13 @@
     "orders": {
       "title": "Order management",
       "list": "Order list",
-      "classic": "Orders",
+      "classic": "Order list (flat table)",
       "errorLog": "Error correction log",
-      "scanError": "Scan code",
+      "scanError": "Scan station",
       "stageErrors": "Stage error catalog",
       "unmapped": "Unmapped factory",
       "shipments": "Shipments",
-      "import": "Import order",
+      "import": "Import orders",
       "cuttingFiles": "Import cutting files"
     },
     "work": {
@@ -68,7 +69,8 @@
       "designerBacklog": "Total design backlog (last 7 days)",
       "designerBacklogSelf": "Your design backlog (last 7 days)",
       "toolCheckRework": "Tool check — orders needing rework",
-      "toolCheckUnreviewed": "Tool check — unreviewed orders (last 7 days)"
+      "toolCheckUnreviewed": "Tool check — unreviewed orders (last 7 days)",
+      "productLineOpen": "Unfinished orders of this line that entered production in the last {{days}} days"
     },
     "customers": "Customers",
     "impersonate": "Impersonate",
@@ -76,7 +78,45 @@
     "zaloChat": "Zalo chat",
     "ceoDashboard": "CEO Dashboard",
     "telegram": "Telegram",
-    "guideDtf": "DTF guide"
+    "guideDtf": "DTF guide",
+    "nav": {
+      "reports": {
+        "title": "Reports",
+        "production": "By factory",
+        "stock": "Stock"
+      },
+      "production": {
+        "title": "Production",
+        "all": "All orders",
+        "orders": "Orders",
+        "station": "At the station",
+        "byLine": "Product lines"
+      },
+      "lines": {
+        "3d": "3D",
+        "2d": "2D (DTG/DTF)",
+        "embroidery": "Embroidery",
+        "led": "LED",
+        "canvas": "Canvas",
+        "wood": "Wood & laser cut",
+        "dropship": "Dropship"
+      },
+      "tool": {
+        "title": "Tool",
+        "overview": "All"
+      },
+      "ship": {
+        "title": "Ship"
+      },
+      "wallet": {
+        "title": "Wallet",
+        "sellers": "Seller wallets",
+        "transactions": "Transactions"
+      },
+      "hr": {
+        "title": "HR"
+      }
+    }
   },
   "header": {
     "toggleSidebar": "Toggle sidebar",
@@ -91,7 +131,8 @@
       "title": "Pick a factory — Dashboard, Orders and Work pages filter by it",
       "badgeError": "Errors to handle",
       "badgeTool": "Tool-check backlog (rework / unreviewed)",
-      "lockedTitle": "This account is bound to this factory"
+      "lockedTitle": "This account is bound to this factory",
+      "noFactory": "No factory assigned"
     }
   },
   "overdueAlert": {
@@ -104,5 +145,13 @@
   "factoryScopeChip": {
     "label": "Filtered by factory: {{name}}",
     "clear": "Clear factory filter"
+  },
+  "tabBar": {
+    "label": "Quick navigation",
+    "tasks": "Tasks",
+    "scan": "Scan",
+    "errors": "Errors",
+    "orders": "Orders",
+    "more": "More"
   }
 }

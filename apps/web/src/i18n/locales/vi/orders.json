@@ -281,7 +281,8 @@
     "bulkHint": "Dán danh sách mã (mỗi Production ID một dòng) để lọc bảng",
     "bulkBtn": "Nhiều mã",
     "reloadBtn": "Tải lại",
-    "tokenCount": "{{count}} mã"
+    "tokenCount": "{{count}} mã",
+    "filtersBtn": "Bộ lọc"
   },
   "bulkEdit": {
     "fieldLabels": {
@@ -321,6 +322,7 @@
     "printLabelBtn": "In tem nhỏ",
     "noLabel": "Không có đơn nào để in tem",
     "labelPartial": "Chỉ in được {{count}}/{{total}} tem — {{total}} đơn đang chọn nhưng chỉ {{count}} đơn còn hợp lệ để in",
+    "heldSkipped": "Đã bỏ qua {{count}} đơn đang bị giữ, không in: {{list}}",
     "labelTooMany": "Đang chọn {{count}} đơn — 1 lệnh in chỉ chịu được {{max}} tem. Hãy chia nhỏ lô rồi in lại.",
     "exportTitle": "Xuất Excel các đơn đang chọn",
     "exportBtn": "Xuất Excel",
@@ -345,7 +347,7 @@
     "exportLabelPdfBtn": "Xuất PDF label",
     "exportLabelPdfTitle": "Gộp label thật của đơn vị vận chuyển (đã mua qua VNP / khách tự cấp) thành 1 file PDF — mỗi label 1 trang",
     "exportLabelPdfSuccess": "Đã xuất {{count}} label ({{pages}} trang) vào 1 file PDF.",
-    "exportLabelPdfSkipped": "{{count}} đơn bị bỏ qua (chưa có label / tải label lỗi): {{list}}…",
+    "exportLabelPdfSkipped": "{{count}} đơn bị bỏ qua (chưa có label / tải label lỗi / đang bị giữ): {{list}}…",
     "exportLabelPdfMerged": "{{count}} item chung kiện đã gộp chung trang label.",
     "exportLabelPdfEmpty": "Không đơn nào có label carrier dùng được — cần mua label VNP hoặc đơn có label khách tự cấp."
   },
@@ -713,7 +715,13 @@
   "workshopPage": {
     "noPermission": "Bạn không có quyền xem trang này.",
     "title": "Danh sách đơn",
-    "subtitle": "Quản lý production orders"
+    "subtitle": "Quản lý production orders",
+    "lineTitle": "Sản xuất · {{line}}",
+    "lineSubtitle": "Mặc định: đơn CHƯA xong, vào sản xuất {{days}} ngày gần nhất",
+    "olderOpen_one": "Còn {{n}} đơn vào sản xuất trước {{days}} ngày qua mà chưa xong — bấm để xem",
+    "olderOpen_other": "Còn {{n}} đơn vào sản xuất trước {{days}} ngày qua mà chưa xong — bấm để xem",
+    "olderOpenActive": "Đang xem đơn chưa xong vào sản xuất từ {{days}} đến {{staleDays}} ngày trước",
+    "backToWindow": "Về {{days}} ngày gần nhất"
   },
   "classicPage": {
     "title": "Đơn hàng",
@@ -844,5 +852,8 @@
       "viewing": "Đang xem {{shown}} / {{total}} đơn của loại này",
       "empty": "Không có loại sản phẩm nào khớp"
     }
+  },
+  "printCard": {
+    "details": "Chi tiết"
   }
 }

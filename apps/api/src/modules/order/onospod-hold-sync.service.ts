@@ -356,8 +356,12 @@ export class OnospodHoldSyncService {
     }
   }
 
-  /** Cảnh báo Telegram khi dừng lượt vì nghi ngờ/vượt trần. Không có kênh → chỉ log. */
-  private async alert(text: string): Promise<void> {
+  /**
+   * Cảnh báo Telegram khi dừng lượt vì nghi ngờ/vượt trần. Không có kênh → chỉ log.
+   * Public vì `OnospodImportService` dùng lại đúng kênh + đúng cơ chế chống gửi
+   * trùng này cho cảnh báo import hỏng (nó đã inject sẵn service này).
+   */
+  async alert(text: string): Promise<void> {
     const now = Date.now();
     if (this.lastAlert && this.lastAlert.text === text && now - this.lastAlert.at < ALERT_THROTTLE_MS) return;
     this.lastAlert = { text, at: now };

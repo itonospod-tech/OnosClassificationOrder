@@ -11,7 +11,9 @@
   },
   "filters": {
     "label": "Quick filter",
-    "all": "All"
+    "all": "All",
+    "tags": "Tags",
+    "techniques": "Techniques"
   },
   "result": {
     "count_one": "{{count}} product",

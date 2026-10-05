@@ -36,9 +36,13 @@ import { cn } from '@/utils/cn';
 
 import { useDebounce } from '@/hooks/useDebounce';
 import { useIsNoTool } from '@/hooks/useIsNoTool';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { usePermission } from '@/hooks/usePermission';
 
 type OrderRow = WorkshopOrderRow;
+
+/** A table column, or a merged group of columns rendered as one stacked cell. */
+type DisplayUnit = { kind: 'col'; col: WorkshopColMeta } | { kind: 'group'; group: ResolvedColGroup };
 const COLS = PRINT_COLS;
 const DEFAULT_PAGE_SIZE = 50;
 
@@ -50,6 +54,7 @@ type StatusCounts = {
   done: number;
   fixed: number;
   watching: number;
+  held: number;
 };
 const EMPTY_COUNTS: StatusCounts = {
   all: 0,
@@ -59,6 +64,7 @@ const EMPTY_COUNTS: StatusCounts = {
   done: 0,
   fixed: 0,
   watching: 0,
+  held: 0,
 };
 
 /** value '' = tất cả (không lọc theo stage status). */
@@ -73,6 +79,8 @@ function buildStatusTabs(
     { value: 'done', label: t('stageStatus.done'), countKey: 'done', accent: 'text-emerald-600' },
     { value: 'fixed', label: t('stageStatus.fixed'), countKey: 'fixed', accent: 'text-teal-600' },
     { value: 'watching', label: t('stageStatus.watching'), countKey: 'watching', accent: 'text-sky-600' },
+    // Held orders cut out of "waiting" (Orders.md §9b). Shown only when there are some (or it is selected).
+    { value: 'held', label: t('stageStatus.held'), countKey: 'held', accent: 'text-tone-warning' },
   ];
 }
 
@@ -159,7 +167,10 @@ export function PrintOrderTable({
   // Bật → dùng phím ↑/↓ để copy Production ID từng dòng. CHỈ dòng vừa copy
   // (dòng cursor đang trỏ) hiện ✓ — di chuyển cursor → ✓ nhảy theo, dòng cũ
   // mất tick. `cursorIndex` = dòng đang focus trong trang.
-  const [keyboardMode, setKeyboardMode] = useState(true);
+  // Arrow-key copy mode is for a station PC with a keyboard; a phone has none, so it starts off there
+  // and its toggle + hint are hidden.
+  const isMobile = useIsMobile();
+  const [keyboardMode, setKeyboardMode] = useState(() => !window.matchMedia('(max-width: 767px)').matches);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [cursorIndex, setCursorIndex] = useState(-1);
   const cursorRef = useRef(-1);
@@ -249,7 +260,6 @@ export function PrintOrderTable({
   // Gộp 2 cụm cột thành 1 cột/cụm (Máy·TT in·Note + Lỗi xưởng·Loại·Mô tả) —
   // field trong ô xếp dọc, mỗi mục có label riêng qua GroupCellContent.
   // Cột ngoài cụm giữ nguyên; group chiếm vị trí member đầu tiên còn quyền xem.
-  type DisplayUnit = { kind: 'col'; col: WorkshopColMeta } | { kind: 'group'; group: ResolvedColGroup };
   const displayUnits = useMemo<DisplayUnit[]>(() => {
     const consumed = new Set<string>();
     const units: DisplayUnit[] = [];
@@ -575,9 +585,10 @@ export function PrintOrderTable({
     <TooltipProvider delayDuration={200}>
       <div className="space-y-4">
         {/* Chips trạng thái stage — hàng ngang + count */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 max-md:-mx-4 max-md:flex-nowrap max-md:overflow-x-auto max-md:px-4 max-md:pb-0.5 max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden">
           {statusTabs.map((tab) => {
             const active = statusFilter === tab.value;
+            if (tab.value === 'held' && !active && !counts.held) return null;
             return (
               <button
                 key={tab.value || 'all'}
@@ -587,7 +598,7 @@ export function PrintOrderTable({
                   setPage(1);
                 }}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors touch:min-h-10',
                   active
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border bg-card text-muted-foreground hover:bg-muted',
@@ -607,6 +618,7 @@ export function PrintOrderTable({
           })}
 
           {/* Toggle chế độ copy bằng phím ↑↓ */}
+          {!isMobile && (
           <button
             type="button"
             onClick={() => setKeyboardMode((v) => !v)}
@@ -629,6 +641,7 @@ export function PrintOrderTable({
               {keyboardMode ? t('printTable.keyboardMode.on') : t('printTable.keyboardMode.off')}
             </span>
           </button>
+          )}
         </div>
 
         <OrderFilterBar
@@ -658,7 +671,7 @@ export function PrintOrderTable({
           }}
         />
 
-        {keyboardMode && items.length > 0 && (
+        {!isMobile && keyboardMode && items.length > 0 && (
           <div className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-foreground">
             <Keyboard size={13} className="mt-0.5 shrink-0 text-primary" />
             <p>
@@ -671,7 +684,7 @@ export function PrintOrderTable({
           </div>
         )}
 
-        {!keyboardMode && selected.size === 0 && items.length > 0 && (
+        {!isMobile && !keyboardMode && selected.size === 0 && items.length > 0 && (
           <div className="flex items-start gap-2 rounded-md border border-dashed border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
             <MousePointerClick size={13} className="mt-0.5 shrink-0 text-primary" />
             <p>
@@ -682,7 +695,26 @@ export function PrintOrderTable({
           </div>
         )}
 
-        <LoadingOverlay active={loading && items.length > 0} className="rounded-lg border border-border bg-card overflow-hidden">
+        <LoadingOverlay
+          active={loading && items.length > 0}
+          className={cn(!isMobile && 'rounded-lg border border-border bg-card overflow-hidden')}
+        >
+          {isMobile ? (
+            <PrintOrderCards
+              items={items}
+              loading={loading}
+              selected={selected}
+              canSelect={canSelect}
+              isNoTool={isNoTool}
+              displayUnits={displayUnits}
+              renderCtx={renderCtx}
+              extraRowAction={extraRowAction}
+              onToggle={handleCheckboxChange}
+              onDetail={(row) => setDetailTarget({ id: row._id, productionId: row.productionId })}
+              noResultsLabel={t('printTable.noResults')}
+              detailLabel={tOrders('printCard.details')}
+            />
+          ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -831,6 +863,7 @@ export function PrintOrderTable({
               </TableBody>
             </Table>
           </div>
+          )}
 
           <PaginationBar
             position="bottom"
@@ -886,5 +919,121 @@ export function PrintOrderTable({
         />
       </div>
     </TooltipProvider>
+  );
+}
+
+/** Column / group keys the phone card shows, in order. Everything else is one tap away in the detail sheet. */
+const CARD_UNIT_KEYS = ['productionId', 'mockupTypeSize', 'print'] as const;
+
+interface PrintOrderCardsProps {
+  items: OrderRow[];
+  loading: boolean;
+  selected: Set<string>;
+  canSelect: (row: OrderRow) => boolean;
+  isNoTool: (toolResult?: string) => boolean;
+  displayUnits: DisplayUnit[];
+  renderCtx: WorkshopRenderCtx;
+  extraRowAction?: (row: OrderRow) => React.ReactNode;
+  onToggle: (id: string) => void;
+  onDetail: (row: OrderRow) => void;
+  noResultsLabel: string;
+  detailLabel: string;
+}
+
+/**
+ * Phone layout of the print list (DesignSystem-LegacyParity.md §10): one card per order instead of
+ * a ten-column table that scrolls sideways. A card shows the few things a worker at the press
+ * needs — order id, product (mockup · type · size · color), print state — and the row's action
+ * buttons (Start / Complete / Report error), full width at the bottom, in thumb reach. Anything
+ * else opens in the detail sheet. Red / sky left bars keep the table's error and no-tool signals.
+ */
+function PrintOrderCards({
+  items,
+  loading,
+  selected,
+  canSelect,
+  isNoTool,
+  displayUnits,
+  renderCtx,
+  extraRowAction,
+  onToggle,
+  onDetail,
+  noResultsLabel,
+  detailLabel,
+}: PrintOrderCardsProps) {
+  const unitKey = (u: DisplayUnit) => (u.kind === 'col' ? u.col.key : u.group.key);
+  const cardUnits = CARD_UNIT_KEYS.map((k) => displayUnits.find((u) => unitKey(u) === k)).filter(
+    (u): u is DisplayUnit => !!u,
+  );
+  const errorUnit = displayUnits.find((u) => u.kind === 'group' && u.group.key === 'productionError');
+
+  const renderUnit = (u: DisplayUnit, row: OrderRow) =>
+    u.kind === 'col' ? (
+      u.col.render(row, renderCtx)
+    ) : (
+      <GroupCellContent
+        group={u.group}
+        singleLineValues
+        renderedByKey={new Map(u.group.members.map((m) => [m.key, m.render(row, renderCtx)]))}
+      />
+    );
+
+  if (items.length === 0) {
+    return loading ? (
+      <div className="flex justify-center py-10">
+        <Spinner size={20} className="text-muted-foreground" />
+      </div>
+    ) : (
+      <p className="py-10 text-center text-sm text-muted-foreground">{noResultsLabel}</p>
+    );
+  }
+
+  return (
+    <ul className="space-y-3">
+      {items.map((row) => {
+        const isSel = selected.has(row._id);
+        const hasError = !!row.productionError && !row.errorResolvedAt;
+        const noTool = isNoTool(row.toolResult);
+        const action = extraRowAction?.(row);
+        return (
+          <li
+            key={row._id}
+            className={cn(
+              'relative overflow-hidden rounded-xl bg-card p-3 pl-4 shadow-sm ring-1 ring-border/60',
+              isSel && 'ring-2 ring-primary',
+              hasError && 'before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-red-500',
+              !hasError && noTool && 'before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-sky-400',
+            )}
+          >
+            <div className="flex items-start gap-2">
+              {/* The checkbox is wrapped so the WHOLE 44px square is the touch target. */}
+              <label className="-m-1 flex h-11 w-11 shrink-0 items-center justify-center">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5"
+                  checked={isSel}
+                  disabled={!canSelect(row)}
+                  onChange={() => onToggle(row._id)}
+                />
+              </label>
+              <div className="min-w-0 flex-1 space-y-2">
+                {cardUnits.map((u) => (
+                  <div key={unitKey(u)} className="min-w-0">
+                    {renderUnit(u, row)}
+                  </div>
+                ))}
+                {hasError && errorUnit && <div className="min-w-0">{renderUnit(errorUnit, row)}</div>}
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+              {action}
+              <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onDetail(row)}>
+                {detailLabel}
+              </Button>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

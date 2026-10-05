@@ -281,7 +281,8 @@
     "bulkHint": "Paste a list of codes (one Production ID per line) to filter the table",
     "bulkBtn": "Multiple codes",
     "reloadBtn": "Reload",
-    "tokenCount": "{{count}} codes"
+    "tokenCount": "{{count}} codes",
+    "filtersBtn": "Filters"
   },
   "bulkEdit": {
     "fieldLabels": {
@@ -321,6 +322,7 @@
     "printLabelBtn": "Print small labels",
     "noLabel": "No orders to print labels for",
     "labelPartial": "Only {{count}} of {{total}} labels printed — {{total}} orders selected but only {{count}} are still printable",
+    "heldSkipped": "Skipped {{count}} held order(s), not printed: {{list}}",
     "labelTooMany": "{{count}} orders selected — a single print job handles at most {{max}} labels. Split the batch and print again.",
     "exportTitle": "Export the selected orders to Excel",
     "exportBtn": "Export Excel",
@@ -345,7 +347,7 @@
     "exportLabelPdfBtn": "Export label PDF",
     "exportLabelPdfTitle": "Merge the real carrier labels (bought via VNP / customer-provided) into one PDF — one label per page",
     "exportLabelPdfSuccess": "Exported {{count}} labels ({{pages}} pages) into one PDF file.",
-    "exportLabelPdfSkipped": "{{count}} orders skipped (no label / label download failed): {{list}}…",
+    "exportLabelPdfSkipped": "{{count}} orders skipped (no label / label download failed / on hold): {{list}}…",
     "exportLabelPdfMerged": "{{count}} items share a parcel — merged into the same label page.",
     "exportLabelPdfEmpty": "No usable carrier label among the selected orders — buy a VNP label first or use orders with customer-provided labels."
   },
@@ -713,7 +715,13 @@
   "workshopPage": {
     "noPermission": "You don't have permission to view this page.",
     "title": "Order list",
-    "subtitle": "Manage production orders"
+    "subtitle": "Manage production orders",
+    "lineTitle": "Production · {{line}}",
+    "lineSubtitle": "Default view: unfinished orders that entered production in the last {{days}} days",
+    "olderOpen_one": "{{n}} order from before the last {{days}} days is still not done — tap to view",
+    "olderOpen_other": "{{n}} orders from before the last {{days}} days are still not done — tap to view",
+    "olderOpenActive": "Showing unfinished orders that entered production {{days}} to {{staleDays}} days ago",
+    "backToWindow": "Back to the last {{days}} days"
   },
   "classicPage": {
     "title": "Orders",
@@ -844,5 +852,8 @@
       "viewing": "Showing {{shown}} / {{total}} orders of this type",
       "empty": "No product type matches"
     }
+  },
+  "printCard": {
+    "details": "Details"
   }
 }

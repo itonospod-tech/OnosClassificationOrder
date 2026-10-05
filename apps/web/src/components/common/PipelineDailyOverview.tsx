@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { CalendarRange, X } from 'lucide-react';
+import { CalendarRange, ChevronDown, X } from 'lucide-react';
 import type { FulfillmentDailyColumnTotals, FulfillmentDailyRow, FulfillmentStage } from 'shared';
 import { FULFILLMENT_STAGES } from 'shared';
 
 import { RepositoryRemote } from '@/services';
 
 import { handleAxiosError } from '@/utils';
+import { cn } from '@/utils/cn';
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
+
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
@@ -100,7 +103,11 @@ interface Props {
   caption?: React.ReactNode;
 }
 
-function buildRows(t: TFunction<'dashboard'>, stage: FulfillmentStage | undefined, lane: OverviewLane | undefined): RowDesc[] {
+function buildRows(
+  t: TFunction<'dashboard'>,
+  stage: FulfillmentStage | undefined,
+  lane: OverviewLane | undefined,
+): RowDesc[] {
   const list: RowDesc[] = [
     {
       key: 'total',
@@ -149,8 +156,7 @@ function buildRows(t: TFunction<'dashboard'>, stage: FulfillmentStage | undefine
       showZero: true,
       single: (m) => Math.max(0, m.toolReviewed - m.toolOk),
       singleCls: RED,
-      tip: (m, d) =>
-        t('pipelineOverview.tips.toolError', { day: d, count: Math.max(0, m.toolReviewed - m.toolOk) }),
+      tip: (m, d) => t('pipelineOverview.tips.toolError', { day: d, count: Math.max(0, m.toolReviewed - m.toolOk) }),
     });
     list.push({
       key: 'tool-ok',
@@ -337,7 +343,13 @@ function buildRows(t: TFunction<'dashboard'>, stage: FulfillmentStage | undefine
         tip: (m, d) => {
           const s = m.stages[st];
           const left = Math.max(0, (s?.arrived ?? 0) - (s?.done ?? 0));
-          return t('pipelineOverview.tips.stageDual', { day: d, label, done: s?.done ?? 0, left, arrived: s?.arrived ?? 0 });
+          return t('pipelineOverview.tips.stageDual', {
+            day: d,
+            label,
+            done: s?.done ?? 0,
+            left,
+            arrived: s?.arrived ?? 0,
+          });
         },
       });
     }
@@ -356,6 +368,11 @@ export function PipelineDailyOverview({ stage, lane, from, to, reloadToken, dayF
   const { t } = useTranslation('dashboard');
   const [data, setData] = useState<Data>(EMPTY);
   const [loading, setLoading] = useState(false);
+  // Phones: the matrix is wider than the screen and pushed the worker's real task list below the
+  // fold, so it starts folded to a one-line summary and opens on tap. Wide screens: always open.
+  const isMobile = useIsMobile();
+  const [openOnMobile, setOpenOnMobile] = useState(false);
+  const expanded = !isMobile || openOnMobile;
   const seqRef = useRef(0);
   // Tooltip tự vẽ (hiện NGAY khi di chuột, không dùng title mặc định của trình duyệt).
   const [tip, setTip] = useState<{ text: string; x: number; y: number } | null>(null);
@@ -436,9 +453,48 @@ export function PipelineDailyOverview({ stage, lane, from, to, reloadToken, dayF
         ? 'bg-red-50 dark:bg-red-500/10'
         : 'bg-card';
 
+  // Folded summary: the rows the user's own stage/lane highlights (arrived / done / remaining / to
+  // redo), totalled over the whole period — what a worker wants to know before opening the matrix.
+  const summary = useMemo(
+    () =>
+      rows
+        .filter((r) => r.indent && (r.tone === 'highlight' || r.tone === 'danger'))
+        .map((r) => {
+          if (r.single)
+            return { key: r.key, label: r.label, value: String(r.single(columnTotals)), danger: r.tone === 'danger' };
+          if (r.dual) {
+            const [a, b] = r.dual(columnTotals);
+            return { key: r.key, label: r.label, value: `${a}/${b}`, danger: r.tone === 'danger' };
+          }
+          return null;
+        })
+        .filter((x): x is { key: string; label: string; value: string; danger: boolean } => !!x),
+    [rows, columnTotals],
+  );
+
   return (
     <div className="rounded-md border border-border bg-card">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+      <div
+        className={cn(
+          'flex items-center gap-2 px-3 py-2',
+          expanded && 'border-b border-border',
+          isMobile && 'min-h-11 cursor-pointer',
+        )}
+        {...(isMobile
+          ? {
+              role: 'button',
+              tabIndex: 0,
+              'aria-expanded': expanded,
+              onClick: () => setOpenOnMobile((v) => !v),
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setOpenOnMobile((v) => !v);
+                }
+              },
+            }
+          : {})}
+      >
         <CalendarRange size={15} className="text-indigo-600" />
         <span className="text-sm font-semibold">{t('pipelineOverview.title')}</span>
         <span className="hidden md:inline text-[11px] text-muted-foreground">
@@ -451,10 +507,19 @@ export function PipelineDailyOverview({ stage, lane, from, to, reloadToken, dayF
             </>
           )}
         </span>
+        {isMobile && (
+          <ChevronDown
+            size={16}
+            className={cn('ml-auto shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-180')}
+          />
+        )}
         {dayFilter && onPickDay && (
           <button
             type="button"
-            onClick={() => onPickDay(dayFilter)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPickDay(dayFilter);
+            }}
             className="ml-auto inline-flex items-center gap-1 text-[11px] rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 px-2 py-0.5"
           >
             {t('pipelineOverview.filtering', { date: fmtHead(dayFilter).dm })}
@@ -463,7 +528,24 @@ export function PipelineDailyOverview({ stage, lane, from, to, reloadToken, dayF
         )}
       </div>
 
-      {!loading && days.length === 0 ? (
+      {isMobile && !expanded && summary.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-3 pb-3">
+          {summary.map((x) => (
+            <span
+              key={x.key}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs',
+                x.danger ? 'bg-tone-danger/10 text-tone-danger' : 'bg-muted text-muted-foreground',
+              )}
+            >
+              {x.label}
+              <b className={cn('tabular-nums', x.danger ? 'text-tone-danger' : 'text-foreground')}>{x.value}</b>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {!expanded ? null : !loading && days.length === 0 ? (
         <p className="text-xs text-muted-foreground text-center py-6">{t('pipelineOverview.noOrdersInRange')}</p>
       ) : (
         <div className="overflow-x-auto">

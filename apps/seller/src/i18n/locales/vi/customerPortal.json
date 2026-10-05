@@ -127,6 +127,7 @@
     "resultsCount": "{{count}} đơn hàng",
     "empty": "Bạn chưa có đơn hàng nào.",
     "emptyFiltered": "Không có đơn nào khớp bộ lọc hiện tại.",
+    "processingEmpty": "Hệ thống đẩy thẳng đơn vào sản xuất, nên không có đơn nào dừng ở bước này. Xem tab Đang sản xuất.",
     "placeFirst": "Đặt đơn đầu tiên",
     "searchPlaceholder": "Tìm theo mã đơn…",
     "filterProduct": "Lọc theo sản phẩm",
@@ -275,6 +276,8 @@
     "variationCount": "{{count}} biến thể",
     "resultsCount": "{{count}} sản phẩm",
     "clearSearch": "Xóa tìm kiếm",
+    "techniquesTitle": "Kỹ thuật",
+    "tagsTitle": "Tag",
     "collectionsTitle": "Bộ sưu tập",
     "allCategories": "Tất cả",
     "clearFilters": "Xóa bộ lọc"
@@ -486,9 +489,10 @@
   "productLines": {
     "3d": "3D",
     "2d": "2D (DTG/DTF)",
-    "wood": "Gỗ",
+    "wood": "Gỗ & cắt khắc",
     "embroidery": "Thêu",
     "led": "LED",
-    "canvas": "Canvas"
+    "canvas": "Canvas",
+    "dropship": "Dropship"
   }
 }

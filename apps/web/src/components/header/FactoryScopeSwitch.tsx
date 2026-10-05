@@ -19,6 +19,8 @@ import {
 
 import { cn } from '@/utils/cn';
 
+import { useFactoryScope } from '@/hooks/useFactoryScope';
+
 /**
  * Bộ chọn XƯỞNG toàn cục trên header (07/09/2026) — thay 5 cụm menu riêng từng xưởng
  * ở sidebar (Orders.md §25). Chọn xưởng = ghi `?factoryId=` lên URL hiện tại
@@ -31,7 +33,8 @@ import { cn } from '@/utils/cn';
 export function FactoryScopeSwitch() {
   const { t } = useTranslation('layout');
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
+  const scope = useFactoryScope();
   const profile = useAuthStore((s) => s.profile);
   const factories = useFactoryOptionsStore((s) => s.factories);
   const load = useFactoryOptionsStore((s) => s.load);
@@ -43,8 +46,13 @@ export function FactoryScopeSwitch() {
   }, [onProduction, profile?._id, load]);
   if (!onProduction || !profile) return null;
 
-  const locked = profile.role?.name === 'Fulfillment' ? profile.factoryId || undefined : undefined;
-  const currentId = locked || searchParams.get('factoryId') || '';
+  // Fulfillment is the only role the BE locks to one factory (`buildVisibilityFilter`) —
+  // Designers are scoped by assignee, not by factory, and keep the picker. Lock on the ROLE,
+  // not on `factoryId` being set: a Fulfillment account not yet assigned to a factory must not
+  // get a picker inviting it to browse every factory (it sees nothing until assigned).
+  const isLocked = profile.role?.name === 'Fulfillment';
+  const locked = isLocked ? profile.factoryId || undefined : undefined;
+  const currentId = scope || '';
   const current = factories.find((f) => f._id === currentId);
   const label = (f?: { shortName?: string; name: string }) =>
     f ? (f.shortName ? `${f.shortName} · ${f.name}` : f.name) : t('header.factoryScope.all');
@@ -81,14 +89,17 @@ export function FactoryScopeSwitch() {
     );
   };
 
-  if (locked) {
+  if (isLocked) {
+    // Never fall back to "All factories" here: that label would claim a scope the account
+    // does not have (e.g. while the factory list is still loading).
+    const lockedLabel = current ? label(current) : locked ? '…' : t('header.factoryScope.noFactory');
     return (
       <span
         title={t('header.factoryScope.lockedTitle')}
         className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 text-xs font-medium text-foreground"
       >
         <Factory size={14} className="text-muted-foreground" />
-        {label(current)}
+        {lockedLabel}
       </span>
     );
   }
@@ -98,8 +109,9 @@ export function FactoryScopeSwitch() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" title={t('header.factoryScope.title')}>
           <Factory size={14} className="text-muted-foreground" />
-          <span className="text-muted-foreground">{t('header.factoryScope.label')}:</span>
-          <span className={cn('max-w-[220px] truncate font-medium', currentId && 'text-indigo-700 dark:text-indigo-300')}>{label(current)}</span>
+          {/* Phones drop the "Factory:" prefix and cap the name so the bar never overflows (390px). */}
+          <span className="hidden text-muted-foreground sm:inline">{t('header.factoryScope.label')}:</span>
+          <span className={cn('max-w-[110px] truncate font-medium sm:max-w-[220px]', currentId && 'text-indigo-700 dark:text-indigo-300')}>{label(current)}</span>
           <ChevronDown size={12} className="text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>

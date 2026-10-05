@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
-import type { CustomerCatalogItem } from 'shared';
+import type { CustomerCatalogFacet, CustomerCatalogItem } from 'shared';
 
 import { PATHS } from '@/constants/paths';
 
@@ -72,6 +72,10 @@ function PublicCatalog() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [tags, setTags] = useState<CustomerCatalogFacet[]>([]);
+  const [techniques, setTechniques] = useState<CustomerCatalogFacet[]>([]);
+  const tagId = searchParams.get('tag') ?? '';
+  const techniqueId = searchParams.get('technique') ?? '';
 
   // Giữ tham chiếu để đổi 1 tham số mà không mất tham số còn lại trên URL.
   const searchParamsRef = useRef(searchParams);
@@ -95,6 +99,8 @@ function PublicCatalog() {
       setFailed(false);
       const query = new URLSearchParams({ page: String(page), limit: String(pageSize) });
       if (search) query.set('search', search);
+      if (tagId) query.set('productTagId', tagId);
+      if (techniqueId) query.set('productTechniqueId', techniqueId);
       const res = await RepositoryRemote.publicCatalog.getCatalog(`?${query.toString()}`);
       setItems(res?.data?.data ?? []);
       setTotal(res?.data?.total ?? 0);
@@ -106,11 +112,25 @@ function PublicCatalog() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, pageSize]);
+  }, [page, search, pageSize, tagId, techniqueId]);
 
   useEffect(() => {
     fetchCatalog();
   }, [fetchCatalog]);
+
+  // Tag chips are optional decoration: a failed facets call just hides them.
+  useEffect(() => {
+    RepositoryRemote.publicCatalog
+      .getFacets()
+      .then((res) => {
+        setTags(res?.data?.data?.tags ?? []);
+        setTechniques(res?.data?.data?.techniques ?? []);
+      })
+      .catch(() => {
+        setTags([]);
+        setTechniques([]);
+      });
+  }, []);
 
   // Gõ xong mới gọi API (debounce) và luôn quay về trang 1 khi đổi từ khoá.
   useEffect(() => {
@@ -202,6 +222,42 @@ function PublicCatalog() {
                   </button>
                 ))}
               </div>
+              {techniques.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="mr-1 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    {t('filters.techniques')}
+                  </span>
+                  {techniques.map((tech) => (
+                    <button
+                      key={tech._id}
+                      type="button"
+                      onClick={() => setParam({ technique: techniqueId === tech._id ? null : tech._id, page: null })}
+                      aria-pressed={techniqueId === tech._id}
+                      className={chipClass(techniqueId === tech._id)}
+                    >
+                      {tech.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {tags.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="mr-1 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    {t('filters.tags')}
+                  </span>
+                  {tags.map((tag) => (
+                    <button
+                      key={tag._id}
+                      type="button"
+                      onClick={() => setParam({ tag: tagId === tag._id ? null : tag._id, page: null })}
+                      aria-pressed={tagId === tag._id}
+                      className={chipClass(tagId === tag._id)}
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </Reveal>
           </div>
         </section>

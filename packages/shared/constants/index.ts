@@ -11,6 +11,7 @@ export * from './feedback';
 export * from './hold-reason';
 export * from './import-status';
 export * from './issue';
+export * from './legacy-mrp-status';
 export * from './mail';
 export * from './marketplace';
 export * from './order';

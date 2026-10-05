@@ -30,9 +30,11 @@ import promotionEn from './locales/en/promotion.json';
 import scanErrorEn from './locales/en/scanError.json';
 import shipmentsEn from './locales/en/shipments.json';
 import stageErrorCatalogEn from './locales/en/stageErrorCatalog.json';
+import staleOrdersEn from './locales/en/staleOrders.json';
 import toolCheckWorkflowEn from './locales/en/toolCheckWorkflow.json';
 import trackEn from './locales/en/track.json';
 import vnpShippingEn from './locales/en/vnpShipping.json';
+import walletsEn from './locales/en/wallets.json';
 import workshopConfigEn from './locales/en/workshopConfig.json';
 import zaloChatEn from './locales/en/zaloChat.json';
 import zaloGroupsEn from './locales/en/zaloGroups.json';
@@ -65,9 +67,11 @@ import promotionVi from './locales/vi/promotion.json';
 import scanErrorVi from './locales/vi/scanError.json';
 import shipmentsVi from './locales/vi/shipments.json';
 import stageErrorCatalogVi from './locales/vi/stageErrorCatalog.json';
+import staleOrdersVi from './locales/vi/staleOrders.json';
 import toolCheckWorkflowVi from './locales/vi/toolCheckWorkflow.json';
 import trackVi from './locales/vi/track.json';
 import vnpShippingVi from './locales/vi/vnpShipping.json';
+import walletsVi from './locales/vi/wallets.json';
 import workshopConfigVi from './locales/vi/workshopConfig.json';
 import zaloChatVi from './locales/vi/zaloChat.json';
 import zaloGroupsVi from './locales/vi/zaloGroups.json';
@@ -117,6 +121,7 @@ export const resources = {
     customerPriority: customerPriorityVi,
     vnpShipping: vnpShippingVi,
     shipments: shipmentsVi,
+    wallets: walletsVi,
     customerPortal: customerPortalVi,
     zaloGroups: zaloGroupsVi,
     zaloChat: zaloChatVi,
@@ -128,6 +133,7 @@ export const resources = {
     orderGuide: orderGuideVi,
     agentApi: agentApiVi,
     ceoDashboard: ceoDashboardVi,
+    staleOrders: staleOrdersVi,
     apiDocs: apiDocsVi,
     dtfGuide: dtfGuideVi,
   },
@@ -154,6 +160,7 @@ export const resources = {
     customerPriority: customerPriorityEn,
     vnpShipping: vnpShippingEn,
     shipments: shipmentsEn,
+    wallets: walletsEn,
     customerPortal: customerPortalEn,
     zaloGroups: zaloGroupsEn,
     zaloChat: zaloChatEn,
@@ -165,6 +172,7 @@ export const resources = {
     orderGuide: orderGuideEn,
     agentApi: agentApiEn,
     ceoDashboard: ceoDashboardEn,
+    staleOrders: staleOrdersEn,
     apiDocs: apiDocsEn,
     dtfGuide: dtfGuideEn,
   },

@@ -95,6 +95,7 @@
     "ordersOf": "Orders of seller"
   },
   "orders": {
+    "filters": "Filters",
     "title": "All customer orders",
     "subtitle": "Read-only — to act on an order, use View as seller.",
     "sellerFilter": "Seller",
@@ -102,8 +103,19 @@
     "columns": {
       "seller": "Seller",
       "service": "Service",
+      "note": "Note",
       "date": "Date"
     },
+    "factoryFilter": "Factory",
+    "factoryAll": "All factories",
+    "priorityOnly": "Priority",
+    "trashTab": "Trash",
+    "trash": "Move to trash",
+    "restore": "Restore",
+    "trashTitle": "Move this order to trash?",
+    "trashMessage": "Order {{code}} will disappear from every list, the seller's included, and cannot be pushed until restored. Only orders not pushed to production can be trashed.",
+    "trashSkipped": "This order has been or is being pushed to production, so it cannot be trashed.",
+    "restoreSkipped": "This order is no longer in the trash.",
     "openAsSeller": "Open as seller",
     "subtitleOms": "Customer orders across all sellers · 6 services · create, push, buy labels",
     "refresh": "Refresh",
@@ -228,7 +240,7 @@
   },
   "wallets": {
     "title": "Seller wallets",
-    "subtitle": "Top up/adjust wallets, credit limits and the label price table sold to sellers",
+    "subtitle": "View seller balances, credit limits and ledgers, and the label price table sold to sellers. Top-ups, adjustments and credit-limit changes are done at /adm/wallets.",
     "nav": "Wallets",
     "activeOnly": "Only funded wallets",
     "columns": {
@@ -239,23 +251,8 @@
       "actions": ""
     },
     "empty": "No sellers match.",
-    "topup": "Top up",
-    "adjust": "Adjust",
-    "creditLimitBtn": "Credit",
     "ledger": "Ledger",
-    "topupTitle": "Top up wallet of {{name}}",
-    "adjustTitle": "Adjust wallet of {{name}}",
-    "creditLimitTitle": "Credit limit of {{name}}",
     "ledgerTitle": "Wallet ledger — {{name}}",
-    "amountLabel": "Amount (USD)",
-    "adjustAmountHint": "Positive = credit, negative = debit (e.g. label-cancel refund: positive; clawback: negative).",
-    "noteLabel": "Note (required)",
-    "notePlaceholder": "e.g. Bank transfer 09/09 — 200 USD",
-    "creditLimitLabel": "Limit (USD, ≥ 0)",
-    "creditLimitHint": "Balance may go down to −limit. 0 = no debt allowed.",
-    "saved": "Saved.",
-    "topupDone": "Topped up {{amount}} — new balance {{balance}}.",
-    "adjustDone": "Adjusted {{amount}} — new balance {{balance}}.",
     "priceTable": "Seller label price table",
     "priceTableHint": "2-column CSV WEIGHT,PRICE (gram, USD) — ascending tiers",
     "priceTableEmpty": "No price table yet — sellers CANNOT buy labels. Upload a CSV to enable.",
@@ -273,6 +270,8 @@
       "revenue": "Seller revenue (in)",
       "cost": "VNP spend (out)",
       "margin": "Seller label margin"
-    }
+    },
+    "moneyActionsLink": "Wallet actions at /adm/wallets",
+    "manageInAdmin": "Top up / adjust in /adm"
   }
 }

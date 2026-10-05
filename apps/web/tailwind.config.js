@@ -16,7 +16,10 @@ export default {
     extend: {
       colors: {
         // Identity thương hiệu Onos (lấy từ onosglobal.com): tím #6f26c2 = brand.600.
-        // Chỉ dùng cho các trang public (landing/marketing); app nội bộ vẫn dùng token shadcn.
+        // Dùng cho các trang public (landing/marketing), và cho MỘT chỗ trong app:
+        // màu khu vực của nhóm "Sản xuất" trên sidebar (`NAV_TONES` ở Sidebar.tsx),
+        // nơi màu thương hiệu đánh dấu khu làm việc chính. Mọi chỗ khác trong app vẫn
+        // dùng token shadcn.
         brand: {
           50: '#f6f1fd',
           100: '#ede1fb',
@@ -37,6 +40,23 @@ export default {
           800: '#2b2739',
           900: '#211e2d',
         },
+        // Sidebar navigation (legacy OnosPod look) — values live in theme/globals.css (--nav-*),
+        // light and dark, so the sidebar never carries raw colors.
+        nav: {
+          accent: 'hsl(var(--nav-accent) / <alpha-value>)',
+          text: 'hsl(var(--nav-text) / <alpha-value>)',
+          group: 'hsl(var(--nav-group) / <alpha-value>)',
+          open: 'hsl(var(--nav-open) / <alpha-value>)',
+        },
+        // Status colors by meaning (theme/globals.css --tone-*), light + dark.
+        tone: {
+          info: 'hsl(var(--tone-info) / <alpha-value>)',
+          success: 'hsl(var(--tone-success) / <alpha-value>)',
+          warning: 'hsl(var(--tone-warning) / <alpha-value>)',
+          danger: 'hsl(var(--tone-danger) / <alpha-value>)',
+        },
+        // Staff app page background (grey in light mode, see theme/globals.css --page).
+        page: 'hsl(var(--page) / <alpha-value>)',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -70,6 +90,9 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+      },
+      boxShadow: {
+        'nav-rail': 'var(--nav-rail-shadow)',
       },
       fontFamily: {
         // Font tiêu đề của trang public — khớp identity onosglobal.com.
@@ -116,6 +139,11 @@ export default {
   },
   plugins: [
     require('tailwindcss-animate'),
+    // `touch:` = the primary input is a finger (phones, tablets), not a narrow desktop window.
+    // Used for the 44px minimum touch target (DesignSystem-LegacyParity.md §10). `(hover: none)` is
+    // there too because device emulation (and some webviews) report no pointer type at all while
+    // still reporting that hovering is impossible; a desktop with a mouse matches neither.
+    ({ addVariant }) => addVariant('touch', '@media (pointer: coarse), (hover: none)'),
     // Gói zalo-ui viết cho Tailwind 4: 4 tiện ích dưới đây không có ở v3 → khai bằng tên v4, giá trị tương đương v3.
     ({ addUtilities }) =>
       addUtilities({

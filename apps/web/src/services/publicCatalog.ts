@@ -16,4 +16,8 @@ const getCatalogItem = (id: string) => {
   return callApi(`/${CONFIG.API_VERSION}/public/catalog/${encodeURIComponent(id)}`, 'get');
 };
 
-export const publicCatalog = { getCatalog, getCatalogItem };
+const getFacets = () => {
+  return callApi(`/${CONFIG.API_VERSION}/public/catalog/facets`, 'get');
+};
+
+export const publicCatalog = { getCatalog, getCatalogItem, getFacets };

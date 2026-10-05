@@ -1,0 +1,164 @@
+{
+  "title": "Ví seller",
+  "subtitle": "Số dư, hạn mức nợ và sổ cái ví của từng seller.",
+  "searchPlaceholder": "Tìm theo tài khoản, email, tên…",
+  "activeOnly": "Chỉ ví có tiền hoặc đã có giao dịch",
+  "refresh": "Tải lại",
+  "columns": {
+    "seller": "Seller",
+    "tier": "Hạng",
+    "balance": "Số dư",
+    "creditLimit": "Hạn mức nợ",
+    "lastTxn": "Giao dịch cuối"
+  },
+  "overLimit": "Vượt hạn mức",
+  "neverUsed": "Chưa có",
+  "empty": "Không có seller nào khớp.",
+  "ledger": {
+    "title": "Sổ cái ví — {{name}}",
+    "balance": "Số dư hiện tại",
+    "creditLimit": "Hạn mức nợ",
+    "available": "Còn được dùng",
+    "kindAll": "Tất cả loại",
+    "empty": "Chưa có giao dịch nào.",
+    "columns": {
+      "time": "Thời gian",
+      "kind": "Loại",
+      "amount": "Số tiền",
+      "balance": "Số dư trước → sau",
+      "note": "Ghi chú",
+      "by": "Người thao tác"
+    },
+    "system": "Hệ thống",
+    "history": "Lịch sử đổi hạn mức",
+    "historyEmpty": "Hạn mức chưa từng được đổi.",
+    "historyChange": "{{from}} → {{to}}"
+  },
+  "kinds": {
+    "topup": "Nạp tiền",
+    "label": "Mua label",
+    "label_refund": "Hoàn tiền label",
+    "order": "Tiền đơn hàng",
+    "adjust": "Điều chỉnh",
+    "import_tax": "Thuế nhập khẩu",
+    "active": "Phí kích hoạt tracking",
+    "refund": "Hoàn tiền đơn hàng"
+  },
+  "nav": {
+    "wallets": "Ví seller",
+    "transactions": "Giao dịch"
+  },
+  "txns": {
+    "title": "Giao dịch ví",
+    "subtitle": "Sổ cái ví của mọi seller, mới nhất trước.",
+    "searchPlaceholder": "Tìm seller theo tài khoản, email, tên…",
+    "range": {
+      "today": "Hôm nay",
+      "yesterday": "Hôm qua",
+      "7d": "7 ngày qua",
+      "month": "Tháng này",
+      "lastMonth": "Tháng trước",
+      "all": "Tất cả"
+    },
+    "from": "Từ ngày",
+    "to": "Đến ngày",
+    "allKinds": "Tất cả loại",
+    "columns": {
+      "time": "Thời gian",
+      "seller": "Seller",
+      "kind": "Loại",
+      "amount": "Số tiền",
+      "balance": "Số dư trước → sau",
+      "orders": "Đơn",
+      "note": "Ghi chú",
+      "by": "Người thao tác"
+    },
+    "moreOrders": "+{{count}} đơn nữa",
+    "empty": "Không có giao dịch nào khớp bộ lọc."
+  },
+  "actions": {
+    "topup": "Nạp tiền",
+    "adjust": "Điều chỉnh",
+    "credit": "Hạn mức nợ"
+  },
+  "dialog": {
+    "title": {
+      "topup": "Nạp tiền cho {{name}}",
+      "adjust": "Điều chỉnh ví của {{name}}",
+      "credit": "Hạn mức nợ của {{name}}"
+    },
+    "current": {
+      "balance": "Số dư hiện tại",
+      "creditLimit": "Hạn mức nợ",
+      "available": "Còn được dùng"
+    },
+    "fields": {
+      "amountTopup": "Số tiền nạp (USD)",
+      "amountAdjust": "Số tiền điều chỉnh (USD)",
+      "amountCredit": "Hạn mức mới (USD)",
+      "note": "Ghi chú (bắt buộc)",
+      "noteCredit": "Lý do đổi hạn mức (bắt buộc)",
+      "externalTxnId": "Mã giao dịch ngân hàng",
+      "attachmentUrl": "Link chứng từ"
+    },
+    "hints": {
+      "adjust": "Số dương = cộng ví, số âm = trừ ví. Dùng khi hoàn tiền hoặc sửa sai sót.",
+      "credit": "Số dư được phép xuống tới −hạn mức. 0 = không cho nợ.",
+      "externalTxnId": "Mỗi mã chỉ nạp được MỘT lần, với bất kỳ seller nào. Dán đúng mã trên sao kê.",
+      "attachmentUrl": "Dán link ảnh/file chứng từ (http hoặc https). Tải file trực tiếp sẽ có sau.",
+      "notePlaceholderTopup": "VD: Techcombank 03/10 — 200 USD"
+    },
+    "errors": {
+      "amountRequired": "Nhập số tiền hợp lệ.",
+      "amountSign": "Số tiền nạp phải lớn hơn 0.",
+      "amountZero": "Số tiền điều chỉnh phải khác 0.",
+      "amountMax": "Tối đa 1.000.000 USD một lần.",
+      "amountDecimals": "Tối đa 2 chữ số thập phân.",
+      "limitNegative": "Hạn mức không được âm.",
+      "limitSame": "Hạn mức mới trùng hạn mức hiện tại.",
+      "noteRequired": "Ghi chú là bắt buộc.",
+      "urlInvalid": "Link phải bắt đầu bằng http:// hoặc https://."
+    },
+    "review": {
+      "heading": "Kiểm tra lại trước khi ghi",
+      "seller": "Seller",
+      "amount": "Số tiền",
+      "balance": "Số dư trước → sau",
+      "limit": "Hạn mức nợ trước → sau",
+      "available": "Còn được dùng sau khi ghi",
+      "note": "Ghi chú",
+      "externalTxnId": "Mã giao dịch",
+      "attachment": "Chứng từ",
+      "none": "Không có",
+      "loading": "Đang đọc số dư mới nhất…",
+      "blocked": "Không thể điều chỉnh: số dư sẽ xuống dưới hạn mức nợ cho phép.",
+      "overLimit": "Sau thay đổi này seller đang vượt hạn mức nợ (số dư thấp hơn −hạn mức).",
+      "checkStatement": "Tôi đã đối chiếu số tiền này với sao kê / chứng từ.",
+      "checkLimit": "Tôi xác nhận mức hạn mức này đã được duyệt.",
+      "bigAmount": "Số tiền từ {{threshold}} trở lên cần đối chiếu trước khi ghi.",
+      "bigLimit": "Tăng hạn mức từ {{threshold}} trở lên cần xác nhận đã được duyệt.",
+      "retryHint": "Nếu mạng chập chờn, cứ bấm lại: hệ thống nhận ra đây là cùng một yêu cầu và không ghi hai lần.",
+      "networkError": "Mất kết nối trước khi nhận được phản hồi, nên chưa biết giao dịch đã được ghi hay chưa. Bấm lại để chắc chắn — hệ thống sẽ không ghi hai lần.",
+      "viewLedger": "Xem sổ cái"
+    },
+    "confirm": {
+      "topup": "Nạp {{amount}}",
+      "adjust": "Điều chỉnh {{amount}}",
+      "credit": "Đặt hạn mức {{amount}}"
+    },
+    "buttons": {
+      "next": "Tiếp tục",
+      "back": "Quay lại",
+      "cancel": "Hủy",
+      "close": "Đóng",
+      "processing": "Đang ghi…"
+    },
+    "done": {
+      "applied": "Đã ghi thành công.",
+      "replayed": "Một lần thử trước của yêu cầu này đã được ghi — lần này KHÔNG ghi thêm.",
+      "balance": "Số dư mới",
+      "creditLimit": "Hạn mức mới",
+      "unchanged": "Hạn mức không đổi, không ghi gì."
+    }
+  }
+}

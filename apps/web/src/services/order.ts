@@ -112,6 +112,12 @@ const getWorkshopFilters = (query: string = '') => {
   return callApi(`/${CONFIG.API_VERSION}/orders/workshop-filters${query}`, 'get');
 };
 
+// Stale-order cleanup (Orders.md §23b, SuperAdmin).
+const getStaleOpen = (query: string = '') => callApi(`/${CONFIG.API_VERSION}/orders/stale-open${query}`, 'get');
+const previewStaleCleanup = (ids: string[]) => callApi(`/${CONFIG.API_VERSION}/orders/stale-open/preview`, 'post', { ids });
+const runStaleCleanup = (ids: string[], reason: string) =>
+  callApi(`/${CONFIG.API_VERSION}/orders/stale-open/complete`, 'post', { ids, reason });
+
 const getFulfillmentStatusCounts = (query: string = '') => {
   return callApi(`/${CONFIG.API_VERSION}/orders/fulfillment-status-counts${query}`, 'get');
 };
@@ -273,6 +279,9 @@ export const order = {
   getOrdersGrouped,
   getWorkshopFilters,
   getFulfillmentStatusCounts,
+  getStaleOpen,
+  previewStaleCleanup,
+  runStaleCleanup,
   getFactoryOverview,
   getLifecycleOverview,
   getCancelledOrders,

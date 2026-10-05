@@ -7,6 +7,8 @@ import {
   DesignerTransitionAction,
   FulfillmentStage,
   OrderPriority,
+  PRODUCT_LINES,
+  type ProductLine,
   Status,
 } from '@shared/enums';
 import { PageResZod, ResZod } from '@shared/types';
@@ -1078,6 +1080,18 @@ export class StageErrorDailyResDto extends createZodDto(extendApi(StageErrorDail
 // ─── Sidebar badge counts ───────────────────────────────────────────
 // Số đếm gọn cho badge sidebar (Nhật ký bù lỗi / Designer / Soát tool).
 // `null` = role người gọi không được xem con số đó → FE ẩn badge.
+const SidebarCountZod = z.number().int().nonnegative();
+/**
+ * Open orders per product line (+ `__none__` = orders without one). One key per
+ * `PRODUCT_LINES` entry, always present: a line with no orders reports 0 so staff
+ * still see the line exists.
+ */
+export const ProductLineCountsZod = z.object({
+  ...(Object.fromEntries(PRODUCT_LINES.map((l) => [l, SidebarCountZod])) as Record<ProductLine, typeof SidebarCountZod>),
+  __none__: SidebarCountZod,
+});
+export type ProductLineCounts = z.infer<typeof ProductLineCountsZod>;
+
 export const SidebarCountsZod = z.object({
   /** Đơn lỗi tab "Cần xử lý" theo góc nhìn chặng của người xem (mirror getErrorLog todo). */
   errorLogTodo: z.number().int().nonnegative().nullable(),
@@ -1089,6 +1103,13 @@ export const SidebarCountsZod = z.object({
   toolCheckRework: z.number().int().nonnegative().nullable(),
   /** Soát tool — đơn chưa soát trong 7 ngày (mirror unreviewedList). */
   toolCheckUnreviewed: z.number().int().nonnegative().nullable(),
+  /**
+   * Badge of the six "Production" menu entries: open orders per product line, equal
+   * to the row count of `GET /orders?productLine=X&workshopStage=__open__` over the
+   * last 7 VN calendar days (today included), same role scope. `null` when the role
+   * cannot open the order list (`page.orders`).
+   */
+  productLineCounts: ProductLineCountsZod.nullable(),
   /**
    * CÙNG các con số trên nhưng TÁCH THEO XƯỞNG — badge cho cụm menu riêng
    * của từng xưởng ở sidebar (`Orders.md §25`). Key = `factoryId`; xưởng
@@ -1102,6 +1123,12 @@ export const SidebarCountsZod = z.object({
         errorLogTodo: z.number().int().nonnegative(),
         toolCheckRework: z.number().int().nonnegative(),
         toolCheckUnreviewed: z.number().int().nonnegative(),
+        /**
+         * `productLineCounts` restricted to this factory — equals the product-line page
+         * with the header factory scope `?factoryId=<id>`. Absent when the role cannot
+         * open the order list or has no visible open order in this factory (FE: 0).
+         */
+        productLineCounts: ProductLineCountsZod.optional(),
       }),
     )
     .default({}),

@@ -140,6 +140,19 @@ export class CustomerOrderEntity extends DatabaseEntityAbstract {
   /** Đơn đã thanh toán bị hủy + đã hoàn tiền (tab Refunded) — phase này chưa có flow set. */
   @Prop({ type: Date, default: null })
   refundedAt?: Date | null;
+
+  /**
+   * Hub "Trashed" tab (legacy parity, admin only). Only orders never pushed to production can
+   * be trashed: a pushed order already has production orders on the floor. Trashed orders are
+   * hidden from every list, count and lookup (seller portal, hub, public track, open API) and
+   * cannot be edited, cancelled or pushed until restored. NOT `deletedAt`: the repository hides
+   * `deletedAt` everywhere, so the Trashed tab could not even count itself.
+   */
+  @Prop({ type: Date, default: null })
+  trashedAt?: Date | null;
+
+  @Prop({ trim: true })
+  trashedBy?: string;
 }
 
 export const CustomerOrderSchema = SchemaFactory.createForClass(CustomerOrderEntity);

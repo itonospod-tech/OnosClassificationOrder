@@ -4,12 +4,14 @@ import Link from 'next/link';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image as ImageIcon, Loader2, PauseCircle, Plus, RefreshCw, Send, Truck, Wrench } from 'lucide-react';
-import type { AdminCustomerStagingOrder, CustomerOrderCounts } from 'shared';
+import { Image as ImageIcon, Loader2, PauseCircle, Plus, RefreshCw, RotateCcw, Send, SlidersHorizontal, Trash2, Truck, Wrench } from 'lucide-react';
+import type { AdminCustomerStagingOrder, CustomerOrderCounts, FactoryOptionItem } from 'shared';
+import { CustomerOrderStatus } from 'shared/enums';
 import { InternalStatus } from '@/components/hub/internal-status';
 import { buyInputFrom, buyLabel, canBuyLabel, canBuyLabelNow, ShipmentCell } from '@/components/hub/shipment-cell';
 import { SellerFilterPicker } from '@/components/hub/seller-filter-picker';
 import { Button } from '@/components/shared/button';
+import { ConfirmModal } from '@/components/shared/confirm-modal';
 import { OrderCard } from '@/components/orders/order-card';
 import { OrdersPagination } from '@/components/orders/orders-pagination';
 import { OrdersStatsBar } from '@/components/orders/orders-stats-bar';
@@ -47,13 +49,18 @@ const STICKY_TD = 'sticky left-8 z-[5] bg-card group-hover:bg-card-hover border-
  */
 export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {}) {
   const { t } = useTranslation(['hub', 'customerPortal', 'track']);
-  const [state, setState] = useUrlState({ page: '1', limit: '20', status: '', held: '', q: '', line: '', seller: '', from: '', to: '' });
+  const [state, setState] = useUrlState({ page: '1', limit: '20', status: '', held: '', q: '', line: '', seller: '', from: '', to: '', factory: '', prio: '', trash: '' });
   const page = Math.max(1, Number(state.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(state.limit) || 20));
   const status = state.status || null;
   const heldOnly = state.held === '1';
+  // Trashed tab (legacy parity): its own view, status/held pills do not apply to it.
+  const trashView = state.trash === '1';
   const line: ProductLineTabKey = lockedLine ?? (isProductLine(state.line) ? state.line : 'all');
   const [searchInput, setSearchInput] = useState(state.q);
+  // Phones: seller / date / factory / priority fold behind one button; the count shows what is applied.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = [state.seller, state.from || state.to, state.factory, state.prio].filter(Boolean).length;
   const search = useDebounced(searchInput.trim(), 350);
   useEffect(() => {
     if (search !== state.q) setState({ q: search, page: '1' });
@@ -65,18 +72,24 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
     if (state.seller) p.set('customerId', state.seller);
     if (state.from) p.set('dateFrom', state.from);
     if (state.to) p.set('dateTo', state.to);
+    // Item-level scope (legacy manufacture + Priority): goes to the list AND both counts.
+    if (state.factory) p.set('factoryId', state.factory);
+    if (state.prio === '1') p.set('priority', 'true');
     return p;
-  }, [state.seller, state.from, state.to]);
+  }, [state.seller, state.from, state.to, state.factory, state.prio]);
   const listQuery = useMemo(() => {
     const p = new URLSearchParams(base);
     p.set('page', String(page));
     p.set('limit', String(limit));
-    if (status) p.set('status', status);
-    if (heldOnly) p.set('held', 'true');
+    if (trashView) p.set('trashed', 'true');
+    else {
+      if (status) p.set('status', status);
+      if (heldOnly) p.set('held', 'true');
+    }
     if (search) p.set('search', search);
     if (line !== 'all') p.set('productLine', line);
     return p.toString();
-  }, [base, page, limit, status, heldOnly, search, line]);
+  }, [base, page, limit, status, heldOnly, trashView, search, line]);
   const lineCountsQuery = base.toString();
   const pillCountsQuery = useMemo(() => {
     const p = new URLSearchParams(base);
@@ -107,8 +120,9 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
       setPushingId(null);
     }
   };
+  const { data: factoryRes } = useApi<ApiRes<FactoryOptionItem[]>>('/api/hub/v1/factories/options');
   const { data: lineCountsRes } = useApi<ApiRes<CustomerOrderCounts>>(`/api/hub/v1/admin/customer-orders/counts${lineCountsQuery ? `?${lineCountsQuery}` : ''}`);
-  const { data: countsRes } = useApi<ApiRes<CustomerOrderCounts>>(`/api/hub/v1/admin/customer-orders/counts${pillCountsQuery ? `?${pillCountsQuery}` : ''}`);
+  const { data: countsRes, refetch: refetchCounts } = useApi<ApiRes<CustomerOrderCounts>>(`/api/hub/v1/admin/customer-orders/counts${pillCountsQuery ? `?${pillCountsQuery}` : ''}`);
   const orders = listRes?.data ?? [];
   const total = listRes?.total ?? 0;
   const counts = countsRes?.data ?? null;
@@ -117,6 +131,28 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
     return c ? ({ all: c.all, ...(c.byProductLine ?? {}) } as Partial<Record<ProductLineTabKey, number>>) : undefined;
   }, [lineCountsRes]);
   const pages = Math.max(1, Math.ceil(total / limit));
+
+  // Trash / restore — only never-pushed orders can be trashed (BE enforces it; skipped ids come back).
+  const [trashTarget, setTrashTarget] = useState<AdminCustomerStagingOrder | null>(null);
+  const [trashBusy, setTrashBusy] = useState(false);
+  const moveTrash = async (o: AdminCustomerStagingOrder, action: 'trash' | 'restore') => {
+    setTrashBusy(true);
+    try {
+      const res = await apiFetch<ApiRes<{ ok: number; skipped: string[] }>>(`/api/hub/v1/admin/customer-orders/${action}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ids: [o._id] }),
+      });
+      if (res?.data?.skipped?.length) setBulkDone({ ok: 0, fail: 1, errors: [t(action === 'trash' ? 'hub:orders.trashSkipped' : 'hub:orders.restoreSkipped')] });
+      refetch();
+      refetchCounts();
+    } catch (err) {
+      setBulkDone({ ok: 0, fail: 1, errors: [err instanceof Error ? err.message : String(err)] });
+    } finally {
+      setTrashBusy(false);
+      setTrashTarget(null);
+    }
+  };
   const noop = () => undefined;
 
   const lineMeta = lockedLine ? PRODUCT_LINE_META[lockedLine] : null;
@@ -159,7 +195,9 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
 
   return (
     // Khung cố định: main không cuộn; phần đầu (header + lọc) đứng yên, chỉ BẢNG cuộn, phân trang neo đáy.
-    <div className="flex flex-col gap-2 h-[calc(100dvh-4.25rem-var(--viewas-h,0px))] lg:h-[calc(100dvh-2.5rem-var(--viewas-h,0px))]">
+    // From md up only: on phones the filters alone exceed the screen, so a fixed frame squeezed the
+    // card list to nothing. Phones scroll the page instead.
+    <div className="flex flex-col gap-2 md:h-[calc(100dvh-4.25rem-var(--viewas-h,0px))] lg:h-[calc(100dvh-2.5rem-var(--viewas-h,0px))]">
       <div className="shrink-0 space-y-2">
       <PageHeader
         title={
@@ -183,17 +221,58 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
         }
       />
 
-      <OrdersStatsBar counts={counts} compact />
+      {/* Phones: the same numbers sit on the status pills; the five cards pushed the list off the first screen. */}
+      <div className="hidden md:block">
+        <OrdersStatsBar counts={counts} compact />
+      </div>
 
       {!lockedLine && <ProductLineTabs active={line} counts={lineCounts} onChange={(next) => setState({ line: next === 'all' ? '' : next, page: '1', status: '' })} />}
 
-      <OrdersStatusFilterPills active={status} counts={counts} heldOnly={heldOnly} onToggleHeld={() => setState({ held: heldOnly ? '' : '1', page: '1' })} onChange={(s) => setState({ status: s ?? '', page: '1' })} />
-
       <div className="flex items-center gap-2 flex-wrap">
-        <SearchInput value={searchInput} onChange={setSearchInput} placeholder={t('hub:orders.searchPlaceholder')} className="w-full sm:w-56" />
+        <div className={`max-md:w-full min-w-0 ${trashView ? 'opacity-50' : ''}`}>
+          <OrdersStatusFilterPills active={trashView ? '__none__' : status} counts={counts} heldOnly={!trashView && heldOnly} onToggleHeld={() => setState({ held: heldOnly ? '' : '1', trash: '', page: '1' })} onChange={(s) => setState({ status: s ?? '', trash: '', page: '1' })} />
+        </div>
+        <button
+          type="button"
+          onClick={() => setState({ trash: trashView ? '' : '1', status: '', held: '', page: '1' })}
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${trashView ? 'border-accent bg-accent/10 text-accent' : 'border-border1 bg-card text-text-secondary'}`}
+        >
+          <Trash2 size={11} />
+          {t('hub:orders.trashTab')}
+          {counts?.trashed != null && <span className="tabular-nums">{counts.trashed}</span>}
+        </button>
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((v) => !v)}
+          aria-expanded={filtersOpen}
+          className={`md:hidden inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${activeFilterCount ? 'border-accent bg-accent/10 text-accent' : 'border-border1 bg-card text-text-secondary'}`}
+        >
+          <SlidersHorizontal size={11} />
+          {t('hub:orders.filters')}
+          {activeFilterCount > 0 && <span className="tabular-nums">{activeFilterCount}</span>}
+        </button>
+        <div className="md:hidden ml-auto text-[10px] text-text-muted tabular-nums whitespace-nowrap">{t('hub:orders.totalOrders', { count: total })}</div>
+      </div>
+
+      <SearchInput value={searchInput} onChange={setSearchInput} placeholder={t('hub:orders.searchPlaceholder')} className="w-full md:hidden" />
+      <div className={`items-center gap-2 flex-wrap ${filtersOpen ? 'flex' : 'hidden md:flex'}`}>
+        <SearchInput value={searchInput} onChange={setSearchInput} placeholder={t('hub:orders.searchPlaceholder')} className="hidden md:block md:w-56" />
         <SellerFilterPicker value={state.seller} onChange={(id) => setState({ seller: id, page: '1' })} />
         <DateRangeFilter value={dateRange} onChange={(r) => setState({ from: r.dateFrom ?? '', to: r.dateTo ?? '', page: '1' })} />
-        <div className="ml-auto text-[10px] text-text-muted tabular-nums whitespace-nowrap">{t('hub:orders.totalOrders', { count: total })}</div>
+        <select
+          value={state.factory}
+          onChange={(e) => setState({ factory: e.target.value, page: '1' })}
+          aria-label={t('hub:orders.factoryFilter')}
+          className="px-2.5 py-1 rounded-full border border-border1 bg-card text-[11px] font-semibold text-text-secondary outline-none focus:border-accent"
+        >
+          <option value="">{t('hub:orders.factoryAll')}</option>
+          {(factoryRes?.data ?? []).map((f) => <option key={f._id} value={f._id}>{f.name}</option>)}
+        </select>
+        <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border1 bg-card text-[11px] font-semibold text-text-secondary cursor-pointer select-none">
+          <input type="checkbox" checked={state.prio === '1'} onChange={() => setState({ prio: state.prio === '1' ? '' : '1', page: '1' })} className="accent-[var(--color-accent)]" />
+          {t('hub:orders.priorityOnly')}
+        </label>
+        <div className="max-md:hidden ml-auto text-[10px] text-text-muted tabular-nums whitespace-nowrap">{t('hub:orders.totalOrders', { count: total })}</div>
       </div>
       </div>
 
@@ -226,7 +305,7 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
         {loading && orders.length === 0 ? (
           <div className="flex-1 flex items-center justify-center py-20 text-[13px] text-text-muted"><Loader2 size={16} className="animate-spin mr-2" />{t('hub:common.loading')}</div>
         ) : orders.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center"><EmptyState title={t('customerPortal:orders.emptyFiltered')} icon={<span className="text-[40px]">📦</span>} /></div>
+          <div className="flex-1 flex items-center justify-center"><EmptyState title={t('customerPortal:orders.emptyFiltered')} description={!trashView && status === CustomerOrderStatus.Processing ? t('customerPortal:orders.processingEmpty') : undefined} icon={<span className="text-[40px]">📦</span>} /></div>
         ) : (
           <>
             <div className={`md:hidden divide-y divide-border2 flex-1 min-h-0 overflow-y-auto ${loading ? 'opacity-60' : ''}`}>
@@ -257,6 +336,7 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
                     <th className={`${TH} min-w-[220px]`}>{t('hub:internal.column')}</th>
                     <th className={TH}>{t('customerPortal:orders.columns.customer')}</th>
                     <th className={TH}>{t('customerPortal:orders.columns.tracking')}</th>
+                    <th className={TH}>{t('hub:orders.columns.note')}</th>
                     <th className={TH}>{t('hub:orders.columns.date')}</th>
                   </tr>
                 </thead>
@@ -314,7 +394,18 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
                               </span>
                             )}
                             {stage && o.status !== 'pending' && <span className="text-[9.5px] text-text-muted">{stage}</span>}
-                            {o.status === 'pending' && (
+                            {trashView ? (
+                              <button type="button" disabled={trashBusy} onClick={() => void moveTrash(o, 'restore')} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-border1 text-[9.5px] font-bold text-text-secondary hover:text-text-primary disabled:opacity-60">
+                                <RotateCcw size={9} /> {t('hub:orders.restore')}
+                              </button>
+                            ) : (
+                              !o.pushedAt && (
+                                <button type="button" onClick={() => setTrashTarget(o)} className="inline-flex items-center gap-1 text-[9.5px] text-text-muted hover:text-error">
+                                  <Trash2 size={9} /> {t('hub:orders.trash')}
+                                </button>
+                              )
+                            )}
+                            {!trashView && o.status === 'pending' && (
                               // Đơn ops vừa lên hộ nằm ở CHỜ ĐẨY — đẩy ngay tại đây,
                               // khỏi phải mạo danh seller mới đẩy được.
                               <button
@@ -335,6 +426,9 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
                         </td>
                         {/* Cột vận đơn: có mã thì hiện mã + link label, chưa có thì nút mua ngay tại hàng. */}
                         <td className="py-2 px-2"><ShipmentCell s={first?.internal} onBought={refetch} /></td>
+                        <td className="py-2 px-2 text-[10.5px] text-text-secondary">
+                          {o.note ? <p title={o.note} className="max-w-[180px] line-clamp-2 break-words">{o.note}</p> : <span className="text-text-muted">—</span>}
+                        </td>
                         <td className="py-2 px-2 text-[10.5px] text-text-secondary whitespace-nowrap">{dayjs(o.pushedAt ?? o.createdAt).format('DD/MM/YYYY HH:mm')}</td>
                       </tr>
                     );
@@ -348,6 +442,15 @@ export function HubOrdersView({ lockedLine }: { lockedLine?: ProductLine } = {})
           <OrdersPagination page={page} limit={limit} pages={pages} total={total} onChange={(n) => setState({ ...(n.page ? { page: String(n.page) } : {}), ...(n.limit ? { limit: String(n.limit), page: '1' } : {}) })} />
         </div>
       </div>
+      <ConfirmModal
+        open={!!trashTarget}
+        onClose={() => setTrashTarget(null)}
+        onConfirm={() => trashTarget && void moveTrash(trashTarget, 'trash')}
+        title={t('hub:orders.trashTitle')}
+        message={t('hub:orders.trashMessage', { code: trashTarget ? orderDisplayCode(trashTarget) : '' })}
+        confirmLabel={t('hub:orders.trash')}
+        loading={trashBusy}
+      />
     </div>
   );
 }

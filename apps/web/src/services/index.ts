@@ -3,6 +3,8 @@ import { auth } from './auth';
 import { cache } from './cache';
 import { ceoDashboard } from './ceo';
 import { collection } from './collection';
+import { productTag } from './productTag';
+import { productTechnique } from './productTechnique';
 import { customRoles } from './custom-roles';
 import { customer } from './customer';
 import { customerAssignment } from './customerAssignment';
@@ -15,6 +17,7 @@ import {
   customerNotificationPortal,
   customerOrder,
 } from './customerPortal';
+import { customerWallet } from './customerWallet';
 import { departments } from './departments';
 import { designer } from './designer';
 import { designerAssignment } from './designerAssignment';
@@ -56,6 +59,8 @@ export const RepositoryRemote = {
   impersonate,
   machineType,
   collection,
+  productTag,
+  productTechnique,
   productCategory,
   productConfig,
   order,
@@ -63,6 +68,7 @@ export const RepositoryRemote = {
   designer,
   designerAssignment,
   customer,
+  customerWallet,
   customerAssignment,
   customerAuth,
   customerOrder,

@@ -114,14 +114,25 @@ Chi tiết cách giữ chỗ:
 | Trạng thái | Điều kiện |
 | --- | --- |
 | Pending | staging `pushedAt=null`, `status='pending'` |
-| Processing | đã push, `currentFulfillmentStage=null` && `fulfillmentCompletedAt=null` |
-| In Production | `currentFulfillmentStage` set (kể cả đang rework — badge chồng, KHÔNG tụt về Processing) |
+| Processing | **không bao giờ derive ra** (từ 04/10/2026): đẩy sản xuất là nguyên tử, không có bước "đã gửi, chờ xử lý". Tab giữ lại, luôn 0, ô trống hiện câu giải thích `customerPortal:orders.processingEmpty`; để dành cho cổng trừ ví trước sản xuất (`LegacyClone-Orders.md §7`) |
+| In Production | đã push && `fulfillmentCompletedAt=null` — **bất kể chặng** (soát tool, thiết kế hay bất kỳ công đoạn fulfillment nào; kể cả đang rework — badge chồng). Trước 04/10/2026 phần chưa vào công đoạn fulfillment nào bị tính là Processing |
 | Fulfilled | `fulfillmentCompletedAt` set |
 | Completed | `fulfillmentCompletedAt` ≤ now − N ngày (`system_configs` key `customer_order_completed_days`, default 14) |
 | Refunded | staging `refundedAt` set (flow set chưa build đợt này — tab luôn 0) |
 | Cancelled | staging cancelled HOẶC mọi `OrderEntity` của đơn `cancelledAt`/bị xóa |
 | _(badge)_ On Hold | ≥1 item `heldAt` set |
 | _(badge)_ Rework | ≥1 item `designerStatus='rework'` hoặc (`productionErrorSource='tool-check'` && `toolResultNote`∉{'', 'ok'}) |
+
+### 2.4 Thùng rác (Trashed) — chỉ hub, 01/10/2026
+
+Clone tab `Trashed` hệ cũ, định nghĩa đã duyệt (onos-49):
+- **Chỉ đơn CHƯA đẩy sản xuất** (`pushedAt` rỗng, không đang đẩy) bỏ thùng rác được — Pending hoặc Cancelled trước khi đẩy. Đơn đã đẩy đã có `OrderEntity` ở xưởng → muốn bỏ thì Hủy.
+- Trường `trashedAt` (+ `trashedBy`) trên `customer_orders`, **KHÔNG** dùng `deletedAt` (repository ẩn `deletedAt` ở mọi truy vấn → tab Thùng rác không đếm nổi chính nó).
+- Đơn trong thùng rác **biến khỏi mọi nơi**: danh sách + số đếm seller và hub, thống kê hub, Public Order API (`getOrderByRefForApi`), tra cứu công khai `/track`; sửa/hủy (`getPendingStagingOrder`) trả "không tìm thấy"; đẩy sản xuất bị chặn (`claimPush` đòi `trashedAt: null`). Điểm chặn chung: đầu `buildDerivePipeline` + `docMatch` của `buildPagedListPipeline` (đường nhanh derive SAU khi cắt trang nên phải lọc ở mức document) qua `trashMatch()`.
+- Không chạy đua với đẩy sản xuất: bỏ thùng rác là `updateOne` có điều kiện `pushedAt: null` + `pushingAt` rỗng, từng id một (≤ 200) nên kết quả báo đúng từng đơn. Đã kiểm trên Mongo thật: 50 cặp đẩy/bỏ thùng rác bắn đồng thời → 0 lần cả hai cùng thắng.
+- Có khôi phục (về đúng trạng thái cũ, không gì khác đổi trong lúc nằm thùng rác). Seller KHÔNG tự bỏ thùng rác (đã có Hủy) — chỉ Admin/SuperAdmin ở hub.
+- API: `POST admin/customer-orders/trash` · `POST admin/customer-orders/restore` (`{ ids }`, trả `{ ok, skipped }`), `GET admin/customer-orders?trashed=true` (bỏ qua lọc trạng thái/held), `counts.trashed`. Xoá cache số liệu admin ngay sau mỗi lần đổi. Test `trash-orders.spec.ts`.
+- Lưu ý: seller import lại CSV có `orderKey` trùng đơn đang nằm thùng rác → unique index `(customerId, orderKey)` báo trùng mà seller không thấy đơn đó; khôi phục là cách gỡ.
 
 ## 3. API / Schema
 
@@ -209,6 +220,18 @@ CustomerPaymentEntity {
   confirmedBy?; confirmedAt?; refunds[];
 }
 ```
+
+### 3.3b Sổ chi phí sản xuất chế độ bóng `production_cost_entries` (`production-cost.entity.ts`, `production-cost.ts`)
+
+Mỗi item đẩy sản xuất ghi 1 dòng: `productionId` (unique), `customerId`, `stagingOrderId`, `productConfigId`, `variationSku`, `unitCost` (= `variations[].cost`, VẮNG khi biến thể chưa khai giá vốn), `quantity`, `amount` (= `unitCost × quantity`, làm tròn cent, 0 khi thiếu giá vốn), `pushedAt`.
+
+- **Chỉ ghi, không trừ ví**: không có gì đọc sổ này để đổi số dư; push vẫn kết thúc bằng `customer_payments` `waived`. Dùng để dựng hoá đơn kỳ tuần và đối chiếu với hệ cũ (Production Transactions) — `documents/Plans/LegacyClone-Money.md` §5.
+- Ghi bằng `bulkWrite` upsert `$setOnInsert` theo `productionId` → đẩy lại không đếm đôi. Gọi NGOÀI try của importOrders/payment: lỗi ghi sổ chỉ log (`ProductionCostShadow`), không làm hỏng push và không nhả `pushingAt`.
+- **KHÔNG dùng `OrderEntity.baseCost`** (nó là giá seller trả, CEO Dashboard cộng thành doanh thu) và **KHÔNG dùng `nonShipCost`** (giá bán nonship, cao hơn `cost` ở 2.224/2.250 biến thể trên prod). Giá vốn hệ cũ ≙ `cost`.
+- **Unique index `productionId` tạo TƯỜNG MINH** ở `CustomerOrderService.onModuleInit` (hằng `PRODUCTION_COST_PRODUCTION_ID_INDEX`, đặt TRƯỚC backfill vì backfill thoát sớm khi marker đã set): autoIndex dựng nền và nuốt lỗi, index thiếu thì idempotency hỏng âm thầm và sổ đếm đôi (`ShippingLabelPatterns.md` §2). Lỗi dựng index chỉ log `ProductionCostShadow`, không chặn boot. Test `production-cost-index.spec.ts`.
+- **KHÔNG backfill đơn cũ**: sổ chỉ có từ lúc deploy. Giá vốn quá khứ lấy từ `variations[].cost` HÔM NAY sẽ sai nếu giá vốn từng đổi — backfill là bịa số.
+- `QuoteResult.unitCost`/`variationSku` chỉ nội bộ; quote được map từng field vào response nên không lộ ra seller — đừng spread `QuoteResult` vào response.
+- Test: `production-cost.spec.ts` (hàm thuần), `push-production-cost.spec.ts` (ghi giá vốn chứ không phải giá bán, upsert idempotent, lỗi sổ không làm hỏng push).
 
 ### 3.4 Shared (`packages/shared`)
 

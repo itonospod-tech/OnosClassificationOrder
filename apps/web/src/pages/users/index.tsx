@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +17,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
@@ -75,6 +76,11 @@ export default function UsersPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [factories, setFactories] = useState<FactoryRow[]>([]);
   const [loading, setLoading] = useState(false);
+  // Server total, to tell the user when the 200-row page does not cover everyone.
+  const [serverTotal, setServerTotal] = useState(0);
+  // Default view = active staff: deactivated accounts are noise for daily HR work (MenuRestructure-CEO.md §8.1).
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [roleFilter, setRoleFilter] = useState('');
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<UserRow | null>(null);
@@ -97,6 +103,7 @@ export default function UsersPage() {
         RepositoryRemote.factory.getFactories('?page=1&limit=200'),
       ]);
       setItems((uRes.data?.data || []) as UserRow[]);
+      setServerTotal(Number(uRes.data?.total ?? 0));
       setRoles((rRes.data?.data || []) as Role[]);
       setFactories((fRes.data?.data || []) as FactoryRow[]);
     } catch (err) {
@@ -109,6 +116,21 @@ export default function UsersPage() {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const counts = useMemo(() => {
+    const active = items.filter((i) => i.status === Status.Active).length;
+    return { active, inactive: items.length - active, all: items.length };
+  }, [items]);
+
+  const displayed = useMemo(
+    () =>
+      items.filter((i) => {
+        if (statusFilter === 'active' && i.status !== Status.Active) return false;
+        if (statusFilter === 'inactive' && i.status === Status.Active) return false;
+        return !roleFilter || i.roleId === roleFilter;
+      }),
+    [items, statusFilter, roleFilter],
+  );
 
   const openCreate = () => {
     setShowPassword(false);
@@ -215,19 +237,49 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-          <UsersIcon size={20} className="text-indigo-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('users.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('users.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<UsersIcon size={20} />}
+        title={t('users.title')}
+        description={t('users.subtitle')}
+      />
 
       <div className="rounded-lg border border-border bg-card">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <p className="text-xs text-muted-foreground">{t('users.userCount', { count: items.length })}</p>
+        <div className="flex flex-wrap items-center justify-between gap-2 p-4 border-b border-border">
+          <p className="text-xs text-muted-foreground">{t('users.userCount', { count: displayed.length })}</p>
+          <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+            {(['active', 'inactive', 'all'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setStatusFilter(k)}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  statusFilter === k
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t(`users.statusFilters.${k}`)} ({counts[k]})
+              </button>
+            ))}
+          </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            aria-label={t('users.table.role')}
+            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+          >
+            <option value="">{t('users.allRoles')}</option>
+            {roles.map((r) => (
+              <option key={r._id} value={r._id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+          {serverTotal > items.length && (
+            <span className="text-xs text-amber-600">
+              {t('users.truncated', { shown: items.length, total: serverTotal })}
+            </span>
+          )}
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={fetchAll} disabled={loading}>
               <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
@@ -239,71 +291,82 @@ export default function UsersPage() {
           </div>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('users.table.fullName')}</TableHead>
-              <TableHead>{t('users.table.email')}</TableHead>
-              <TableHead>{t('users.table.role')}</TableHead>
-              <TableHead className="w-28">{t('users.table.status')}</TableHead>
-              <TableHead className="w-32 text-right"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  <Spinner size={20} className="text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-sm text-muted-foreground">
-                  {t('users.noUsers')}
-                </TableCell>
-              </TableRow>
-            )}
-            {items.map((it) => {
-              const role = it.role || roleMap[it.roleId || ''];
-              const factory = it.factoryId ? factoryMap[it.factoryId] : undefined;
-              return (
-                <TableRow key={it._id}>
-                  <TableCell className="font-medium">{it.fullName}</TableCell>
-                  <TableCell className="text-muted-foreground">{it.email}</TableCell>
-                  <TableCell>
-                    {role ? (
-                      <Badge variant="outline">{role.name}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )}
-                    {factory && role?.name === 'Fulfillment' && (
-                      <Badge variant="secondary" className="ml-1 text-[10px]">
-                        {factory.shortName || factory.name}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Switch checked={it.status === Status.Active} onCheckedChange={() => handleToggle(it)} />
-                      <span className="text-xs text-muted-foreground">
-                        {it.status === Status.Active ? t('users.statusOn') : t('users.statusOff')}
-                      </span>
+        {loading && items.length === 0 ? (
+          <div className="flex justify-center py-8">
+            <Spinner size={20} className="text-muted-foreground" />
+          </div>
+        ) : (
+          <ResponsiveList
+            className="max-md:p-3"
+            rows={displayed}
+            rowKey={(it) => it._id}
+            empty={t('users.noUsers')}
+            columns={[
+              {
+                key: 'fullName',
+                header: t('users.table.fullName'),
+                mobile: 'title',
+                cell: (it) => <span className="font-medium">{it.fullName}</span>,
+              },
+              {
+                key: 'email',
+                header: t('users.table.email'),
+                mobile: 'subtitle',
+                cell: (it) => <span className="break-words text-muted-foreground">{it.email}</span>,
+              },
+              {
+                key: 'role',
+                header: t('users.table.role'),
+                cell: (it) => {
+                  const role = it.role || roleMap[it.roleId || ''];
+                  const factory = it.factoryId ? factoryMap[it.factoryId] : undefined;
+                  return (
+                    <div className="flex flex-wrap items-center gap-1">
+                      {role ? (
+                        <Badge variant="outline">{role.name}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                      {factory && role?.name === 'Fulfillment' && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {factory.shortName || factory.name}
+                        </Badge>
+                      )}
                     </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(it)}>
+                  );
+                },
+              },
+              {
+                key: 'status',
+                header: t('users.table.status'),
+                className: 'w-28',
+                cell: (it) => (
+                  <div className="flex items-center gap-2">
+                    <Switch checked={it.status === Status.Active} onCheckedChange={() => handleToggle(it)} />
+                    <span className="text-xs text-muted-foreground">
+                      {it.status === Status.Active ? t('users.statusOn') : t('users.statusOff')}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                key: 'actions',
+                header: '',
+                className: 'w-32 text-right',
+                cell: (it) => (
+                  <div className="flex justify-end">
+                    <Button variant="ghost" size="sm" aria-label={t('users.editTitle')} onClick={() => openEdit(it)}>
                       <Pencil size={14} />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(it)}>
                       <Trash2 size={14} className="text-destructive" />
                     </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        )}
       </div>
 
       <Dialog open={form.open} onOpenChange={(open) => !open && setForm(EMPTY_FORM)}>

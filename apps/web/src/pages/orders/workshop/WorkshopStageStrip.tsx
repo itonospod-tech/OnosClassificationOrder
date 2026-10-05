@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronRight } from 'lucide-react';
-import type { WorkshopAvailableFilters, WorkshopStageFilterKey } from 'shared';
+import type { WorkshopAvailableFilters, WorkshopStageFilter, WorkshopStageFilterKey } from 'shared';
 import { LIFECYCLE_STAGE_KEYS } from 'shared';
 
 import { cn } from '@/utils/cn';
@@ -18,7 +18,8 @@ import { STAGE_COLORS } from './stageColors';
  */
 export interface WorkshopStageStripProps {
   filters: WorkshopAvailableFilters | null;
-  activeStage: WorkshopStageFilterKey | '';
+  /** May be `__open__` (product-line default): no cell is highlighted then. */
+  activeStage: WorkshopStageFilter | '';
   onStageChange: (stage: WorkshopStageFilterKey | '') => void;
 }
 
@@ -33,14 +34,15 @@ export function WorkshopStageStrip({
 
   return (
     <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex items-stretch gap-1.5">
+      {/* Phones: 8 tiles cannot share 390px, so the row scrolls on its own with a readable minimum tile width. */}
+      <div className="flex items-stretch gap-1.5 max-md:-mx-1 max-md:overflow-x-auto max-md:px-1 max-md:pb-1">
         {LIFECYCLE_STAGE_KEYS.map((key, i) => {
           const n = counts[key] || 0;
           const active = activeStage === key;
           const empty = n === 0;
           const label = t(`workshopBoard.stages.${key}`);
           return (
-            <div key={key} className="flex flex-1 items-center gap-1.5 min-w-0">
+            <div key={key} className="flex flex-1 items-center gap-1.5 min-w-0 max-md:min-w-[112px]">
               <button
                 type="button"
                 title={t('workshopBoard.stageTileTitle', { stage: label })}
@@ -48,11 +50,13 @@ export function WorkshopStageStrip({
                 onClick={() => onStageChange(active ? '' : key)}
                 className={cn(
                   'flex-1 min-w-0 rounded-lg border px-3 py-2 text-left transition-colors',
+                  // Meaning, not decoration: a stage with orders wears its own stage tint, the selected
+                  // one a stronger tint + 2px border, an empty one stays neutral (0 is information).
                   active
-                    ? 'border-2 border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
+                    ? cn('border-2', STAGE_COLORS[key].tileActive)
                     : empty
                       ? 'border-border bg-muted/30 hover:bg-accent'
-                      : 'border-border bg-card hover:bg-accent',
+                      : STAGE_COLORS[key].tile,
                 )}
               >
                 <div className="flex items-center justify-between gap-1">
@@ -62,23 +66,23 @@ export function WorkshopStageStrip({
                     <span
                       className={cn(
                         'truncate text-[11px] font-medium',
-                        active ? 'font-semibold text-indigo-700 dark:text-indigo-300' : empty ? 'text-muted-foreground/60' : 'text-muted-foreground',
+                        active ? cn('font-semibold', STAGE_COLORS[key].text) : empty ? 'text-muted-foreground/60' : cn('font-medium', STAGE_COLORS[key].text),
                       )}
                     >
                       {label}
                     </span>
                   </span>
-                  {active && <Check size={11} className="shrink-0 text-indigo-600" />}
+                  {active && <Check size={11} className={cn('shrink-0', STAGE_COLORS[key].text)} />}
                 </div>
                 <div
                   className={cn(
-                    'mt-1 text-lg font-bold leading-none tabular-nums',
-                    active ? 'text-indigo-700 dark:text-indigo-300' : empty ? 'text-muted-foreground/50' : 'text-foreground',
+                    'mt-1 text-xl font-bold leading-none tabular-nums',
+                    empty && !active ? 'text-muted-foreground/50' : STAGE_COLORS[key].text,
                   )}
                 >
                   {n}
                 </div>
-                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
+                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-background/70 dark:bg-background/40">
                   {n > 0 && (
                     <div
                       className={cn('h-full rounded-full', STAGE_COLORS[key].bar)}

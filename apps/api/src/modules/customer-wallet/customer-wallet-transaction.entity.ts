@@ -8,6 +8,10 @@ import { WALLET_TXN_KINDS } from 'shared';
 export interface WalletTxnRefs {
   /** Idempotency key lượt mua label (unique cùng customerId+kind — index dưới). */
   requestId?: string;
+  /** Top-up only. Normalised (see `normalizeExternalTxnId`); unique across all top-ups. */
+  externalTxnId?: string;
+  /** Top-up only. http(s) link to the proof of payment. */
+  attachmentUrl?: string;
   shipmentId?: string;
   orderIds?: string[];
   stagingOrderId?: string;
@@ -55,12 +59,36 @@ export class CustomerWalletTransactionEntity extends DatabaseEntityAbstract {
 
 export const CustomerWalletTransactionSchema = SchemaFactory.createForClass(CustomerWalletTransactionEntity);
 CustomerWalletTransactionSchema.index({ customerId: 1, createdAt: -1 });
-// Idempotency tầng DB: cùng khách + cùng loại + cùng requestId chỉ ghi được 1
-// lần — chặn trừ tiền đúp khi FE retry. (kind nằm trong khoá để cặp
-// `label` + `label_refund` của CÙNG lượt mua không đụng nhau.)
+// All-sellers ledger (staff Billing › Transactions): newest first across every seller, optionally by kind.
+CustomerWalletTransactionSchema.index({ createdAt: -1 });
+CustomerWalletTransactionSchema.index({ kind: 1, createdAt: -1 });
+// Money-safety indexes. They are created EXPLICITLY at boot (`CustomerWalletService.ensureIndexes`)
+// as well as declared here: autoIndex builds in the background and swallows errors, and a missing
+// index would silently re-open a double-credit/double-charge hole.
+//
+// Idempotency at the DB level: the same seller + kind + requestId can be written once, so a retry
+// from the client cannot charge twice. (`kind` is part of the key so the `label` + `label_refund`
+// pair of ONE purchase do not collide.) No custom name on purpose: it must keep the default name
+// of the index autoIndex has already built in existing databases.
+export const WALLET_TXN_REQUEST_ID_INDEX = {
+  keys: { customerId: 1, kind: 1, 'refs.requestId': 1 },
+  options: { unique: true, partialFilterExpression: { 'refs.requestId': { $exists: true } } },
+} as const;
+CustomerWalletTransactionSchema.index(WALLET_TXN_REQUEST_ID_INDEX.keys, WALLET_TXN_REQUEST_ID_INDEX.options);
+
+// A bank/payment reference can be credited ONCE, whichever seller or staff member enters it. Catches
+// what requestId cannot: two staff members, two tabs, two different requestIds for the same bank line.
+export const WALLET_TXN_EXTERNAL_TXN_ID_INDEX = {
+  keys: { 'refs.externalTxnId': 1 },
+  options: {
+    name: 'topup_externalTxnId_unique',
+    unique: true,
+    partialFilterExpression: { kind: 'topup', 'refs.externalTxnId': { $type: 'string' } },
+  },
+} as const;
 CustomerWalletTransactionSchema.index(
-  { customerId: 1, kind: 1, 'refs.requestId': 1 },
-  { unique: true, partialFilterExpression: { 'refs.requestId': { $exists: true } } },
+  WALLET_TXN_EXTERNAL_TXN_ID_INDEX.keys,
+  WALLET_TXN_EXTERNAL_TXN_ID_INDEX.options,
 );
 
 export type CustomerWalletTransactionDocument = HydratedDocument<CustomerWalletTransactionEntity>;

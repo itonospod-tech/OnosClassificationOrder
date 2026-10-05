@@ -39,7 +39,7 @@ export class ShippingLabelPdfService {
   async exportPdf(ids: string[]): Promise<ExportShippingLabelsRes> {
     const docs = await this.orderModel
       .find({ _id: { $in: ids } })
-      .select(['productionId', 'vnpShipment.labelUrl', 'vnpShipment.cancelledAt', 'tracking.labelUrl'])
+      .select(['productionId', 'vnpShipment.labelUrl', 'vnpShipment.cancelledAt', 'tracking.labelUrl', 'heldAt'])
       .lean();
 
     const { sources, merged, skipped } = resolveLabelExportSources(ids, docs);

@@ -19,6 +19,33 @@ import type { UserDocument } from '../modules/user/user.entity';
  */
 const CUSTOMER_ALLOWED_PREFIXES = ['/customer/'];
 
+/**
+ * A guard returning `false` makes Nest throw `ForbiddenException('Forbidden resource')`,
+ * and the log then only holds Nest's internal stack — no route, role, or which
+ * branch denied. Write one JSON line with a `reason` so we can tell "clicked
+ * something they have no permission for" (`role`) apart from a session that was
+ * replaced/logged out (`session`) or a customer token that wandered off (`customer-prefix`).
+ */
+function deny(
+  reason: 'customer-prefix' | 'session' | 'no-role' | 'role',
+  request: { method?: string; url?: string; routeOptions?: { url?: string } },
+  user: UserDocument | undefined,
+  roles?: RoleType[],
+): false {
+  console.warn(
+    JSON.stringify({
+      tag: 'roles-guard-deny',
+      reason,
+      method: request.method,
+      route: request.routeOptions?.url ?? (request.url ?? '').split('?')[0],
+      role: user?.role?.name ?? null,
+      userId: user?._id ? String(user._id) : null,
+      allowed: roles,
+    }),
+  );
+  return false;
+}
+
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
@@ -40,7 +67,7 @@ export class RolesGuard implements CanActivate {
       // Chỉ deny-sớm route ngoài whitelist; route hợp lệ vẫn đi tiếp flow
       // kiểm tra session Redis + roles bên dưới như mọi token khác.
       if (!CUSTOMER_ALLOWED_PREFIXES.some((prefix) => url.includes(prefix))) {
-        return false;
+        return deny('customer-prefix', request, user);
       }
     }
 
@@ -71,7 +98,7 @@ export class RolesGuard implements CanActivate {
     const cachedToken = await this.redisCacheService.getHash(cachedKey, 'accessToken');
 
     if (cachedToken !== accessToken) {
-      return false;
+      return deny('session', request, user, roles);
     }
 
     if (user.role?.name === RoleType.SuperAdmin) {
@@ -83,9 +110,9 @@ export class RolesGuard implements CanActivate {
     }
 
     if (!user.role) {
-      return false;
+      return deny('no-role', request, user, roles);
     }
 
-    return roles.includes(user.role.name);
+    return roles.includes(user.role.name) || deny('role', request, user, roles);
   }
 }

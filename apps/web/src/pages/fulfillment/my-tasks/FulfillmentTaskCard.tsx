@@ -44,7 +44,7 @@ import { useNow } from '@/hooks/useNow';
  *   - Time stamp + reworkCount + productionErrorNote layout y hệt.
  *   - Type / size / color line.
  */
-type ColKey = 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'unassigned';
+type ColKey = 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'unassigned' | 'held';
 
 export interface FulfillmentTaskCardProps {
   order: ProductionOrderRow;
@@ -381,10 +381,12 @@ function CardAction({
   label: string;
   onClick: () => void;
 }) {
+  // On touch screens these are the worker's main buttons: full-height 44px, equal width, tinted fill.
   const colorCls = {
-    indigo: 'text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10',
-    emerald: 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10',
-    rose: 'text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10',
+    indigo: 'text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10 touch:bg-tone-info/10 touch:text-tone-info',
+    emerald:
+      'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10 touch:bg-tone-success/10 touch:text-tone-success',
+    rose: 'text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10 touch:bg-tone-danger/10 touch:text-tone-danger',
   }[color];
   return (
     <button
@@ -394,7 +396,7 @@ function CardAction({
         onClick();
       }}
       onPointerDown={(e) => e.stopPropagation()}
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${colorCls}`}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors touch:min-h-11 touch:flex-1 touch:justify-center touch:rounded-lg touch:text-sm touch:font-semibold ${colorCls}`}
     >
       <Icon size={12} /> {label}
     </button>

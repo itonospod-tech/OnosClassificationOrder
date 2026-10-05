@@ -51,6 +51,8 @@ function buildService(existing: Record<string, unknown> | null = null): { svc: P
     null as never,
     null as never,
     null as never,
+    null as never,
+    null as never,
   );
   return { svc, mocks: { repo } };
 }

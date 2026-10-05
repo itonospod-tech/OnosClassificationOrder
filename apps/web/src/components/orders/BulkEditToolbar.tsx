@@ -14,7 +14,7 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
-import type { BarcodeLabel, ExportShippingLabelsRes, OrderWorkshopField, ShippingLabel, WorkshopConfigCategory } from 'shared';
+import type { BarcodeLabel, ExportShippingLabelsRes, HeldPrintSkip, OrderWorkshopField, ShippingLabel, WorkshopConfigCategory } from 'shared';
 import { ORDER_PRIORITIES, ORDER_PRIORITY_LABELS, ORDER_WORKSHOP_FIELDS } from 'shared';
 import { toast } from 'sonner';
 
@@ -148,6 +148,21 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied, extraActions 
   // in theo row là lặng lẽ thiếu tem. BE cũng là nơi resolve SKU sản phẩm theo
   // Product Config và chỉ số i/n của orderId, đơn hủy bị loại lặng lẽ nên vẫn
   // cần toast "in thiếu".
+  // Held orders never print (Orders.md §9b): the server leaves them out of the batch and lists them.
+  const warnHeldSkipped = (skipped?: HeldPrintSkip[]): number => {
+    if (!skipped?.length) return 0;
+    toast.warning(
+      t('bulkEdit.heldSkipped', {
+        count: skipped.length,
+        list: skipped
+          .slice(0, 5)
+          .map((h) => (h.holdReason ? `${h.productionId} (${h.holdReason})` : h.productionId))
+          .join(', '),
+      }),
+    );
+    return skipped.length;
+  };
+
   const fetchLabels = async (size: BarcodeLabelSize, setLoading: (v: boolean) => void) => {
     if (selectedIds.length > MAX_LABELS_PER_PRINT) {
       return toast.error(t('bulkEdit.labelTooMany', { max: MAX_LABELS_PER_PRINT, count: selectedIds.length }));
@@ -156,8 +171,9 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied, extraActions 
       setLoading(true);
       const res = await RepositoryRemote.order.getBarcodeLabels({ ids: selectedIds });
       const rows = (res.data?.data || []) as BarcodeLabel[];
+      const heldCount = warnHeldSkipped(res.data?.skippedHeld);
       if (rows.length === 0) return toast.warning(t('bulkEdit.noLabel'));
-      if (rows.length < selectedIds.length) {
+      if (rows.length + heldCount < selectedIds.length) {
         toast.warning(t('bulkEdit.labelPartial', { count: rows.length, total: selectedIds.length }));
       }
       setBarcodeLabels({ rows, size });
@@ -184,8 +200,9 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied, extraActions 
       setLoadingShipLabels(true);
       const res = await RepositoryRemote.order.getShippingLabels({ ids: selectedIds });
       const rows = (res.data?.data || []) as ShippingLabel[];
+      const heldCount = warnHeldSkipped(res.data?.skippedHeld);
       if (rows.length === 0) return toast.warning(t('bulkEdit.noLabel'));
-      if (rows.length < selectedIds.length) {
+      if (rows.length + heldCount < selectedIds.length) {
         toast.warning(t('bulkEdit.labelPartial', { count: rows.length, total: selectedIds.length }));
       }
       const printable = rows.filter(hasShippingAddress);

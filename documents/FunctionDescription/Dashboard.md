@@ -23,6 +23,8 @@
 
 ## 1. Overview
 
+> **Khối "Bắt đầu" (01/10/2026, `pages/home/GettingStartedCard.tsx`):** trên đầu Dashboard, mọi tab — 4 lối tắt Hướng dẫn DTF theo vai (`page.guide_dtf`) · Hướng dẫn seller lên đơn · Catalog · Tra cứu đơn, mỗi mục 1 câu mô tả (khuôn "Getting Started" của OnosPod). Thu gọn được, nhớ theo người xem trong `localStorage` (`onos.dashboard.gettingStarted.collapsed`, lỗi storage → mở). Là lối vào THAY cho mục Hướng dẫn DTF đã rời sidebar (MenuRestructure-CEO.md §9.1). i18n `dashboard.gettingStarted.*`.
+
 Dashboard chia 4 tab độc lập (Tab D chỉ Leader/Admin/Manager):
 
 ### Tab A — "Thống kê đơn & sản phẩm" (cũ)

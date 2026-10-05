@@ -15,7 +15,8 @@
     "done": "Done",
     "fixed": "Fixed",
     "watching": "Waiting to return",
-    "unassigned": "Unassigned Designer"
+    "unassigned": "Unassigned Designer",
+    "held": "On hold"
   },
   "actions": {
     "start": "Start",
@@ -72,7 +73,8 @@
       "fabricType": "Fabric type",
       "machineNumber": "Machine",
       "toolResult": "Tool result",
-      "userSku": "Customer (SKU)"
+      "userSku": "Customer (SKU)",
+      "button": "Filters"
     },
     "selection": {
       "selected": "Selected",

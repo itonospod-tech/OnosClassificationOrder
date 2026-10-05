@@ -146,7 +146,7 @@ i18n namespace `dtfGuide` (`apps/web/src/i18n/locales/{vi,en}/dtfGuide.json`, 69
 `title/subtitle/demoNote/uiNote/shotFrameLabel` · `flow.{nodes,edges,back,crosscut}` · `picker.*` · `section.*` ·
 `roles.<vai>.{name,short,goal,alert?,entry,from,to,errors.*,notes.*}` · `roles.<vai>.steps.<bước>.{title,body,note?,alt,callouts.<n>.{label,detail}}`.
 Ô lưu ý của bước hiện khi có khoá `note` (`i18n.exists`). Bản `en` giữ nhãn UI tiếng Việt trong ngoặc kép kèm nghĩa (ảnh là giao diện tiếng Việt).
-Nhãn sidebar ở `layout.sidebar.guideDtf`; nhãn quyền ở `auth.permissions["page.guide_dtf"]`.
+**Không còn mục sidebar từ 01/10/2026** — lối vào là khối "Bắt đầu" trên Dashboard (`pages/home/GettingStartedCard.tsx`); route vẫn gác `page.guide_dtf` qua `ROUTE_ONLY_PAGES` trong `Sidebar.tsx` (bảng quyền AUTH-7 dựng từ cây menu, gỡ mục mà không khai ở đó là route mở cho mọi tài khoản — MenuRestructure-CEO.md §9.1). Key `layout.sidebar.guideDtf` còn nhưng không nơi dùng; nhãn quyền ở `auth.permissions["page.guide_dtf"]`.
 
 ## 4. UI Components
 

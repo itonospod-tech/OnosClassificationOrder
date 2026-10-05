@@ -24,6 +24,11 @@ services:
       # Bật khu Telegram (engine 20260909 trở đi). Không đặt = khu này tắt và
       # giao diện hiện đúng câu "đặt TELEGRAM_ENABLED=1 cho engine rồi khởi động lại".
       TELEGRAM_ENABLED: '1'
+      # Tên miền công khai để engine TỰ ghép `mcpUrl` khi cấp khoá API. Không đặt
+      # thì `POST /api/zalo-multi/public/keys` trả `mcp: null` + `mcpUrl: null`,
+      # bên gọi phải tự ghép URL. Chỉ là chuỗi engine in ra — KHÔNG mở thêm cổng
+      # nào; đường ra Internet vẫn là khối nginx `^~ /api/zalo-multi/public/mcp`.
+      ZALO_PUBLIC_URL: ${ZALO_PUBLIC_URL:-https://onosfactory.com}
       # AES key mã hoá phiên đăng nhập Zalo. ĐỔI = mất hết phiên, phải quét QR lại.
       ZALO_MULTI_ENCRYPTION_KEY: ${ZALO_ENCRYPTION_KEY}
       UPLOAD_DIR: /app/uploads

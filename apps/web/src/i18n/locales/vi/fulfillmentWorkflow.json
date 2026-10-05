@@ -15,7 +15,8 @@
     "done": "Đã xong",
     "fixed": "Đã sửa",
     "watching": "Đang chờ quay lại",
-    "unassigned": "Chưa gán Designer"
+    "unassigned": "Chưa gán Designer",
+    "held": "Đang giữ"
   },
   "actions": {
     "start": "Bắt đầu",
@@ -72,7 +73,8 @@
       "fabricType": "Loại vải",
       "machineNumber": "Máy",
       "toolResult": "Kết quả Tool",
-      "userSku": "Khách hàng (SKU)"
+      "userSku": "Khách hàng (SKU)",
+      "button": "Bộ lọc"
     },
     "selection": {
       "selected": "Đã chọn",

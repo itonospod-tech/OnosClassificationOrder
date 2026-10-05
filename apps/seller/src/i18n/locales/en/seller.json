@@ -104,6 +104,7 @@
     "allTime": "All time",
     "today": "Today",
     "yesterday": "Yesterday",
+    "last7Days": "Last 7 Days",
     "thisWeek": "This week",
     "thisMonth": "This month",
     "lastMonth": "Last month",
@@ -122,6 +123,10 @@
     "subtitle": "Every product on sale · look up SKUs for the import sheet",
     "searchPlaceholder": "Search product name, SKU…",
     "allCategories": "All categories",
+    "tags": "Tags",
+    "techniques": "Techniques",
+    "allTechniques": "All",
+    "allTags": "All",
     "allCollections": "All",
     "collections": "Collections",
     "totalProducts": "{{count}} products",
@@ -182,7 +187,10 @@
       "label": "Label purchase",
       "label_refund": "Label refund",
       "order": "Order payment",
-      "adjust": "Adjustment"
+      "adjust": "Adjustment",
+      "import_tax": "Import tax",
+      "active": "Tracking activation fee",
+      "refund": "Order refund"
     },
     "columns": {
       "when": "When",

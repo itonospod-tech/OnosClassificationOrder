@@ -26,7 +26,9 @@
       "config": "Config",
       "category": "Danh mục",
       "factory": "Xưởng",
-      "collection": "Collection"
+      "collection": "Collection",
+      "tag": "Tag",
+      "technique": "Kỹ thuật"
     }
   },
   "configTab": {
@@ -183,11 +185,12 @@
       "autoPack": {
         "label": "Tự hoàn thành Đóng hàng",
         "hint": "Bật: đơn chảy tới công đoạn Đóng hàng sẽ TỰ hoàn thành luôn (đơn xong sản xuất, bắn thông báo/webhook như đóng tay). Chỉ áp dụng đơn MỚI chảy tới — đơn đang tồn dùng nút bên dưới.",
-        "sweepBtn": "Hoàn thành đơn tồn ở Đóng hàng",
-        "sweepConfirm": "Hoàn thành TOÀN BỘ đơn đang chờ ở công đoạn Đóng hàng của xưởng {{name}}?",
-        "sweepEmpty": "Không có đơn nào đang tồn ở Đóng hàng.",
-        "sweepDone": "Đã hoàn thành {{ok}} đơn ở Đóng hàng.",
-        "sweepPartial": "Hoàn thành {{ok}} đơn, {{fail}} đơn lỗi (đơn đang giữ / trạng thái không hợp lệ)."
+        "sweepBtn": "Hoàn thành đơn tồn",
+        "sweepConfirm": "Hoàn thành {{total}} đơn đang tồn ở công đoạn tự hoàn thành của xưởng {{name}}?",
+        "sweepEmpty": "Không có đơn nào đang tồn ở công đoạn tự hoàn thành.",
+        "sweepDone": "Đã hoàn thành {{ok}} đơn tồn.",
+        "sweepPartial": "Hoàn thành {{ok}} đơn, {{fail}} đơn lỗi (đơn đang giữ / trạng thái không hợp lệ).",
+        "sweepWarning": "Mỗi đơn sẽ được đánh dấu hoàn thành sản xuất NGAY LÚC BẤM, tạo kiện hàng và gửi thông báo/webhook cho khách. Không hoàn tác được."
       },
       "skipToolCheck": {
         "label": "Bỏ qua soát tool",
@@ -546,6 +549,14 @@
       "allOf": "Tất cả - {{name}}",
       "someOf": "{{count}} - {{name}}",
       "clear": "Xóa lọc"
+    },
+    "tagsField": {
+      "label": "Tag (chọn nhiều)",
+      "empty": "Chưa có tag nào — tạo ở tab Tag trang Sản phẩm."
+    },
+    "techniquesField": {
+      "label": "Kỹ thuật (chọn nhiều)",
+      "empty": "Chưa có kỹ thuật nào — tạo ở tab Kỹ thuật trang Sản phẩm."
     }
   },
   "collectionTab": {
@@ -620,11 +631,12 @@
   "productLines": {
     "3d": "3D",
     "2d": "2D",
-    "wood": "Gỗ",
+    "wood": "Gỗ & cắt khắc",
     "embroidery": "Thêu",
     "led": "LED",
     "canvas": "Canvas",
-    "none": "Chưa gắn dòng"
+    "none": "Chưa gắn dòng",
+    "dropship": "Dropship"
   },
   "productLineSources": {
     "manual": "đặt tay",
@@ -633,5 +645,67 @@
     "machineType": "từ phòng máy",
     "printMethod": "từ phương pháp in",
     "default": "máy gán mặc định — cần kiểm lại"
+  },
+  "productTagTab": {
+    "title": "Tag sản phẩm",
+    "description": "Nhãn gắn cho sản phẩm (1 sản phẩm có nhiều tag) — chọn ở trang chi tiết sản phẩm.",
+    "table": {
+      "image": "Ảnh",
+      "name": "Tên",
+      "shortName": "Viết tắt",
+      "sortOrder": "Thứ tự",
+      "status": "Trạng thái",
+      "empty": "Chưa có tag nào.",
+      "active": "Hoạt động",
+      "inactive": "Tắt"
+    },
+    "dialog": {
+      "createTitle": "Thêm tag",
+      "editTitle": "Sửa tag"
+    },
+    "form": {
+      "name": "Tên",
+      "namePlaceholder": "VD: Christmas",
+      "shortName": "Tên viết tắt",
+      "shortNamePlaceholder": "VD: XMAS",
+      "image": "Ảnh (URL)",
+      "description": "Mô tả",
+      "sortOrder": "Thứ tự hiển thị",
+      "active": "Hoạt động",
+      "nameRequired": "Tên và viết tắt là bắt buộc",
+      "createSuccess": "Đã tạo tag",
+      "updateSuccess": "Đã cập nhật"
+    }
+  },
+  "productTechniqueTab": {
+    "title": "Kỹ thuật sản phẩm",
+    "description": "Kỹ thuật hoàn thiện/ứng dụng của sản phẩm (UV, Sublimation…) — khác phương pháp in, chọn ở trang chi tiết sản phẩm.",
+    "table": {
+      "image": "Ảnh",
+      "name": "Tên",
+      "shortName": "Viết tắt",
+      "sortOrder": "Thứ tự",
+      "status": "Trạng thái",
+      "empty": "Chưa có kỹ thuật nào.",
+      "active": "Hoạt động",
+      "inactive": "Tắt"
+    },
+    "dialog": {
+      "createTitle": "Thêm kỹ thuật",
+      "editTitle": "Sửa kỹ thuật"
+    },
+    "form": {
+      "name": "Tên",
+      "namePlaceholder": "VD: Sublimation",
+      "shortName": "Tên viết tắt",
+      "shortNamePlaceholder": "VD: SUBLIMATION",
+      "image": "Ảnh (URL)",
+      "description": "Mô tả",
+      "sortOrder": "Thứ tự hiển thị",
+      "active": "Hoạt động",
+      "nameRequired": "Tên và viết tắt là bắt buộc",
+      "createSuccess": "Đã tạo kỹ thuật",
+      "updateSuccess": "Đã cập nhật"
+    }
   }
 }

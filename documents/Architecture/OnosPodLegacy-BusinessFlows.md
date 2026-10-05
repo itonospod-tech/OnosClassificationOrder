@@ -70,8 +70,8 @@ Mỗi seller có thể có nhiều: `provider` SBTT (Ship By TikTok — seller t
 
 ### 3.6 Tiền
 - **Transaction (ví seller)**: `type` payment | import_tax | active | topup | refund, `status` Paid|Pending|Error|Cancelled, `payment_method` (topup qua **PingPong**), `referent` (đơn), `balance`, `invoice_id`.
-- **ProductionTransaction**: `type` payment, "Payment production <mã item>", số tiền = **base cost** của item, sinh khi kiện quét xong.
-- **Invoice** (seller, kỳ 10 ngày: 01–10, 11–21, 22–cuối tháng): `amount`, `total_product_cost`, `total_estimate_ship_cost`, `total_actual_ship_cost` (kèm nút "Retry fetch ship cost" — phí ship thật lấy về sau), file xlsx trên CDN, trạng thái Pending|Paid|Cancelled. Có cả **Production Invoice** riêng (272 trang) — suy ra là đối soát với xưởng.
+- **ProductionTransaction**: `type` payment, "Payment production <mã item>", số tiền = **base cost** của item, sinh **lúc thanh toán đơn** (cùng phút với giao dịch Payment của seller), KHÔNG phải lúc kiện quét xong. *(sửa 01/10/2026, kiểm trên màn hình — xem `documents/Plans/LegacyClone-Money.md` §1)*
+- **Invoice** (seller, **kỳ theo tuần: 01–07, 08–14, 15–21, 22–cuối tháng** *(sửa 01/10/2026, kiểm trên màn hình — xem `documents/Plans/LegacyClone-Money.md` §1)*): `amount`, `total_product_cost`, `total_estimate_ship_cost`, `total_actual_ship_cost` (kèm nút "Retry fetch ship cost" — phí ship thật lấy về sau), file xlsx trên CDN, trạng thái Pending|Paid|Cancelled. Có cả **Production Invoice** riêng — tính theo **seller**, KHÔNG theo xưởng (Σ base cost của seller trong kỳ); gần như không được chốt: 12/5.829 hoá đơn Paid. *(sửa 01/10/2026, kiểm trên màn hình — xem `documents/Plans/LegacyClone-Money.md` §1)*
 - **Affiliate**: nhóm giới thiệu, hoa hồng `profit_per_unit` theo phương thức COD / ONOSEXPRESS / SBTT (mặc định 0,3 $/đơn vị).
 
 ### 3.7 Product preset (sản phẩm) và biến thể
@@ -97,7 +97,7 @@ Cấp biến thể (`attribute_specifics[]`): `sku`, `base_price` (giá vốn/gi
 
 Trạng thái đơn: Pending · Processing · In Production · Fulfilled · Completed · Refunded · Cancelled · Rejected · Trashed. Sau khi vào sản xuất đơn bị **khóa** ("Order had been locked"). Hành động trên chi tiết đơn: chọn phương thức ship (hiện giá từng tài khoản logistics của seller + `presignOrderShippingMethod` báo giá dịch vụ), Request Shipment Order / Cancel Shipment Order, Download/Print Shipping Label, **Request active by USPS +$0.7** (giao dịch `active` — kích hoạt tracking USPS), Request Make Products, Create Print Zip File, Cancel/Reject/Refund, Split Multiple, Clone, Keep in stock, Transform to inventory, Add new transaction (điều chỉnh tiền tay).
 
-Ví dụ tiền thật (đơn PQ-22157-83778, DESI, 1 áo baseball jersey): subtotal 6,10 (sale) · ship 8,77 · thuế 0,45 · **total 15,32** → ví: −14,87 payment, −0,45 import_tax; base 5,50 → production transaction 5,50 khi kiện xong. Seller này `total_credit` −137.266 $ (nợ, `payment_type` debit) → hóa đơn kỳ.
+Ví dụ tiền thật (đơn PQ-22157-83778, DESI, 1 áo baseball jersey): subtotal 6,10 (sale) · ship 8,77 · thuế 0,45 · **total 15,32** → ví: −14,87 payment, −0,45 import_tax; base 5,50 → production transaction 5,50 lúc thanh toán đơn. Seller này `total_credit` −137.266 $ (nợ, `payment_type` debit) → hóa đơn kỳ.
 
 ## 5. Sản xuất — MRP (nắm chắc)
 
@@ -172,8 +172,8 @@ Kiểm trên 600 đơn Fulfilled/In Production/Completed mới nhất (`p2/price
 Luồng tiền đầy đủ:
 1. Seller nạp tiền (`topup`, PingPong/Payoneer/LianLian/bank hoặc admin nạp tay có mã giao dịch ngoài + ảnh) hoặc dùng **debit** với `debit_limit` (số dư âm, thanh toán theo hóa đơn kỳ; TIENHC −896 k$, DESI −137 k$).
 2. Lúc xử lý đơn: trừ `payment` = subtotal + ship (nếu prepaid) ; trừ `import_tax` theo SKU; `active` +0,70 $ khi kích hoạt USPS.
-3. Lúc kiện quét xong: `productionTransaction` = **base cost** (5,50 $ ví dụ) — ghi nhận chi phí sản xuất (đối soát trả xưởng qua Production Invoice).
-4. Kỳ 10 ngày: Invoice seller = giao dịch + phí ship thật lấy về từ OnosExpress; Pending → Paid/Cancelled; file xlsx.
+3. Lúc thanh toán đơn (cùng lúc bước 2, KHÔNG phải lúc kiện quét xong): `productionTransaction` = **base cost** (5,50 $ ví dụ) — ghi nhận chi phí sản xuất (gom theo seller vào Production Invoice — không theo xưởng).
+4. Kỳ theo tuần (01–07, 08–14, 15–21, 22–cuối tháng): Invoice seller = giao dịch + phí ship thật lấy về từ OnosExpress; Pending → Paid/Cancelled; file xlsx.
 5. OnosPod đồng thời là **khách hàng của OnosExpress** (§7b): mỗi seller có tài khoản `POD_<seller>` bên OnosExpress (debit monthly, `is_pod_customer`), OnosExpress trừ tài khoản đó phí label + thuế nhập (ví dụ đơn PQ-22157-83778: OnosPod thu seller 8,77 + 0,45; OnosExpress tính POD_DESI 8,59 + 0,45 → chênh 0,18 $ là lãi ship của OnosPod).
 6. Hoàn tiền: `refund`, `total_refund`, RAR; Affiliate hoa hồng/đơn vị theo phương thức (COD/ONOSEXPRESS/SBTT, mặc định 0,30 $).
 
@@ -220,7 +220,7 @@ Payload webhook `order.updated` (thật, 03/2026): `id` (mã fulfillment), `orde
 | Gán xưởng | Theo sản phẩm (`manufacture_id`) + tay | Product Config + khách→xưởng | Có |
 | Sản xuất | 6 trạng thái MRP, tài khoản chung theo vai, mã lỗi 31, QC note, priority, merchant group | Soát tool → designer → 6 công đoạn, định danh người, thống kê lỗi theo người, luồng rút gọn theo xưởng | Hệ mới **mạnh hơn**; thiếu **lô sản xuất theo ngày** và "Download Print"/phiếu in theo lô |
 | Label | Mua lúc xử lý đơn (trước SX) qua **OnosExpress** (REST API công khai §7b), USPS, +0,7 kích hoạt | VNP eGlobal (chính là lastmile của OnosExpress), mua tay từ menu Admin | Hệ mới có thể gọi thẳng OnosExpress `order/create` bằng tài khoản `POD_*` hiện có → giữ nguyên chuỗi HAN→LAX→VNPL; **thiếu tự động hóa + thời điểm mua + báo giá + bảng giá theo bậc** |
-| Đóng kiện | Quét tracking → kiện xong → Fulfilled + trừ tiền SX | Công đoạn Đóng hàng, chưa gắn label/kiện/tiền | **Thiếu hook label + tính tiền lúc đóng** |
+| Đóng kiện | Quét tracking → kiện xong → Fulfilled (tiền SX đã ghi từ lúc thanh toán đơn) | Công đoạn Đóng hàng, chưa gắn label/kiện/tiền | **Thiếu hook label lúc đóng** (tiền SX thuộc bước thanh toán đơn) |
 | Bàn giao hãng | Giờ xuất kho + phiếu pickup theo seller | Chưa có | Thiếu lô bàn giao |
 | Tracking | Cron + Telegram + trạng thái shipment 11 mức | Cron VNP 2 lần/ngày, trạng thái 3 mức | Thiếu đổ về seller + webhook `order.shipped` |
 | Báo cáo | Daily report, production report theo xưởng có tiền, dashboard | Dashboard, CEO dashboard, Operations hub | Thiếu báo cáo tiền theo xưởng/seller |
@@ -231,7 +231,7 @@ Payload webhook `order.updated` (thật, 03/2026): `id` (mã fulfillment), `orde
 ## 13. Gợi ý thứ tự chuyển đổi (từ dữ liệu trên)
 
 1. **Cầu tạm chống làm hai lần:** hệ mới quét xong công đoạn → gọi `mrpProductNextProcessStep`/`scanPackageTracking` bên cũ (cần thử trên đơn test `is_test`). Xưởng chỉ quét ở hệ mới, tiền vẫn chốt bên cũ.
-2. **Ví + tính tiền** ở hệ mới (trừ lúc đẩy đơn, trừ base cost lúc đóng kiện, thuế nhập theo SKU, hóa đơn kỳ, topup, debit limit, hoàn tiền), chạy song song đối chiếu ≥ 1 kỳ hóa đơn với số hệ cũ (§8).
+2. **Ví + tính tiền** ở hệ mới (trừ lúc đẩy đơn, ghi base cost lúc thanh toán đơn, thuế nhập theo SKU, hóa đơn kỳ, topup, debit limit, hoàn tiền), chạy song song đối chiếu ≥ 1 kỳ hóa đơn với số hệ cũ (§8).
 3. **Label + kiện + bàn giao** ở hệ mới (VNP), chọn mô hình mua label (trước sản xuất như cũ, hay lúc đóng).
 4. **Lô sản xuất theo ngày** nếu xưởng xác nhận cần phiếu theo lô.
 5. Cắt theo dòng sản phẩm: gỡ sản phẩm khỏi catalog cũ (`visible=false`/"Hide product for seller"), seller sang portal mới, tắt tài khoản logistics cũ.

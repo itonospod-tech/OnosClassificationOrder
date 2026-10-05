@@ -7,7 +7,8 @@ import {
   ChevronRight,
   History,
 } from 'lucide-react';
-import type { WorkshopAvailableFilters, WorkshopStageFilterKey } from 'shared';
+import type { WorkshopAvailableFilters, WorkshopStageFilter } from 'shared';
+import { OPEN_ORDER_STALE_DAYS, PRODUCT_LINE_WINDOW_DAYS, WORKSHOP_STAGE_OPEN } from 'shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 import { PATHS } from '@/constants/paths';
@@ -77,6 +78,34 @@ function todayISO(): string {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Product-line views (sidebar "Production" › 3D, 2D…) open on OPEN orders (not packed yet)
+ * that entered production in the last `PRODUCT_LINE_WINDOW_DAYS` VN days — the legacy
+ * OnosPod menu opened every list on its most useful view, and for a line that is "what is
+ * running now", not one day's intake. This is exactly what the sidebar line badge counts
+ * (`SidebarCounts.productLineCounts`), so the badge equals the row total only while the
+ * page sends this default and nothing else: the window constant comes from `shared`, and
+ * the stage default must be `__open__`, never `''` (which also lists finished orders).
+ */
+function daysAgoISO(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Default `createdFrom` for the current view: today, or the line window on a product-line view. */
+function defaultFromFor(productLine: string): string {
+  return productLine ? daysAgoISO(PRODUCT_LINE_WINDOW_DAYS - 1) : todayISO();
+}
+
+/** Default stage filter for the current view: open orders on a product-line view, everything otherwise. */
+function defaultStageFor(productLine: string): WorkshopStageFilter | '' {
+  return productLine ? WORKSHOP_STAGE_OPEN : '';
 }
 
 // Combo = (size + loại vải + mockup). Dùng để đếm ×N + highlight combo trùng.
@@ -237,7 +266,7 @@ const ProductRow = React.memo(function ProductRow({
 });
 
 export function OrderTableWorkshop() {
-  const { t } = useTranslation('orders');
+  const { t, i18n } = useTranslation('orders');
   const { has, canViewField, canEditField, roleName } = usePermission();
   const loadConfig = useWorkshopConfigStore((s) => s.load);
   const configLoaded = useWorkshopConfigStore((s) => s.loaded);
@@ -246,6 +275,10 @@ export function OrderTableWorkshop() {
   // mỗi facet sau khi chuyển sang SelectFilter — multi-value support removed.
   const [searchParams, setSearchParams] = useSearchParams();
   const factoryScope = useFactoryScope();
+  // Product line from the sidebar link (`?productLine=3d`). Read straight from the URL like
+  // `factoryId`: it is a scope chosen by the menu, not a filter this page owns, so the
+  // state→URL sync below never writes or strips it.
+  const productLine = searchParams.get('productLine') || '';
 
   const [items, setItems] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -270,7 +303,9 @@ export function OrderTableWorkshop() {
   // `pid` lúc mount (tìm chính xác 1 đơn, không giới hạn ngày — đơn có thể
   // KHÔNG thuộc "hôm nay"). User vẫn có thể chọn range khác hoặc clear hẳn
   // qua DateRangePicker.
-  const [createdFrom, setCreatedFrom] = useState(() => searchParams.get('wfrom') || (pid ? '' : todayISO()));
+  const [createdFrom, setCreatedFrom] = useState(
+    () => searchParams.get('wfrom') || (pid ? '' : defaultFromFor(productLine)),
+  );
   const [createdTo, setCreatedTo] = useState(() => searchParams.get('wto') || (pid ? '' : todayISO()));
   const [search, setSearch] = useState(() => searchParams.get('wsearch') || '');
   const debouncedSearch = useDebounce(search, 300);
@@ -322,8 +357,8 @@ export function OrderTableWorkshop() {
   // hủy vẫn hiện tô xám trong list nhưng KHÔNG tính vào facet count.
   const [filterCancelled, setFilterCancelled] = useState<boolean>(() => searchParams.get('wcancel') === 'true');
   // Ô phễu chặng (Orders.md §10.2b) — BE `workshopStage`, URL `wstage`.
-  const [filterStage, setFilterStage] = useState<WorkshopStageFilterKey | ''>(
-    () => (searchParams.get('wstage') as WorkshopStageFilterKey | null) || '',
+  const [filterStage, setFilterStage] = useState<WorkshopStageFilter | ''>(
+    () => (searchParams.get('wstage') as WorkshopStageFilter | null) || defaultStageFor(productLine),
   );
   // Pill "Ưu tiên" — BE `priority=__any__` (đơn có đặt ưu tiên), URL `wprio`.
   const [filterPriority, setFilterPriority] = useState<string>(() => searchParams.get('wprio') || '');
@@ -435,6 +470,7 @@ export function OrderTableWorkshop() {
     // Phạm vi xưởng từ "cụm menu theo xưởng" ở sidebar. Lọc TƯỜNG MINH nên đơn
     // xưởng ngoài luồng sản xuất (US) cũng xem được ở cụm của chính nó.
     if (factoryScope) params.set('factoryId', factoryScope);
+    if (productLine) params.set('productLine', productLine);
     return params;
   };
 
@@ -503,6 +539,7 @@ export function OrderTableWorkshop() {
     createdFrom,
     createdTo,
     factoryScope,
+    productLine,
   ]);
 
   /**
@@ -950,7 +987,7 @@ export function OrderTableWorkshop() {
     setPid('');
     setBulkIds([]);
     setFilterHeld(false);
-    setCreatedFrom(todayISO());
+    setCreatedFrom(defaultFromFor(productLine));
     setCreatedTo(todayISO());
     setFilterFabricType('');
     setFilterMachineNumber('');
@@ -962,7 +999,7 @@ export function OrderTableWorkshop() {
     setFilterDesignerStatus('');
     setFilterProductionError('');
     setFilterUserSku('');
-    setFilterStage('');
+    setFilterStage(defaultStageFor(productLine));
     setFilterPriority('');
     setFilterType('');
     setPage(1);
@@ -971,6 +1008,18 @@ export function OrderTableWorkshop() {
   // Click lại menu "Danh sách đơn" ở sidebar khi đang đứng đúng trang này →
   // xóa hết filter (xem `useSidebarResetSignal`).
   useSidebarResetSignal(PATHS.ORDERS_WORKSHOP, clearAllFilters);
+
+  // Switching line from the sidebar (3D → 2D, or All → 3D) keeps this page mounted, so the
+  // initial-state defaults above would not re-apply and filters from the previous line (a
+  // product type that does not exist in the new line, an old page number) would carry over
+  // and show an empty list. Reset to the new view's defaults, like opening it fresh.
+  const prevProductLine = useRef(productLine);
+  useEffect(() => {
+    if (prevProductLine.current === productLine) return;
+    prevProductLine.current = productLine;
+    clearAllFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productLine]);
 
   /**
    * Click cell trong summary panel → set filter list. userId='__none__' tương
@@ -1083,10 +1132,60 @@ export function OrderTableWorkshop() {
           filters={workshopFilters}
           activeStage={filterStage}
           onStageChange={(st) => {
-            setFilterStage(st);
+            // Un-clicking a cell returns to the view's default, so a product-line view goes back
+            // to open orders (what its badge counts) instead of silently adding finished ones.
+            setFilterStage(st || defaultStageFor(productLine));
             setPage(1);
           }}
         />
+
+        {/* Product-line views: open orders older than the line window but not stale yet. The BE count
+            uses the page's own filters with only the date range swapped, and the click applies exactly
+            that range, so the number equals the rows it opens. */}
+        {(() => {
+          const ow = productLine ? workshopFilters?.outOfWindow : undefined;
+          if (!ow) return null;
+          const onDefault = createdFrom === defaultFromFor(productLine) && createdTo === todayISO();
+          const onOlder = createdFrom === ow.from && createdTo === ow.to;
+          const setRange = (from: string, to: string) => {
+            setCreatedFrom(from);
+            setCreatedTo(to);
+            setPage(1);
+          };
+          if (onDefault && ow.count > 0) {
+            return (
+              <button
+                type="button"
+                onClick={() => setRange(ow.from, ow.to)}
+                className="flex w-full items-center gap-2 rounded-lg border border-tone-warning/40 bg-tone-warning/10 px-3 py-2 text-left text-sm font-medium text-tone-warning hover:bg-tone-warning/15 touch:min-h-11"
+              >
+                <CalendarClock size={16} className="shrink-0" />
+                <span className="min-w-0 flex-1">
+                  {t('workshopPage.olderOpen', { count: ow.count, n: ow.count.toLocaleString(i18n.language), days: PRODUCT_LINE_WINDOW_DAYS })}
+                </span>
+                <ChevronRight size={16} className="shrink-0" />
+              </button>
+            );
+          }
+          if (onOlder) {
+            return (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-tone-warning/40 bg-tone-warning/10 px-3 py-2 text-sm text-tone-warning">
+                <CalendarClock size={16} className="shrink-0" />
+                <span className="min-w-0 flex-1 font-medium">
+                  {t('workshopPage.olderOpenActive', { days: PRODUCT_LINE_WINDOW_DAYS, staleDays: OPEN_ORDER_STALE_DAYS })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setRange(defaultFromFor(productLine), todayISO())}
+                  className="rounded-md border border-tone-warning/40 bg-card px-2.5 py-1 text-xs font-semibold hover:bg-accent touch:min-h-11"
+                >
+                  {t('workshopPage.backToWindow', { days: PRODUCT_LINE_WINDOW_DAYS })}
+                </button>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         <WorkshopToolbar
           onBulkApply={(ids) => {
@@ -1138,7 +1237,7 @@ export function OrderTableWorkshop() {
         )}
 
         {/* Vùng rail|bảng chiếm phần còn lại; tối thiểu 260px (màn thấp thì <main> cuộn thay). */}
-        <div className="flex min-h-[260px] flex-1 items-stretch gap-4">
+        <div className="flex min-h-[260px] flex-1 items-stretch gap-4 max-md:flex-col">
           {/* Rail loại sản phẩm — cao bằng vùng bảng, tự cuộn bên trong. */}
           <WorkshopTypeRail
             typeStats={workshopFilters?.typeStats || []}
@@ -1148,9 +1247,9 @@ export function OrderTableWorkshop() {
               setFilterType(ty);
               setPage(1);
             }}
-            className="h-full"
+            className="h-full max-md:h-auto max-md:max-h-56 max-md:w-full"
           />
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col max-md:min-h-[420px]">
         {/* Table */}
         {/* Card = cột flex: tiêu đề (shrink-0) · thân bảng (flex-1, cuộn dọc+ngang) · chân bảng (shrink-0, luôn thấy). */}
         <LoadingOverlay active={loading && items.length > 0} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">

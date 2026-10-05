@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { useFactoryScope } from '@/hooks/useFactoryScope';
+
 export type StatusFilterCategory =
   | 'printStatus'
   | 'printStatusNote'
@@ -58,6 +60,7 @@ function todayISO() {
  */
 export function useStatusFilter() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const factoryScope = useFactoryScope();
 
   // Dates đọc URL → fallback today. Sync ngược lên URL ở useEffect bên dưới.
   const [createdFrom, setCreatedFrom] = useState<string>(
@@ -95,7 +98,8 @@ export function useStatusFilter() {
       const raw = searchParams.get(k);
       if (raw) f[k] = raw.split(',').filter(Boolean);
     }
-    const factoryId = searchParams.get('factoryId');
+    // Through `useFactoryScope` (Orders.md §25) so a Fulfillment account stays on its own factory.
+    const factoryId = factoryScope;
     const machineTypeId = searchParams.get('machineTypeId');
     const ready = searchParams.get('readyForFulfill');
     const hasError = searchParams.get('hasError');
@@ -109,7 +113,7 @@ export function useStatusFilter() {
     f.createdTo = createdTo;
     f.search = search;
     return f;
-  }, [searchParams, createdFrom, createdTo]);
+  }, [searchParams, createdFrom, createdTo, factoryScope]);
 
   const writeParams = useCallback(
     (mutator: (sp: URLSearchParams) => void) => {

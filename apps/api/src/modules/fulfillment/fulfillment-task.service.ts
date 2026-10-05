@@ -32,7 +32,7 @@ import {
 } from 'shared';
 
 import { productionFactoryClause } from '../../utils/excluded-factory';
-import { getFactoryAutoPackSync, getFactoryFlowTypeSync } from '../../utils/merged-flow-factory';
+import { getFactoryAutoPackSync, getFactoryFlowTypeSync, loadFactoryFlowTypes } from '../../utils/merged-flow-factory';
 import { CustomerOrderEventService } from '../customer-event/customer-order-event.service';
 import { OrderDocument, OrderEntity } from '../order/order.entity';
 import { OrderService } from '../order/order.service';
@@ -46,6 +46,16 @@ import { UserDocument, UserEntity } from '../user/user.entity';
  * worker chỉ transition task của (factory, stage) đúng của mình.
  */
 const OVERRIDE_ROLES: RoleType[] = [RoleType.SuperAdmin, RoleType.Admin, RoleType.Manager, RoleType.SupportManager];
+
+/**
+ * Stages an order must NOT sit at under the factory config = the flow's
+ * auto-stage set (+ Pack when `autoCompletePack` is on). Pack is always
+ * included so the sweep button keeps its old behaviour (it swept Pack even
+ * when the toggle had not been saved yet).
+ */
+export function autoBacklogStages(flow: FactoryFlowType, autoPack: boolean): FulfillmentStage[] {
+  return FULFILLMENT_STAGES.filter((s) => s === FulfillmentStage.Pack || isAutoStage(flow, s, autoPack));
+}
 
 /** Match `order.service.ts:vnDayStart/End` — local VN ngày 00:00 / 23:59. */
 function vnDayStart(yyyymmdd: string): Date {
@@ -344,36 +354,70 @@ export class FulfillmentTaskService {
   }
 
   /**
-   * Hoàn thành TOÀN BỘ đơn đang tồn ở công đoạn ĐÓNG HÀNG của 1 xưởng — nút
-   * "Hoàn thành đơn tồn" đi kèm toggle `autoCompletePack` (toggle chỉ áp đơn
-   * MỚI chảy tới; đơn tồn cũ dọn 1 lần bằng nút này). Đi qua `bulkTransition`
-   * → `transition()` từng đơn nên giữ đủ hook (timeline, guard đơn giữ/hủy —
-   * đơn held fail riêng nó với message rõ, không chặn cả lô).
+   * Sweep BACKLOG orders sitting at a factory's auto-complete stages
+   * (`autoBacklogStages`). Auto-stages only run inside `resolveTransition` when
+   * someone clicks Complete, so an order already sitting there BEFORE the
+   * factory changed flowType / turned on autoCompletePack is stuck forever
+   * (e.g. 514 DTF Thai Nguyen orders stuck at QC after press, 24/09/2026).
+   * Completing the stage it sits at lets the while loop auto-Done the
+   * auto-stages after it. Goes through `bulkTransition` → `transition()` per
+   * order so every hook still fires (timeline, packages, `production_completed`
+   * webhook, the held-order guard — a held order fails on its own). `dryRun`
+   * (ON by default in the DTO) only counts and writes nothing.
    */
   async completePackBacklog(
     user: UserDocument,
     factoryId: string,
+    dryRun: boolean,
     ctx: AuditContext,
-  ): Promise<{ total: number; ok: number; fail: number; failures: { orderId: string; message: string }[] }> {
+  ): Promise<{
+    dryRun: boolean;
+    total: number;
+    byStage: Record<string, number>;
+    ok: number;
+    fail: number;
+    failures: { orderId: string; message: string }[];
+  }> {
+    // Read the latest config instead of the 60s TTL cache — admins sweep right after changing the flow.
+    await loadFactoryFlowTypes(this.orderModel.db);
+    const stages = autoBacklogStages(
+      getFactoryFlowTypeSync(this.orderModel.db, factoryId),
+      getFactoryAutoPackSync(this.orderModel.db, factoryId),
+    );
+    const openStatuses = [
+      FulfillmentStageStatus.Waiting,
+      FulfillmentStageStatus.Rework,
+      FulfillmentStageStatus.InProgress,
+    ];
     const docs = await this.orderModel
       .find({
         factoryId,
         cancelledAt: null,
-        currentFulfillmentStage: FulfillmentStage.Pack,
-        'fulfillmentStages.pack.status': {
-          $in: [FulfillmentStageStatus.Waiting, FulfillmentStageStatus.Rework, FulfillmentStageStatus.InProgress],
-        },
+        $or: stages.map((stg) => ({
+          currentFulfillmentStage: stg,
+          [`fulfillmentStages.${stg}.status`]: { $in: openStatuses },
+        })),
       })
-      .select('_id')
+      .select('_id currentFulfillmentStage')
       .lean();
-    const ids = docs.map((d) => String(d._id));
-    if (ids.length === 0) return { total: 0, ok: 0, fail: 0, failures: [] };
-    const result = await this.bulkTransition(
-      user,
-      { stage: FulfillmentStage.Pack, action: 'start-complete', orderIds: ids },
-      ctx,
-    );
-    return { total: ids.length, ...result };
+
+    const idsByStage = new Map<FulfillmentStage, string[]>();
+    for (const d of docs) {
+      const stg = d.currentFulfillmentStage as FulfillmentStage;
+      idsByStage.set(stg, [...(idsByStage.get(stg) ?? []), String(d._id)]);
+    }
+    const byStage = Object.fromEntries([...idsByStage].map(([stg, ids]) => [stg, ids.length]));
+    const failures: { orderId: string; message: string }[] = [];
+    const result = { dryRun, total: docs.length, byStage, ok: 0, fail: 0, failures };
+    if (dryRun || docs.length === 0) return result;
+
+    for (const [stage, orderIds] of idsByStage) {
+      const r = await this.bulkTransition(user, { stage, action: 'start-complete', orderIds }, ctx);
+      result.ok += r.ok;
+      result.fail += r.fail;
+      result.failures.push(...r.failures);
+    }
+    return result;
   }
 
   /**
@@ -670,13 +714,15 @@ export class FulfillmentTaskService {
       /** YYYY-MM-DD VN local. Empty string = explicit clear → all-time. */
       createdFrom?: string;
       createdTo?: string;
+      /** Also run `countAllTabs` (see `GetFulfillmentMyTasksZod.withCounts`). */
+      withCounts?: boolean;
     },
   ): Promise<{
     data: ProductionOrder[];
     total: number;
     page: number;
     size: number;
-    tabCounts: { waiting: number; inProgress: number; rework: number; done: number; watching: number };
+    tabCounts?: { waiting: number; inProgress: number; rework: number; done: number; watching: number };
   }> {
     const roleName = user.role?.name;
     const isOverride = roleName ? OVERRIDE_ROLES.includes(roleName) : false;
@@ -711,13 +757,15 @@ export class FulfillmentTaskService {
 
     const [data, total, tabCounts] = await Promise.all([
       this.orderModel
-        .find(filter)
+        // `fulfillmentTimeline` is ~46% of an order document (2.3 of 4.9 KB measured on
+        // dev data) and no My Tasks screen reads it; the kanban loads up to 5000 rows per tab.
+        .find(filter, { fulfillmentTimeline: 0 })
         .sort({ priority: -1, orderAt: -1, inProductionAt: -1 })
         .skip((page - 1) * size)
         .limit(size)
         .lean(),
       this.orderModel.countDocuments(filter),
-      this.countAllTabs(baseFilter, stage, String(user._id), isOverride),
+      query.withCounts ? this.countAllTabs(baseFilter, stage, String(user._id), isOverride) : undefined,
     ]);
 
     return {
@@ -811,6 +859,18 @@ export class FulfillmentTaskService {
           currentFulfillmentStage: stage,
           [`fulfillmentStages.${stage}.status`]: FulfillmentStageStatus.Waiting,
           designerStatus: { $ne: 'rework' },
+          // Held orders are not work to pick up; they live in the `held` tab (Orders.md §9b).
+          heldAt: { $exists: false },
+        };
+      case 'held':
+        // Exact complement of the held cut above: same waiting conditions, held.
+        return {
+          ...base,
+          readyForFulfill: true,
+          currentFulfillmentStage: stage,
+          [`fulfillmentStages.${stage}.status`]: FulfillmentStageStatus.Waiting,
+          designerStatus: { $ne: 'rework' },
+          heldAt: { $exists: true },
         };
       case 'in-progress':
         return {
@@ -903,8 +963,9 @@ export class FulfillmentTaskService {
     fixed: number;
     watching: number;
     unassigned: number;
+    held: number;
   }> {
-    const [waiting, inProgress, rework, done, fixed, watching, unassigned] = await Promise.all([
+    const [waiting, inProgress, rework, done, fixed, watching, unassigned, held] = await Promise.all([
       this.orderModel.countDocuments(this.applyTabFilter(base, 'waiting', stage, userId)),
       this.orderModel.countDocuments(this.applyTabFilter(base, 'in-progress', stage, userId)),
       this.orderModel.countDocuments(this.applyTabFilter(base, 'rework', stage, userId)),
@@ -915,8 +976,9 @@ export class FulfillmentTaskService {
       isOverride
         ? this.orderModel.countDocuments(this.applyTabFilter(base, 'unassigned', stage, userId))
         : Promise.resolve(0),
+      this.orderModel.countDocuments(this.applyTabFilter(base, 'held', stage, userId)),
     ]);
-    return { waiting, inProgress, rework, done, fixed, watching, unassigned };
+    return { waiting, inProgress, rework, done, fixed, watching, unassigned, held };
   }
 
   /**

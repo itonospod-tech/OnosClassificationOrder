@@ -36,6 +36,8 @@ import { downloadSkuCsv } from './sku-csv';
 interface FacetsRes {
   categories: CustomerCatalogFacet[];
   collections: CustomerCatalogFacet[];
+  tags: CustomerCatalogFacet[];
+  techniques: CustomerCatalogFacet[];
   productLines: Array<{ code: string; count: number }>;
 }
 
@@ -45,7 +47,7 @@ const PILL_OFF = 'bg-card border-border1 text-text-secondary hover:border-accent
 
 export function CatalogView() {
   const { t } = useTranslation(['seller', 'customerPortal']);
-  const [state, setState] = useUrlState({ line: '', category: '', collection: '', q: '', page: '1', limit: '24' });
+  const [state, setState] = useUrlState({ line: '', category: '', collection: '', tag: '', technique: '', q: '', page: '1', limit: '24' });
   const line: ProductLineTabKey = isProductLine(state.line) ? state.line : 'all';
   const page = Math.max(1, Number(state.page) || 1);
   const limit = Math.max(1, Number(state.limit) || 24);
@@ -61,9 +63,11 @@ export function CatalogView() {
     if (line !== 'all') p.set('productLine', line);
     if (state.category) p.set('productCategoryId', state.category);
     if (state.collection) p.set('collectionId', state.collection);
+    if (state.tag) p.set('productTagId', state.tag);
+    if (state.technique) p.set('productTechniqueId', state.technique);
     if (state.q) p.set('search', state.q);
     return p.toString();
-  }, [page, limit, line, state.category, state.collection, state.q]);
+  }, [page, limit, line, state.category, state.collection, state.tag, state.technique, state.q]);
 
   const { data: res, loading } = useApi<ApiRes<CustomerCatalogItem[]>>(`/api/v1/customer/catalog?${query}`);
   const { data: facetsRes } = useApi<ApiRes<FacetsRes>>('/api/v1/customer/catalog/facets');
@@ -138,6 +142,34 @@ export function CatalogView() {
           </button>
           {(facets?.collections ?? []).map((c) => (
             <button key={c._id} type="button" onClick={() => setState({ collection: c._id, page: '1' })} className={`${PILL} ${state.collection === c._id ? PILL_ON : PILL_OFF}`}>
+              {c.name} <span className="opacity-70">{c.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {(facets?.tags ?? []).length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[10px] uppercase font-bold text-text-muted mr-1">{t('catalog.tags', { ns: 'seller' })}</span>
+          <button type="button" onClick={() => setState({ tag: '', page: '1' })} className={`${PILL} ${!state.tag ? PILL_ON : PILL_OFF}`}>
+            {t('catalog.allTags', { ns: 'seller' })}
+          </button>
+          {(facets?.tags ?? []).map((c) => (
+            <button key={c._id} type="button" onClick={() => setState({ tag: c._id, page: '1' })} className={`${PILL} ${state.tag === c._id ? PILL_ON : PILL_OFF}`}>
+              {c.name} <span className="opacity-70">{c.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {(facets?.techniques ?? []).length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[10px] uppercase font-bold text-text-muted mr-1">{t('catalog.techniques', { ns: 'seller' })}</span>
+          <button type="button" onClick={() => setState({ technique: '', page: '1' })} className={`${PILL} ${!state.technique ? PILL_ON : PILL_OFF}`}>
+            {t('catalog.allTechniques', { ns: 'seller' })}
+          </button>
+          {(facets?.techniques ?? []).map((c) => (
+            <button key={c._id} type="button" onClick={() => setState({ technique: c._id, page: '1' })} className={`${PILL} ${state.technique === c._id ? PILL_ON : PILL_OFF}`}>
               {c.name} <span className="opacity-70">{c.count}</span>
             </button>
           ))}

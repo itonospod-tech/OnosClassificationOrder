@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,9 +17,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
+import { cn } from '@/utils/cn';
 
 import { type DialogMode, TeamMemberDialog } from './TeamMemberDialog';
 
@@ -134,15 +136,11 @@ export default function DesignerTeamPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
-          <Palette size={20} className="text-violet-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('team.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('team.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Palette size={20} />}
+        title={t('team.title')}
+        description={t('team.subtitle')}
+      />
 
       <div className="grid grid-cols-3 gap-3">
         <StatCard label={t('team.stats.active')} value={totals.active} accent="text-emerald-600" />
@@ -182,68 +180,92 @@ export default function DesignerTeamPage() {
           </div>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('team.table.fullName')}</TableHead>
-              <TableHead>{t('team.table.email')}</TableHead>
-              <TableHead className="w-24 text-center">{t('team.table.active')}</TableHead>
-              <TableHead className="w-24 text-center">{t('team.table.done')}</TableHead>
-              <TableHead className="w-32">{t('team.table.hireDate')}</TableHead>
-              <TableHead className="w-28">{t('team.table.status')}</TableHead>
-              <TableHead className="w-40 text-right"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <Spinner size={20} className="text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && displayed.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
-                  {items.length === 0 ? (
-                    <>
-                      {t('team.emptyNoMembersPrefix')} <strong>{t('team.emptyNoMembersAction')}</strong>{' '}
-                      {t('team.emptyNoMembersSuffix')}
-                    </>
+        {loading && items.length === 0 ? (
+          <div className="flex justify-center py-8">
+            <Spinner size={20} className="text-muted-foreground" />
+          </div>
+        ) : (
+          <ResponsiveList
+            className="max-md:p-3"
+            rows={displayed}
+            rowKey={(it) => it._id}
+            empty={
+              items.length === 0 ? (
+                <>
+                  {t('team.emptyNoMembersPrefix')} <strong>{t('team.emptyNoMembersAction')}</strong>{' '}
+                  {t('team.emptyNoMembersSuffix')}
+                </>
+              ) : (
+                <>{t('team.emptyFiltered')}</>
+              )
+            }
+            columns={[
+              {
+                key: 'fullName',
+                header: t('team.table.fullName'),
+                mobile: 'title',
+                cell: (it) => (
+                  <span className={cn('font-medium', it.status !== Status.Active && 'opacity-60')}>{it.fullName}</span>
+                ),
+              },
+              {
+                key: 'email',
+                header: t('team.table.email'),
+                mobile: 'subtitle',
+                cell: (it) => (
+                  <span className={cn('break-words text-muted-foreground', it.status !== Status.Active && 'opacity-60')}>
+                    {it.email}
+                  </span>
+                ),
+              },
+              {
+                key: 'active',
+                header: t('team.table.active'),
+                className: 'w-24 text-center',
+                cell: (it) =>
+                  (it.activeTaskCount ?? 0) > 0 ? (
+                    <Badge variant="default" className="bg-indigo-500 hover:bg-indigo-500">
+                      {it.activeTaskCount}
+                    </Badge>
                   ) : (
-                    <>{t('team.emptyFiltered')}</>
-                  )}
-                </TableCell>
-              </TableRow>
-            )}
-            {displayed.map((it) => {
-              const activeTasks = it.activeTaskCount ?? 0;
-              return (
-                <TableRow key={it._id} className={it.status !== Status.Active ? 'opacity-60' : undefined}>
-                  <TableCell className="font-medium">{it.fullName}</TableCell>
-                  <TableCell className="text-muted-foreground">{it.email}</TableCell>
-                  <TableCell className="text-center">
-                    {activeTasks > 0 ? (
-                      <Badge variant="default" className="bg-indigo-500 hover:bg-indigo-500">
-                        {activeTasks}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">0</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center text-xs text-muted-foreground">{it.completedTaskCount}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">0</span>
+                  ),
+              },
+              {
+                key: 'done',
+                header: t('team.table.done'),
+                className: 'w-24 text-center',
+                cell: (it) => <span className="text-xs text-muted-foreground">{it.completedTaskCount}</span>,
+              },
+              {
+                key: 'hireDate',
+                header: t('team.table.hireDate'),
+                className: 'w-32',
+                cell: (it) => (
+                  <span className="text-xs text-muted-foreground">
                     {it.hireDate ? new Date(it.hireDate).toLocaleDateString('vi-VN') : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Switch checked={it.status === Status.Active} onCheckedChange={() => handleToggle(it)} />
-                      <span className="text-xs text-muted-foreground">
-                        {it.status === Status.Active ? t('team.statusOn') : t('team.statusOff')}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
+                  </span>
+                ),
+              },
+              {
+                key: 'status',
+                header: t('team.table.status'),
+                className: 'w-28',
+                cell: (it) => (
+                  <div className="flex items-center gap-2">
+                    <Switch checked={it.status === Status.Active} onCheckedChange={() => handleToggle(it)} />
+                    <span className="text-xs text-muted-foreground">
+                      {it.status === Status.Active ? t('team.statusOn') : t('team.statusOff')}
+                    </span>
+                  </div>
+                ),
+              },
+              {
+                key: 'actions',
+                header: '',
+                className: 'w-40 text-right',
+                cell: (it) => (
+                  <div className="flex justify-end">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -260,16 +282,19 @@ export default function DesignerTeamPage() {
                       size="sm"
                       onClick={() => setConfirmDelete(it)}
                       title={t('common:actions.delete')}
-                      disabled={activeTasks > 0}
+                      disabled={(it.activeTaskCount ?? 0) > 0}
                     >
-                      <Trash2 size={14} className={activeTasks > 0 ? 'text-muted-foreground' : 'text-destructive'} />
+                      <Trash2
+                        size={14}
+                        className={(it.activeTaskCount ?? 0) > 0 ? 'text-muted-foreground' : 'text-destructive'}
+                      />
                     </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        )}
       </div>
 
       <TeamMemberDialog

@@ -16,6 +16,7 @@ import { useWorkshopConfigStore } from '@/store/workshopConfigStore';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Spinner } from '@/components/common/Spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -280,19 +281,13 @@ function StageErrorsContent() {
   };
 
   return (
-    <div className="container mx-auto py-6 max-w-4xl space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
-            <BarcodeIcon size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-semibold">{t('title')}</h1>
-            <p className="text-sm text-muted-foreground">{t('description')}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="max-w-4xl space-y-6">
+      <PageHeader
+        icon={<BarcodeIcon size={20} />}
+        title={t('title')}
+        description={t('description')}
+        actions={
+          <>
           <Button variant="outline" onClick={() => window.print()} disabled={selectedRows.length === 0}>
             <Printer size={15} className="mr-1.5" />
             {t('printBtn', { count: selectedRows.length })}
@@ -301,8 +296,9 @@ function StageErrorsContent() {
             {exporting ? <Spinner size={14} className="mr-1.5" /> : <FileDown size={15} className="mr-1.5" />}
             {t('exportPdfBtn', { count: selectedRows.length })}
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Chọn công đoạn */}
       <div className="flex items-center gap-2 flex-wrap">

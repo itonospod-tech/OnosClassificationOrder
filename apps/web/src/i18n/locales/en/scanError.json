@@ -122,7 +122,8 @@
     "reportErrorBtn": "Report error",
     "completeBtn": "Complete (Enter)",
     "reportThisOrderBtn": "Report error for this order",
-    "closeContinueBtn": "Close & continue scanning (Enter)"
+    "closeContinueBtn": "Close & continue scanning (Enter)",
+    "completeBtnShort": "Complete"
   },
   "orderErrorDialog": {
     "sourceLabels": {
@@ -221,5 +222,12 @@
         "desc": "Open the error screen — then scan a stage error code E-…"
       }
     }
+  },
+  "held": {
+    "title": "Order on hold",
+    "reason": "Reason: {{reason}}",
+    "noReason": "No hold reason given",
+    "body": "Do not print labels or continue work. Ask a manager to release the hold first.",
+    "blocked": "Order {{productionId}} is on hold — no printing, no actions."
   }
 }

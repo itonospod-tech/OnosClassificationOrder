@@ -5,6 +5,8 @@ import type { CustomerCatalogFacet, CustomerCatalogItem, CustomerCatalogPrintAre
 import { PRODUCT_LINES, PRODUCT_PRINT_AREA_LABEL_MAP, ProductConfigStatus, toFullSizeImageUrl } from 'shared';
 
 import { CollectionEntity } from '@/modules/collection/collection.entity';
+import { ProductTagEntity } from '@/modules/product-tag/product-tag.entity';
+import { ProductTechniqueEntity } from '@/modules/product-technique/product-technique.entity';
 import type { CustomerDocument } from '@/modules/customer/customer.entity';
 import { ProductCategoryEntity } from '@/modules/product-category/product-category.entity';
 import { ProductConfigEntity } from '@/modules/product-config/product-config.entity';
@@ -27,6 +29,8 @@ export class CustomerCatalogService {
     @InjectModel(ProductConfigEntity.name) private readonly productConfigModel: Model<ProductConfigEntity>,
     @InjectModel(ProductCategoryEntity.name) private readonly productCategoryModel: Model<ProductCategoryEntity>,
     @InjectModel(CollectionEntity.name) private readonly collectionModel: Model<CollectionEntity>,
+    @InjectModel(ProductTagEntity.name) private readonly productTagModel: Model<ProductTagEntity>,
+    @InjectModel(ProductTechniqueEntity.name) private readonly productTechniqueModel: Model<ProductTechniqueEntity>,
     private readonly promotionService: PromotionService,
   ) {}
 
@@ -167,11 +171,13 @@ export class CustomerCatalogService {
     tier: number | null,
     { applyPromotions = true }: { applyPromotions?: boolean } = {},
   ): Promise<GetCustomerCatalogResDto> {
-    const { page, limit, search, productCategoryId, collectionId, productLine } = dto;
+    const { page, limit, search, productCategoryId, collectionId, productTagId, productTechniqueId, productLine } = dto;
     const filter: Record<string, unknown> = { ...CustomerCatalogService.VISIBLE_FILTER };
     if (search) filter.fullName = { $regex: search, $options: 'i' };
     if (productCategoryId) filter.productCategoryId = productCategoryId;
     if (collectionId) filter.collectionIds = collectionId;
+    if (productTagId) filter.productTagIds = productTagId;
+    if (productTechniqueId) filter.productTechniqueIds = productTechniqueId;
     if (productLine) filter.productLine = productLine;
 
     const [rows, total, activePromotions] = await Promise.all([
@@ -234,7 +240,7 @@ export class CustomerCatalogService {
    */
   async getFacets(): Promise<GetCustomerCatalogFacetsResDto> {
     const visible: Record<string, unknown> = { ...CustomerCatalogService.VISIBLE_FILTER };
-    const [categoryCounts, collectionCounts, lineCounts] = await Promise.all([
+    const [categoryCounts, collectionCounts, tagCounts, techniqueCounts, lineCounts] = await Promise.all([
       this.productConfigModel.aggregate<{ _id: string; count: number }>([
         { $match: { ...visible, productCategoryId: { $exists: true, $nin: [null, ''] } } },
         { $group: { _id: '$productCategoryId', count: { $sum: 1 } } },
@@ -243,6 +249,16 @@ export class CustomerCatalogService {
         { $match: visible },
         { $unwind: '$collectionIds' },
         { $group: { _id: '$collectionIds', count: { $sum: 1 } } },
+      ]),
+      this.productConfigModel.aggregate<{ _id: string; count: number }>([
+        { $match: visible },
+        { $unwind: '$productTagIds' },
+        { $group: { _id: '$productTagIds', count: { $sum: 1 } } },
+      ]),
+      this.productConfigModel.aggregate<{ _id: string; count: number }>([
+        { $match: visible },
+        { $unwind: '$productTechniqueIds' },
+        { $group: { _id: '$productTechniqueIds', count: { $sum: 1 } } },
       ]),
       // PRD-8 — facet dòng sản phẩm (chỉ dòng có ≥1 sản phẩm hiển thị).
       this.productConfigModel.aggregate<{ _id: string; count: number }>([
@@ -253,8 +269,10 @@ export class CustomerCatalogService {
 
     const categoryCountMap = new Map(categoryCounts.map((c) => [String(c._id), c.count]));
     const collectionCountMap = new Map(collectionCounts.map((c) => [String(c._id), c.count]));
+    const tagCountMap = new Map(tagCounts.map((c) => [String(c._id), c.count]));
+    const techniqueCountMap = new Map(techniqueCounts.map((c) => [String(c._id), c.count]));
 
-    const [categories, collections] = await Promise.all([
+    const [categories, collections, tags, techniques] = await Promise.all([
       categoryCountMap.size > 0
         ? this.productCategoryModel
             .find({ _id: { $in: [...categoryCountMap.keys()] }, isActive: true })
@@ -265,6 +283,20 @@ export class CustomerCatalogService {
       collectionCountMap.size > 0
         ? this.collectionModel
             .find({ _id: { $in: [...collectionCountMap.keys()] }, isActive: true })
+            .select('name image sortOrder')
+            .sort({ sortOrder: 1, name: 1 })
+            .lean()
+        : Promise.resolve([]),
+      tagCountMap.size > 0
+        ? this.productTagModel
+            .find({ _id: { $in: [...tagCountMap.keys()] }, isActive: true })
+            .select('name image sortOrder')
+            .sort({ sortOrder: 1, name: 1 })
+            .lean()
+        : Promise.resolve([]),
+      techniqueCountMap.size > 0
+        ? this.productTechniqueModel
+            .find({ _id: { $in: [...techniqueCountMap.keys()] }, isActive: true })
             .select('name image sortOrder')
             .sort({ sortOrder: 1, name: 1 })
             .lean()
@@ -283,6 +315,8 @@ export class CustomerCatalogService {
       data: {
         categories: categories.map((c) => toFacet(c, categoryCountMap.get(String(c._id)) ?? 0)),
         collections: collections.map((c) => toFacet(c, collectionCountMap.get(String(c._id)) ?? 0)),
+        tags: tags.map((c) => toFacet(c, tagCountMap.get(String(c._id)) ?? 0)),
+        techniques: techniques.map((c) => toFacet(c, techniqueCountMap.get(String(c._id)) ?? 0)),
         productLines: PRODUCT_LINES.map((code) => ({ code, count: lineCounts.find((r) => r._id === code)?.count ?? 0 })).filter((r) => r.count > 0),
       },
     };

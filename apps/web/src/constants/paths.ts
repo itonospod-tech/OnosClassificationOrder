@@ -46,6 +46,11 @@ export const PATHS = {
   PRODUCT_DETAIL: '/adm/products/:id',
   PROMOTIONS: '/adm/promotions',
   CUSTOMERS: '/adm/customers',
+  // Menu links should carry `?activeOnly=true` (MenuRestructure-CEO.md §8.1). To turn the filter off, DROP the
+  // param — never write `activeOnly=false`: the DTO uses z.coerce.boolean, which reads the string "false" as true.
+  WALLETS: '/adm/wallets',
+  // Menu links should carry `?range=7d` (MenuRestructure-CEO.md §8.1); `range=all` is the explicit "no date filter".
+  WALLET_TRANSACTIONS: '/adm/wallets/transactions',
   ZALO_GROUPS: '/adm/zalo-groups',
   ZALO_CHAT: '/adm/zalo',
   ZALO_CHAT_SETTINGS: '/adm/zalo/settings',
@@ -59,6 +64,7 @@ export const PATHS = {
   IMPERSONATE: '/adm/impersonate',
   /** CEO Dashboard — bảng điều hành cho lãnh đạo, CHỈ SuperAdmin/Admin (CeoDashboard.md). */
   CEO_DASHBOARD: '/adm/ceo',
+  STALE_ORDERS: '/adm/stale-orders',
 
   LOGIN: '/adm/login',
   REGISTER: '/adm/register',

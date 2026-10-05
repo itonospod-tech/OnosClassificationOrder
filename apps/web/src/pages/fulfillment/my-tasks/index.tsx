@@ -12,10 +12,12 @@ import {
   ListChecks,
   Loader2,
   MousePointerClick,
+  PauseCircle,
   PlayCircle,
   RefreshCw,
   RotateCw,
   ScanLine,
+  SlidersHorizontal,
   Trash2,
   X,
   XCircle,
@@ -32,8 +34,10 @@ import { useAuthStore } from '@/store/authStore';
 
 import { RepositoryRemote } from '@/services';
 
+import { ColumnTabs } from '@/components/common/ColumnTabs';
 import { DateRangePicker } from '@/components/common/DateRangePicker';
 import { ImagePreviewDialog } from '@/components/common/ImagePreviewDialog';
+import { PageHeader } from '@/components/common/PageHeader';
 import { PipelineDailyOverview } from '@/components/common/PipelineDailyOverview';
 import { SelectFilter } from '@/components/common/SelectFilter';
 import { Spinner } from '@/components/common/Spinner';
@@ -49,6 +53,7 @@ import { cn } from '@/utils/cn';
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
 
 import { useDebounce } from '@/hooks/useDebounce';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useSidebarResetSignal } from '@/hooks/useSidebarResetSignal';
 
 import { FulfillmentScanActionDialog } from '../../orders/scan-error/FulfillmentScanActionDialog';
@@ -114,7 +119,7 @@ function stripBarcodePrefix(raw: string): string {
 // Worker fulfillment: 5 columns (waiting / in-progress / rework / done /
 // watching). Admin/Manager: thêm column `unassigned` (đơn chưa được gán
 // Designer — admin gán qua AssignDesignerDialog).
-type ColKey = 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'unassigned';
+type ColKey = 'waiting' | 'in-progress' | 'rework' | 'done' | 'fixed' | 'watching' | 'unassigned' | 'held';
 
 type Columns = Record<ColKey, ProductionOrderRow[]>;
 
@@ -126,9 +131,11 @@ const EMPTY_COLS: Columns = {
   fixed: [],
   watching: [],
   unassigned: [],
+  held: [],
 };
 
-const WORKER_COL_ORDER: ColKey[] = ['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching'];
+// `held` = held orders cut out of "waiting" (Orders.md §9b): last, read-only, shown only when non-empty.
+const WORKER_COL_ORDER: ColKey[] = ['waiting', 'in-progress', 'rework', 'done', 'fixed', 'watching', 'held'];
 const ADMIN_COL_ORDER: ColKey[] = ['unassigned', ...WORKER_COL_ORDER];
 
 // Tailwind cần class tĩnh → tra theo số cột đang hiện (rework/watching trống bị ẩn).
@@ -137,6 +144,7 @@ const KANBAN_GRID_BY_COUNT: Record<number, string> = {
   5: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-5',
   6: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-6',
   7: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-7',
+  8: 'grid-cols-1 md:grid-cols-2 xl:grid-cols-8',
 };
 
 type BulkAction = 'start' | 'complete' | 'start-complete';
@@ -203,6 +211,13 @@ function buildColMeta(t: TFunction): ColMeta {
       kpiAccent: 'text-rose-600',
       bulk: [],
     },
+    held: {
+      label: t('stageStatus.held'),
+      icon: PauseCircle,
+      accent: 'border-tone-warning/50',
+      kpiAccent: 'text-tone-warning',
+      bulk: [],
+    },
   };
 }
 
@@ -263,6 +278,11 @@ export default function FulfillmentMyTasksPage() {
 function FulfillmentKanbanView() {
   const { t } = useTranslation(['fulfillmentWorkflow', 'common']);
   const colMeta = useMemo(() => buildColMeta(t), [t]);
+  // Phones: one column at a time, picked from a tab strip (the 4–7 side-by-side columns do not fit),
+  // and the five facet selects fold behind a "Filters" button.
+  const isMobile = useIsMobile();
+  const [mobileCol, setMobileCol] = useState<ColKey | null>(null);
+  const [facetsOpen, setFacetsOpen] = useState(false);
   const profile = useAuthStore((s) => s.profile);
   const myStage = profile?.fulfillmentStage as FulfillmentStage | undefined;
   // Admin/Manager/SupportManager (= override roles ở BE) → thấy thêm column
@@ -398,7 +418,7 @@ function FulfillmentKanbanView() {
       const adminUnassignedPromise = isOverrideRole
         ? RepositoryRemote.fulfillment.myTasks({ tab: 'unassigned', size: 5000, ...dateParams })
         : Promise.resolve({ data: { data: [] } });
-      const [w, ip, rw, dn, fx, wt, un] = await Promise.all([
+      const [w, ip, rw, dn, fx, wt, un, hd] = await Promise.all([
         RepositoryRemote.fulfillment.myTasks({ tab: 'waiting', size: 5000, ...dateParams }),
         RepositoryRemote.fulfillment.myTasks({ tab: 'in-progress', size: 5000, ...dateParams }),
         RepositoryRemote.fulfillment.myTasks({ tab: 'rework', size: 5000, ...dateParams }),
@@ -406,6 +426,7 @@ function FulfillmentKanbanView() {
         RepositoryRemote.fulfillment.myTasks({ tab: 'fixed', size: 5000, ...dateParams }),
         RepositoryRemote.fulfillment.myTasks({ tab: 'watching', size: 5000, ...dateParams }),
         adminUnassignedPromise,
+        RepositoryRemote.fulfillment.myTasks({ tab: 'held', size: 5000, ...dateParams }),
       ]);
       setColumns({
         waiting: w.data.data ?? [],
@@ -415,6 +436,7 @@ function FulfillmentKanbanView() {
         fixed: fx.data.data ?? [],
         watching: wt.data.data ?? [],
         unassigned: un.data.data ?? [],
+        held: hd.data.data ?? [],
       });
       // Backward compat — `watching` state cũ vẫn để cho `filteredWatching`
       // hoạt động nếu chỗ nào còn ref (drawer block bị comment ra rồi).
@@ -500,6 +522,7 @@ function FulfillmentKanbanView() {
       fixed: apply(columns.fixed),
       watching: apply(columns.watching),
       unassigned: apply(columns.unassigned),
+      held: apply(columns.held),
     };
   }, [columns, debouncedSearch, filters, dayFilter]);
 
@@ -530,6 +553,7 @@ function FulfillmentKanbanView() {
       ...columns.done,
       ...columns.watching,
       ...columns.unassigned,
+      ...columns.held,
     ];
     const facetFor = (
       key: keyof Filters,
@@ -657,6 +681,7 @@ function FulfillmentKanbanView() {
       fixed: [],
       watching: [],
       unassigned: [],
+      held: [],
     };
     const noTypeLabel = t('kanban.column.noType');
     for (const k of colOrder) {
@@ -718,7 +743,7 @@ function FulfillmentKanbanView() {
   // gọn màn hình. Xét trên dữ liệu THÔ (chưa qua filter client) — cột trống
   // do filter thì vẫn hiện, tránh cột nhấp nháy khi gõ filter.
   const visibleCols = useMemo(
-    () => colOrder.filter((k) => (k === 'rework' || k === 'watching' ? columns[k].length > 0 : true)),
+    () => colOrder.filter((k) => (k === 'rework' || k === 'watching' || k === 'held' ? columns[k].length > 0 : true)),
     [colOrder, columns],
   );
 
@@ -765,38 +790,50 @@ function FulfillmentKanbanView() {
     fixed: filteredColumns.fixed.length,
     watching: filteredColumns.watching.length,
     unassigned: filteredColumns.unassigned.length,
+    held: filteredColumns.held.length,
   };
+
+  // Phone column: the worker's pick, else the first column that has cards (so the tab bar opens on work, not on an empty column).
+  const activeMobileCol: ColKey =
+    mobileCol && visibleCols.includes(mobileCol)
+      ? mobileCol
+      : (visibleCols.find((k) => counts[k] > 0) ?? visibleCols[0] ?? 'waiting');
 
   const onPreview = (url: string, title: string, original?: string) => setPreview({ url, title, original });
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-              <ListChecks size={20} className="text-indigo-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
-                {t('kanban.header.title', { stage: getStageLabel(t, myStage) })}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {t('kanban.header.factory', { factory: profile?.factoryId ?? '—' })}
-              </p>
-            </div>
-          </div>
-
-          <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          </Button>
+      {/* Phones reorder the sections (flex + `order-*`): tabs → search → the cards, THEN the statistics
+          (error stats, daily overview) — a worker opens this page to work the list, not to read totals. */}
+      <div className="space-y-4 max-md:flex max-md:flex-col max-md:gap-3 max-md:space-y-0">
+        {/* Header. On phones the title is dropped from the page: the bottom tab bar already says where
+            you are, and the first screen must show the work. An sr-only h1 keeps the page labelled. */}
+        <h1 className="sr-only md:hidden">{t('kanban.header.title', { stage: getStageLabel(t, myStage) })}</h1>
+        <div className="max-md:hidden">
+          <PageHeader
+            icon={<ListChecks size={20} />}
+            title={t('kanban.header.title', { stage: getStageLabel(t, myStage) })}
+            description={t('kanban.header.factory', { factory: profile?.factoryId ?? '—' })}
+            hideDescriptionOnMobile
+            inlineActionsOnMobile
+            actions={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void load()}
+                disabled={loading}
+                aria-label={t('common:actions.reload', { defaultValue: 'Reload' })}
+              >
+                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              </Button>
+            }
+          />
         </div>
 
         {/* KPI */}
         <div
           className={cn(
-            'grid gap-2',
+            'grid gap-2 max-md:hidden',
             colOrder.length === 7
               ? 'grid-cols-2 md:grid-cols-4 xl:grid-cols-7'
               : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-6',
@@ -807,16 +844,29 @@ function FulfillmentKanbanView() {
           ))}
         </div>
 
-        {/* Ô thống kê lỗi công đoạn — click xổ bảng lỗi theo ngày (inProductionAt). */}
-        <StageErrorPanel
-          stage={myStage}
-          from={dateFrom || undefined}
-          to={dateTo || undefined}
-          reloadToken={overviewToken}
-        />
+        {/* Phones: the KPI tiles above become a column picker — tap a count to see that column. */}
+        {isMobile && (
+          <div className="order-1">
+            <ColumnTabs
+              items={visibleCols.map((k) => ({ key: k, label: colMeta[k].label, count: counts[k] }))}
+              active={activeMobileCol}
+              onPick={setMobileCol}
+            />
+          </div>
+        )}
 
-        {/* Hint */}
-        <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
+        {/* Ô thống kê lỗi công đoạn — click xổ bảng lỗi theo ngày (inProductionAt). */}
+        <div className="max-md:order-6">
+          <StageErrorPanel
+            stage={myStage}
+            from={dateFrom || undefined}
+            to={dateTo || undefined}
+            reloadToken={overviewToken}
+          />
+        </div>
+
+        {/* Hint — Shift/drag tips mean nothing on a touch screen. */}
+        <div className="flex items-start gap-2 rounded-md max-md:hidden border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
           <MousePointerClick size={13} className="text-primary shrink-0 mt-0.5" />
           <div>
             <strong className="text-foreground">{t('kanban.hint.tip')}</strong> {t('kanban.hint.body1')}{' '}
@@ -825,11 +875,11 @@ function FulfillmentKanbanView() {
         </div>
 
         {/* Filter bar — search + date trên 1 row, các facet ở row dưới */}
-        <div className="rounded-md border border-border bg-card p-2.5 space-y-2">
+        <div className="rounded-md border border-border bg-card p-2.5 space-y-2 max-md:order-2">
           {/* Row 1: Search (flex-1) + DateRangePicker */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex-1 min-w-[220px]">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium max-md:hidden">
                 {t('kanban.search.label')}
               </label>
               <div className="mt-1 flex items-center gap-1.5">
@@ -900,6 +950,39 @@ function FulfillmentKanbanView() {
                     </span>
                   )}
                 </Button>
+                {/* Phones: reload + filters sit in the search row (one row instead of three). */}
+                {isMobile && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void load()}
+                      disabled={loading}
+                      aria-label={t('common:actions.reload', { defaultValue: 'Reload' })}
+                      className="h-11 w-11 shrink-0 p-0"
+                    >
+                      <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setFacetsOpen((v) => !v)}
+                      aria-expanded={facetsOpen}
+                      aria-label={t('kanban.filters.button', { defaultValue: 'Filters' })}
+                      className={cn(
+                        'relative h-11 w-11 shrink-0 p-0',
+                        (facetsOpen || Object.values(filters).some(Boolean)) && 'border-tone-info text-tone-info',
+                      )}
+                    >
+                      <SlidersHorizontal size={17} />
+                      {Object.values(filters).filter(Boolean).length > 0 && (
+                        <span className="absolute -right-1.5 -top-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-tone-info px-1 text-[9px] font-semibold text-white">
+                          {Object.values(filters).filter(Boolean).length}
+                        </span>
+                      )}
+                    </Button>
+                  </>
+                )}
               </div>
               {/* Feedback khi máy quét xuất tiền tố "N-" — cho biết mã thực sẽ tìm. */}
               {stripBarcodePrefix(search) !== search.trim() && !!search.trim() ? (
@@ -908,7 +991,7 @@ function FulfillmentKanbanView() {
                   <code className="font-mono">{stripBarcodePrefix(search)}</code>
                 </p>
               ) : (
-                <p className="mt-1 text-[10px] text-muted-foreground">
+                <p className="mt-1 text-[10px] text-muted-foreground max-md:hidden">
                   {t('kanban.search.hintPre')} <strong>{t('actions.complete')}</strong> /{' '}
                   <strong>{t('actions.reportError')}</strong>
                   {t('kanban.search.hintSuffix')}
@@ -917,20 +1000,22 @@ function FulfillmentKanbanView() {
             </div>
           </div>
 
-          {/* Row ngày — thanh preset inline full-width */}
-          <DateRangePicker
-            variant="inline"
-            from={dateFrom}
-            to={dateTo}
-            onChange={(f, to) => {
-              setDateFrom(f);
-              setDateTo(to);
-            }}
-            placeholder={t('kanban.dateAllPlaceholder')}
-          />
+          {/* Row ngày — thanh preset inline full-width. Phones: folded together with the facets. */}
+          <div className={cn(isMobile && !facetsOpen && 'hidden')}>
+            <DateRangePicker
+              variant="inline"
+              from={dateFrom}
+              to={dateTo}
+              onChange={(f, to) => {
+                setDateFrom(f);
+                setDateTo(to);
+              }}
+              placeholder={t('kanban.dateAllPlaceholder')}
+            />
+          </div>
 
           {/* Row 2: 5 facet filters */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2">
+          <div className={cn('grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2', isMobile && !facetsOpen && 'hidden')}>
             <SelectFilter
               label={t('kanban.filters.type')}
               value={filters.type}
@@ -965,19 +1050,27 @@ function FulfillmentKanbanView() {
         </div>
 
         {/* Bảng tổng quan theo ngày — click 1 ngày lọc kanban client-side. */}
-        <PipelineDailyOverview
-          stage={myStage}
-          from={dateFrom || undefined}
-          to={dateTo || undefined}
-          reloadToken={overviewToken}
-          dayFilter={dayFilter}
-          onPickDay={toggleDay}
-        />
+        <div className="max-md:order-5">
+          <PipelineDailyOverview
+            stage={myStage}
+            from={dateFrom || undefined}
+            to={dateTo || undefined}
+            reloadToken={overviewToken}
+            dayFilter={dayFilter}
+            onPickDay={toggleDay}
+          />
+        </div>
 
         {/* Kanban — 6 cột worker / 7 cột admin; cột rework/watching trống bị ẩn */}
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className={cn('grid gap-3', KANBAN_GRID_BY_COUNT[visibleCols.length] ?? KANBAN_GRID_BY_COUNT[6])}>
-            {visibleCols.map((key) => (
+          <div
+            className={cn(
+              'max-md:order-3',
+              'grid gap-3',
+              isMobile ? 'grid-cols-1' : (KANBAN_GRID_BY_COUNT[visibleCols.length] ?? KANBAN_GRID_BY_COUNT[6]),
+            )}
+          >
+            {(isMobile ? [activeMobileCol] : visibleCols).map((key) => (
               <Column
                 key={key}
                 colKey={key}
@@ -1333,19 +1426,20 @@ function Column({
     });
 
   // Cột done không có checkbox (đã xong rồi — không có bulk action).
-  const showCheckbox = colKey !== 'done' && colKey !== 'fixed';
+  const showCheckbox = colKey !== 'done' && colKey !== 'fixed' && colKey !== 'held';
   const colSelCount = useMemo(() => cards.filter((c) => selected.has(c._id)).length, [cards, selected]);
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        'rounded-md border-2 bg-muted/30 p-2.5 transition-colors min-h-[200px] flex flex-col gap-2',
+        // Phones show ONE column on the page itself: no frame, no inner padding, so the cards get the full width.
+        'rounded-md border-2 bg-muted/30 p-2.5 transition-colors min-h-[200px] flex flex-col gap-2 max-md:min-h-0 max-md:border-0 max-md:bg-transparent max-md:p-0',
         meta.accent,
         isOver && 'bg-muted/60',
       )}
     >
-      <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+      <div className="flex items-center justify-between text-xs font-semibold text-foreground max-md:hidden">
         <span className="inline-flex items-center gap-1.5">
           {/* Chọn/bỏ chọn CẢ CỘT — tick 1 phát rồi bulk, khỏi tick từng đơn. */}
           {showCheckbox && cards.length > 0 && (
@@ -1367,7 +1461,7 @@ function Column({
         </span>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-380px)]">
+      <div className="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-380px)] max-md:max-h-none max-md:overflow-visible">
         {cards.length === 0 && (
           <div className="text-[11px] text-muted-foreground italic text-center py-6">{t('kanban.column.empty')}</div>
         )}
@@ -1420,7 +1514,7 @@ function Column({
               </div>
 
               {!isCollapsed && (
-                <div className="space-y-2 pl-2 pr-2 border-l-2 border-border/40 ml-2.5">
+                <div className="space-y-2 pl-2 pr-2 border-l-2 border-border/40 ml-2.5 max-md:ml-0 max-md:space-y-3 max-md:border-l-0 max-md:px-0">
                   {rows.map((o) => {
                     const checked = selected.has(o._id);
                     const isDragging = activeDragId === o._id;
@@ -1445,7 +1539,7 @@ function Column({
                                 onCheckCard(o._id, e.currentTarget.checked, ws);
                               }}
                               onPointerDown={(e) => e.stopPropagation()}
-                              className="w-3.5 h-3.5 accent-indigo-500"
+                              className="w-3.5 h-3.5 accent-indigo-500 touch:h-5 touch:w-5"
                             />
                           </div>
                         )}

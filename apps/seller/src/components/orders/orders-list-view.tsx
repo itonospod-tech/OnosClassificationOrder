@@ -198,6 +198,7 @@ export function OrdersListView({ lockedLine, adminMode = false }: OrdersListView
         <EmptyState
           icon={<PackageSearch size={28} />}
           title={hasFilter || line !== 'all' ? t('customerPortal:orders.emptyFiltered') : t('customerPortal:orders.empty')}
+          description={status === CustomerOrderStatus.Processing ? t('customerPortal:orders.processingEmpty') : undefined}
           action={
             hasFilter ? (
               <Button variant="outline" size="sm" onClick={() => { setSearchInput(''); setState({ q: '', held: '', status: '', page: '1' }); }}>

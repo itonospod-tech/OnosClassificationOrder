@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { handleAxiosError } from '@/utils';
+import { cn } from '@/utils/cn';
 
 import { useFactoryScope } from '@/hooks/useFactoryScope';
 import { usePermission } from '@/hooks/usePermission';
@@ -177,21 +180,20 @@ export default function InventoryPage() {
 
   if (!factoryId) {
     return (
-      <div className="p-6">
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <p className="mt-4 text-sm text-muted-foreground">{t('needFactory')}</p>
+      <div className="space-y-4">
+        <PageHeader title={t('title')} />
+        <p className="text-sm text-muted-foreground">{t('needFactory')}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold">{t('title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('description')}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-4">
+      <PageHeader
+        title={t('title')}
+        description={t('description')}
+        actions={
+          <>
           <Button variant="outline" size="sm" onClick={refreshAll}>
             <RefreshCw size={14} className="mr-1" />
             {t('actions.refresh')}
@@ -215,8 +217,9 @@ export default function InventoryPage() {
               </Button>
             </>
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList>
@@ -245,46 +248,37 @@ export default function InventoryPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">{t('items.empty')}</p>
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('items.sku')}</TableHead>
-                    <TableHead>{t('items.name')}</TableHead>
-                    <TableHead>{t('items.unit')}</TableHead>
-                    <TableHead className="text-right">{t('items.quantity')}</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => (
-                    <TableRow
-                      key={item._id}
-                      className="cursor-pointer"
-                      onClick={() => openEditItem(item)}
-                    >
-                      <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{item.unit}</TableCell>
-                      <TableCell
-                        className={`text-right font-semibold tabular-nums ${item.quantity < 0 ? 'text-red-600 dark:text-red-400' : ''}`}
-                      >
-                        {item.quantity}
-                      </TableCell>
-                      <TableCell>
-                        {item.autoCreated && (
-                          <Badge
-                            variant="outline"
-                            className="border-amber-400 text-amber-600 dark:text-amber-400"
-                            title={t('items.autoCreatedHint')}
-                          >
-                            {t('items.autoCreatedBadge')}
-                          </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <ResponsiveList
+                className="p-3 md:p-0"
+                rows={items}
+                rowKey={(item) => item._id}
+                onRowClick={openEditItem}
+                columns={[
+                  { key: 'sku', header: t('items.sku'), mobile: 'subtitle', cell: (item) => <span className="font-mono text-xs">{item.sku}</span> },
+                  { key: 'name', header: t('items.name'), mobile: 'title', cell: (item) => item.name },
+                  { key: 'unit', header: t('items.unit'), cell: (item) => <span className="text-muted-foreground">{item.unit}</span> },
+                  {
+                    key: 'quantity',
+                    header: t('items.quantity'),
+                    mobile: 'trailing',
+                    className: 'text-right',
+                    cell: (item) => (
+                      <span className={cn('font-semibold tabular-nums', item.quantity < 0 && 'text-tone-danger')}>{item.quantity}</span>
+                    ),
+                  },
+                  {
+                    key: 'auto',
+                    header: '',
+                    mobile: 'trailing',
+                    cell: (item) =>
+                      item.autoCreated && (
+                        <Badge variant="outline" className="border-tone-warning text-tone-warning" title={t('items.autoCreatedHint')}>
+                          {t('items.autoCreatedBadge')}
+                        </Badge>
+                      ),
+                  },
+                ]}
+              />
             </div>
           )}
         </TabsContent>
@@ -320,63 +314,85 @@ export default function InventoryPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">{t('txns.empty')}</p>
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('txns.time')}</TableHead>
-                    <TableHead>{t('txns.kind')}</TableHead>
-                    <TableHead>{t('txns.sku')}</TableHead>
-                    <TableHead className="text-right">{t('txns.qty')}</TableHead>
-                    <TableHead className="text-right">{t('txns.balance')}</TableHead>
-                    <TableHead>{t('txns.production')}</TableHead>
-                    <TableHead>{t('txns.by')}</TableHead>
-                    <TableHead>{t('txns.note')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {txns.map((txn) => (
-                    <TableRow key={txn._id}>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+              <ResponsiveList
+                className="p-3 md:p-0"
+                rows={txns}
+                rowKey={(txn) => txn._id}
+                columns={[
+                  {
+                    key: 'time',
+                    header: t('txns.time'),
+                    className: 'whitespace-nowrap',
+                    cell: (txn) => (
+                      <span className="text-xs text-muted-foreground">
                         {txn.createdAt ? dayjs(txn.createdAt).format('DD/MM HH:mm') : '—'}
-                      </TableCell>
-                      <TableCell>
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'kind',
+                    header: t('txns.kind'),
+                    mobile: 'subtitle',
+                    cell: (txn) => (
+                      <>
                         <Badge variant={TXN_KIND_BADGE[txn.kind] || 'secondary'}>
                           {t(`txns.kind${txn.kind === 'in' ? 'In' : txn.kind === 'out' ? 'Out' : 'Adjust'}`)}
                         </Badge>
                         {txn.refs?.rework && (
-                          <Badge variant="outline" className="ml-1 border-amber-400 text-amber-600">
+                          <Badge variant="outline" className="ml-1 border-tone-warning text-tone-warning">
                             {t('txns.reworkBadge')}
                           </Badge>
                         )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{txn.sku}</TableCell>
-                      <TableCell
-                        className={`text-right font-semibold tabular-nums ${txn.qty < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}
-                      >
+                      </>
+                    ),
+                  },
+                  { key: 'sku', header: t('txns.sku'), mobile: 'title', cell: (txn) => <span className="font-mono text-xs">{txn.sku}</span> },
+                  {
+                    key: 'qty',
+                    header: t('txns.qty'),
+                    mobile: 'trailing',
+                    className: 'text-right',
+                    cell: (txn) => (
+                      <span className={cn('font-semibold tabular-nums', txn.qty < 0 ? 'text-tone-danger' : 'text-tone-success')}>
                         {txn.qty > 0 ? `+${txn.qty}` : txn.qty}
-                      </TableCell>
-                      <TableCell
-                        className="text-right tabular-nums text-muted-foreground"
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'balance',
+                    header: t('txns.balance'),
+                    className: 'text-right',
+                    cell: (txn) => (
+                      <span
+                        className="tabular-nums text-muted-foreground"
                         title={t('txns.balanceTitle', { before: txn.balanceBefore, after: txn.balanceAfter })}
                       >
                         {txn.balanceAfter}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'production',
+                    header: t('txns.production'),
+                    cell: (txn) => (
+                      <span className="font-mono text-xs">
                         {txn.refs?.productionId || '—'}
                         {txn.refs?.source && (
-                          <span className="ml-1 text-[10px] text-muted-foreground">
-                            {t(`txns.source.${txn.refs.source}`)}
-                          </span>
+                          <span className="ml-1 text-[10px] text-muted-foreground">{t(`txns.source.${txn.refs.source}`)}</span>
                         )}
-                      </TableCell>
-                      <TableCell className="text-xs">{txn.byUserName || '—'}</TableCell>
-                      <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">
-                        {txn.note || ''}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </span>
+                    ),
+                  },
+                  { key: 'by', header: t('txns.by'), cell: (txn) => <span className="text-xs">{txn.byUserName || '—'}</span> },
+                  {
+                    key: 'note',
+                    header: t('txns.note'),
+                    mobile: 'field',
+                    className: 'max-w-[200px]',
+                    cell: (txn) => <span className="block truncate text-xs text-muted-foreground">{txn.note || ''}</span>,
+                  },
+                ]}
+              />
             </div>
           )}
         </TabsContent>
@@ -387,43 +403,51 @@ export default function InventoryPage() {
             <p className="py-8 text-center text-sm text-muted-foreground">{t('receipts.empty')}</p>
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('receipts.code')}</TableHead>
-                    <TableHead>{t('receipts.type')}</TableHead>
-                    <TableHead>{t('receipts.totalQty')}</TableHead>
-                    <TableHead>{t('receipts.by')}</TableHead>
-                    <TableHead>{t('receipts.time')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {receipts.map((receipt) => (
-                    <TableRow
-                      key={receipt._id}
-                      className="cursor-pointer"
-                      onClick={() => setReceiptDetail(receipt)}
-                    >
-                      <TableCell className="font-mono text-xs">{receipt.code}</TableCell>
-                      <TableCell>
+              <ResponsiveList
+                className="p-3 md:p-0"
+                rows={receipts}
+                rowKey={(receipt) => receipt._id}
+                onRowClick={setReceiptDetail}
+                columns={[
+                  {
+                    key: 'code',
+                    header: t('receipts.code'),
+                    mobile: 'title',
+                    cell: (receipt) => <span className="font-mono text-xs">{receipt.code}</span>,
+                  },
+                  {
+                    key: 'type',
+                    header: t('receipts.type'),
+                    mobile: 'subtitle',
+                    cell: (receipt) => (
+                      <>
                         <Badge variant={receipt.type === 'in' ? 'default' : 'destructive'}>
                           {receipt.type === 'in' ? t('receipts.typeIn') : t('receipts.typeOut')}
                         </Badge>
                         <span className="ml-2 text-xs text-muted-foreground">
                           {t('receipts.lineCount', { count: receipt.lines.length })}
                         </span>
-                      </TableCell>
-                      <TableCell className="tabular-nums">
-                        {receipt.lines.reduce((sum, l) => sum + l.qty, 0)}
-                      </TableCell>
-                      <TableCell className="text-xs">{receipt.byUserName || '—'}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
+                      </>
+                    ),
+                  },
+                  {
+                    key: 'totalQty',
+                    header: t('receipts.totalQty'),
+                    mobile: 'trailing',
+                    cell: (receipt) => <span className="tabular-nums">{receipt.lines.reduce((sum, l) => sum + l.qty, 0)}</span>,
+                  },
+                  { key: 'by', header: t('receipts.by'), cell: (receipt) => <span className="text-xs">{receipt.byUserName || '—'}</span> },
+                  {
+                    key: 'time',
+                    header: t('receipts.time'),
+                    cell: (receipt) => (
+                      <span className="text-xs text-muted-foreground">
                         {receipt.createdAt ? dayjs(receipt.createdAt).format('DD/MM/YYYY HH:mm') : '—'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </span>
+                    ),
+                  },
+                ]}
+              />
             </div>
           )}
         </TabsContent>

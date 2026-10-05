@@ -3,6 +3,12 @@ import { extendApi } from '@anatine/zod-openapi';
 import { ResZod } from '@shared/types';
 import { z } from 'zod';
 
+import { CARRIER_PHASES } from '../client/carrier-phase';
+import { ProductionOrderShippingAddressZod } from '../client/shipping';
+
+// Nest-free carrier phase ladder (legacy shipment_status), shared with the browser apps.
+export * from '../client/carrier-phase';
+
 /**
  * VNP eGlobal Shipment API — DTO cho luồng tạo vận đơn/label từ đơn sản xuất.
  *
@@ -375,6 +381,12 @@ export const VnpShipmentRecordZod = z.object({
   createdAt: z.union([z.date(), z.string()]).optional(),
   /** Kiện chứa (join khi list/history). */
   package: VnpShippingPackageZod.optional(),
+  /** List view only: the parcel's items (from its production orders). */
+  items: z
+    .array(z.object({ productionId: z.string(), type: z.string().optional(), size: z.string().optional(), color: z.string().optional(), mockupUrl: z.string().optional() }))
+    .optional(),
+  /** List view only: recipient address of the parcel (first production order's snapshot). */
+  shipTo: ProductionOrderShippingAddressZod.optional(),
 });
 export type VnpShipmentRecord = z.infer<typeof VnpShipmentRecordZod>;
 
@@ -385,6 +397,11 @@ export const GetVnpShipmentsZod = z.object({
   /** Khớp trackingCode / vnpShipmentId / mã kiện / productionId / orderId seller. */
   search: z.string().optional(),
   status: VnpShipmentRecordStatusZod.optional(),
+  /** Carrier ladder (legacy `shipment_status`), derived from the raw carrier text — see `client/carrier-phase.ts`. */
+  carrierPhase: z.enum(CARRIER_PHASES).optional(),
+  /** Purchase date range on `createdAt`, YYYY-MM-DD in VN time. */
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 export class GetVnpShipmentsDto extends createZodDto(extendApi(GetVnpShipmentsZod)) {}
 export class GetVnpShipmentsResDto extends createZodDto(

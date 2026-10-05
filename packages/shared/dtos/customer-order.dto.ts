@@ -4,7 +4,7 @@ import { CustomerOrderStatus, PRODUCT_LINES } from '@shared/enums';
 import { PageResZod, ResZod } from '@shared/types';
 import { z } from 'zod';
 
-import { IDZod } from '..';
+import { BooleanFlagZod, IDZod } from '..';
 import {
   CUSTOMER_SHIP_METHODS,
   type CustomerImportOrder,
@@ -196,6 +196,8 @@ export const CustomerStagingOrderZod = z.object({
   createdAt: z.coerce.date().optional(),
   cancelledAt: z.coerce.date().optional(),
   cancelReason: z.string().optional(),
+  /** Set only in the hub Trashed view (trashed orders never reach any other list). */
+  trashedAt: z.coerce.date().optional(),
 });
 export type CustomerStagingOrder = z.infer<typeof CustomerStagingOrderZod>;
 
@@ -232,6 +234,8 @@ export const CustomerOrderCountsZod = z.object({
   /** Badge counts (chồng lên các tab, không phải tab). */
   held: z.number(),
   rework: z.number(),
+  /** Hub only: orders in the Trashed tab (excluded from every other number). */
+  trashed: z.number().optional(),
   /** Số đơn theo dòng sản phẩm (đơn có ≥1 item thuộc dòng; một đơn có thể đếm ở nhiều dòng). */
   byProductLine: z.record(z.enum(PRODUCT_LINES), z.number()).optional(),
 });
@@ -688,18 +692,45 @@ export const AdminOrderDateRangeZod = z.object({
   dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
-export const GetAdminCustomerOrdersZod = GetCustomerStagingOrdersZod.merge(AdminOrderDateRangeZod).extend({
+/**
+ * Item-level scope of the hub order list (legacy `manufacture` select + `Priority` checkbox).
+ * Factory and priority live on the production orders (items), not on the customer order, so
+ * an order matches when AT LEAST ONE non-cancelled item matches. Applied to the list AND to
+ * the counts so pill numbers stay equal to the rows. Orders not pushed yet have no item in a
+ * factory and therefore never match a factory filter.
+ */
+export const AdminOrderItemScopeZod = z.object({
+  factoryId: IDZod.optional(),
+  /** `true` → only orders with at least one item marked priority (1..3). */
+  priority: BooleanFlagZod,
+});
+
+export const GetAdminCustomerOrdersZod = GetCustomerStagingOrdersZod.merge(AdminOrderDateRangeZod).merge(AdminOrderItemScopeZod).extend({
   /** Lọc theo 1 seller; bỏ trống = mọi seller. */
   customerId: IDZod.optional(),
   /** Chặng sản xuất hiện tại (`WORKSHOP_STAGE_FILTER_KEYS`) — đơn có ≥1 item đang ở chặng này (Operations `/hub/operations`). */
   stage: z.enum(WORKSHOP_STAGE_FILTER_KEYS).optional(),
+  /** `true` → the Trashed tab: ONLY trashed orders (status filter ignored). Default: trashed orders excluded. */
+  trashed: BooleanFlagZod,
 });
 export class GetAdminCustomerOrdersDto extends createZodDto(extendApi(GetAdminCustomerOrdersZod)) {}
 
 export const GetAdminCustomerOrdersResZod = PageResZod.extend({ data: AdminCustomerStagingOrderZod.array() });
 export class GetAdminCustomerOrdersResDto extends createZodDto(extendApi(GetAdminCustomerOrdersResZod)) {}
 
-export const GetAdminCustomerOrderCountsZod = AdminOrderDateRangeZod.extend({ customerId: IDZod.optional(), productLine: z.enum(PRODUCT_LINES).optional() });
+/** Hub: move never-pushed orders to the Trashed tab, or restore them. */
+export const TrashCustomerOrdersZod = z.object({ ids: IDZod.array().min(1).max(200) });
+export class TrashCustomerOrdersDto extends createZodDto(extendApi(TrashCustomerOrdersZod)) {}
+export const TrashCustomerOrdersResZod = ResZod.extend({
+  data: z.object({
+    ok: z.number(),
+    /** Ids not changed: already pushed / being pushed / already in that state / not found. */
+    skipped: z.array(z.string()),
+  }),
+});
+export class TrashCustomerOrdersResDto extends createZodDto(extendApi(TrashCustomerOrdersResZod)) {}
+
+export const GetAdminCustomerOrderCountsZod = AdminOrderDateRangeZod.merge(AdminOrderItemScopeZod).extend({ customerId: IDZod.optional(), productLine: z.enum(PRODUCT_LINES).optional() });
 export class GetAdminCustomerOrderCountsDto extends createZodDto(extendApi(GetAdminCustomerOrderCountsZod)) {}
 
 export const AdminSellerStatZod = z.object({

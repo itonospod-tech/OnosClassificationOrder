@@ -122,7 +122,8 @@
     "reportErrorBtn": "Báo lỗi",
     "completeBtn": "Hoàn thành (Enter)",
     "reportThisOrderBtn": "Báo lỗi đơn này",
-    "closeContinueBtn": "Đóng & quét tiếp (Enter)"
+    "closeContinueBtn": "Đóng & quét tiếp (Enter)",
+    "completeBtnShort": "Hoàn thành"
   },
   "orderErrorDialog": {
     "sourceLabels": {
@@ -221,5 +222,12 @@
         "desc": "Mở màn gán lỗi — quét tiếp mã lỗi E-… của công đoạn"
       }
     }
+  },
+  "held": {
+    "title": "Đơn đang bị giữ",
+    "reason": "Lý do: {{reason}}",
+    "noReason": "Không ghi lý do giữ",
+    "body": "Không in tem/label, không làm tiếp. Báo quản lý mở giữ trước.",
+    "blocked": "Đơn {{productionId}} đang bị giữ — không in, không thao tác."
   }
 }

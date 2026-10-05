@@ -7,12 +7,13 @@ import { toast } from 'sonner';
 import { RepositoryRemote } from '@/services';
 
 import { useConfirm } from '@/components/common/ConfirmDialog';
+import { PageHeader } from '@/components/common/PageHeader';
+import { ResponsiveList } from '@/components/common/ResponsiveList';
 import { Spinner } from '@/components/common/Spinner';
 import { PermissionMatrix } from '@/components/roles/PermissionMatrix';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { handleAxiosError } from '@/utils';
 
@@ -83,15 +84,7 @@ export default function RolesPage() {
   return (
     <div className="space-y-6">
       {confirmDialog}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-          <ShieldCheck size={20} className="text-indigo-600" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('roles.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('roles.subtitle')}</p>
-        </div>
-      </div>
+      <PageHeader icon={<ShieldCheck size={20} />} title={t('roles.title')} description={t('roles.subtitle')} />
 
       <div className="rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between p-4 border-b border-border">
@@ -102,48 +95,67 @@ export default function RolesPage() {
           </Button>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('roles.table.role')}</TableHead>
-              <TableHead>{t('roles.table.description')}</TableHead>
-              <TableHead className="w-24 text-center">{t('roles.table.permissions')}</TableHead>
-              <TableHead className="w-20">{t('roles.table.system')}</TableHead>
-              <TableHead className="w-20 text-right"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && roles.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  <Spinner size={20} className="text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading && roles.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-sm text-muted-foreground">
-                  {t('roles.noRoles')}
-                </TableCell>
-              </TableRow>
-            )}
-            {roles.map((r) => (
-              <TableRow key={r._id} className="hover:bg-accent/30 cursor-pointer" onClick={() => openEditor(r)}>
-                <TableCell className="font-medium">{r.name}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{r.description || '—'}</TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="outline">{r.permissionCodes?.length || 0}</Badge>
-                </TableCell>
-                <TableCell>{r.isSystem && <Badge variant="secondary">{t('roles.table.system')}</Badge>}</TableCell>
-                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="sm" onClick={() => openEditor(r)}>
+        {/* Table on wide screens, tappable cards on phones (ResponsiveList). */}
+        {loading && roles.length === 0 ? (
+          <div className="flex justify-center py-8">
+            <Spinner size={20} className="text-muted-foreground" />
+          </div>
+        ) : (
+          <ResponsiveList
+            className="p-3 md:p-0"
+            rows={roles}
+            rowKey={(r) => r._id ?? r.name}
+            onRowClick={openEditor}
+            empty={t('roles.noRoles')}
+            columns={[
+              {
+                key: 'name',
+                header: t('roles.table.role'),
+                cell: (r) => <span className="font-medium">{r.name}</span>,
+                mobile: 'title',
+              },
+              {
+                key: 'description',
+                header: t('roles.table.description'),
+                cell: (r) => <span className="text-sm text-muted-foreground">{r.description || '—'}</span>,
+                mobile: 'subtitle',
+              },
+              {
+                key: 'permissions',
+                header: t('roles.table.permissions'),
+                cell: (r) => <Badge variant="outline">{r.permissionCodes?.length || 0}</Badge>,
+                mobile: 'trailing',
+                className: 'w-24 text-center',
+              },
+              {
+                key: 'system',
+                header: t('roles.table.system'),
+                cell: (r) => r.isSystem && <Badge variant="secondary">{t('roles.table.system')}</Badge>,
+                mobile: 'trailing',
+                className: 'w-20',
+              },
+              {
+                // The whole row / card already opens the editor; the explicit button is for the table only.
+                key: 'edit',
+                header: '',
+                cell: (r) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditor(r);
+                    }}
+                  >
                     {t('actions.edit', { ns: 'common' })}
                   </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                ),
+                mobile: 'hidden',
+                className: 'w-20 text-right',
+              },
+            ]}
+          />
+        )}
       </div>
 
       <Sheet open={!!editing} onOpenChange={(open) => !open && close()}>

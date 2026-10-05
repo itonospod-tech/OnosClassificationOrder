@@ -127,6 +127,7 @@
     "resultsCount": "{{count}} orders",
     "empty": "You don't have any orders yet.",
     "emptyFiltered": "No orders match the current filters.",
+    "processingEmpty": "Orders go straight into production when pushed, so none ever stop at this step. See the In Production tab.",
     "placeFirst": "Place your first order",
     "searchPlaceholder": "Search by order code…",
     "filterProduct": "Filter by product",
@@ -275,6 +276,8 @@
     "variationCount": "{{count}} variations",
     "resultsCount": "{{count}} products",
     "clearSearch": "Clear search",
+    "techniquesTitle": "Techniques",
+    "tagsTitle": "Tags",
     "collectionsTitle": "Collections",
     "allCategories": "All",
     "clearFilters": "Clear filters"
@@ -486,9 +489,10 @@
   "productLines": {
     "3d": "3D",
     "2d": "2D (DTG/DTF)",
-    "wood": "Wood",
+    "wood": "Wood & laser cut",
     "embroidery": "Embroidery",
     "led": "LED",
-    "canvas": "Canvas"
+    "canvas": "Canvas",
+    "dropship": "Dropship"
   }
 }

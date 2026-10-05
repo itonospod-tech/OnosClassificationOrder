@@ -16,7 +16,13 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import type { ProductItemSpecific, ProductLine, ProductPrintArea, ProductPrintAreaItem, ProductVariation } from 'shared';
+import type {
+  ProductItemSpecific,
+  ProductLine,
+  ProductPrintArea,
+  ProductPrintAreaItem,
+  ProductVariation,
+} from 'shared';
 import {
   collectVariationSizes,
   PRINT_AREA_MAX_WIDTH_CM,
@@ -342,6 +348,8 @@ interface FormSnapshot {
   productLine: string;
   productLineSource: string;
   collectionIds: string[];
+  productTagIds: string[];
+  productTechniqueIds: string[];
   printMethod: string;
   printArea: ProductPrintArea;
   printDocument: string;
@@ -384,6 +392,8 @@ export default function ProductDetailPage() {
   const [machineTypes, setMachineTypes] = useState<RefItem[]>([]);
   const [productCategoryOptions, setProductCategoryOptions] = useState<RefItem[]>([]);
   const [collectionOptions, setCollectionOptions] = useState<RefItem[]>([]);
+  const [tagOptions, setTagOptions] = useState<RefItem[]>([]);
+  const [techniqueOptions, setTechniqueOptions] = useState<RefItem[]>([]);
   const fabricOptions = useWorkshopConfigStore((s) => s.byCategory[WorkshopConfigCategory.FabricType] || []);
   const toolOptions = useWorkshopConfigStore((s) => s.byCategory[WorkshopConfigCategory.ToolResult] || []);
   const printMethodOptions = useWorkshopConfigStore((s) => s.byCategory[WorkshopConfigCategory.PrintMethod] || []);
@@ -414,6 +424,8 @@ export default function ProductDetailPage() {
   const [productLine, setProductLine] = useState('');
   const [productLineSource, setProductLineSource] = useState('');
   const [collectionIds, setCollectionIds] = useState<string[]>([]);
+  const [productTagIds, setProductTagIds] = useState<string[]>([]);
+  const [productTechniqueIds, setProductTechniqueIds] = useState<string[]>([]);
   const [printMethod, setPrintMethod] = useState('');
   const [printArea, setPrintArea] = useState<ProductPrintArea>([]);
   /**
@@ -456,16 +468,20 @@ export default function ProductDetailPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [fRes, mRes, cRes, colRes] = await Promise.all([
+        const [fRes, mRes, cRes, colRes, tagRes, techRes] = await Promise.all([
           RepositoryRemote.factory.getFactories('?page=1&limit=200'),
           RepositoryRemote.machineType.getMachineTypes('?page=1&limit=200'),
           RepositoryRemote.productCategory.getProductCategories('?page=1&limit=200'),
           RepositoryRemote.collection.getCollections('?page=1&limit=200'),
+          RepositoryRemote.productTag.getProductTags('?page=1&limit=200'),
+          RepositoryRemote.productTechnique.getProductTechniques('?page=1&limit=200'),
         ]);
         setFactories((fRes.data?.data || []) as RefItem[]);
         setMachineTypes((mRes.data?.data || []) as RefItem[]);
         setProductCategoryOptions((cRes.data?.data || []) as RefItem[]);
         setCollectionOptions((colRes.data?.data || []) as RefItem[]);
+        setTagOptions((tagRes.data?.data || []) as RefItem[]);
+        setTechniqueOptions((techRes.data?.data || []) as RefItem[]);
       } catch (error) {
         handleAxiosError(error);
       }
@@ -495,6 +511,8 @@ export default function ProductDetailPage() {
     productLine,
     productLineSource,
     collectionIds,
+    productTagIds,
+    productTechniqueIds,
     printMethod,
     printArea,
     printDocument,
@@ -539,6 +557,8 @@ export default function ProductDetailPage() {
       productLine: row.productLine || '',
       productLineSource: row.productLineSource || '',
       collectionIds: row.collectionIds || [],
+      productTagIds: row.productTagIds || [],
+      productTechniqueIds: row.productTechniqueIds || [],
       printMethod: row.printMethod || '',
       printArea: row.printArea || [],
       printDocument: row.printDocument || '',
@@ -579,6 +599,8 @@ export default function ProductDetailPage() {
     setProductLine(s.productLine);
     setProductLineSource(s.productLineSource);
     setCollectionIds(s.collectionIds);
+    setProductTagIds(s.productTagIds);
+    setProductTechniqueIds(s.productTechniqueIds);
     setPrintMethod(s.printMethod);
     setPrintArea(s.printArea);
     // PRD-7 — đổ số đã lưu vào ô nhập, và MỞ SẴN vị trí in nào đã có kích thước.
@@ -664,6 +686,8 @@ export default function ProductDetailPage() {
       productLine,
       productLineSource,
       collectionIds,
+      productTagIds,
+      productTechniqueIds,
       printMethod,
       printArea,
       printDocument,
@@ -759,6 +783,10 @@ export default function ProductDetailPage() {
     }
   };
 
+  const toggleTechnique = (tid: string) =>
+    setProductTechniqueIds((prev) => (prev.includes(tid) ? prev.filter((x) => x !== tid) : [...prev, tid]));
+  const toggleTag = (tid: string) =>
+    setProductTagIds((prev) => (prev.includes(tid) ? prev.filter((x) => x !== tid) : [...prev, tid]));
   const toggleCollection = (cid: string) =>
     setCollectionIds((prev) => (prev.includes(cid) ? prev.filter((x) => x !== cid) : [...prev, cid]));
 
@@ -928,12 +956,14 @@ export default function ProductDetailPage() {
     for (const area of printArea) {
       for (const size of variationSizes) {
         const rawW = sizeDimDraft[sizeDimKey(area.key, size, 'w')] ?? '';
-        const rawL = sizeDimKey(area.key, size, 'l') in sizeDimDraft ? sizeDimDraft[sizeDimKey(area.key, size, 'l')] : '';
+        const rawL =
+          sizeDimKey(area.key, size, 'l') in sizeDimDraft ? sizeDimDraft[sizeDimKey(area.key, size, 'l')] : '';
         const width = parseCm(rawW);
         const length = parseCm(rawL);
         const bad = (v: number | null) => v !== null && (!Number.isFinite(v) || v <= 0);
         if (bad(width)) dimErrors[sizeDimKey(area.key, size, 'w')] = t('detail.printAreaConfig.sizeDims.errorPositive');
-        if (bad(length)) dimErrors[sizeDimKey(area.key, size, 'l')] = t('detail.printAreaConfig.sizeDims.errorPositive');
+        if (bad(length))
+          dimErrors[sizeDimKey(area.key, size, 'l')] = t('detail.printAreaConfig.sizeDims.errorPositive');
         // HF-1 — trần 58cm xét theo CẶP, không theo từng ô.
         if (!dimErrors[sizeDimKey(area.key, size, 'w')] && !dimErrors[sizeDimKey(area.key, size, 'l')]) {
           const pairProblem = describeSizeDimPair(width, length, t);
@@ -1404,7 +1434,9 @@ export default function ProductDetailPage() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label title={t('detail.classification.productLineHint')}>{t('detail.classification.productLine')}</Label>
+                  <Label title={t('detail.classification.productLineHint')}>
+                    {t('detail.classification.productLine')}
+                  </Label>
                   <select
                     value={productLine}
                     onChange={(e) => {
@@ -1422,8 +1454,15 @@ export default function ProductDetailPage() {
                     ))}
                   </select>
                   {productLineSource && (
-                    <p className={cn('text-[11px]', productLineSource === 'default' ? 'text-amber-600' : 'text-muted-foreground')}>
-                      {t('detail.classification.productLineSource', { source: t(`productLineSources.${productLineSource}`) })}
+                    <p
+                      className={cn(
+                        'text-[11px]',
+                        productLineSource === 'default' ? 'text-amber-600' : 'text-muted-foreground',
+                      )}
+                    >
+                      {t('detail.classification.productLineSource', {
+                        source: t(`productLineSources.${productLineSource}`),
+                      })}
                     </p>
                   )}
                 </div>
@@ -1437,6 +1476,44 @@ export default function ProductDetailPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t('detail.techniquesField.label')}</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {techniqueOptions.map((tech) => (
+                    <button key={tech._id} type="button" onClick={() => toggleTechnique(tech._id)}>
+                      <Badge
+                        variant={productTechniqueIds.includes(tech._id) ? 'default' : 'outline'}
+                        className="cursor-pointer font-normal"
+                      >
+                        {tech.name}
+                      </Badge>
+                    </button>
+                  ))}
+                  {techniqueOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground">{t('detail.techniquesField.empty')}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t('detail.tagsField.label')}</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {tagOptions.map((tag) => (
+                    <button key={tag._id} type="button" onClick={() => toggleTag(tag._id)}>
+                      <Badge
+                        variant={productTagIds.includes(tag._id) ? 'default' : 'outline'}
+                        className="cursor-pointer font-normal"
+                      >
+                        {tag.name}
+                      </Badge>
+                    </button>
+                  ))}
+                  {tagOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground">{t('detail.tagsField.empty')}</p>
+                  )}
                 </div>
               </div>
 
@@ -1859,7 +1936,9 @@ export default function ProductDetailPage() {
                           <div className="mt-2 space-y-1.5 md:max-w-sm">
                             <div className="grid grid-cols-[minmax(56px,1fr)_100px_100px] gap-2 text-[11px] text-muted-foreground">
                               <span>{t('detail.printAreaConfig.sizeDims.size')}</span>
-                              <span>{t('detail.printAreaConfig.sizeDims.width', { max: PRINT_AREA_MAX_WIDTH_CM })}</span>
+                              <span>
+                                {t('detail.printAreaConfig.sizeDims.width', { max: PRINT_AREA_MAX_WIDTH_CM })}
+                              </span>
                               <span>{t('detail.printAreaConfig.sizeDims.length')}</span>
                             </div>
                             {variationSizes.map((size) => {

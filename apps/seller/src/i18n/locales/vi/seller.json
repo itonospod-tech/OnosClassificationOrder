@@ -104,6 +104,7 @@
     "allTime": "Mọi thời gian",
     "today": "Hôm nay",
     "yesterday": "Hôm qua",
+    "last7Days": "7 ngày qua",
     "thisWeek": "Tuần này",
     "thisMonth": "Tháng này",
     "lastMonth": "Tháng trước",
@@ -122,6 +123,10 @@
     "subtitle": "Toàn bộ sản phẩm đang bán · tra SKU để điền file import",
     "searchPlaceholder": "Tìm tên sản phẩm, SKU…",
     "allCategories": "Tất cả danh mục",
+    "tags": "Tag",
+    "techniques": "Kỹ thuật",
+    "allTechniques": "Tất cả",
+    "allTags": "Tất cả",
     "allCollections": "Tất cả",
     "collections": "Bộ sưu tập",
     "totalProducts": "{{count}} sản phẩm",
@@ -182,7 +187,10 @@
       "label": "Mua vận đơn",
       "label_refund": "Hoàn tiền vận đơn",
       "order": "Tiền đơn hàng",
-      "adjust": "Điều chỉnh"
+      "adjust": "Điều chỉnh",
+      "import_tax": "Thuế nhập khẩu",
+      "active": "Phí kích hoạt tracking",
+      "refund": "Hoàn tiền đơn hàng"
     },
     "columns": {
       "when": "Lúc",

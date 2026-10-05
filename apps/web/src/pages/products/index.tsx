@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Package } from 'lucide-react';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { useProductWriteAccess } from '@/hooks/useProductWriteAccess';
@@ -11,6 +12,8 @@ import { FactoryTab } from './FactoryTab';
 import { ProductCategoryTab } from './ProductCategoryTab';
 import { ProductConfigActions } from './ProductConfigActions';
 import { ProductConfigTab } from './ProductConfigTab';
+import { ProductTagTab } from './ProductTagTab';
+import { ProductTechniqueTab } from './ProductTechniqueTab';
 
 export default function Products() {
   const { t } = useTranslation('products');
@@ -26,26 +29,20 @@ export default function Products() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-            <Package size={20} className="text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{t('page.title')}</h1>
-            <p className="text-sm text-muted-foreground">{t('page.subtitle')}</p>
-          </div>
-        </div>
-        {tab === 'config' && canWriteProducts && (
-          <ProductConfigActions onChanged={() => setConfigRefreshKey((k) => k + 1)} />
-        )}
-      </div>
+      <PageHeader
+        icon={<Package size={20} />}
+        title={t('page.title')}
+        description={t('page.subtitle')}
+        actions={tab === 'config' && canWriteProducts ? <ProductConfigActions onChanged={() => setConfigRefreshKey((k) => k + 1)} /> : undefined}
+      />
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList>
           <TabsTrigger value="config">{t('page.tabs.config')}</TabsTrigger>
           <TabsTrigger value="category">{t('page.tabs.category')}</TabsTrigger>
           <TabsTrigger value="collection">{t('page.tabs.collection')}</TabsTrigger>
+          <TabsTrigger value="tag">{t('page.tabs.tag')}</TabsTrigger>
+          <TabsTrigger value="technique">{t('page.tabs.technique')}</TabsTrigger>
           <TabsTrigger value="factory">{t('page.tabs.factory')}</TabsTrigger>
         </TabsList>
         <TabsContent value="config">
@@ -56,6 +53,12 @@ export default function Products() {
         </TabsContent>
         <TabsContent value="collection">
           <CollectionTab />
+        </TabsContent>
+        <TabsContent value="tag">
+          <ProductTagTab />
+        </TabsContent>
+        <TabsContent value="technique">
+          <ProductTechniqueTab />
         </TabsContent>
         <TabsContent value="factory">
           <FactoryTab />

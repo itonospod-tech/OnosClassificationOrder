@@ -269,9 +269,9 @@ export default function DesignerAssignmentConfig() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-500/15 flex items-center justify-center">
+          <div className="w-9 h-9 shrink-0 rounded-lg bg-indigo-100 dark:bg-indigo-500/15 flex items-center justify-center">
             <Users size={18} className="text-indigo-600 dark:text-indigo-400" />
           </div>
           <div>

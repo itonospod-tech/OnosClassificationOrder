@@ -207,6 +207,19 @@ const ORDER_SHIPPING_BATCH_QUERY = `query OrderShippingByIds($ids: [String]) {
 // 1 ngày ~vài trăm order) và độ nặng mỗi query phía gateway OnosPod.
 const SHIPPING_BATCH_SIZE = 50;
 
+/**
+ * Batch address lookup outcome. Still never throws (enrichment must not break an import), but
+ * failures are COUNTED: they used to exist only as `logger.error` lines on a cron nobody reads,
+ * and ~50 orders/day reached production without an address (2026-09-16 .. 10-04).
+ */
+export interface ShippingLookupResult {
+  byOrderId: Map<string, ProductionOrderShippingAddress>;
+  failedBatches: number;
+  /** Order ids sent in the failed batches (an upper bound of the orders left without an address). */
+  failedOrderIds: number;
+  firstError?: string;
+}
+
 /** Mongo ObjectId dạng hex 24 ký tự — lọc trước khi nhúng vào query theo lô. */
 export function isValidObjectIdHex(id: string | undefined | null): id is string {
   return typeof id === 'string' && /^[a-f0-9]{24}$/i.test(id);
@@ -318,14 +331,17 @@ export class OnospodOrderLookupService {
    * Lô nào fail chỉ log + bỏ qua, các lô còn lại vẫn xử lý tiếp; kết quả là
    * map `orderId (_id)` → địa chỉ, thiếu key = không lấy được.
    */
-  async lookupShippingByOrderIds(orderIds: string[]): Promise<Map<string, ProductionOrderShippingAddress>> {
+  async lookupShippingByOrderIds(orderIds: string[], opts: { pauseMs?: number } = {}): Promise<ShippingLookupResult> {
     const result = new Map<string, ProductionOrderShippingAddress>();
+    const outcome: ShippingLookupResult = { byOrderId: result, failedBatches: 0, failedOrderIds: 0, firstError: undefined };
     const config = this.apiConfigService.onospodApiConfig;
-    if (!config) return result;
+    if (!config) return outcome;
 
     const ids = Array.from(new Set(orderIds.filter((id) => isValidObjectIdHex(id))));
 
     for (let i = 0; i < ids.length; i += SHIPPING_BATCH_SIZE) {
+      // Optional pause between batches: bulk backfills must not hammer the OnosPod account.
+      if (i > 0 && opts.pauseMs) await new Promise((r) => setTimeout(r, opts.pauseMs));
       const chunk = ids.slice(i, i + SHIPPING_BATCH_SIZE);
       try {
         const res = await axios.post(
@@ -352,6 +368,9 @@ export class OnospodOrderLookupService {
           this.logger.error({
             message: JSON.stringify({ action: 'onospodShippingBatch', chunkStart: i, chunkSize: chunk.length, gqlErrors }),
           });
+          outcome.failedBatches += 1;
+          outcome.failedOrderIds += chunk.length;
+          outcome.firstError ??= JSON.stringify(gqlErrors).slice(0, 300);
           continue;
         }
 
@@ -366,9 +385,12 @@ export class OnospodOrderLookupService {
         this.logger.error({
           message: JSON.stringify({ action: 'onospodShippingBatch', chunkStart: i, chunkSize: chunk.length, status, error: message }),
         });
+        outcome.failedBatches += 1;
+        outcome.failedOrderIds += chunk.length;
+        outcome.firstError ??= `${status ?? ''} ${message}`.trim();
       }
     }
 
-    return result;
+    return outcome;
   }
 }

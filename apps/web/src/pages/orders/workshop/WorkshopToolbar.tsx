@@ -42,27 +42,27 @@ const PILL_META: Record<
   errorFile: {
     icon: FileWarning,
     on: 'bg-red-600 text-white ring-red-600',
-    off: 'bg-red-50 text-red-700 ring-red-200 hover:ring-red-300 dark:bg-red-900/30 dark:text-red-200 dark:ring-red-800',
+    off: 'bg-red-100 text-red-700 ring-red-200 hover:ring-red-300 dark:bg-red-900/30 dark:text-red-200 dark:ring-red-800',
   },
   noTool: {
     icon: Wrench,
     on: 'bg-sky-600 text-white ring-sky-600',
-    off: 'bg-sky-50 text-sky-700 ring-sky-200 hover:ring-sky-300 dark:bg-sky-900/30 dark:text-sky-200 dark:ring-sky-800',
+    off: 'bg-sky-100 text-sky-700 ring-sky-200 hover:ring-sky-300 dark:bg-sky-900/30 dark:text-sky-200 dark:ring-sky-800',
   },
   unreviewed: {
     icon: EyeOff,
     on: 'bg-amber-500 text-white ring-amber-500',
-    off: 'bg-amber-50 text-amber-700 ring-amber-200 hover:ring-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-700',
+    off: 'bg-amber-100 text-amber-700 ring-amber-200 hover:ring-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-700',
   },
   priority: {
     icon: Flag,
     on: 'bg-indigo-600 text-white ring-indigo-600',
-    off: 'bg-indigo-50 text-indigo-700 ring-indigo-200 hover:ring-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-200 dark:ring-indigo-800',
+    off: 'bg-indigo-100 text-indigo-700 ring-indigo-200 hover:ring-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-200 dark:ring-indigo-800',
   },
   held: {
     icon: PauseCircle,
     on: 'bg-amber-500 text-white ring-amber-500',
-    off: 'bg-amber-50 text-amber-700 ring-amber-200 hover:ring-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-700',
+    off: 'bg-amber-100 text-amber-700 ring-amber-200 hover:ring-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-700',
   },
 };
 
@@ -280,7 +280,8 @@ export function WorkshopToolbar({
                 onClick={() => onTogglePill(k)}
                 className={cn(
                   'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
-                  active ? meta.on : meta.off,
+                  // Zero stays pale grey (information, not a gap); a pill with orders takes its colour as a fill.
+                  active ? meta.on : pillCount(k) > 0 ? cn(meta.off, 'font-semibold') : 'bg-muted/60 text-muted-foreground/70 ring-border hover:ring-border',
                 )}
               >
                 <Icon size={13} />
@@ -295,7 +296,11 @@ export function WorkshopToolbar({
             title={t('tableWorkshop.cancelledOnlyTitle')}
             className={cn(
               'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
-              filterCancelled ? 'bg-rose-500 text-white ring-rose-500' : 'bg-muted text-muted-foreground ring-border hover:ring-rose-300',
+              filterCancelled
+                ? 'bg-rose-500 text-white ring-rose-500'
+                : cancelledCount > 0
+                  ? 'bg-rose-100 font-semibold text-rose-700 ring-rose-200 hover:ring-rose-300 dark:bg-rose-900/30 dark:text-rose-200 dark:ring-rose-800'
+                  : 'bg-muted/60 text-muted-foreground/70 ring-border hover:ring-border',
             )}
           >
             <Ban size={13} />

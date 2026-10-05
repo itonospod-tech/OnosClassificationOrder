@@ -8,6 +8,7 @@ import { PATHS } from '@/constants/paths';
 
 import { useAuthStore } from '@/store/authStore';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Spinner } from '@/components/common/Spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,10 +70,7 @@ function ImpersonatePage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="flex items-center gap-2 text-lg font-semibold">
-        <UserCog size={18} /> {t('impersonate.title')}
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">{t('impersonate.subtitle')}</p>
+      <PageHeader icon={<UserCog size={20} />} title={t('impersonate.title')} description={t('impersonate.subtitle')} />
 
       <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-100">
         <AlertTriangle size={14} className="mt-0.5 shrink-0" />

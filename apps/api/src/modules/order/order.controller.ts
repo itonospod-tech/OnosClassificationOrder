@@ -8,6 +8,8 @@ import {
   AutoAssignApplyResDto,
   AutoAssignPreviewDto,
   AutoAssignPreviewResDto,
+  BackfillOnospodShippingDto,
+  BackfillOnospodShippingResDto,
   BulkAssignDesignerDto,
   BulkAssignDesignerPreviewDto,
   BulkAssignDesignerPreviewResDto,
@@ -62,6 +64,8 @@ import {
   GetProductionOrdersResDto,
   GetShippingLabelsDto,
   GetShippingLabelsResDto,
+  GetStaleOpenOrdersDto,
+  GetStaleOpenOrdersResDto,
   HoldOrderDto,
   HoldOrderResDto,
   ImportFromOnosPodDto,
@@ -80,6 +84,10 @@ import {
   SetDesignReviewResultResDto,
   SetProductionErrorDto,
   SetProductionErrorResDto,
+  StaleCleanupPreviewDto,
+  StaleCleanupPreviewResDto,
+  StaleCleanupRunDto,
+  StaleCleanupRunResDto,
   SyncDesignByCustomerDto,
   SyncDesignByCustomerResDto,
   SyncOnospodHoldResDto,
@@ -102,7 +110,7 @@ import { OnospodImportService } from './onospod-import.service';
 import { OrderService } from './order.service';
 import { ShippingLabelPdfService } from './shipping-label-pdf.service';
 
-const ORDER_VIEW_ROLES = [
+export const ORDER_VIEW_ROLES = [
   RoleType.SuperAdmin,
   RoleType.Admin,
   RoleType.Manager,
@@ -249,7 +257,8 @@ export class OrderController {
     this.logger.info({
       message: JSON.stringify({ method: 'POST', url: '/orders/barcode-labels', userId: user._id, count: dto.ids.length }),
     });
-    return { success: true, data: await this.orderService.getBarcodeLabels(dto.ids) };
+    const { labels, skippedHeld } = await this.orderService.getBarcodeLabels(dto.ids);
+    return { success: true, data: labels, skippedHeld };
   }
 
   /**
@@ -272,7 +281,8 @@ export class OrderController {
     this.logger.info({
       message: JSON.stringify({ method: 'POST', url: '/orders/shipping-labels', userId: user._id, count: dto.ids.length }),
     });
-    return { success: true, data: await this.orderService.getShippingLabels(dto.ids) };
+    const { labels, skippedHeld } = await this.orderService.getShippingLabels(dto.ids);
+    return { success: true, data: labels, skippedHeld };
   }
 
   /**
@@ -441,6 +451,46 @@ export class OrderController {
     @AuthUser() user: UserDocument,
   ): Promise<GetCancelledOrdersResDto> {
     return this.orderService.getCancelledOrders(dto, user?.role?.name, user?.factoryId);
+  }
+
+  /** Stale-order cleanup (Orders.md §23b): open orders older than OPEN_ORDER_STALE_DAYS, with evidence per row. */
+  @Get('stale-open')
+  @Auth([RoleType.SuperAdmin])
+  @ApiOperation({ summary: 'Đơn tồn quá hạn (mở > 45 ngày) + bằng chứng từng dòng — SuperAdmin' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetStaleOpenOrdersResDto })
+  async getStaleOpenOrders(@Query() dto: GetStaleOpenOrdersDto, @AuthUser() user: UserDocument): Promise<GetStaleOpenOrdersResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'GET', url: '/orders/stale-open', userId: user?._id }) });
+    return this.orderService.getStaleOpenOrders(dto, user?.role?.name as RoleType);
+  }
+
+  @Post('stale-open/preview')
+  @Auth([RoleType.SuperAdmin])
+  @ApiOperation({ summary: 'Xem trước một lượt dọn đơn tồn (chỉ đọc) — SuperAdmin' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: StaleCleanupPreviewResDto })
+  async previewStaleCleanup(@Body() dto: StaleCleanupPreviewDto, @AuthUser() user: UserDocument): Promise<StaleCleanupPreviewResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/stale-open/preview', userId: user?._id, count: dto.ids.length }) });
+    return { success: true, data: await this.orderService.previewStaleCleanup(dto.ids, user?.role?.name as RoleType) };
+  }
+
+  /** Irreversible: completes up to STALE_CLEANUP_BATCH_MAX orders at past dates, without customer events. */
+  @Post('stale-open/complete')
+  @Auth([RoleType.SuperAdmin])
+  @ApiOperation({ summary: 'Chuyển hoàn thành một lô đơn tồn quá hạn — KHÔNG hoàn tác, không báo khách — SuperAdmin' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: StaleCleanupRunResDto })
+  async runStaleCleanup(
+    @Body() dto: StaleCleanupRunDto,
+    @AuthUser() user: UserDocument,
+    @ClientIp() ip: string,
+    @UserAgent() userAgent: string,
+  ): Promise<StaleCleanupRunResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/stale-open/complete', userId: user?._id, count: dto.ids.length }) });
+    return {
+      success: true,
+      data: await this.orderService.runStaleCleanup(dto.ids, dto.reason, user?.role?.name as RoleType, { user, ip, userAgent }),
+    };
   }
 
   @Get('lifecycle-track/:code')
@@ -750,6 +800,23 @@ export class OrderController {
     @UserAgent() userAgent: string,
   ): Promise<ImportReworkOrdersResDto> {
     return this.orderService.importRework(dto, { user, ip, userAgent });
+  }
+
+  @Post('onospod/backfill-shipping')
+  @Auth([RoleType.SuperAdmin, RoleType.Admin])
+  @ApiOperation({ summary: 'One-off: fill missing shippingAddress of OnosPod orders from OnosPod (dry run unless dryRun=false)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: BackfillOnospodShippingResDto })
+  async backfillOnospodShipping(
+    @Body() dto: BackfillOnospodShippingDto,
+    @AuthUser() user: UserDocument,
+    @ClientIp() ip: string,
+    @UserAgent() userAgent: string,
+  ): Promise<BackfillOnospodShippingResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/onospod/backfill-shipping', userId: user._id, body: dto }) });
+    const res = await this.onospodImportService.backfillShippingAddresses(dto, { user, ip, userAgent });
+    this.logger.info({ message: JSON.stringify({ action: 'onospodShippingBackfill', userId: user._id, ...res.data }) });
+    return res;
   }
 
   @Post('import-from-onospod')

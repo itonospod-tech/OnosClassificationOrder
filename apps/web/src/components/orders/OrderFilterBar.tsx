@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ListChecks, RefreshCw, Search } from 'lucide-react';
+import { ChevronDown, ListChecks, RefreshCw, Search,SlidersHorizontal } from 'lucide-react';
 
 import { DateRangePicker } from '@/components/common/DateRangePicker';
 import { Hint } from '@/components/common/Hint';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 
 import { cn } from '@/utils/cn';
 
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { usePermission } from '@/hooks/usePermission';
 
 /** 1 cột select trong grid facet — option list + permission gate. */
@@ -102,6 +103,10 @@ export function OrderFilterBar({
   const { t } = useTranslation('orders');
   const { has } = usePermission();
   const [bulkOpen, setBulkOpen] = React.useState(false);
+  // Phones: the facet grid (up to 10 selects) folds behind one "Filters" button so the list is
+  // reachable without scrolling past it; the button carries the number of facets in use.
+  const isMobile = useIsMobile();
+  const [facetsOpen, setFacetsOpen] = React.useState(false);
   const finalSearchPlaceholder = searchPlaceholder ?? t('filterBar.defaultSearchPlaceholder');
 
   // Đếm số mã parse được từ ô search (hiện badge "N mã" khi tìm nhiều mã).
@@ -111,6 +116,8 @@ export function OrderFilterBar({
   const showDateRange = createdFrom !== undefined && createdTo !== undefined && !!onDateRangeChange;
 
   const visibleFacets = (facets || []).filter((f) => !f.hidden && (!f.perm || has(f.perm)));
+  const activeFacetCount = visibleFacets.filter((f) => !!f.value).length;
+  const facetsShown = !isMobile || facetsOpen;
 
   return (
     <div className={cn('rounded-lg border border-border bg-card p-3 space-y-3', className)}>
@@ -151,10 +158,28 @@ export function OrderFilterBar({
             </Button>
           </Hint>
         )}
-        <Button variant="outline" size="sm" onClick={onReload} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={onReload} disabled={loading} aria-label={t('filterBar.reloadBtn')}>
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          {t('filterBar.reloadBtn')}
+          <span className={isMobile ? 'sr-only' : undefined}>{t('filterBar.reloadBtn')}</span>
         </Button>
+        {isMobile && visibleFacets.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFacetsOpen((v) => !v)}
+            aria-expanded={facetsOpen}
+            className={cn(activeFacetCount > 0 && 'border-tone-info text-tone-info')}
+          >
+            <SlidersHorizontal size={14} />
+            {t('filterBar.filtersBtn')}
+            {activeFacetCount > 0 && (
+              <span className="rounded-full bg-tone-info px-1.5 text-[11px] font-semibold leading-4 text-white">
+                {activeFacetCount}
+              </span>
+            )}
+            <ChevronDown size={13} className={cn('transition-transform', facetsOpen && 'rotate-180')} />
+          </Button>
+        )}
         {topActionsRight}
       </div>
 
@@ -164,8 +189,8 @@ export function OrderFilterBar({
 
       {middleRow}
 
-      {visibleFacets.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      {visibleFacets.length > 0 && facetsShown && (
+        <div className="grid grid-cols-1 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           {visibleFacets.map((f) =>
             f.searchable ? (
               <SearchableSelectFilter

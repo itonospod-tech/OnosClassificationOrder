@@ -11,7 +11,8 @@
       "catalog": "Danh mục",
       "personal": "Cá nhân",
       "admin": "Quản trị",
-      "ceo": "Điều hành"
+      "ceo": "Điều hành",
+      "system": "Hệ thống"
     },
     "dashboard": {
       "title": "Dashboard",
@@ -31,14 +32,14 @@
     "orders": {
       "title": "Quản lý đơn",
       "list": "Danh sách đơn",
-      "classic": "Đơn hàng",
+      "classic": "Danh sách đơn (bảng phẳng)",
       "errorLog": "Nhật ký bù lỗi",
-      "scanError": "Quét mã",
+      "scanError": "Trạm quét mã",
       "stageErrors": "Danh mục lỗi công đoạn",
       "unmapped": "Không xác định xưởng",
       "shipments": "Vận đơn",
-      "import": "Import Order",
-      "cuttingFiles": "Import File Cutting"
+      "import": "Nhập đơn",
+      "cuttingFiles": "Nhập file cắt"
     },
     "work": {
       "title": "Công việc",
@@ -68,7 +69,8 @@
       "designerBacklog": "Tổng tồn thiết kế (7 ngày gần nhất)",
       "designerBacklogSelf": "Tồn thiết kế của bạn (7 ngày gần nhất)",
       "toolCheckRework": "Soát tool — đơn cần làm lại",
-      "toolCheckUnreviewed": "Soát tool — đơn chưa soát (7 ngày gần nhất)"
+      "toolCheckUnreviewed": "Soát tool — đơn chưa soát (7 ngày gần nhất)",
+      "productLineOpen": "Đơn chưa xong của dòng này, vào sản xuất {{days}} ngày gần nhất"
     },
     "customers": "Khách hàng",
     "impersonate": "Mạo danh",
@@ -76,7 +78,45 @@
     "zaloChat": "Chat Zalo",
     "ceoDashboard": "CEO Dashboard",
     "telegram": "Telegram",
-    "guideDtf": "Hướng dẫn DTF"
+    "guideDtf": "Hướng dẫn DTF",
+    "nav": {
+      "reports": {
+        "title": "Báo cáo",
+        "production": "Theo xưởng",
+        "stock": "Kho"
+      },
+      "production": {
+        "title": "Sản xuất",
+        "all": "Tất cả đơn",
+        "orders": "Đơn hàng",
+        "station": "Tại trạm",
+        "byLine": "Dòng sản phẩm"
+      },
+      "lines": {
+        "3d": "3D",
+        "2d": "2D (DTG/DTF)",
+        "embroidery": "Thêu",
+        "led": "LED",
+        "canvas": "Canvas",
+        "wood": "Gỗ & cắt khắc",
+        "dropship": "Dropship"
+      },
+      "tool": {
+        "title": "Tool",
+        "overview": "Tất cả"
+      },
+      "ship": {
+        "title": "Ship"
+      },
+      "wallet": {
+        "title": "Ví",
+        "sellers": "Ví seller",
+        "transactions": "Giao dịch"
+      },
+      "hr": {
+        "title": "HR"
+      }
+    }
   },
   "header": {
     "toggleSidebar": "Đóng/mở sidebar",
@@ -91,7 +131,8 @@
       "title": "Chọn xưởng — Dashboard, Đơn hàng, Công việc sẽ lọc theo xưởng này",
       "badgeError": "Lỗi cần xử lý",
       "badgeTool": "Soát tool tồn (cần làm lại / chưa soát)",
-      "lockedTitle": "Tài khoản gắn cố định với xưởng này"
+      "lockedTitle": "Tài khoản gắn cố định với xưởng này",
+      "noFactory": "Chưa gán xưởng"
     }
   },
   "overdueAlert": {
@@ -104,5 +145,13 @@
   "factoryScopeChip": {
     "label": "Đang lọc xưởng: {{name}}",
     "clear": "Bỏ lọc xưởng"
+  },
+  "tabBar": {
+    "label": "Điều hướng nhanh",
+    "tasks": "Việc",
+    "scan": "Quét mã",
+    "errors": "Lỗi",
+    "orders": "Đơn",
+    "more": "Thêm"
   }
 }
