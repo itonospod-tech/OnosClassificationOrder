@@ -350,8 +350,12 @@ function ShipmentsContent() {
                   cell: (rec) => (
                     <div className="text-xs">
                       {(rec.items ?? []).slice(0, 2).map((it) => (
-                        <div key={it.productionId} className="max-w-[200px] truncate">
-                          {[it.type, [it.color, it.size].filter(Boolean).join('/')].filter(Boolean).join(' · ') || it.productionId}
+                        <div key={it.productionId} className="max-w-[200px]">
+                          <div className="truncate">
+                            {[it.type, [it.color, it.size].filter(Boolean).join('/')].filter(Boolean).join(' · ') || it.productionId}
+                          </div>
+                          {/* Same SKU as printed on the label, for checking the parcel against the screen. */}
+                          {it.variantSku && <div className="truncate font-mono text-[11px] text-muted-foreground">{it.variantSku}</div>}
                         </div>
                       ))}
                       {(rec.items?.length ?? 0) > 2 && (
