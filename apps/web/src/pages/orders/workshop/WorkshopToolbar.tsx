@@ -80,6 +80,8 @@ export interface WorkshopToolbarProps {
   onReload: () => void;
   loading?: boolean;
 
+  /** Chip for open orders outside the default window (product-line views); rendered at the end of the line. */
+  windowChip?: React.ReactNode;
   pillCounts: WorkshopAvailableFilters['pillCounts'] | undefined;
   heldCount: number;
   activePills: Record<WorkshopPillKey, boolean>;
@@ -118,6 +120,7 @@ export function WorkshopToolbar({
   onReload,
   loading = false,
   pillCounts,
+  windowChip,
   heldCount,
   activePills,
   onTogglePill,
@@ -311,6 +314,7 @@ export function WorkshopToolbar({
             <Ban size={13} />
             {t('workshopBoard.cancelled')} <span className="tabular-nums">{cancelledCount}</span>
           </button>
+          {windowChip}
         </div>
       </div>
 

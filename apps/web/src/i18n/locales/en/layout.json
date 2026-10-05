@@ -140,7 +140,8 @@
     "toolCheck": "{{count}} orders not tool-checked",
     "unassigned": "{{count}} orders without a designer",
     "backlog": "{{count}} design tasks unfinished",
-    "callToAction": "— please jump on these now!"
+    "callToAction": "— please jump on these now!",
+    "moreDesigners": "+{{count}} more"
   },
   "factoryScopeChip": {
     "label": "Filtered by factory: {{name}}",

@@ -721,7 +721,11 @@
     "olderOpen_one": "{{n}} order from before the last {{days}} days is still not done — tap to view",
     "olderOpen_other": "{{n}} orders from before the last {{days}} days are still not done — tap to view",
     "olderOpenActive": "Showing unfinished orders that entered production {{days}} to {{staleDays}} days ago",
-    "backToWindow": "Back to the last {{days}} days"
+    "backToWindow": "Back to the last {{days}} days",
+    "olderOpenChip_one": "{{n}} older open",
+    "olderOpenChip_other": "{{n}} older open",
+    "olderOpenActiveChip": "Older open ({{days}}–{{staleDays}} days ago)",
+    "backToWindowShort": "back to {{days}} days"
   },
   "classicPage": {
     "title": "Orders",

@@ -721,7 +721,11 @@
     "olderOpen_one": "Còn {{n}} đơn vào sản xuất trước {{days}} ngày qua mà chưa xong — bấm để xem",
     "olderOpen_other": "Còn {{n}} đơn vào sản xuất trước {{days}} ngày qua mà chưa xong — bấm để xem",
     "olderOpenActive": "Đang xem đơn chưa xong vào sản xuất từ {{days}} đến {{staleDays}} ngày trước",
-    "backToWindow": "Về {{days}} ngày gần nhất"
+    "backToWindow": "Về {{days}} ngày gần nhất",
+    "olderOpenChip_one": "{{n}} đơn cũ chưa xong",
+    "olderOpenChip_other": "{{n}} đơn cũ chưa xong",
+    "olderOpenActiveChip": "Đơn cũ chưa xong ({{days}}–{{staleDays}} ngày trước)",
+    "backToWindowShort": "về {{days}} ngày"
   },
   "classicPage": {
     "title": "Đơn hàng",

@@ -128,10 +128,22 @@ function OverdueAlertBanner() {
           {t('overdueAlert.backlog', { count: alert.designerBacklog })}
         </Link>
         {alert.byDesigner.length > 0 && (
-          <span className="font-semibold">
-            {' '}
-            ({alert.byDesigner.map((d) => `${d.name} ${d.count}`).join(' · ')})
-          </span>
+          <>
+            {/* Names are what a manager acts on, so they never get cut mid-word: wide screens list everyone,
+                from 1400px up the first two plus "+N", narrower ones leave the names to the designer tab
+                behind the count link. The breakpoints are measured: the line must fit without clipping. */}
+            <span className="hidden font-semibold min-[1700px]:inline">
+              {' '}
+              ({alert.byDesigner.map((d) => `${d.name} ${d.count}`).join(' · ')})
+            </span>
+            <span className="hidden font-semibold min-[1400px]:inline min-[1700px]:hidden">
+              {' '}
+              ({alert.byDesigner.slice(0, 2).map((d) => `${d.name} ${d.count}`).join(' · ')}
+              {alert.byDesigner.length > 2 &&
+                ` · ${t('overdueAlert.moreDesigners', { count: alert.byDesigner.length - 2 })}`}
+              )
+            </span>
+          </>
         )}
       </span>,
     );
@@ -140,7 +152,7 @@ function OverdueAlertBanner() {
   return (
     <div
       role="alert"
-      className="flex items-center gap-3 bg-red-600 text-white px-4 py-2.5 text-sm shadow-md z-20 shrink-0"
+      className="flex items-center gap-3 bg-red-600 text-white px-4 py-2.5 text-sm min-[1400px]:max-[1699px]:text-[13px] shadow-md z-20 shrink-0"
     >
       <AlertTriangle size={20} className="shrink-0 animate-pulse" />
       {/* From md up the alert is ONE line (it sits above every page, so each extra line costs data area);
@@ -153,7 +165,7 @@ function OverdueAlertBanner() {
             {seg}
           </React.Fragment>
         ))}
-        <span className="opacity-90 md:hidden 2xl:inline">{t('overdueAlert.callToAction')}</span>
+        <span className="opacity-90 md:hidden min-[1700px]:inline">{t('overdueAlert.callToAction')}</span>
       </div>
     </div>
   );
