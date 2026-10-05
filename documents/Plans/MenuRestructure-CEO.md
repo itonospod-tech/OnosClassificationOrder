@@ -185,6 +185,13 @@ người dùng ở đáy (Thông báo · Tài khoản · Đăng xuất); ở tha
 Fulfillment: Báo cáo · Sản xuất · Ship = 3 hàng (do lọc quyền). Nhân viên chưa có khái niệm "thông báo chưa đọc"
 (trang Thông báo là trang trống), nên khối người dùng chưa có chấm.
 
+**Sửa 05/10/2026 (lần 3) — thứ bậc và màu.** Độ đậm + cỡ chữ nói THỨ BẬC, màu nói KHU VỰC: hàng cha semibold 15px chữ
+đậm nhất, hàng con 13px nhạt hơn nằm trong khối có đường dẫn dọc 2px; nhãn mục (ORDERS/WORK/AT THE STATION) chữ nhỏ in hoa
+có khoảng cách trên. Mỗi nhóm cấp một một màu, CHỈ ở biểu tượng và nền nhạt của hàng cha khi mở (`NAV_TONES` trong
+`Sidebar.tsx`): Báo cáo xanh dương · Sản xuất tím thương hiệu (`brand-600`) · Tool hổ phách · Ship xanh ngọc · Ví xanh lá ·
+Hệ thống xám. Chữ giữ tông trung tính, mục đang chọn giữ kiểu cũ (gạch trái + nền tím nhạt), badge đỏ giữ nguyên. Ở
+thanh thu gọn màu biểu tượng là thứ duy nhất phân biệt khu vực.
+
 ### 8.3b Kho — để ở Báo cáo, có đường lui
 
 "Kho" (`/ffm/inventory`) nằm ở Báo cáo theo §2, nhưng thủ kho còn NHẬP phiếu ở

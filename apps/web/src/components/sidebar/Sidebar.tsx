@@ -10,7 +10,6 @@ import {
   Box,
   Boxes,
   Building2,
-  ChevronDown,
   ChevronRight,
   ChevronUp,
   Contact,
@@ -210,6 +209,8 @@ interface NavChild {
    * `SCOPE_PARAMS`). For an entry whose page switches that scope itself (Tool: the 3D/2D toggle).
    */
   looseScope?: boolean;
+  /** Area colour of a top-level link (a group takes it from its `NavItem`). */
+  tone?: NavTone;
   /**
    * Query the menu adds when OPENING the page (its most useful default view, MenuRestructure-CEO.md
    * §8.1) — NOT part of the entry's identity: active highlighting and the "click again to clear
@@ -238,6 +239,8 @@ interface NavItem {
   matchPrefix?: boolean;
   /** Same meaning as on `NavChild` — only used when the item is a top-level link. */
   looseScope?: boolean;
+  /** Area colour — see `NAV_TONES`. */
+  tone?: NavTone;
 }
 
 interface NavGroup {
@@ -246,6 +249,22 @@ interface NavGroup {
 }
 
 const ADMIN_ROLES: string[] = [RoleType.SuperAdmin, RoleType.Admin];
+
+/**
+ * Area colour of the six top-level groups. Weight and size say HIERARCHY (parent vs child); colour says
+ * AREA, and lives only on the icon and on the open group's row tint — never on the label text. On the
+ * icon-only rail the icon colour is the one thing that tells the areas apart. Production wears the brand
+ * purple (`brand-600`, #6f26c2).
+ */
+type NavTone = 'reports' | 'production' | 'tool' | 'ship' | 'wallet' | 'system';
+const NAV_TONES: Record<NavTone, { icon: string; open: string }> = {
+  reports: { icon: 'text-sky-600 dark:text-sky-400', open: 'bg-sky-50 dark:bg-sky-950/40' },
+  production: { icon: 'text-brand-600 dark:text-brand-400', open: 'bg-brand-50 dark:bg-brand-950/50' },
+  tool: { icon: 'text-amber-600 dark:text-amber-400', open: 'bg-amber-50 dark:bg-amber-950/30' },
+  ship: { icon: 'text-teal-600 dark:text-teal-400', open: 'bg-teal-50 dark:bg-teal-950/40' },
+  wallet: { icon: 'text-emerald-600 dark:text-emerald-400', open: 'bg-emerald-50 dark:bg-emerald-950/40' },
+  system: { icon: 'text-slate-500 dark:text-slate-400', open: 'bg-slate-100 dark:bg-slate-800/60' },
+};
 
 /** Menu icon per product line (the only hand-kept part of the line list). */
 const LINE_ICONS: Record<string, React.ReactNode> = {
@@ -449,6 +468,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
   return [
     {
       key: 'nav-reports',
+      tone: 'reports' as const,
       label: t('sidebar.nav.reports.title'),
       icon: <BarChart3 size={17} />,
       children: [
@@ -502,6 +522,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
       // Key = `/ffm/orders` + `pagePerm`: keeps the old Orders page route gated by `page.orders` as when it
       // was the "Orders" parent (AUTH-7 builds the permission map from parent keys). Does not gate group visibility.
       key: PATHS.ORDERS,
+      tone: 'production' as const,
       label: t('sidebar.nav.production.title'),
       icon: <Factory size={17} />,
       pagePerm: 'page.orders',
@@ -512,6 +533,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
       // scope is a toggle inside the page now (`ToolCheckTab`), so Tool opens in one click. The key stays
       // `dash-tool-check` — `badgeMap` attaches the Tool counts by key.
       key: 'dash-tool-check',
+      tone: 'tool' as const,
       label: t('sidebar.nav.tool.title'),
       to: to(`${PATHS.HOME}?tab=tool-check`),
       icon: <FileSearch size={17} />,
@@ -520,6 +542,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
     },
     {
       key: 'nav-ship',
+      tone: 'ship' as const,
       label: t('sidebar.nav.ship.title'),
       icon: <Truck size={17} />,
       children: [
@@ -544,6 +567,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
     },
     {
       key: 'nav-wallet',
+      tone: 'wallet' as const,
       label: t('sidebar.nav.wallet.title'),
       icon: <Wallet size={17} />,
       children: [
@@ -590,6 +614,7 @@ function buildNavGroups(
       items: [
         {
           key: 'nav-system',
+          tone: 'system' as const,
           label: t('sidebar.groups.system'),
           icon: <Settings size={17} />,
           children: [
@@ -843,15 +868,23 @@ function SidebarLeaf({
           ? 'bg-nav-accent/10 font-medium text-nav-accent before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-nav-accent'
           : 'text-nav-text hover:bg-nav-open hover:text-foreground',
         collapsed && 'justify-center',
-        !collapsed && level === 1 && 'ml-5 py-1.5 text-[13px]',
-        !collapsed && level > 1 && 'ml-9 py-1.5 text-[13px]',
+        // Children sit inside the group's guide line and read one step lighter and smaller than a parent.
+        !collapsed && level === 1 && 'py-1.5 text-[13px]',
+        !collapsed && level > 1 && 'ml-4 py-1.5 text-[13px]',
       )}
     >
-      <span className={active ? 'text-nav-accent' : 'text-nav-text'}>{item.icon}</span>
+      <span className={item.tone && level === 0 ? NAV_TONES[item.tone].icon : active ? 'text-nav-accent' : 'text-nav-text'}>
+        {item.icon}
+      </span>
       {!collapsed && (
         // Child labels wrap to two lines instead of being cut: Vietnamese labels run long
         // ("Danh sách đơn (bảng phẳng)") and a truncated entry hides what it opens.
-        <span className={cn(level > 0 ? 'line-clamp-2 leading-snug' : 'truncate', hasBadges && 'flex-1')}>
+        <span
+          className={cn(
+            level > 0 ? 'line-clamp-2 leading-snug' : 'truncate text-[15px] font-semibold text-foreground',
+            hasBadges && 'flex-1',
+          )}
+        >
           {item.label}
         </span>
       )}
@@ -897,7 +930,7 @@ function SidebarSubGroup({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className={cn(
-          'ml-5 flex w-[calc(100%-1.25rem)] items-center gap-2.5 rounded-lg border-none px-3 py-1.5 text-left text-[13px] transition-colors cursor-pointer',
+          'flex w-full items-center gap-2.5 rounded-lg border-none px-3 py-1.5 text-left text-[13px] transition-colors cursor-pointer',
           open
             ? 'bg-transparent text-foreground'
             : 'bg-transparent text-nav-text hover:bg-nav-open hover:text-foreground',
@@ -906,7 +939,7 @@ function SidebarSubGroup({
       >
         <span className={anyActive ? 'text-nav-accent' : 'text-nav-text'}>{icon}</span>
         <span className="flex-1 truncate">{label}</span>
-        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        <ChevronRight size={13} className={cn('shrink-0 transition-transform duration-200', open && 'rotate-90')} />
       </button>
       {open && (
         <div className="space-y-0.5 py-0.5">
@@ -947,6 +980,8 @@ function SidebarParent({
     isLinkActive(c.to, location.pathname, location.search, c.matchPrefix, c.looseScope),
   );
 
+  const tone = item.tone ? NAV_TONES[item.tone] : undefined;
+
   if (collapsed) {
     // Collapsed: show parent icon only; clicking still navigates to first child
     return (
@@ -955,10 +990,12 @@ function SidebarParent({
         title={item.label}
         className={cn(
           'flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-colors relative',
-          anyChildActive ? 'bg-nav-accent/10 text-nav-accent' : 'text-nav-text hover:bg-nav-open hover:text-foreground',
+          // On the icon-only rail the icon colour is the only thing that tells the areas apart; the
+          // group holding the current page also gets its area tint behind the icon.
+          anyChildActive ? tone?.open ?? 'bg-nav-accent/10' : 'hover:bg-nav-open',
         )}
       >
-        <span className={anyChildActive ? 'text-nav-accent' : 'text-nav-text'}>{item.icon}</span>
+        <span className={tone?.icon ?? (anyChildActive ? 'text-nav-accent' : 'text-nav-text')}>{item.icon}</span>
         {urgentOnly(childBadges).length > 0 && <BadgeDot badges={urgentOnly(childBadges)} />}
       </Link>
     );
@@ -971,14 +1008,13 @@ function SidebarParent({
         onClick={onToggle}
         aria-expanded={open}
         className={cn(
-          'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left border-none cursor-pointer',
-          // An open group sits on a very light grey row with regular text, as in the legacy app —
-          // the violet is reserved for the one active entry so it stays the single eye-catcher.
-          open ? 'bg-nav-open text-foreground' : 'bg-transparent text-nav-text hover:bg-nav-open hover:text-foreground',
-          anyChildActive && 'font-medium',
+          // A parent reads as one: bigger and semibold, in the strongest text colour. The open group's row
+          // takes the soft tint of its own area; colour stays on the icon and this tint, not on the label.
+          'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[15px] font-semibold text-foreground transition-colors text-left border-none cursor-pointer',
+          open ? tone?.open ?? 'bg-nav-open' : 'bg-transparent hover:bg-nav-open',
         )}
       >
-        <span className={open || anyChildActive ? 'text-foreground' : 'text-nav-text'}>{item.icon}</span>
+        <span className={tone?.icon ?? 'text-nav-text'}>{item.icon}</span>
         <span className="truncate flex-1">{item.label}</span>
         {!open && childBadges.length > 0 && (
           <span className="flex items-center gap-1 shrink-0">
@@ -988,7 +1024,7 @@ function SidebarParent({
           </span>
         )}
         {!open && anyChildActive && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-nav-accent" aria-hidden />}
-        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <ChevronRight size={15} className={cn('shrink-0 text-muted-foreground transition-transform duration-200', open && 'rotate-90')} />
       </button>
       {/* Slide open/closed like the legacy menu: animate grid rows 0fr→1fr (no fixed height).
           Closed children stay mounted for the animation, so they are `inert` (out of tab order
@@ -1001,7 +1037,8 @@ function SidebarParent({
         {...(open ? {} : { inert: '' })}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="space-y-0.5 py-1">
+          {/* Thin guide line down the child block: these belong to the parent above. */}
+          <div className="ml-[1.35rem] space-y-0.5 border-l-2 border-border py-1 pl-2">
             {item.children!.map((c, idx, all) => {
               if (c.subgroup) {
                 // The whole sub-group renders once, where its first member sits.
@@ -1019,7 +1056,7 @@ function SidebarParent({
               return (
                 <React.Fragment key={c.key}>
                   {c.sectionBefore && (
-                    <p className="ml-5 px-3 pt-2 pb-0.5 text-[11px] font-medium uppercase tracking-[.14px] text-nav-group">
+                    <p className="px-3 pt-3 pb-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-nav-group first:pt-1">
                       {c.sectionBefore}
                     </p>
                   )}
