@@ -23,6 +23,7 @@ import { useLanguageStore } from '../../store/languageStore';
 import { usePageHeaderStore } from '../../store/pageHeaderStore';
 import { useThemeStore } from '../../store/themeStore';
 import { handleAxiosError } from '../../utils';
+import OverdueAlertBanner from '../common/OverdueAlertBanner';
 
 interface HeaderProps {
   collapsed: boolean;
@@ -76,6 +77,9 @@ function Header({ changeCollapsed, isMobile }: HeaderProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+        {/* Overdue alert chip (always on, cannot be dismissed): the red strip's information behind a popover. */}
+        <OverdueAlertBanner />
+
         {/* Lối vào nhanh mạo danh (AUTH-2) — tự ẩn với vai không phải SuperAdmin. */}
         <ImpersonateQuickSwitch />
 

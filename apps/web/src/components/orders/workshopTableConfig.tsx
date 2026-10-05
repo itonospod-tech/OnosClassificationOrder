@@ -1078,17 +1078,18 @@ export function GroupCellContent({
 // into the details popover (`DenseDetails`). designerStatus joins them: it is mostly written by the
 // designer workflow, not typed in this table.
 export const DENSE_GROUP_DEFS: ColGroupDef[] = [
-  { key: 'identity', title: 'Mã đơn / Ưu tiên', width: 285, memberKeys: ['productionId', 'priority'] },
-  { key: 'product', title: 'Sản phẩm · SKU', width: 270, memberKeys: ['mockupTypeSize'] },
-  { key: 'status', title: 'Trạng thái', width: 120, memberKeys: ['orderStatus'] },
-  { key: 'toolCheck', title: 'Kết quả Tool / File lỗi', width: 240, memberKeys: ['toolResult', 'toolResultNote', 'errorFile'] },
-  { key: 'print', title: 'Trạng thái in', width: 125, memberKeys: ['printStatus'] },
-  { key: 'assignee', title: 'Người thực hiện', width: 120, memberKeys: ['assignee'] },
+  { key: 'identity', title: 'Mã đơn / Ưu tiên', width: 270, memberKeys: ['productionId', 'priority'] },
+  { key: 'product', title: 'Sản phẩm · SKU', width: 215, memberKeys: ['mockupTypeSize'] },
+  { key: 'status', title: 'Trạng thái', width: 105, memberKeys: ['orderStatus'] },
+  { key: 'toolCheck', title: 'Kết quả Tool / File lỗi', width: 150, memberKeys: ['toolResult', 'toolResultNote', 'errorFile'] },
+  { key: 'print', title: 'Trạng thái in', width: 110, memberKeys: ['printStatus'] },
+  { key: 'assignee', title: 'Người thực hiện', width: 90, memberKeys: ['assignee'] },
 ];
 
 /** Fields that left the line: shown (and still editable) in the row's details popover. */
 export const DENSE_PANEL_KEYS = [
   'priority',
+  'toolResult',
   'userSku',
   'typeFullName',
   'factoryMachine',
@@ -1104,7 +1105,24 @@ export const DENSE_PANEL_KEYS = [
 ];
 
 /** Compact renderers for the members whose normal cell is a tall stack (production ID block, mockup block). */
-const DENSE_RENDER: Record<string, (r: WorkshopOrderRow, ctx: WorkshopRenderCtx) => React.ReactNode> = {
+export interface DenseOptions {
+  /**
+   * Leave the product name off the line: in the by-product view the group header above already says it, so the
+   * width goes to the SKU and size/colour. Search results and the flat table keep the name (it is real data there).
+   */
+  hideType?: boolean;
+}
+
+const DENSE_RENDER: Record<
+  string,
+  (r: WorkshopOrderRow, ctx: WorkshopRenderCtx, opts: DenseOptions) => React.ReactNode
+> = {
+  // The usual case — tool found, note "ok" — would repeat the same two chips on nearly every row. Only the "Ok"
+  // note chip stays then; anything unusual shows both, and the tool result stays editable in the details popover.
+  toolResult: (r, ctx) =>
+    r.toolResult === 'has-tool' && r.toolResultNote === 'ok'
+      ? null
+      : WORKSHOP_COLS.find((c) => c.key === 'toolResult')?.render(r, ctx) ?? null,
   productionId: (r, ctx) => {
     const hasCuttingFile = !!(r as { cuttingFileUrl?: string }).cuttingFileUrl;
     return (
@@ -1130,10 +1148,52 @@ const DENSE_RENDER: Record<string, (r: WorkshopOrderRow, ctx: WorkshopRenderCtx)
     );
   },
   priority: (r, ctx) => <PriorityCell row={r} ctx={ctx} inline />,
-  mockupTypeSize: (r, ctx) => {
+  mockupTypeSize: (r, ctx, opts) => {
     const url = r.mockupOriginalUrl || r.mockupUrl;
     const qty = r.quantity ?? 1;
     const sizeColor = `${r.size || '—'}${r.color ? ' / ' + r.color : ''}`;
+    const qtyChip = (
+      <span
+        className={cn(
+          'shrink-0 rounded px-1 py-px text-[10px] font-semibold',
+          qty > 1 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-muted text-muted-foreground',
+        )}
+      >
+        {ctx.t ? ctx.t('workshopCols.qty', { quantity: qty }) : `SL ${qty}`}
+      </span>
+    );
+    if (opts.hideType) {
+      return (
+        <div className="flex min-w-0 items-center gap-2">
+          <ImageThumbCell
+            url={r.mockupUrl}
+            originalUrl={r.mockupOriginalUrl}
+            title={url ? `Mockup: ${url}` : 'Mockup'}
+            onOpen={ctx.openPreview}
+            size={36}
+          />
+          <div className="min-w-0 flex-1 leading-tight">
+            {/* SKU first and readable: this is what the shelf and the shipping label carry. */}
+            {r.variantSku ? (
+              <span className="flex min-w-0 items-center gap-1">
+                <Hint content={`SKU: ${r.variantSku}`} forceRich>
+                  <span className="min-w-0 truncate font-mono text-[13px] font-semibold text-foreground">{r.variantSku}</span>
+                </Hint>
+                <CopyButton value={r.variantSku} label="SKU" iconSize={12} className="p-0.5" />
+              </span>
+            ) : (
+              <span className="font-mono text-[13px] text-muted-foreground/50">—</span>
+            )}
+            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-foreground/80">
+              <Hint content={`Size / Color: ${sizeColor}`} forceRich>
+                <span className="min-w-0 truncate">{sizeColor}</span>
+              </Hint>
+              {qtyChip}
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex min-w-0 items-center gap-2">
         <ImageThumbCell
@@ -1181,9 +1241,15 @@ const DENSE_RENDER: Record<string, (r: WorkshopOrderRow, ctx: WorkshopRenderCtx)
 };
 
 /** Render one member: the compact variant when `dense` and it has one, otherwise the normal cell. */
-export function renderMember(c: WorkshopColMeta, row: WorkshopOrderRow, ctx: WorkshopRenderCtx, dense: boolean): React.ReactNode {
+export function renderMember(
+  c: WorkshopColMeta,
+  row: WorkshopOrderRow,
+  ctx: WorkshopRenderCtx,
+  dense: boolean,
+  opts: DenseOptions = {},
+): React.ReactNode {
   const compact = dense ? DENSE_RENDER[c.key] : undefined;
-  return compact ? compact(row, ctx) : c.render(row, ctx);
+  return compact ? compact(row, ctx, opts) : c.render(row, ctx);
 }
 
 /**
@@ -1204,7 +1270,7 @@ export function DenseGroupCellContent({
   // The identity cell is ONE line (ID, then the priority chip with its countdown); the other cells may wrap chips.
   const oneLine = group.key === 'identity';
   return (
-    <div className={cn('flex min-w-0 items-center gap-1', oneLine && 'min-w-[260px]')}>
+    <div className={cn('flex min-w-0 items-center gap-1', oneLine && 'min-w-[250px]')}>
       {leading}
       <div className={cn('min-w-0 flex-1', oneLine ? 'flex flex-nowrap items-center gap-2' : 'flex flex-wrap items-center gap-1')}>
         {group.members.map((c, i) => (

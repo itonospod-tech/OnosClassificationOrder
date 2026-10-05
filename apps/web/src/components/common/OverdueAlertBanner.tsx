@@ -13,6 +13,8 @@ import { useSidebarBadgeStore } from '@/store/sidebarBadgeStore';
 
 import { RepositoryRemote } from '@/services';
 
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
 // MIRROR OVERDUE_ALERT_ROLES ở designer-stats.controller.ts — đổi 1 nơi phải đổi nơi kia.
 const OVERDUE_ROLES: string[] = [
   RoleType.SuperAdmin,
@@ -97,14 +99,15 @@ function OverdueAlertBanner() {
 
   const cutoffLabel = dayjs(alert.cutoffDay).format('DD/MM');
   const designerTarget = isDesigner ? PATHS.MY_TASKS : `${PATHS.HOME}?tab=designer`;
-  const segmentClass = 'underline underline-offset-2 decoration-white/70 hover:decoration-white font-bold';
+  const linkClass = 'font-bold underline underline-offset-2 decoration-red-300 hover:decoration-red-600 dark:decoration-red-400/60';
 
-  const segments: React.ReactNode[] = [];
+  // Same three facts as the old red strip, one per line; nothing was dropped, only moved behind the chip.
+  const rows: React.ReactNode[] = [];
   if (alert.toolCheckUnreviewed > 0) {
     const label = t('overdueAlert.toolCheck', { count: alert.toolCheckUnreviewed });
-    segments.push(
+    rows.push(
       TOOL_CHECK_LINK_ROLES.includes(roleName!) ? (
-        <Link key="tool" to={`${PATHS.HOME}?tab=tool-check`} className={segmentClass}>
+        <Link key="tool" to={`${PATHS.HOME}?tab=tool-check`} className={linkClass}>
           {label}
         </Link>
       ) : (
@@ -115,59 +118,58 @@ function OverdueAlertBanner() {
     );
   }
   if (alert.designerUnassigned > 0) {
-    segments.push(
-      <Link key="unassigned" to={`${PATHS.HOME}?tab=designer`} className={segmentClass}>
+    rows.push(
+      <Link key="unassigned" to={`${PATHS.HOME}?tab=designer`} className={linkClass}>
         {t('overdueAlert.unassigned', { count: alert.designerUnassigned })}
       </Link>,
     );
   }
   if (alert.designerBacklog > 0) {
-    segments.push(
-      <span key="backlog">
-        <Link to={designerTarget} className={segmentClass}>
+    rows.push(
+      <div key="backlog">
+        <Link to={designerTarget} className={linkClass}>
           {t('overdueAlert.backlog', { count: alert.designerBacklog })}
         </Link>
         {alert.byDesigner.length > 0 && (
-          <>
-            {/* Names are what a manager acts on, so they never get cut mid-word: wide screens list everyone,
-                from 1400px up the first two plus "+N", narrower ones leave the names to the designer tab
-                behind the count link. The breakpoints are measured: the line must fit without clipping. */}
-            <span className="hidden font-semibold min-[1700px]:inline">
-              {' '}
-              ({alert.byDesigner.map((d) => `${d.name} ${d.count}`).join(' · ')})
-            </span>
-            <span className="hidden font-semibold min-[1400px]:inline min-[1700px]:hidden">
-              {' '}
-              ({alert.byDesigner.slice(0, 2).map((d) => `${d.name} ${d.count}`).join(' · ')}
-              {alert.byDesigner.length > 2 &&
-                ` · ${t('overdueAlert.moreDesigners', { count: alert.byDesigner.length - 2 })}`}
-              )
-            </span>
-          </>
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {alert.byDesigner.map((d) => (
+              <li
+                key={d.name}
+                className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-950/50 dark:text-red-200"
+              >
+                {d.name} <span className="tabular-nums">{d.count}</span>
+              </li>
+            ))}
+          </ul>
         )}
-      </span>,
+      </div>,
     );
   }
 
+  // A chip in the header instead of a full-width strip: it still cannot be dismissed, is always red and always
+  // there, but it no longer costs every page a 40px band (OverdueAlertBanner.md).
   return (
-    <div
-      role="alert"
-      className="flex items-center gap-3 bg-red-600 text-white px-4 py-2.5 text-sm min-[1400px]:max-[1699px]:text-[13px] shadow-md z-20 shrink-0"
-    >
-      <AlertTriangle size={20} className="shrink-0 animate-pulse" />
-      {/* From md up the alert is ONE line (it sits above every page, so each extra line costs data area);
-            the call to action only shows on very wide screens and the tail is clipped if it still overflows. */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 md:flex-nowrap md:overflow-hidden md:whitespace-nowrap">
-        <span className="font-extrabold uppercase tracking-wide">{t('overdueAlert.title', { date: cutoffLabel })}</span>
-        {segments.map((seg, i) => (
-          <React.Fragment key={i}>
-            {i > 0 && <span className="opacity-70">•</span>}
-            {seg}
-          </React.Fragment>
-        ))}
-        <span className="opacity-90 md:hidden min-[1700px]:inline">{t('overdueAlert.callToAction')}</span>
-      </div>
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          title={t('overdueAlert.title', { date: cutoffLabel })}
+          aria-label={t('overdueAlert.title', { date: cutoffLabel })}
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-red-600 px-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-red-700 touch:h-9 sm:px-3"
+        >
+          <AlertTriangle size={14} className="animate-pulse" />
+          <span className="tabular-nums">{total}</span>
+          <span className="hidden sm:inline">{t('overdueAlert.chip')}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[min(92vw,420px)] p-0">
+        <div className="rounded-t-md bg-red-600 px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-white">
+          {t('overdueAlert.title', { date: cutoffLabel })}
+        </div>
+        <div className="space-y-2.5 px-3 py-3 text-sm">{rows.map((r, i) => <div key={i}>{r}</div>)}</div>
+        <div className="border-t border-border px-3 py-2 text-xs text-muted-foreground">{t('overdueAlert.callToAction')}</div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

@@ -141,7 +141,8 @@
     "unassigned": "{{count}} đơn chưa gán designer",
     "backlog": "{{count}} đơn thiết kế chưa xong",
     "callToAction": "— mọi người chủ động xử lý ngay nhé!",
-    "moreDesigners": "+{{count}} người"
+    "moreDesigners": "+{{count}} người",
+    "chip": "quá hạn"
   },
   "factoryScopeChip": {
     "label": "Đang lọc xưởng: {{name}}",
