@@ -176,6 +176,15 @@ có chứa trang hiện tại hiện một chấm); nhóm **Hệ thống** (Impo
 Promotions, Workshop config, Customers, Zalo/Telegram, Settings) thành MỘT hàng đóng sẵn — quyền từng mục
 giữ nguyên. Code: `Sidebar.tsx` (`NavChild.subgroup`, `SidebarSubGroup`, `openKey` ở `Sidebar`).
 
+**Sửa 05/10/2026 (lần 2) — 9 hàng còn 6.** Tool thành LINK cấp một (một nhóm bọc đúng một trang là bắt bấm hai
+lần; công tắc 3D / 2D chuyển vào trong trang `ToolCheckTab`, giữ badge theo key `dash-tool-check`, mục luôn sáng
+dù URL mang `productLine` nhờ `NavChild.looseScope`). Nhóm **Nhân sự** gộp vào **Hệ thống** (Người dùng, Vai trò,
+Nhóm designer, Mạo danh — quyền từng mục giữ nguyên). **Thông báo + Tài khoản** rời sidebar, vào menu của khối
+người dùng ở đáy (Thông báo · Tài khoản · Đăng xuất); ở thanh thu gọn khối đó chỉ còn avatar. Ví giữ nhóm 2 mục
+(Ví seller + Giao dịch `?range=7d`). Admin: Báo cáo · Sản xuất · Tool · Ship · Ví · Hệ thống = 6 hàng;
+Fulfillment: Báo cáo · Sản xuất · Ship = 3 hàng (do lọc quyền). Nhân viên chưa có khái niệm "thông báo chưa đọc"
+(trang Thông báo là trang trống), nên khối người dùng chưa có chấm.
+
 ### 8.3b Kho — để ở Báo cáo, có đường lui
 
 "Kho" (`/ffm/inventory`) nằm ở Báo cáo theo §2, nhưng thủ kho còn NHẬP phiếu ở

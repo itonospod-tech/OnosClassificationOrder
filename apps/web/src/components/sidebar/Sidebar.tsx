@@ -12,6 +12,7 @@ import {
   Building2,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Contact,
   Crown,
   Factory,
@@ -34,6 +35,7 @@ import {
   Rows3,
   ScanLine,
   Scissors,
+  ScrollText,
   Send,
   Settings,
   ShieldCheck,
@@ -45,12 +47,18 @@ import {
   Truck,
   User,
   UserCog,
-  Users,
   Wallet,
   Workflow,
 } from 'lucide-react';
 import { PRODUCT_LINE_WINDOW_DAYS, PRODUCT_LINES, RoleType } from 'shared';
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -198,6 +206,11 @@ interface NavChild {
    */
   subgroup?: 'lines';
   /**
+   * Stay active when the URL carries a DIFFERENT `productLine`/`view` scope than the link (see
+   * `SCOPE_PARAMS`). For an entry whose page switches that scope itself (Tool: the 3D/2D toggle).
+   */
+  looseScope?: boolean;
+  /**
    * Query the menu adds when OPENING the page (its most useful default view, MenuRestructure-CEO.md
    * §8.1) — NOT part of the entry's identity: active highlighting and the "click again to clear
    * filters" signal compare `to` only. Needed when the page's "filter off" state is the param being
@@ -223,6 +236,8 @@ interface NavItem {
   pagePerm?: string;
   /** Also active on child routes of `to` (e.g. `/adm/settings/<section>`). */
   matchPrefix?: boolean;
+  /** Same meaning as on `NavChild` — only used when the item is a top-level link. */
+  looseScope?: boolean;
 }
 
 interface NavGroup {
@@ -351,10 +366,6 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
   const lines = [...PRODUCT_LINES]
     .sort((a, b) => lineMenuRank(a) - lineMenuRank(b))
     .map((code) => ({ code, icon: LINE_ICONS[code] ?? <Package size={14} /> }));
-  const toolLines = [
-    { code: '3d', icon: <Box size={14} /> },
-    { code: '2d', icon: <Shirt size={14} /> },
-  ];
 
   // Each role's own task board comes FIRST for the roles that own one (Designer, DesignerLeader,
   // Fulfillment): 77% of production users (26 Fulfillment + 15 Designer of 53) open it all day,
@@ -497,25 +508,15 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
       children: [...productionChildren],
     },
     {
-      key: 'nav-tool',
+      // One link, not a group: the group wrapped a single overview page plus two line views. The 3D / 2D
+      // scope is a toggle inside the page now (`ToolCheckTab`), so Tool opens in one click. The key stays
+      // `dash-tool-check` — `badgeMap` attaches the Tool counts by key.
+      key: 'dash-tool-check',
       label: t('sidebar.nav.tool.title'),
+      to: to(`${PATHS.HOME}?tab=tool-check`),
       icon: <FileSearch size={17} />,
-      children: [
-        {
-          key: 'dash-tool-check',
-          label: t('sidebar.nav.tool.overview'),
-          to: to(`${PATHS.HOME}?tab=tool-check`),
-          icon: <FileSearch size={14} />,
-          perm: 'page.tool_check',
-        },
-        ...toolLines.map(({ code, icon }) => ({
-          key: `tool-${code}`,
-          label: t(`sidebar.nav.lines.${code}`),
-          to: to(`${PATHS.HOME}?tab=tool-check&productLine=${code}`),
-          icon,
-          perm: 'page.tool_check',
-        })),
-      ],
+      perm: 'page.tool_check',
+      looseScope: true,
     },
     {
       key: 'nav-ship',
@@ -558,42 +559,13 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
           icon: <Wallet size={14} />,
           onlyForRoles: ADMIN_ROLES,
         },
-      ],
-    },
-    {
-      key: 'nav-hr',
-      label: t('sidebar.nav.hr.title'),
-      icon: <Users size={17} />,
-      children: [
         {
-          key: PATHS.USERS,
-          label: t('sidebar.users'),
-          to: PATHS.USERS,
-          icon: <User size={14} />,
-          perm: 'user.manage',
-          pagePerm: 'page.users',
-        },
-        {
-          key: PATHS.ROLES,
-          label: t('sidebar.roles'),
-          to: PATHS.ROLES,
-          icon: <ShieldCheck size={14} />,
-          perm: 'role.manage',
-          pagePerm: 'page.roles',
-        },
-        {
-          key: PATHS.DESIGNER_TEAM,
-          label: t('sidebar.designerTeam'),
-          to: PATHS.DESIGNER_TEAM,
-          icon: <Palette size={14} />,
-          perm: 'page.designer_team',
-        },
-        {
-          key: PATHS.IMPERSONATE,
-          label: t('sidebar.impersonate'),
-          to: PATHS.IMPERSONATE,
-          icon: <UserCog size={14} />,
-          onlyForRoles: [RoleType.SuperAdmin],
+          // Ledger across all sellers. Opens on the last 7 days (`range=all` is the whole history).
+          key: PATHS.WALLET_TRANSACTIONS,
+          label: t('sidebar.nav.wallet.transactions'),
+          to: `${PATHS.WALLET_TRANSACTIONS}?range=7d`,
+          icon: <ScrollText size={14} />,
+          onlyForRoles: ADMIN_ROLES,
         },
       ],
     },
@@ -704,6 +676,36 @@ function buildNavGroups(
                 ]
               : []),
             {
+              key: PATHS.USERS,
+              label: t('sidebar.users'),
+              to: PATHS.USERS,
+              icon: <User size={14} />,
+              perm: 'user.manage',
+              pagePerm: 'page.users',
+            },
+            {
+              key: PATHS.ROLES,
+              label: t('sidebar.roles'),
+              to: PATHS.ROLES,
+              icon: <ShieldCheck size={14} />,
+              perm: 'role.manage',
+              pagePerm: 'page.roles',
+            },
+            {
+              key: PATHS.DESIGNER_TEAM,
+              label: t('sidebar.designerTeam'),
+              to: PATHS.DESIGNER_TEAM,
+              icon: <Palette size={14} />,
+              perm: 'page.designer_team',
+            },
+            {
+              key: PATHS.IMPERSONATE,
+              label: t('sidebar.impersonate'),
+              to: PATHS.IMPERSONATE,
+              icon: <UserCog size={14} />,
+              onlyForRoles: [RoleType.SuperAdmin],
+            },
+            {
               key: PATHS.SETTINGS,
               label: t('sidebar.settings'),
               to: PATHS.SETTINGS,
@@ -713,18 +715,6 @@ function buildNavGroups(
             },
           ],
         },
-      ],
-    },
-    {
-      title: t('sidebar.groups.personal'),
-      items: [
-        {
-          key: PATHS.NOTIFICATIONS,
-          label: t('sidebar.notifications'),
-          to: PATHS.NOTIFICATIONS,
-          icon: <Bell size={17} />,
-        },
-        { key: PATHS.ACCOUNT, label: t('sidebar.account'), to: PATHS.ACCOUNT, icon: <User size={17} /> },
       ],
     },
   ];
@@ -775,7 +765,13 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
 }
 
-function isLinkActive(linkPath: string, currentPath: string, currentSearch: string, matchPrefix = false): boolean {
+function isLinkActive(
+  linkPath: string,
+  currentPath: string,
+  currentSearch: string,
+  matchPrefix = false,
+  looseScope = false,
+): boolean {
   // linkPath may include `?...` for children
   const [pathPart, queryPart] = linkPath.split('?');
   const pathMatches = matchPrefix
@@ -785,10 +781,11 @@ function isLinkActive(linkPath: string, currentPath: string, currentSearch: stri
   const linkParams = new URLSearchParams(queryPart || '');
   const currentParams = new URLSearchParams(currentSearch);
   // Scope params are matched BOTH WAYS — see `SCOPE_PARAMS`.
-  if (SCOPE_PARAMS.some((p) => (linkParams.get(p) || '') !== (currentParams.get(p) || ''))) return false;
+  if (!looseScope && SCOPE_PARAMS.some((p) => (linkParams.get(p) || '') !== (currentParams.get(p) || ''))) return false;
   if (!queryPart) return true;
   // exact query param subset check
   for (const [k, v] of linkParams.entries()) {
+    if (looseScope && SCOPE_PARAMS.includes(k)) continue;
     if (currentParams.get(k) !== v) return false;
   }
   return true;
@@ -826,7 +823,7 @@ function SidebarLeaf({
   badges?: SidebarBadge[];
 }) {
   const location = useLocation();
-  const active = isLinkActive(item.to, location.pathname, location.search, item.matchPrefix);
+  const active = isLinkActive(item.to, location.pathname, location.search, item.matchPrefix, item.looseScope);
   const requestReset = useSidebarResetStore((s) => s.requestReset);
   const hasBadges = !!badges?.length;
   return (
@@ -888,12 +885,11 @@ function SidebarSubGroup({
   badgeMap: BadgeMap;
 }) {
   const location = useLocation();
-  const anyActive = items.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix));
+  const anyActive = items.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix, c.looseScope));
   const [open, setOpen] = useState(anyActive);
   useEffect(() => {
     if (anyActive) setOpen(true);
   }, [anyActive]);
-  const total = items.reduce((n, c) => n + (badgeMap[c.key]?.[0]?.count ?? 0), 0);
   return (
     <div>
       <button
@@ -910,11 +906,6 @@ function SidebarSubGroup({
       >
         <span className={anyActive ? 'text-nav-accent' : 'text-nav-text'}>{icon}</span>
         <span className="flex-1 truncate">{label}</span>
-        {!open && total > 0 && (
-          <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
-            {total}
-          </span>
-        )}
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
       </button>
       {open && (
@@ -953,7 +944,7 @@ function SidebarParent({
 
   // Parent with children
   const anyChildActive = item.children!.some((c) =>
-    isLinkActive(c.to, location.pathname, location.search, c.matchPrefix),
+    isLinkActive(c.to, location.pathname, location.search, c.matchPrefix, c.looseScope),
   );
 
   if (collapsed) {
@@ -1081,7 +1072,7 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
   useEffect(() => {
     const holder = navGroups
       .flatMap((g) => g.items)
-      .find((it) => it.children?.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix)));
+      .find((it) => it.children?.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix, c.looseScope)));
     if (holder) setOpenKey(holder.key);
   }, [navGroups, location.pathname, location.search]);
 
@@ -1219,22 +1210,56 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
           ))}
         </div>
 
-        {showLabels && profile && (
-          <div className="border-t border-border p-3 flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-              <User size={16} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate">{profile?.fullName}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{profile?.role?.name || t('sidebar.member')}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              title={t('sidebar.signOut')}
-              className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors bg-transparent border-none cursor-pointer"
-            >
-              <LogOut size={15} />
-            </button>
+        {profile && (
+          // The account block is also the menu for the two rarely-opened personal pages, so they do not
+          // take permanent rows in the list above: Notifications · Account · Sign out.
+          <div className="border-t border-border p-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  title={showLabels ? undefined : profile?.fullName}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-lg border-none bg-transparent p-1 text-left transition-colors cursor-pointer hover:bg-nav-open',
+                    !showLabels && 'justify-center',
+                  )}
+                >
+                  <div className="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                    <User size={16} />
+                  </div>
+                  {showLabels && (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{profile?.fullName}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {profile?.role?.name || t('sidebar.member')}
+                        </p>
+                      </div>
+                      <ChevronUp size={14} className="shrink-0 text-muted-foreground" />
+                    </>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link to={PATHS.NOTIFICATIONS}>
+                    <Bell size={14} />
+                    {t('sidebar.notifications')}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={PATHS.ACCOUNT}>
+                    <User size={14} />
+                    {t('sidebar.account')}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                  <LogOut size={14} />
+                  {t('sidebar.signOut')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>

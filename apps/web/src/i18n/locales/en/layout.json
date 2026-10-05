@@ -110,7 +110,8 @@
       },
       "wallet": {
         "title": "Wallet",
-        "sellers": "Seller wallets"
+        "sellers": "Seller wallets",
+        "transactions": "Transactions"
       },
       "hr": {
         "title": "HR"
