@@ -7,7 +7,6 @@ import { useAuthStore } from '@/store/authStore';
 import { RepositoryRemote } from '@/services';
 
 import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
-import OverdueAlertBanner from '@/components/common/OverdueAlertBanner';
 
 import { cn } from '@/utils/cn';
 
@@ -77,9 +76,9 @@ function MainLayout() {
           collapsed={collapsed}
           isMobile={isMobile}
         />
-        {/* Banner đỏ quá hạn 2 ngày — từng bị gỡ 07/09/2026 khi redesign workshop board,
-            gắn lại 10/09/2026 theo yêu cầu user (OverdueAlertBanner.md). */}
-        <OverdueAlertBanner />
+        {/* The overdue alert (once a red strip here) is now a chip in the Header — see OverdueAlertBanner.md.
+            It was removed by mistake on 07/09/2026 and put back on 10/09/2026: it must stay mounted somewhere
+            on every page, it only changed shape. */}
         {/* `flex flex-col`: trang nào muốn CHIẾM ĐỦ chiều cao (bảng tự cuộn, chân bảng đứng yên) chỉ cần
             `flex-1 min-h-0` trên root của nó; trang thường vẫn cao theo nội dung và <main> cuộn như cũ. */}
         <main className="app-page flex flex-1 flex-col overflow-auto bg-page p-4 md:p-6">

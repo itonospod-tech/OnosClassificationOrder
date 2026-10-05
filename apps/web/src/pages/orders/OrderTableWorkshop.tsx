@@ -134,6 +134,8 @@ const getScrollParent = (node: HTMLElement | null): HTMLElement => {
 
 interface ProductRowProps {
   row: OrderRow;
+  /** Drop the product name from the line (the group header already shows it); false for search results. */
+  hideType: boolean;
   groups: ResolvedColGroup[];
   /** Fields that left the one-line row — shown in the details popover. */
   panelCols: WorkshopColMeta[];
@@ -159,6 +161,7 @@ interface ProductRowProps {
  */
 const ProductRow = React.memo(function ProductRow({
   row,
+  hideType,
   groups,
   panelCols,
   ctx,
@@ -187,10 +190,10 @@ const ProductRow = React.memo(function ProductRow({
     const effectiveCtx = held ? { ...ctx, canEditField: () => false } : ctx;
     const map = new Map<string, React.ReactNode>();
     for (const g of groups) {
-      for (const c of g.members) map.set(c.key, renderMember(c, row, effectiveCtx, true));
+      for (const c of g.members) map.set(c.key, renderMember(c, row, effectiveCtx, true, { hideType }));
     }
     return map;
-  }, [groups, row, ctx, held]);
+  }, [groups, row, ctx, held, hideType]);
   // Trải thẳng bg classes (KHÔNG dùng bg-inherit vì sticky cell cần own bg để
   // mask cell scroll phía sau — `inherit` không reliable với TR background).
   // BẮT BUỘC màu ĐẶC (không alpha `/NN`) — sticky cell (checkbox/identity/action)
@@ -1187,8 +1190,11 @@ export function OrderTableWorkshop() {
   return (
     <TooltipProvider delayDuration={200}>
       {/* Khung cột cố định: phễu + thanh công cụ đứng yên, vùng rail|bảng chiếm phần còn lại, CHỈ thân bảng cuộn. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3" ref={rootRef}>
+      <div className="flex min-h-0 flex-1 flex-col gap-2" ref={rootRef}>
+        {/* One card for the stage funnel and the toolbar: both are filters, so they share one frame. */}
+        <div className="space-y-1.5 rounded-lg border border-border bg-card p-2">
         <WorkshopStageStrip
+          embedded
           filters={workshopFilters}
           activeStage={filterStage}
           onStageChange={(st) => {
@@ -1200,6 +1206,7 @@ export function OrderTableWorkshop() {
         />
 
         <WorkshopToolbar
+          embedded
           windowChip={windowChip}
           onBulkApply={(ids) => {
             setSearch(''); // bulk và search thường loại trừ nhau
@@ -1236,6 +1243,7 @@ export function OrderTableWorkshop() {
           showDesignerSummary={canSeeDesignerSummary ? showDesignerSummary : undefined}
           onToggleDesignerSummary={canSeeDesignerSummary ? () => setShowDesignerSummary((v) => !v) : undefined}
         />
+        </div>
 
         {canSeeDesignerSummary && showDesignerSummary && (
           <div className="space-y-2">
@@ -1468,6 +1476,7 @@ export function OrderTableWorkshop() {
                       dataIndex={vi.index}
                       row={item.row}
                       groups={colGroups}
+                      hideType={!pid.trim() && bulkIds.length === 0}
                       panelCols={panelCols}
                       ctx={renderCtx}
                       comboN={item.comboN}

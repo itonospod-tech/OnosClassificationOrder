@@ -1,5 +1,8 @@
 # Overdue Alert Banner (Banner đỏ quá hạn 2 ngày) — Function Description
 
+> **Đổi hình hài 05/10/2026:** banner đỏ toàn cục KHÔNG còn là một dải ngang dưới Header (ăn ~40px chiều cao mọi trang). Nó thành **chip đỏ trong Header** ("⚠ 16 quá hạn" — tổng chưa soát + chưa gán + designer chưa xong), bấm mở popover giữ NGUYÊN nội dung cũ: tiêu đề ngày, link "N đơn chưa soát tool", link "N đơn chưa gán designer", link "N đơn thiết kế chưa xong" kèm tên + số từng designer. Vẫn KHÔNG tắt được, vẫn luôn hiện, vẫn đỏ, cùng quyền xem (`OVERDUE_ROLES`). Component `OverdueAlertBanner.tsx` (giữ tên file/export), gắn trong `components/header/index.tsx` thay vì `MainLayout.tsx` — nhớ nó từng bị gỡ nhầm 07/09 và gắn lại 10/09: phải luôn gắn ở một chỗ của khung chung.
+
+
 > **File FE:** `apps/web/src/components/common/OverdueAlertBanner.tsx`, gắn trong `apps/web/src/layouts/mainLayout/MainLayout.tsx` (giữa `<Header/>` và `<main/>`)
 > **File BE:** `apps/api/src/modules/designer/designer-stats.service.ts` → `getOverdueAlert()`, `designer-stats.controller.ts`
 > **Route:** không có route riêng — banner hiện trên MỌI trang `/adm` + `/ffm`

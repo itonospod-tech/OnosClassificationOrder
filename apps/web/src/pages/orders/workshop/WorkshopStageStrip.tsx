@@ -22,12 +22,15 @@ export interface WorkshopStageStripProps {
   filters: WorkshopAvailableFilters | null;
   /** May be `__open__` (product-line default): no cell is highlighted then. */
   activeStage: WorkshopStageFilter | '';
+  /** Drawn inside a card the caller owns (no border, background or padding of its own). */
+  embedded?: boolean;
   onStageChange: (stage: WorkshopStageFilterKey | '') => void;
 }
 
 export function WorkshopStageStrip({
   filters,
   activeStage,
+  embedded,
   onStageChange,
 }: WorkshopStageStripProps) {
   const { t } = useTranslation('orders');
@@ -40,7 +43,7 @@ export function WorkshopStageStrip({
   // filters. The full tiles are a glance at the start of a shift, so they fold away and the choice is kept.
   if (!expanded) {
     return (
-      <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5">
+      <div className={cn('flex items-center gap-1.5', !embedded && 'rounded-lg border border-border bg-card px-2.5 py-1.5')}>
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {LIFECYCLE_STAGE_KEYS.map((key) => {
             const n = counts[key] || 0;
@@ -79,7 +82,7 @@ export function WorkshopStageStrip({
   }
 
   return (
-    <div className="relative rounded-lg border border-border bg-card p-3">
+    <div className={cn('relative', !embedded && 'rounded-lg border border-border bg-card p-3')}>
       <button
         type="button"
         onClick={toggleFunnel}
