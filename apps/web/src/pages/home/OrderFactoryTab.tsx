@@ -40,6 +40,7 @@ import { useFactoryScope } from '@/hooks/useFactoryScope';
 import { NO_TOOL_ROW_CLASS, useIsNoTool } from '@/hooks/useIsNoTool';
 import { usePermission } from '@/hooks/usePermission';
 
+import { DailyBySellerReport } from './DailyBySellerReport';
 import { buildWorkbook, downloadWorkbook, type ExportableOrder } from './exportOrders';
 
 type PrintStage = 'printed' | 'printing' | 'not-printed';
@@ -961,6 +962,9 @@ export default function OrderFactoryTab() {
             }}
           />
         </div>
+
+        {/* Legacy "Production Report › Daily report" (a1, 05/10/2026): collapsible, loads when opened. */}
+        <DailyBySellerReport factoryId={filterMode.kind === 'at' ? filterMode.factoryId : undefined} />
 
         <ImagePreviewDialog
           open={!!preview}

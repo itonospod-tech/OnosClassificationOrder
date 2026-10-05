@@ -788,5 +788,16 @@
         "description": "Dán mã sản xuất để xem đơn đang ở chặng nào."
       }
     }
+  },
+  "dailyBySeller": {
+    "title": "Báo cáo ngày theo seller",
+    "subtitle": "Số item hoàn thành + kiện bàn giao mỗi ngày, theo seller",
+    "seller": "Seller",
+    "total": "Tổng item",
+    "packages": "Kiện bàn giao",
+    "allSellers": "Tất cả seller",
+    "export": "Xuất Excel",
+    "empty": "Không có item nào hoàn thành trong khoảng này.",
+    "tooLong": "Chọn tối đa {{max}} ngày."
   }
 }
