@@ -871,10 +871,10 @@ function SidebarLeaf({
 }
 
 /**
- * Collapsible sub-row inside a group (Production › By product line). Lists only the entries worth
- * showing — a line with no open orders drops out until it gets some, so a line that has never had an
- * order (LED, Canvas, Dropship) costs no menu space. The active entry always stays visible, and it
- * opens the row by itself so the user never loses their place.
+ * Collapsible sub-row inside a group (Production › Product lines). It lists EVERY entry in its fixed
+ * order — a 0 count is information ("nothing today"), not a reason to hide a line: the badge counts
+ * only the recent window, so a line with older open orders would otherwise lose its way in. The
+ * active entry opens the row by itself so the user never loses their place.
  */
 function SidebarSubGroup({
   label,
@@ -888,19 +888,12 @@ function SidebarSubGroup({
   badgeMap: BadgeMap;
 }) {
   const location = useLocation();
-  const isActive = (c: NavChild) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix);
-  const shown = items.filter((c) => {
-    const b = badgeMap[c.key];
-    // No badge entry = counts not loaded / not available to this role: show everything rather than hide on no data.
-    return isActive(c) || !b?.length || b[0].count > 0;
-  });
-  const anyActive = items.some(isActive);
+  const anyActive = items.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix));
   const [open, setOpen] = useState(anyActive);
   useEffect(() => {
     if (anyActive) setOpen(true);
   }, [anyActive]);
-  if (shown.length === 0) return null;
-  const total = shown.reduce((n, c) => n + (badgeMap[c.key]?.[0]?.count ?? 0), 0);
+  const total = items.reduce((n, c) => n + (badgeMap[c.key]?.[0]?.count ?? 0), 0);
   return (
     <div>
       <button
@@ -926,7 +919,7 @@ function SidebarSubGroup({
       </button>
       {open && (
         <div className="space-y-0.5 py-0.5">
-          {shown.map((c) => (
+          {items.map((c) => (
             <SidebarLeaf key={c.key} item={c} collapsed={false} level={2} badges={badgeMap[c.key]} />
           ))}
         </div>
