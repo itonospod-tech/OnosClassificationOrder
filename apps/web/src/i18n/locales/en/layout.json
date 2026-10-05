@@ -89,7 +89,8 @@
         "title": "Production",
         "all": "All orders",
         "orders": "Orders",
-        "station": "At the station"
+        "station": "At the station",
+        "byLine": "Product lines"
       },
       "lines": {
         "3d": "3D",

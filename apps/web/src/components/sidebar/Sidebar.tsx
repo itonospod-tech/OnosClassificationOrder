@@ -18,6 +18,7 @@ import {
   FileDown,
   FileSearch,
   Frame,
+  Layers,
   Lightbulb,
   List,
   ListChecks,
@@ -190,6 +191,12 @@ interface NavChild {
   matchPrefix?: boolean;
   /** Small section caption rendered RIGHT ABOVE this entry (splits children within one group). */
   sectionBefore?: string;
+  /**
+   * Children sharing a `subgroup` fold into ONE collapsible sub-row at the position of the first
+   * of them (Production › By product line). The tree stays flat on purpose: the permission map and
+   * the role filter walk `children` exactly as before.
+   */
+  subgroup?: 'lines';
   /**
    * Query the menu adds when OPENING the page (its most useful default view, MenuRestructure-CEO.md
    * §8.1) — NOT part of the entry's identity: active highlighting and the "click again to clear
@@ -404,6 +411,7 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
       to: to(withQuery(PATHS.ORDERS_WORKSHOP, `productLine=${code}`)),
       icon,
       perm: 'page.orders',
+      subgroup: 'lines' as const,
     })),
   ];
   const stationBlock: NavChild[] = [
@@ -604,97 +612,106 @@ function buildNavGroups(
       // Group 7 "System" (MenuRestructure-CEO.md §8.2 #1/#3/#5): admin and data-intake work that the
       // legacy app also kept in a separate flat admin area. Each entry keeps its own permission, so
       // Support still sees Import Order / Unmapped here — the group is not hard-locked to Admin.
-      title: t('sidebar.groups.system'),
+      // Folded into ONE closed row (Oct 2026): these are occasional admin tools, and 41 of 53
+      // production accounts never open them — eleven permanent rows buried the daily ones.
+      title: '',
       items: [
         {
-          key: 'orders-import',
-          label: t('sidebar.orders.import'),
-          to: withFactory(PATHS.ORDERS_IMPORT, factoryScopeId),
-          icon: <FileDown size={17} />,
-          perm: 'order.import',
-        },
-        {
-          key: 'orders-cutting-files',
-          label: t('sidebar.orders.cuttingFiles'),
-          to: withFactory(PATHS.ORDERS_CUTTING_FILES, factoryScopeId),
-          icon: <Scissors size={17} />,
-          perm: 'order.import',
-        },
-        {
-          key: 'orders-unmapped',
-          label: t('sidebar.orders.unmapped'),
-          to: withFactory(PATHS.ORDERS_UNMAPPED, factoryScopeId),
-          icon: <MapPin size={17} />,
-          perm: 'page.unmapped_factory',
-        },
-        {
-          key: PATHS.PRODUCTS,
-          label: t('sidebar.products'),
-          to: PATHS.PRODUCTS,
-          icon: <Package size={17} />,
-          perm: 'page.products',
-        },
-        {
-          key: PATHS.PROMOTIONS,
-          label: t('sidebar.promotions'),
-          to: PATHS.PROMOTIONS,
-          icon: <Tag size={17} />,
-          perm: 'page.promotions',
-        },
-        {
-          key: PATHS.WORKSHOP_CONFIG,
-          label: t('sidebar.workshopConfig'),
-          to: PATHS.WORKSHOP_CONFIG,
-          icon: <Building2 size={17} />,
-          perm: 'workshop.manage',
-          // DesignerLeader HAS `page.workshop_config` but NOT `workshop.manage`:
-          // the menu stays hidden as before, while the route opens — matching their right to enter the page.
-          pagePerm: 'page.workshop_config',
-        },
-        {
-          key: PATHS.CUSTOMERS,
-          label: t('sidebar.customers'),
-          to: PATHS.CUSTOMERS,
-          icon: <Contact size={17} />,
-          perm: 'page.customers',
-        },
-        // The three Zalo/Telegram entries only show for accounts on the allowlist
-        // (`constants/zaloAccess.ts`). The REAL gate is in the backend — this is the display
-        // layer so people without access don't click in and get a 403.
-        ...(duocTruyCapZalo(userEmail)
-          ? [
-              {
-                key: PATHS.ZALO_GROUPS,
-                label: t('sidebar.zaloGroups'),
-                to: PATHS.ZALO_GROUPS,
-                icon: <MessageSquare size={17} />,
-                perm: 'page.zalo_groups',
-              },
-              {
-                // Embedded Zalo chat (vendor module). Fine-grained permissions still live
-                // in the engine's "Permissions" dialog; this allowlist comes first and
-                // decides who is granted a session.
-                key: PATHS.ZALO_CHAT,
-                label: t('sidebar.zaloChat'),
-                to: PATHS.ZALO_CHAT,
-                icon: <MessagesSquare size={17} />,
-              },
-              {
-                // Same engine, same session as the Zalo screen — so the same gate.
-                key: PATHS.TELEGRAM,
-                label: t('sidebar.telegram'),
-                to: PATHS.TELEGRAM,
-                icon: <Send size={17} />,
-              },
-            ]
-          : []),
-        {
-          key: PATHS.SETTINGS,
-          label: t('sidebar.settings'),
-          to: PATHS.SETTINGS,
+          key: 'nav-system',
+          label: t('sidebar.groups.system'),
           icon: <Settings size={17} />,
-          perm: 'role.manage',
-          matchPrefix: true,
+          children: [
+            {
+              key: 'orders-import',
+              label: t('sidebar.orders.import'),
+              to: withFactory(PATHS.ORDERS_IMPORT, factoryScopeId),
+              icon: <FileDown size={14} />,
+              perm: 'order.import',
+            },
+            {
+              key: 'orders-cutting-files',
+              label: t('sidebar.orders.cuttingFiles'),
+              to: withFactory(PATHS.ORDERS_CUTTING_FILES, factoryScopeId),
+              icon: <Scissors size={14} />,
+              perm: 'order.import',
+            },
+            {
+              key: 'orders-unmapped',
+              label: t('sidebar.orders.unmapped'),
+              to: withFactory(PATHS.ORDERS_UNMAPPED, factoryScopeId),
+              icon: <MapPin size={14} />,
+              perm: 'page.unmapped_factory',
+            },
+            {
+              key: PATHS.PRODUCTS,
+              label: t('sidebar.products'),
+              to: PATHS.PRODUCTS,
+              icon: <Package size={14} />,
+              perm: 'page.products',
+            },
+            {
+              key: PATHS.PROMOTIONS,
+              label: t('sidebar.promotions'),
+              to: PATHS.PROMOTIONS,
+              icon: <Tag size={14} />,
+              perm: 'page.promotions',
+            },
+            {
+              key: PATHS.WORKSHOP_CONFIG,
+              label: t('sidebar.workshopConfig'),
+              to: PATHS.WORKSHOP_CONFIG,
+              icon: <Building2 size={14} />,
+              perm: 'workshop.manage',
+              // DesignerLeader HAS `page.workshop_config` but NOT `workshop.manage`:
+              // the menu stays hidden as before, while the route opens — matching their right to enter the page.
+              pagePerm: 'page.workshop_config',
+            },
+            {
+              key: PATHS.CUSTOMERS,
+              label: t('sidebar.customers'),
+              to: PATHS.CUSTOMERS,
+              icon: <Contact size={14} />,
+              perm: 'page.customers',
+            },
+            // The three Zalo/Telegram entries only show for accounts on the allowlist
+            // (`constants/zaloAccess.ts`). The REAL gate is in the backend — this is the display
+            // layer so people without access don't click in and get a 403.
+            ...(duocTruyCapZalo(userEmail)
+              ? [
+                  {
+                    key: PATHS.ZALO_GROUPS,
+                    label: t('sidebar.zaloGroups'),
+                    to: PATHS.ZALO_GROUPS,
+                    icon: <MessageSquare size={14} />,
+                    perm: 'page.zalo_groups',
+                  },
+                  {
+                    // Embedded Zalo chat (vendor module). Fine-grained permissions still live
+                    // in the engine's "Permissions" dialog; this allowlist comes first and
+                    // decides who is granted a session.
+                    key: PATHS.ZALO_CHAT,
+                    label: t('sidebar.zaloChat'),
+                    to: PATHS.ZALO_CHAT,
+                    icon: <MessagesSquare size={14} />,
+                  },
+                  {
+                    // Same engine, same session as the Zalo screen — so the same gate.
+                    key: PATHS.TELEGRAM,
+                    label: t('sidebar.telegram'),
+                    to: PATHS.TELEGRAM,
+                    icon: <Send size={14} />,
+                  },
+                ]
+              : []),
+            {
+              key: PATHS.SETTINGS,
+              label: t('sidebar.settings'),
+              to: PATHS.SETTINGS,
+              icon: <Settings size={14} />,
+              perm: 'role.manage',
+              matchPrefix: true,
+            },
+          ],
         },
       ],
     },
@@ -829,7 +846,8 @@ function SidebarLeaf({
           ? 'bg-nav-accent/10 font-medium text-nav-accent before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-nav-accent'
           : 'text-nav-text hover:bg-nav-open hover:text-foreground',
         collapsed && 'justify-center',
-        !collapsed && level > 0 && 'ml-5 py-1.5 text-[13px]',
+        !collapsed && level === 1 && 'ml-5 py-1.5 text-[13px]',
+        !collapsed && level > 1 && 'ml-9 py-1.5 text-[13px]',
       )}
     >
       <span className={active ? 'text-nav-accent' : 'text-nav-text'}>{item.icon}</span>
@@ -852,26 +870,89 @@ function SidebarLeaf({
   );
 }
 
-function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed: boolean; badgeMap: BadgeMap }) {
+/**
+ * Collapsible sub-row inside a group (Production › By product line). Lists only the entries worth
+ * showing — a line with no open orders drops out until it gets some, so a line that has never had an
+ * order (LED, Canvas, Dropship) costs no menu space. The active entry always stays visible, and it
+ * opens the row by itself so the user never loses their place.
+ */
+function SidebarSubGroup({
+  label,
+  icon,
+  items,
+  badgeMap,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  items: NavChild[];
+  badgeMap: BadgeMap;
+}) {
+  const location = useLocation();
+  const isActive = (c: NavChild) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix);
+  const shown = items.filter((c) => {
+    const b = badgeMap[c.key];
+    // No badge entry = counts not loaded / not available to this role: show everything rather than hide on no data.
+    return isActive(c) || !b?.length || b[0].count > 0;
+  });
+  const anyActive = items.some(isActive);
+  const [open, setOpen] = useState(anyActive);
+  useEffect(() => {
+    if (anyActive) setOpen(true);
+  }, [anyActive]);
+  if (shown.length === 0) return null;
+  const total = shown.reduce((n, c) => n + (badgeMap[c.key]?.[0]?.count ?? 0), 0);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={cn(
+          'ml-5 flex w-[calc(100%-1.25rem)] items-center gap-2.5 rounded-lg border-none px-3 py-1.5 text-left text-[13px] transition-colors cursor-pointer',
+          open
+            ? 'bg-transparent text-foreground'
+            : 'bg-transparent text-nav-text hover:bg-nav-open hover:text-foreground',
+          anyActive && 'font-medium',
+        )}
+      >
+        <span className={anyActive ? 'text-nav-accent' : 'text-nav-text'}>{icon}</span>
+        <span className="flex-1 truncate">{label}</span>
+        {!open && total > 0 && (
+          <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
+            {total}
+          </span>
+        )}
+        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+      </button>
+      {open && (
+        <div className="space-y-0.5 py-0.5">
+          {shown.map((c) => (
+            <SidebarLeaf key={c.key} item={c} collapsed={false} level={2} badges={badgeMap[c.key]} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarParent({
+  item,
+  collapsed,
+  badgeMap,
+  open,
+  onToggle,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  badgeMap: BadgeMap;
+  /** Accordion state lives in `Sidebar`: opening one group closes the others. */
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation('layout');
   const location = useLocation();
   const hasChildren = !!item.children?.length;
   const childBadges = hasChildren ? item.children!.flatMap((c) => badgeMap[c.key] || []) : [];
-
-  // Open by default if any child matches current path
-  const initialOpen = hasChildren
-    ? item.children!.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix))
-    : false;
-  const [open, setOpen] = useState(initialOpen);
-
-  useEffect(() => {
-    // Auto-expand when navigating to a child
-    if (
-      hasChildren &&
-      item.children!.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix))
-    ) {
-      setOpen(true);
-    }
-  }, [location.pathname, location.search]);
 
   if (!hasChildren && item.to) {
     return <SidebarLeaf item={item as NavChild} collapsed={collapsed} badges={badgeMap[item.key]} />;
@@ -903,7 +984,8 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
     <div>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
+        aria-expanded={open}
         className={cn(
           'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left border-none cursor-pointer',
           // An open group sits on a very light grey row with regular text, as in the legacy app —
@@ -921,6 +1003,7 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
             ))}
           </span>
         )}
+        {!open && anyChildActive && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-nav-accent" aria-hidden />}
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
       {/* Slide open/closed like the legacy menu: animate grid rows 0fr→1fr (no fixed height).
@@ -935,16 +1018,31 @@ function SidebarParent({ item, collapsed, badgeMap }: { item: NavItem; collapsed
       >
         <div className="min-h-0 overflow-hidden">
           <div className="space-y-0.5 py-1">
-            {item.children!.map((c) => (
-              <React.Fragment key={c.key}>
-                {c.sectionBefore && (
-                  <p className="ml-5 px-3 pt-2 pb-0.5 text-[11px] font-medium uppercase tracking-[.14px] text-nav-group">
-                    {c.sectionBefore}
-                  </p>
-                )}
-                <SidebarLeaf item={c} collapsed={false} level={1} badges={badgeMap[c.key]} />
-              </React.Fragment>
-            ))}
+            {item.children!.map((c, idx, all) => {
+              if (c.subgroup) {
+                // The whole sub-group renders once, where its first member sits.
+                if (all.findIndex((x) => x.subgroup === c.subgroup) !== idx) return null;
+                return (
+                  <SidebarSubGroup
+                    key={`sub-${c.subgroup}`}
+                    label={t('sidebar.nav.production.byLine')}
+                    icon={<Layers size={14} />}
+                    items={all.filter((x) => x.subgroup === c.subgroup)}
+                    badgeMap={badgeMap}
+                  />
+                );
+              }
+              return (
+                <React.Fragment key={c.key}>
+                  {c.sectionBefore && (
+                    <p className="ml-5 px-3 pt-2 pb-0.5 text-[11px] font-medium uppercase tracking-[.14px] text-nav-group">
+                      {c.sectionBefore}
+                    </p>
+                  )}
+                  <SidebarLeaf item={c} collapsed={false} level={1} badges={badgeMap[c.key]} />
+                </React.Fragment>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -982,6 +1080,17 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
       ),
     [t, factoryScopeId, userEmail, permissionCodes, isAdmin, roleName],
   );
+
+  // Accordion: one group open at a time. The group holding the current page opens itself on every
+  // navigation, so the user is never left looking at a closed menu with no sign of where they are.
+  const location = useLocation();
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  useEffect(() => {
+    const holder = navGroups
+      .flatMap((g) => g.items)
+      .find((it) => it.children?.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix)));
+    if (holder) setOpenKey(holder.key);
+  }, [navGroups, location.pathname, location.search]);
 
   const counts = useSidebarBadgeStore((s) => s.counts);
   const refreshRequestedAt = useSidebarBadgeStore((s) => s.refreshRequestedAt);
@@ -1103,7 +1212,14 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
               )}
               <div className="space-y-0.5">
                 {group.items.map((item) => (
-                  <SidebarParent key={item.key} item={item} collapsed={!showLabels} badgeMap={badgeMap} />
+                  <SidebarParent
+                    key={item.key}
+                    item={item}
+                    collapsed={!showLabels}
+                    badgeMap={badgeMap}
+                    open={openKey === item.key}
+                    onToggle={() => setOpenKey((k) => (k === item.key ? null : item.key))}
+                  />
                 ))}
               </div>
             </div>

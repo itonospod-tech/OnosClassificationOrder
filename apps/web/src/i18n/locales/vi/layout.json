@@ -89,7 +89,8 @@
         "title": "Sản xuất",
         "all": "Tất cả đơn",
         "orders": "Đơn hàng",
-        "station": "Tại trạm"
+        "station": "Tại trạm",
+        "byLine": "Dòng sản phẩm"
       },
       "lines": {
         "3d": "3D",
