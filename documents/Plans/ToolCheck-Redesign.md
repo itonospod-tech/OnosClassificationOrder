@@ -1,6 +1,6 @@
-# Tool-check redesign — proposal (NO code until approved)
+# Tool-check redesign — proposal
 
-Status: proposal for owner approval. Data: dev DB, read-only, snapshot 05/10/2026 (orders to 04/10, orderLogs to 03/10). Monthly figures come from `fulfillmentTimeline[].at`, not `updatedAt`.
+Status: Phase 1 APPROVED 05/10/2026 and implemented (kanban "Soát tool" target behind the per-factory flag `allowToolCheckRework`, default OFF; corrected hint text; Telegram "Hold Support" line). Phase 2 waits for the measurement. Data: dev DB, read-only, snapshot 05/10/2026 (orders to 04/10, orderLogs to 03/10). Monthly figures come from `fulfillmentTimeline[].at`, not `updatedAt`.
 
 > **Scope of the experiment (read first):** "enable at In Mê Linh" really means enabling it for the **Print stage of that factory only**. QC-after-press Thái Nguyên (45 of the 286 historical send-backs), QC-after-press Mê Linh (37) and In Thái Nguyên (33) still have no route to Support. The first run covers roughly **150 of 286 (~52%)** of the historical volume. It is a signal, not a full test.
 

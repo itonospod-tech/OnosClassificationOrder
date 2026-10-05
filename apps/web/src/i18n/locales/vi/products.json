@@ -196,6 +196,10 @@
         "label": "Bỏ qua soát tool",
         "hint": "Bật: đơn MỚI import/push vào xưởng này được coi là đã soát \"ok\" ngay lúc tạo và vào thẳng công đoạn In — không qua Support soát, không auto-gán designer. Chỉ áp đơn tạo mới; đơn đang chạy giữ nguyên."
       },
+      "allowToolCheckRework": {
+        "label": "Cho công nhân In đẩy đơn về Support (Soát tool)",
+        "hint": "Bật: trong hộp thoại \"Báo lỗi / đẩy về\" của kanban, công nhân In xưởng này có thêm đích \"Soát tool\" để đẩy đơn về Support. Chỉ công đoạn In. Đơn nằm ở Support quá 24 giờ thì báo cáo Telegram sẽ cảnh báo."
+      },
       "autoStockOut": {
         "label": "Tự trừ tồn kho sau in label",
         "hint": "Bật: tại trạm quét, sau khi in label giao hàng của đơn thì hệ thống TỰ trừ tồn kho (phôi) theo đơn — không cần quét mã ACT-STOCK-OUT xác nhận. Trừ lặp vô hại: mỗi đơn chỉ trừ 1 lần trừ khi chủ đích trừ lại cho đơn làm lại."

@@ -31,12 +31,13 @@ type TransitionInput = {
   action: FulfillmentTransitionAction;
   currentStatus: FulfillmentStageStatus;
   stageState: FulfillmentStageState;
-  target?: 'designer' | FulfillmentStage;
+  target?: 'designer' | 'tool-check' | FulfillmentStage;
   reason?: string;
   stages: FulfillmentStages;
   user: UserDocument;
   flowType?: FactoryFlowType;
   autoPack?: boolean;
+  toolCheckRework?: boolean;
 };
 type TransitionPlan = {
   nextStatus: FulfillmentStageStatus;
@@ -497,5 +498,43 @@ describe('Sweeping backlog at auto-stages', () => {
       FulfillmentStage.SewOut,
       FulfillmentStage.Pack,
     ]);
+  });
+});
+
+describe('rework-back to Support ("tool-check")', () => {
+  const send = (over: Partial<TransitionInput>) =>
+    resolve({
+      stage: FulfillmentStage.Print,
+      action: FulfillmentTransitionAction.ReworkBack,
+      currentStatus: FulfillmentStageStatus.Waiting,
+      stageState: { status: FulfillmentStageStatus.Waiting, reworkCount: 0, workMs: 0 },
+      target: 'tool-check',
+      reason: 'missing file',
+      stages: {} as FulfillmentStages,
+      user: worker,
+      ...over,
+    });
+
+  it('writes the same marker the table cell writes, and logs reworkTarget=tool-check', () => {
+    const plan = send({ toolCheckRework: true });
+
+    expect(plan.patch.$set).toMatchObject({
+      toolResultNote: 'error',
+      productionErrorSource: 'tool-check',
+      productionErrorNote: 'missing file',
+      readyForFulfill: false,
+    });
+    expect(timelineEntries(plan)[0]).toMatchObject({ reworkTarget: 'tool-check', reason: 'missing file' });
+    // The order stays at Print as "waiting back": no stage is moved to rework.
+    expect(Object.keys(plan.patch.$set).some((k) => k.endsWith('.reworkAt'))).toBe(false);
+  });
+
+  it('is refused when the factory flag is off', () => {
+    expect(() => send({ toolCheckRework: false })).toThrow(/Soát tool/);
+    expect(() => send({})).toThrow(/Soát tool/);
+  });
+
+  it('is refused for any stage other than Print, even with the flag on', () => {
+    expect(() => send({ stage: FulfillmentStage.Press, toolCheckRework: true })).toThrow(/Soát tool/);
   });
 });

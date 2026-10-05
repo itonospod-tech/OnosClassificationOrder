@@ -28,6 +28,12 @@ export const FactoryZod = BaseEntityZod.extend({
    */
   skipToolCheck: z.boolean().default(false),
   /**
+   * Show the "Soát tool" target in the kanban rework dialog (Print stage only)
+   * so the worker can send an order back to Support. Default OFF; see
+   * `documents/Plans/ToolCheck-Redesign.md`.
+   */
+  allowToolCheckRework: z.boolean().default(false),
+  /**
    * Tự TRỪ TỒN KHO sau khi in label giao hàng thành công tại trạm quét —
    * mặc định TẮT: người dùng quét `ACT-STOCK-OUT` xác nhận trừ tay. Cờ do FE
    * đọc (qua `GET /inventory/scan-out/preview`) để quyết định có gọi
@@ -63,6 +69,7 @@ export const FactoryOptionItemZod = z.object({
   _id: z.string(),
   name: z.string(),
   shortName: z.string(),
+  allowToolCheckRework: z.boolean().optional(),
 });
 export type FactoryOptionItem = z.infer<typeof FactoryOptionItemZod>;
 
@@ -77,6 +84,7 @@ export const CreateFactoryZod = z.object({
   flowType: z.nativeEnum(FactoryFlowType).optional(),
   autoCompletePack: z.boolean().optional(),
   skipToolCheck: z.boolean().optional(),
+  allowToolCheckRework: z.boolean().optional(),
   autoStockOut: z.boolean().optional(),
 });
 export class CreateFactoryDto extends createZodDto(extendApi(CreateFactoryZod)) {}
@@ -92,6 +100,7 @@ export const UpdateFactoryZod = z.object({
   flowType: z.nativeEnum(FactoryFlowType).optional(),
   autoCompletePack: z.boolean().optional(),
   skipToolCheck: z.boolean().optional(),
+  allowToolCheckRework: z.boolean().optional(),
   autoStockOut: z.boolean().optional(),
 });
 export class UpdateFactoryDto extends createZodDto(extendApi(UpdateFactoryZod)) {}

@@ -25,6 +25,8 @@ Bối cảnh: đơn `toolResultNote='ok'` được đẩy thẳng sang In (xem `
 2. BE (`updateField('productionError')`): set `productionErrorSource='tool-check'`, `toolResultNote='error'`, `readyForFulfill=false`, `$inc productionErrorCount`, `productionErrorNote`. Reporter stage `print` → `waiting` (reworkCount++), push `fulfillmentTimeline { action:'rework-back', reworkTarget:'tool-check', byUserId:In }`.
 3. **Marker "support-hold"** = `productionErrorSource='tool-check' AND toolResultNote='error'`. Đơn nằm tab **"Đang chờ quay lại"** của In (KHÔNG lọt "Đang chờ" active). Song song với cách designer dùng `designerStatus='rework'`.
 
+**Lối vào thứ hai — kanban Fulfillment (cờ theo xưởng, MẶC ĐỊNH TẮT):** hộp thoại "Báo lỗi / đẩy về" (`ReworkBackDialog.tsx`) có thêm đích **"Soát tool (Support)"** CHỈ khi xưởng bật `FactoryEntity.allowToolCheckRework` VÀ công nhân ở công đoạn **In** (BE kiểm lại cả hai ở `resolveTransition`, FE chỉ ẩn/hiện; target `'tool-check'` trong `FulfillmentTransitionZod`). Ghi cùng marker như ô bảng (`productionErrorSource='tool-check'`, `toolResultNote='error'`, `productionErrorNote`, `readyForFulfill=false`) + timeline `reworkTarget:'tool-check'`; KHÔNG tăng `productionErrorCount`/`productionFirstErrorAt` (giống nhánh designer của kanban). Lý do ra đời + cách đo + luật dừng: `documents/Plans/ToolCheck-Redesign.md`. Người giám sát thời gian nằm hold: dòng "Hold Support" trong báo cáo Telegram (`TelegramNotification.md`).
+
 ### 2.2 Support soát lại → 2 kết cục ('ok' về In · "Đã soát xong" về designer)
 
 Đơn hold (marker `source='tool-check'` + `note='error'`) sau khi Support soát lại có 2 đường:

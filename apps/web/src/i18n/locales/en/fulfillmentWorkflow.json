@@ -161,6 +161,7 @@
     "description": "Choose where to send it for processing (Designer or a previous stage) and describe the error.",
     "pushTo": "Push back to",
     "designer": "Designer",
+    "toolCheck": "Tool check (Support)",
     "reasonLabel": "Error reason",
     "reasonPlaceholder": "Briefly describe the error encountered...",
     "submit": "Push back for processing"

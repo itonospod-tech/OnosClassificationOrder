@@ -32,7 +32,12 @@ import {
 } from 'shared';
 
 import { productionFactoryClause } from '../../utils/excluded-factory';
-import { getFactoryAutoPackSync, getFactoryFlowTypeSync, loadFactoryFlowTypes } from '../../utils/merged-flow-factory';
+import {
+  getFactoryAutoPackSync,
+  getFactoryFlowTypeSync,
+  getFactoryToolCheckReworkSync,
+  loadFactoryFlowTypes,
+} from '../../utils/merged-flow-factory';
 import { CustomerOrderEventService } from '../customer-event/customer-order-event.service';
 import { OrderDocument, OrderEntity } from '../order/order.entity';
 import { OrderService } from '../order/order.service';
@@ -124,7 +129,7 @@ export class FulfillmentTaskService {
     body: {
       stage: FulfillmentStage;
       action: FulfillmentTransitionAction;
-      target?: 'designer' | FulfillmentStage;
+      target?: 'designer' | 'tool-check' | FulfillmentStage;
       reason?: string;
       /** Cân + số đo thực tế, chỉ đi kèm lượt hoàn thành Đóng hàng (tuỳ chọn). */
       weightGram?: number;
@@ -210,6 +215,7 @@ export class FulfillmentTaskService {
     const factoryId = order.factoryId ? String(order.factoryId) : null;
     const flowType = getFactoryFlowTypeSync(this.orderModel.db, factoryId);
     const autoPack = getFactoryAutoPackSync(this.orderModel.db, factoryId);
+    const toolCheckRework = getFactoryToolCheckReworkSync(this.orderModel.db, factoryId);
 
     const plan = this.resolveTransition({
       stage: body.stage,
@@ -222,6 +228,7 @@ export class FulfillmentTaskService {
       user,
       flowType,
       autoPack,
+      toolCheckRework,
     });
 
     // Build atomic update — patch all stage state + timeline + top-level
@@ -429,7 +436,7 @@ export class FulfillmentTaskService {
     action: FulfillmentTransitionAction;
     currentStatus: FulfillmentStageStatus;
     stageState: FulfillmentStageState;
-    target?: 'designer' | FulfillmentStage;
+    target?: 'designer' | 'tool-check' | FulfillmentStage;
     reason?: string;
     stages: FulfillmentStages;
     user: UserDocument;
@@ -437,6 +444,8 @@ export class FulfillmentTaskService {
     flowType?: FactoryFlowType;
     /** Toggle riêng theo xưởng (`FactoryEntity.autoCompletePack`): Đóng hàng cũng auto. */
     autoPack?: boolean;
+    /** `FactoryEntity.allowToolCheckRework` — Print may send the order back to Support. */
+    toolCheckRework?: boolean;
   }): {
     nextStatus: FulfillmentStageStatus;
     patch: Record<string, unknown>;
@@ -605,6 +614,34 @@ export class FulfillmentTaskService {
         };
         const inc: Record<string, number> = {};
         if (reporterDelta > 0) inc[`fulfillmentStages.${stage}.workMs`] = reporterDelta;
+
+        if (target === 'tool-check') {
+          // Send back to Support ("Soát tool"). Same marker the table cell writes
+          // (`productionErrorSource='tool-check'` + `toolResultNote='error'`), so the
+          // Support list, badge and Telegram line see it; the order stays at this
+          // (Print) stage as "waiting back" until Support clears it.
+          if (!input.toolCheckRework || stage !== FulfillmentStage.Print) {
+            throw new BadRequestException('Đích "Soát tool" chưa được bật cho công đoạn/xưởng này.');
+          }
+          set.toolResultNote = 'error';
+          set.productionErrorSource = 'tool-check';
+          set.productionErrorNote = reason;
+          set.readyForFulfill = false;
+          return {
+            nextStatus: FulfillmentStageStatus.Waiting,
+            reworkTarget: 'tool-check',
+            patch: {
+              $set: set,
+              ...(Object.keys(inc).length > 0 ? { $inc: inc } : {}),
+              $push: {
+                fulfillmentTimeline: timelineEntry(FulfillmentStageStatus.Waiting, {
+                  reworkTarget: 'tool-check',
+                  reason,
+                }),
+              },
+            },
+          };
+        }
 
         if (target === 'designer') {
           // Đẩy về designer: reuse designer rework. Set productionError +

@@ -1,6 +1,7 @@
 import { OrderPriority } from 'shared';
 
 import { formatVnDateTime, REPORT_DAY_COUNT, SLA_DAY_COUNT, SLA_TARGETS } from '../../scheduled-reports/build-period';
+import { supportHoldLine } from '../../scheduled-reports/support-hold';
 import type { ReportDayStats, SlaCohortRow } from '../../scheduled-reports/types';
 import type { DailyOrdersReportNotification } from '../types';
 import { clamp, escapeMd } from './_helpers';
@@ -201,6 +202,8 @@ export function formatDailyOrdersReport(payload: DailyOrdersReportNotification, 
     lines.push(`📊 *BÁO CÁO SLA SẢN XUẤT* · 🕐 _${formatVnDateTime(generatedAt)}_`);
     lines.push(...slaSection(data.slaDays));
     lines.push(...slaFactoryTable(data.slaDays, data.slaFactories));
+    const holdLine = supportHoldLine(data.supportHold);
+    if (holdLine) lines.push('', holdLine);
   }
 
   return clamp(lines.join('\n'));

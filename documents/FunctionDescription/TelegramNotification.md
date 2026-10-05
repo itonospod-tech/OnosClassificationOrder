@@ -213,6 +213,8 @@ SuperAdmin/Admin: nút web + `/reports/run-now`. Member channel báo cáo: 3 nú
 
 ## 10. Lịch sử thay đổi
 
+> 2026-10-05 — view chính (SLA) thêm 1 dòng **"Hold Support"**: số đơn đang nằm ở Support (marker `productionErrorSource='tool-check' AND toolResultNote='error'`) MỌI tuổi + tuổi đơn già nhất (mốc = timeline `reworkTarget:'tool-check'` mới nhất → `productionFirstErrorAt` → `updatedAt`). Im lặng khi 0 đơn; `🛠` thường, `⚠️ … (quá 24h)` chỉ khi già nhất >24 giờ. Cột "Cần làm lại" theo ngày của view Soát tool chỉ thấy cohort 7 ngày nên bỏ sót hold cũ — dòng này vá lỗ đó. Code: `scheduled-reports/support-hold.ts` + `aggregateSupportHold()`. Là người canh luật dừng của `documents/Plans/ToolCheck-Redesign.md`.
+
 | Phase | Ngày | Việc làm |
 |---|---|---|
 | Phase 1 | 2026-06-19 | TelegramService + import summary noti |
