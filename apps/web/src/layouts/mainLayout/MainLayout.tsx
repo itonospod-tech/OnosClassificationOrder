@@ -16,6 +16,8 @@ import Header from '../../components/header';
 import { MobileTabBar, TAB_BAR_ROLES } from '../../components/sidebar/MobileTabBar';
 import Sidebar from '../../components/sidebar/Sidebar';
 
+const SIDEBAR_KEY = 'onosfactory-sidebar-collapsed';
+
 function MainLayout() {
   const location = useLocation();
   const outlet = useOutlet();
@@ -23,7 +25,29 @@ function MainLayout() {
   const setProfile = useAuthStore((s) => s.setProfile);
   const roleName = useAuthStore((s) => s.profile?.role?.name);
   const showTabBar = isMobile && !!roleName && TAB_BAR_ROLES.includes(roleName);
-  const [collapsed, setCollapsed] = useState(false);
+  // Desktop sidebar: remembered per browser. A person who never chose gets it collapsed (icons only) below
+  // 1600px, where the width is better spent on the order table; once they expand or collapse it themselves that
+  // choice wins on every later visit.
+  const [collapsed, setCollapsedState] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(SIDEBAR_KEY);
+      if (saved === '1' || saved === '0') return saved === '1';
+    } catch {
+      /* storage blocked: fall through to the width default */
+    }
+    return window.innerWidth < 1600;
+  });
+  const setCollapsed = (value: boolean | ((v: boolean) => boolean)) => {
+    setCollapsedState((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      try {
+        localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0');
+      } catch {
+        /* not persisted */
+      }
+      return next;
+    });
+  };
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
