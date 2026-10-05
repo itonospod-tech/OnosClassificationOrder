@@ -131,6 +131,7 @@ import {
   LIFECYCLE_STAGE_KEYS,
   normalizeProductionOrderTracking,
   normalizeVariationText,
+  OPEN_ORDER_STALE_DAYS,
   parseProductionIdFromCuttingFilename,
   PRODUCT_LINE_WINDOW_DAYS,
   PRODUCT_LINES,
@@ -396,6 +397,15 @@ function vnTodayString(): string {
 }
 function vnTodayStart(): Date {
   return vnDayStart(vnTodayString());
+}
+/**
+ * VN-day range of a product-line view's "older open orders" indicator: from the oldest day that
+ * is not yet stale (`OPEN_ORDER_STALE_DAYS`) to the day before the line window
+ * (`PRODUCT_LINE_WINDOW_DAYS`). Together with the window it covers exactly the stale horizon.
+ */
+export function productLineOutOfWindowRange(today: string = vnTodayString()): { from: string; to: string } {
+  const dayOffset = (days: number) => new Date(Date.parse(`${today}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
+  return { from: dayOffset(OPEN_ORDER_STALE_DAYS - 1), to: dayOffset(PRODUCT_LINE_WINDOW_DAYS) };
 }
 
 /**
@@ -4476,6 +4486,7 @@ export class OrderService implements OnModuleInit {
       typeStats: Array<{ type: string; orders: number; qty: number; stages: Record<string, number> }>;
       totalOrders: number;
       totalTypes: number;
+      outOfWindow?: { from: string; to: string; count: number };
     };
   }> {
     type FacetKey =
@@ -4762,7 +4773,10 @@ export class OrderService implements OnModuleInit {
       const and = [...(Array.isArray(base.$and) ? (base.$and as Record<string, unknown>[]) : []), extra];
       return this.orderModel.countDocuments({ ...base, $and: and });
     };
-    const [stageRows, factoryRows, totalRows, pillErrorFile, pillNoTool, pillPriority, pillDesignBacklog, typeRowsStat] =
+    // Product-line views: same filters, date range swapped for the older-but-not-stale range, so
+    // opening `from`..`to` on the page lists exactly this count (Orders.md, product-line views).
+    const outOfWindowRange = dto.productLine ? productLineOutOfWindowRange() : null;
+    const [stageRows, factoryRows, totalRows, pillErrorFile, pillNoTool, pillPriority, pillDesignBacklog, typeRowsStat, outOfWindowCount] =
       await Promise.all([
         this.orderModel.aggregate<{ _id: string; count: number }>([
           { $match: baseWithout({ workshopStage: undefined }) },
@@ -4815,6 +4829,11 @@ export class OrderService implements OnModuleInit {
           { $addFields: { stages: { $arrayToObject: '$stages' } } },
           { $sort: { orders: -1, _id: 1 } },
         ]),
+        outOfWindowRange
+          ? this.orderModel.countDocuments(
+              baseWithout({ createdFrom: outOfWindowRange.from, createdTo: outOfWindowRange.to }),
+            )
+          : Promise.resolve(null),
       ]);
     const factoryIds = factoryRows.map((r) => String(r._id));
     const factoryDocs = factoryIds.length
@@ -4850,6 +4869,7 @@ export class OrderService implements OnModuleInit {
         typeStats,
         totalOrders: totalRows[0]?.orders ?? 0,
         totalTypes: totalRows[0]?.types ?? 0,
+        ...(outOfWindowRange && outOfWindowCount != null ? { outOfWindow: { ...outOfWindowRange, count: outOfWindowCount } } : {}),
         printStatus: printStatusRows.map(toOption(printStatusMap)),
         toolResultNote: [
           // Prepend "Chưa soát" option. Token __none__ — FE injects nothing nữa.

@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import type { CeoFinding, CeoOverview } from 'shared';
 import type { ProductLine } from 'shared';
-import { DesignerStatus } from 'shared';
+import { DesignerStatus, OPEN_ORDER_STALE_DAYS } from 'shared';
 
 import { productionFactoryClause } from '@/utils/excluded-factory';
 import { workshopStageSwitchExpr } from '@/utils/workshop-stage';
@@ -18,7 +18,7 @@ const CACHE_TTL_MS = 5 * 60_000;
 const MAX_DAYS = 92;
 const HISTORY_DAYS = 30;
 /** Đơn mở quá số ngày này = đơn treo (nợ dữ liệu, chưa đóng trên hệ thống) — tách khỏi tồn/quá hạn. */
-const STALE_DAYS = 45;
+const STALE_DAYS = OPEN_ORDER_STALE_DAYS;
 const TOP_CUSTOMERS = 10;
 
 type Row = Record<string, unknown>;

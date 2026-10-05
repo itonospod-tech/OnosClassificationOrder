@@ -716,7 +716,11 @@
     "title": "Order list",
     "subtitle": "Manage production orders",
     "lineTitle": "Production · {{line}}",
-    "lineSubtitle": "Default view: unfinished orders that entered production in the last {{days}} days"
+    "lineSubtitle": "Default view: unfinished orders that entered production in the last {{days}} days",
+    "olderOpen_one": "{{n}} order from before the last {{days}} days is still not done — tap to view",
+    "olderOpen_other": "{{n}} orders from before the last {{days}} days are still not done — tap to view",
+    "olderOpenActive": "Showing unfinished orders that entered production {{days}} to {{staleDays}} days ago",
+    "backToWindow": "Back to the last {{days}} days"
   },
   "classicPage": {
     "title": "Orders",

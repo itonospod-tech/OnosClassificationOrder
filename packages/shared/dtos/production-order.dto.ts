@@ -424,6 +424,12 @@ export type WorkshopStageFilter = WorkshopStageFilterKey | typeof WORKSHOP_STAGE
  * today included). One constant for both sides so the badge and the list cannot drift.
  */
 export const PRODUCT_LINE_WINDOW_DAYS = 7;
+/**
+ * An order still open this many VN days after `inProductionAt` is treated as stale: data debt
+ * (finished on the floor, never closed in the system), not real work. One boundary for the CEO
+ * Dashboard `staleOpen` and the product-line "older open orders" indicator, so they cannot disagree.
+ */
+export const OPEN_ORDER_STALE_DAYS = 45;
 
 /**
  * CSV product-line filter (`ProductLine` codes, `__none__` = orders with no line yet).
@@ -1859,6 +1865,12 @@ export const WorkshopAvailableFiltersResZod = ResZod.extend({
       .optional(),
     /** Tổng đơn + số loại sản phẩm khớp TOÀN BỘ filter hiện tại (dòng tổng dưới phễu). */
     totalOrders: z.number().optional(),
+    /**
+     * Product-line views only: orders matching every current filter EXCEPT the date range, which
+     * is replaced by [today − (OPEN_ORDER_STALE_DAYS − 1), today − PRODUCT_LINE_WINDOW_DAYS] (VN
+     * days, inclusive). Setting createdFrom/createdTo to `from`/`to` lists exactly `count` orders.
+     */
+    outOfWindow: z.object({ from: z.string(), to: z.string(), count: z.number() }).optional(),
     totalTypes: z.number().optional(),
   }),
 });
