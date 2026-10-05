@@ -135,9 +135,9 @@ describe('countOpenOrdersByProductLine — same filter as the page', () => {
       },
     ]);
     const res = await svc.countOpenOrdersByProductLine(RoleType.Admin);
-    expect(res.total).toEqual({ '3d': 616, '2d': 34, wood: 0, embroidery: 41, led: 0, canvas: 0, __none__: 3 });
+    expect(res.total).toEqual({ '3d': 616, '2d': 34, wood: 0, embroidery: 41, led: 0, canvas: 0, dropship: 0, __none__: 3 });
     expect(Object.keys(res.byFactory).sort()).toEqual(['ML', 'TN']);
-    expect(res.byFactory.TN).toEqual({ '3d': 600, '2d': 0, wood: 0, embroidery: 0, led: 0, canvas: 0, __none__: 0 });
+    expect(res.byFactory.TN).toEqual({ '3d': 600, '2d': 0, wood: 0, embroidery: 0, led: 0, canvas: 0, dropship: 0, __none__: 0 });
     expect(res.byFactory.ML).toMatchObject({ '3d': 16, __none__: 2 });
   });
 });
