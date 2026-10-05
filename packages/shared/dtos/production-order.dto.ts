@@ -430,6 +430,10 @@ export const PRODUCT_LINE_WINDOW_DAYS = 7;
  * Dashboard `staleOpen` and the product-line "older open orders" indicator, so they cannot disagree.
  */
 export const OPEN_ORDER_STALE_DAYS = 45;
+/** Stale-order cleanup (Orders.md §23b): max orders per run. */
+export const STALE_CLEANUP_BATCH_MAX = 200;
+/** Stale-order cleanup: an order with no production activity is recorded finished this many days after `inProductionAt` (SLA N2). */
+export const STALE_CLEANUP_NO_ACTIVITY_DAYS = 3;
 
 /**
  * CSV product-line filter (`ProductLine` codes, `__none__` = orders with no line yet).
@@ -1484,6 +1488,95 @@ export class CancelOrderResDto extends createZodDto(extendApi(CancelOrderResZod)
  */
 export const ForceCompleteOrderResZod = ResZod.extend({ data: ProductionOrderZod });
 export class ForceCompleteOrderResDto extends createZodDto(extendApi(ForceCompleteOrderResZod)) {}
+
+// ─── Stale-order cleanup (Orders.md §23b, SuperAdmin) ────────────────────────
+export const STALE_AGE_BUCKETS = ['45-90', '90-180', '180+'] as const;
+export const StaleBlockReasonZod = z.enum(['not-found', 'cancelled', 'completed', 'held', 'not-stale', 'recent-activity', 'unmapped', 'excluded-factory']);
+export type StaleBlockReasonKey = z.infer<typeof StaleBlockReasonZod>;
+
+export const GetStaleOpenOrdersZod = PageQueryZod.extend({
+  factoryId: IDZod.optional(),
+  productLine: z.string().optional(),
+  userSku: z.string().optional(),
+  type: z.string().optional(),
+  age: z.enum(STALE_AGE_BUCKETS).optional(),
+  /** Group view: one row per product (`type`) or per customer (`userSku`) with counts, no orders. */
+  groupBy: z.enum(['type', 'userSku']).optional(),
+});
+export class GetStaleOpenOrdersDto extends createZodDto(extendApi(GetStaleOpenOrdersZod)) {}
+
+/** Evidence shown on every row: what the system knows about whether the order was really finished. */
+export const StaleOpenOrderRowZod = z.object({
+  _id: z.string(),
+  productionId: z.string(),
+  orderId: z.string().optional(),
+  userSku: z.string().optional(),
+  type: z.string().optional(),
+  productLine: z.string().optional(),
+  factoryId: z.string().optional(),
+  factoryShortName: z.string().optional(),
+  inProductionAt: z.coerce.date(),
+  ageDays: z.number(),
+  /** Workshop stage key the order is stuck at (`WORKSHOP_STAGE_FILTER_KEYS`). */
+  stage: z.string(),
+  /** Latest production activity (never order logs) and the field it came from; null = none at all. */
+  lastActivityAt: z.coerce.date().nullable(),
+  lastActivitySource: z.string().nullable(),
+  /** Latest order-log entry, shown for context only (sync jobs write there too). */
+  lastLogAt: z.coerce.date().nullable(),
+  lastLogAction: z.string().nullable(),
+  shipping: z.object({
+    vnpTracking: z.string().optional(),
+    customerTracking: z.string().optional(),
+    packageCode: z.string().optional(),
+  }),
+  held: z.boolean(),
+  selectable: z.boolean(),
+  blockReason: StaleBlockReasonZod.nullable(),
+});
+export type StaleOpenOrderRow = z.infer<typeof StaleOpenOrderRowZod>;
+export const StaleOpenGroupZod = z.object({ key: z.string(), count: z.number(), selectable: z.number() });
+export type StaleOpenGroup = z.infer<typeof StaleOpenGroupZod>;
+export const GetStaleOpenOrdersResZod = ResZod.extend({
+  data: z.array(StaleOpenOrderRowZod),
+  groups: z.array(StaleOpenGroupZod).optional(),
+  total: z.number(),
+  /** Whole stale set (ignores filters): the headline numbers. */
+  summary: z.object({
+    total: z.number(),
+    byFactory: z.array(z.object({ factoryId: z.string(), shortName: z.string().optional(), count: z.number() })),
+    withShippingEvidence: z.number(),
+    noActivity: z.number(),
+    neverProduced: z.number(),
+  }),
+});
+export class GetStaleOpenOrdersResDto extends createZodDto(extendApi(GetStaleOpenOrdersResZod)) {}
+
+export const StaleCleanupIdsZod = z.object({ ids: z.array(IDZod).min(1).max(STALE_CLEANUP_BATCH_MAX) });
+export class StaleCleanupPreviewDto extends createZodDto(extendApi(StaleCleanupIdsZod)) {}
+export const StaleCleanupRunZod = StaleCleanupIdsZod.extend({ reason: z.string().trim().min(10).max(500) });
+export class StaleCleanupRunDto extends createZodDto(extendApi(StaleCleanupRunZod)) {}
+
+export const StaleCleanupSkipZod = z.object({ id: z.string(), productionId: z.string().optional(), reason: z.string() });
+export const StaleCleanupPreviewZod = z.object({
+  eligible: z.number(),
+  skipped: z.array(StaleCleanupSkipZod),
+  byFactory: z.array(z.object({ shortName: z.string(), count: z.number() })),
+  byStage: z.array(z.object({ stage: z.string(), count: z.number() })),
+  /** Orders that never passed design on this system: completing them fills every step, print/press/sew included. */
+  neverProduced: z.number(),
+  /** Per step key (tool-check, designer, 6 stages): how many orders get it filled. */
+  stepsFilled: z.array(z.object({ key: z.string(), count: z.number() })),
+  /** Range of the completion dates that will be recorded (never today). */
+  completedFrom: z.coerce.date().nullable(),
+  completedTo: z.coerce.date().nullable(),
+  withShippingEvidence: z.number(),
+});
+export type StaleCleanupPreview = z.infer<typeof StaleCleanupPreviewZod>;
+export class StaleCleanupPreviewResDto extends createZodDto(extendApi(ResZod.extend({ data: StaleCleanupPreviewZod }))) {}
+export const StaleCleanupRunResultZod = z.object({ runId: z.string(), done: z.number(), skipped: z.array(StaleCleanupSkipZod) });
+export type StaleCleanupRunResult = z.infer<typeof StaleCleanupRunResultZod>;
+export class StaleCleanupRunResDto extends createZodDto(extendApi(ResZod.extend({ data: StaleCleanupRunResultZod }))) {}
 
 // ─── Giữ đơn (hold / unhold) ────────────────────────────────────────
 // Hold: tạm dừng đơn — set heldAt + holdReason, khóa mọi thao tác cho tới khi

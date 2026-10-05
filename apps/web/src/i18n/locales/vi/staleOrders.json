@@ -1,0 +1,99 @@
+{
+  "title": "Dọn đơn tồn quá hạn",
+  "description": "Đơn chưa xong đã vào sản xuất hơn {{days}} ngày. Rà bằng chứng rồi chuyển hoàn thành theo lô.",
+  "noPermission": "Chỉ SuperAdmin dùng được trang này.",
+  "irreversible": "Chuyển hoàn thành KHÔNG hoàn tác được. Khách KHÔNG được báo (không webhook, không chuông). Mốc hoàn thành ghi theo hoạt động thật cuối cùng của đơn, không phải hôm nay.",
+  "summary": {
+    "total": "Đơn quá hạn",
+    "withEvidence": "Có vận đơn trong hệ thống",
+    "noActivity": "Không có hoạt động nào",
+    "neverProduced": "Chưa từng qua thiết kế"
+  },
+  "filters": {
+    "factory": "Xưởng",
+    "allFactories": "Tất cả xưởng",
+    "line": "Dòng sản phẩm",
+    "allLines": "Tất cả dòng",
+    "customer": "Mã khách",
+    "product": "Sản phẩm",
+    "age": "Tuổi đơn",
+    "allAges": "Mọi tuổi",
+    "age_45-90": "45–90 ngày",
+    "age_90-180": "90–180 ngày",
+    "age_180+": "Trên 180 ngày",
+    "clear": "Xóa lọc"
+  },
+  "view": {
+    "orders": "Từng đơn",
+    "byProduct": "Nhóm theo sản phẩm",
+    "byCustomer": "Nhóm theo khách"
+  },
+  "group": {
+    "orders": "{{count}} đơn",
+    "selectable": "{{count}} chọn được",
+    "open": "Xem đơn",
+    "select": "Chọn đơn trong nhóm"
+  },
+  "col": {
+    "order": "Đơn",
+    "customer": "Khách",
+    "product": "Sản phẩm",
+    "factory": "Xưởng",
+    "age": "Tuổi",
+    "stage": "Đang kẹt ở",
+    "lastActivity": "Hoạt động sản xuất cuối",
+    "evidence": "Bằng chứng"
+  },
+  "ageDays": "{{count}} ngày",
+  "daysAgo": "{{count}} ngày trước",
+  "noActivity": "Không có",
+  "lastLog": "Nhật ký cuối: {{action}} · {{date}}",
+  "evidence": {
+    "shipment": "Vận đơn",
+    "package": "Kiện",
+    "completed": "Hoàn thành",
+    "none": "Không",
+    "held": "Đang giữ"
+  },
+  "block": {
+    "held": "Đang giữ — mở giữ trước",
+    "recent-activity": "Có hoạt động trong {{days}} ngày qua — đơn còn đang chạy",
+    "cancelled": "Đã hủy",
+    "completed": "Đã hoàn thành",
+    "not-stale": "Chưa quá hạn",
+    "unmapped": "Chưa gán xưởng",
+    "excluded-factory": "Xưởng ngoài luồng",
+    "not-found": "Không tìm thấy"
+  },
+  "selection": {
+    "count": "Đã chọn {{count}}/{{max}}",
+    "clear": "Bỏ chọn",
+    "preview": "Xem trước",
+    "capReached": "Đã đủ {{max}} đơn mỗi lượt — chạy lượt này trước rồi chọn tiếp.",
+    "groupAdded": "Đã chọn thêm {{added}} đơn trong nhóm ({{inGroup}} đơn chọn được)."
+  },
+  "preview": {
+    "title": "Chuyển {{count}} đơn sang HOÀN THÀNH — không hoàn tác được",
+    "loading": "Đang kiểm lại từng đơn…",
+    "byFactory": "Theo xưởng",
+    "byStage": "Đang kẹt ở",
+    "steps": "Các khâu sẽ được điền mốc",
+    "stepCount": "{{count}} đơn",
+    "dates": "Mốc hoàn thành sẽ ghi trong khoảng {{from}} – {{to}}, KHÔNG phải hôm nay.",
+    "evidence": "{{with}}/{{count}} đơn có vận đơn hoặc kiện trong hệ thống. Hệ thống KHÔNG có bằng chứng các đơn còn lại đã giao; bạn đang xác nhận dựa trên thông tin ngoài hệ thống.",
+    "neverProduced": "{{count}} đơn chưa từng qua thiết kế trên hệ mới — hoàn thành sẽ điền mốc cho cả 8 khâu, kể cả In/Ép/May, cho công việc hệ thống chưa từng ghi nhận.",
+    "noCustomer": "Khách không được báo: không webhook, không thông báo trên portal.",
+    "skipped": "{{count}} đơn bị loại khi kiểm lại:",
+    "reason": "Lý do (bắt buộc, ghi vào nhật ký từng đơn)",
+    "reasonPlaceholder": "VD: Ops xác nhận đã giao trên hệ cũ OnosPod, đối soát ngày 05/10",
+    "confirm": "Gõ {{count}} để xác nhận",
+    "run": "Chuyển {{count}} đơn",
+    "running": "Đang chuyển…",
+    "cancel": "Hủy"
+  },
+  "result": {
+    "done": "Đã chuyển {{count}} đơn sang hoàn thành (mã lượt {{runId}}).",
+    "skipped": "{{count}} đơn bị bỏ qua: {{list}}"
+  },
+  "empty": "Không có đơn nào khớp bộ lọc."
+}

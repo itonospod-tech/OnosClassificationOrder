@@ -176,7 +176,8 @@
     },
     "days": "{{n}} ngày",
     "na": "—",
-    "stale": "{{n}} đơn treo quá {{days}} ngày chưa đóng trên hệ thống — không tính vào tồn/quá hạn (nợ dữ liệu, cần dọn)"
+    "stale": "{{n}} đơn treo quá {{days}} ngày chưa đóng trên hệ thống — không tính vào tồn/quá hạn (nợ dữ liệu, cần dọn)",
+    "staleReview": "Rà soát & dọn"
   },
   "people": {
     "title": "Nhân sự",

@@ -176,7 +176,8 @@
     },
     "days": "{{n}} days",
     "na": "—",
-    "stale": "{{n}} orders open for over {{days}} days never closed in the system — excluded from backlog/overdue (data debt to clean up)"
+    "stale": "{{n}} orders open for over {{days}} days never closed in the system — excluded from backlog/overdue (data debt to clean up)",
+    "staleReview": "Review & clean up"
   },
   "people": {
     "title": "People",

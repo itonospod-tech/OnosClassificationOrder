@@ -1,0 +1,99 @@
+{
+  "title": "Stale order cleanup",
+  "description": "Unfinished orders that entered production more than {{days}} days ago. Review the evidence, then complete them in batches.",
+  "noPermission": "Only SuperAdmin can use this page.",
+  "irreversible": "Completing CANNOT be undone. The customer is NOT notified (no webhook, no bell). The completion date is the order's last real activity, not today.",
+  "summary": {
+    "total": "Stale orders",
+    "withEvidence": "With a shipment in the system",
+    "noActivity": "No activity at all",
+    "neverProduced": "Never passed design"
+  },
+  "filters": {
+    "factory": "Factory",
+    "allFactories": "All factories",
+    "line": "Product line",
+    "allLines": "All lines",
+    "customer": "Customer code",
+    "product": "Product",
+    "age": "Order age",
+    "allAges": "Any age",
+    "age_45-90": "45–90 days",
+    "age_90-180": "90–180 days",
+    "age_180+": "Over 180 days",
+    "clear": "Clear filters"
+  },
+  "view": {
+    "orders": "Orders",
+    "byProduct": "Group by product",
+    "byCustomer": "Group by customer"
+  },
+  "group": {
+    "orders": "{{count}} orders",
+    "selectable": "{{count}} selectable",
+    "open": "View orders",
+    "select": "Select orders in group"
+  },
+  "col": {
+    "order": "Order",
+    "customer": "Customer",
+    "product": "Product",
+    "factory": "Factory",
+    "age": "Age",
+    "stage": "Stuck at",
+    "lastActivity": "Last production activity",
+    "evidence": "Evidence"
+  },
+  "ageDays": "{{count}} days",
+  "daysAgo": "{{count}} days ago",
+  "noActivity": "None",
+  "lastLog": "Last log: {{action}} · {{date}}",
+  "evidence": {
+    "shipment": "Shipment",
+    "package": "Package",
+    "completed": "Completed",
+    "none": "No",
+    "held": "On hold"
+  },
+  "block": {
+    "held": "On hold — release it first",
+    "recent-activity": "Activity in the last {{days}} days — the order is still moving",
+    "cancelled": "Cancelled",
+    "completed": "Already completed",
+    "not-stale": "Not stale yet",
+    "unmapped": "No factory",
+    "excluded-factory": "Factory outside production",
+    "not-found": "Not found"
+  },
+  "selection": {
+    "count": "Selected {{count}}/{{max}}",
+    "clear": "Clear",
+    "preview": "Preview",
+    "capReached": "{{max}} orders per run reached — run this one, then select more.",
+    "groupAdded": "Added {{added}} orders from the group ({{inGroup}} selectable)."
+  },
+  "preview": {
+    "title": "Complete {{count}} orders — this cannot be undone",
+    "loading": "Re-checking every order…",
+    "byFactory": "By factory",
+    "byStage": "Stuck at",
+    "steps": "Steps that get a date",
+    "stepCount": "{{count}} orders",
+    "dates": "Completion dates will be recorded between {{from}} and {{to}}, NOT today.",
+    "evidence": "{{with}}/{{count}} orders have a shipment or package in the system. The system has NO evidence the others were delivered; you are confirming from information outside the system.",
+    "neverProduced": "{{count}} orders never passed design on the new system — completing fills dates for all 8 steps, print/press/sew included, for work the system never recorded.",
+    "noCustomer": "The customer is not notified: no webhook, no portal notification.",
+    "skipped": "{{count}} orders dropped on re-check:",
+    "reason": "Reason (required, written to each order's log)",
+    "reasonPlaceholder": "e.g. Ops confirmed delivered on the legacy OnosPod system, checked 2026-10-05",
+    "confirm": "Type {{count}} to confirm",
+    "run": "Complete {{count}} orders",
+    "running": "Completing…",
+    "cancel": "Cancel"
+  },
+  "result": {
+    "done": "Completed {{count}} orders (run {{runId}}).",
+    "skipped": "{{count}} orders skipped: {{list}}"
+  },
+  "empty": "No orders match the filters."
+}
