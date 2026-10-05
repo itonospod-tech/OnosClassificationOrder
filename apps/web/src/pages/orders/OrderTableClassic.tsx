@@ -709,7 +709,9 @@ export function OrderTableClassic() {
       },
     });
   }
-  if (createdFrom || createdTo) {
+  // The line window is what a product-line view IS, not a filter the user added: no chip (and no "Filtering" bar).
+  const onLineWindow = !!productLine && createdFrom === localISO(PRODUCT_LINE_WINDOW_DAYS - 1) && createdTo === localISO();
+  if ((createdFrom || createdTo) && !onLineWindow) {
     activeFilters.push({
       key: 'date',
       label: t('tableWorkshop.chips.date'),

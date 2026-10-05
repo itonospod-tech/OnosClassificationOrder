@@ -868,6 +868,7 @@
     "flat": "Bảng phẳng"
   },
   "denseRow": {
-    "details": "Chi tiết và mọi trường"
+    "details": "Chi tiết và mọi trường",
+    "sellerAccount": "Tài khoản seller"
   }
 }

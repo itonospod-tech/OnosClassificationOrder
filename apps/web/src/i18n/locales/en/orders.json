@@ -868,6 +868,7 @@
     "flat": "Flat table"
   },
   "denseRow": {
-    "details": "Details and all fields"
+    "details": "Details and all fields",
+    "sellerAccount": "Seller account"
   }
 }
