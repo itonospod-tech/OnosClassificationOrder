@@ -112,6 +112,9 @@ const getWorkshopFilters = (query: string = '') => {
   return callApi(`/${CONFIG.API_VERSION}/orders/workshop-filters${query}`, 'get');
 };
 
+// Legacy daily report: items finished + packages handed over per VN day and seller.
+const getDailyBySeller = (query: string) => callApi(`/${CONFIG.API_VERSION}/orders/daily-by-seller${query}`, 'get');
+
 // Stale-order cleanup (Orders.md §23b, SuperAdmin).
 const getStaleOpen = (query: string = '') => callApi(`/${CONFIG.API_VERSION}/orders/stale-open${query}`, 'get');
 const previewStaleCleanup = (ids: string[]) => callApi(`/${CONFIG.API_VERSION}/orders/stale-open/preview`, 'post', { ids });
@@ -279,6 +282,7 @@ export const order = {
   getOrdersGrouped,
   getWorkshopFilters,
   getFulfillmentStatusCounts,
+  getDailyBySeller,
   getStaleOpen,
   previewStaleCleanup,
   runStaleCleanup,

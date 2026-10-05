@@ -51,6 +51,7 @@ import type {
   FulfillmentTimelineEntry,
   GetCancelledOrdersDto,
   GetCancelledOrdersResDto,
+  GetDailyBySellerDto,
   GetDesignReviewErrorFileOptionsResDto,
   GetErrorLogDto,
   GetErrorLogResDto,
@@ -113,9 +114,10 @@ import type {
   ProductPrintArea,
   ProductVariation,
 } from 'shared';
-import type { HeldPrintSkip, ProductLineCounts, StaleCleanupPreview, StaleCleanupRunResult, WorkshopStageFilter } from 'shared';
+import type { DailyBySellerRow, HeldPrintSkip, ProductLineCounts, StaleCleanupPreview, StaleCleanupRunResult, WorkshopStageFilter } from 'shared';
 import {
   customerMatchKey,
+  DAILY_BY_SELLER_MAX_DAYS,
   DESIGNER_ACTIVE_STATUSES,
   DESIGNER_ASSIGNMENT_CONFIG_KEY,
   DESIGNER_REASSIGNABLE_STATUSES,
@@ -3926,6 +3928,66 @@ export class OrderService implements OnModuleInit {
     }));
 
     return { success: true, data, total };
+  }
+
+  /**
+   * Legacy "Daily report" (Dashboard.md, Production Report): per VN day and seller, items finished
+   * (`fulfillmentCompletedAt`) and packages handed over (`shipping_packages.handoverAt`).
+   * Standard order exclusions (cancelled, deleted, unmapped, US factory). A Fulfillment worker is
+   * locked to their own factory whatever `factoryId` says; other roles may pick one.
+   */
+  async getDailyBySeller(dto: GetDailyBySellerDto, roleName?: RoleType, userFactoryId?: string): Promise<DailyBySellerRow[]> {
+    const start = vnDayStart(dto.from);
+    const end = vnDayEnd(dto.to);
+    const days = Math.round((vnDayStart(dto.to).getTime() - start.getTime()) / 86_400_000) + 1;
+    if (!(days >= 1 && days <= DAILY_BY_SELLER_MAX_DAYS)) {
+      throw new BadRequestException(`Khoảng ngày phải từ 1 đến ${DAILY_BY_SELLER_MAX_DAYS} ngày.`);
+    }
+    let factoryId: string | undefined = dto.factoryId;
+    if (roleName === RoleType.Fulfillment) factoryId = userFactoryId || '__no_factory__';
+    const factoryClause: Record<string, unknown> = factoryId
+      ? { $and: [{ factoryId }, { factoryId: productionFactoryClause(this.orderModel.db) }] }
+      : { factoryId: productionFactoryClause(this.orderModel.db) };
+    const vnDay = (field: string) => ({ $dateToString: { format: '%Y-%m-%d', date: field, timezone: 'Asia/Ho_Chi_Minh' } });
+
+    const [itemRows, packageRows] = await Promise.all([
+      this.orderModel.aggregate<{ _id: { date: string; userSku: string | null }; items: number; quantity: number }>([
+        {
+          $match: {
+            cancelledAt: { $exists: false },
+            deletedAt: { $exists: false },
+            fulfillmentCompletedAt: { $gte: start, $lte: end },
+            ...factoryClause,
+          },
+        },
+        {
+          $group: {
+            _id: { date: vnDay('$fulfillmentCompletedAt'), userSku: '$userSku' },
+            items: { $sum: 1 },
+            quantity: { $sum: { $ifNull: ['$quantity', 1] } },
+          },
+        },
+      ]),
+      this.orderModel.db
+        .collection('shipping_packages')
+        .aggregate<{ _id: { date: string; userSku: string | null }; packages: number }>([
+          { $match: { handoverAt: { $gte: start, $lte: end }, deletedAt: { $exists: false }, ...factoryClause } },
+          // Seller of a package = seller of its first item (one package = one seller order).
+          { $lookup: { from: 'orders', localField: 'productionIds', foreignField: 'productionId', pipeline: [{ $project: { userSku: 1 } }, { $limit: 1 }], as: 'o' } },
+          { $group: { _id: { date: vnDay('$handoverAt'), userSku: { $first: '$o.userSku' } }, packages: { $sum: 1 } } },
+        ])
+        .toArray(),
+    ]);
+    const rows = new Map<string, DailyBySellerRow>();
+    const row = (date: string, userSku: string | null) => {
+      const key = `${date}|${userSku ?? ''}`;
+      let r = rows.get(key);
+      if (!r) rows.set(key, (r = { date, userSku: userSku ?? '', items: 0, quantity: 0, packages: 0 }));
+      return r;
+    };
+    for (const r of itemRows) Object.assign(row(r._id.date, r._id.userSku), { items: r.items, quantity: r.quantity });
+    for (const r of packageRows) row(r._id.date, r._id.userSku).packages = r.packages;
+    return [...rows.values()].sort((a, b) => a.date.localeCompare(b.date) || b.items - a.items || a.userSku.localeCompare(b.userSku));
   }
 
   /**

@@ -1916,6 +1916,30 @@ export const GetFactoryOverviewZod = z.object({
 });
 export class GetFactoryOverviewDto extends createZodDto(extendApi(GetFactoryOverviewZod)) {}
 
+// ─── Daily report by seller (legacy "Production Report › Daily report", Dashboard.md) ─────
+/** Max days per request: the report is a day × seller matrix read on one screen. */
+export const DAILY_BY_SELLER_MAX_DAYS = 31;
+export const GetDailyBySellerZod = z.object({
+  /** VN calendar days, inclusive (YYYY-MM-DD). */
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  factoryId: IDZod.optional(),
+});
+export class GetDailyBySellerDto extends createZodDto(extendApi(GetDailyBySellerZod)) {}
+export const DailyBySellerRowZod = z.object({
+  /** VN day the items were finished (`fulfillmentCompletedAt`) or the packages handed over. */
+  date: z.string(),
+  userSku: z.string(),
+  /** Items (production orders) finished that day. */
+  items: z.number(),
+  quantity: z.number(),
+  /** Packages handed over to the carrier that day (`shipping_packages.handoverAt`). */
+  packages: z.number(),
+});
+export type DailyBySellerRow = z.infer<typeof DailyBySellerRowZod>;
+export const GetDailyBySellerResZod = ResZod.extend({ data: z.array(DailyBySellerRowZod) });
+export class GetDailyBySellerResDto extends createZodDto(extendApi(GetDailyBySellerResZod)) {}
+
 export const GetFactoryOverviewResZod = ResZod.extend({ data: FactoryOverviewZod });
 export class GetFactoryOverviewResDto extends createZodDto(extendApi(GetFactoryOverviewResZod)) {}
 

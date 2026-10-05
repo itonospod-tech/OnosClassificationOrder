@@ -39,6 +39,8 @@ import {
   GetBarcodeLabelsResDto,
   GetCancelledOrdersDto,
   GetCancelledOrdersResDto,
+  GetDailyBySellerDto,
+  GetDailyBySellerResDto,
   GetDesignReviewErrorFileOptionsResDto,
   GetDesignReviewOrderByIdResDto,
   GetErrorLogDto,
@@ -423,6 +425,17 @@ export class OrderController {
     @AuthUser() user: UserDocument,
   ): Promise<GetFactoryOverviewResDto> {
     return this.orderService.getFactoryOverview(dto, user?.role?.name, user?.factoryId, user?.fulfillmentStage);
+  }
+
+  /** Legacy "Daily report": items finished + packages handed over, per VN day and seller (Dashboard.md). */
+  @Get('daily-by-seller')
+  @Auth(ORDER_VIEW_ROLES)
+  @ApiOperation({ summary: 'Báo cáo ngày theo seller — item xong + kiện bàn giao, ngày VN. Fulfillment khóa theo xưởng.' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetDailyBySellerResDto })
+  async getDailyBySeller(@Query() dto: GetDailyBySellerDto, @AuthUser() user: UserDocument): Promise<GetDailyBySellerResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'GET', url: '/orders/daily-by-seller', userId: user?._id }) });
+    return { success: true, data: await this.orderService.getDailyBySeller(dto, user?.role?.name as RoleType, user?.factoryId) };
   }
 
   @Get('lifecycle-overview')
