@@ -198,6 +198,8 @@ Dòng 0 đơn mờ đi nhưng GIỮ chỗ và không ẩn. Bỏ nhãn mục "T�
 (với vai có bảng task: Công việc đứng TRƯỚC Đơn hàng, đã kiểm trên tài khoản Fulfillment). Mục đang chọn tính theo xưởng
 khoá của tài khoản (`useNavLocation`) nên trang mở bằng link không có `?factoryId=` vẫn sáng và tự mở nhóm.
 
+**Sửa 05/10/2026 (lần 5) — sidebar thu sẵn khi màn hẹp.** Dưới 1600px, người CHƯA từng chọn thì sidebar mặc định ở chế độ thu (chỉ biểu tượng) để dành chỗ cho bảng đơn; ai đã bung/thu bằng tay thì lựa chọn đó thắng ở mọi lần vào sau (`localStorage` `onosfactory-sidebar-collapsed`, `MainLayout.tsx`). Chip "Đã hủy" của trang đơn theo xưởng nằm trong nút Bộ lọc (nút Bộ lọc đếm cả nó).
+
 ### 8.3b Kho — để ở Báo cáo, có đường lui
 
 "Kho" (`/ffm/inventory`) nằm ở Báo cáo theo §2, nhưng thủ kho còn NHẬP phiếu ở

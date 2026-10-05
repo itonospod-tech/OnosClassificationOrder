@@ -36,10 +36,7 @@ import { usePermission } from '@/hooks/usePermission';
 /** Khóa 5 pill trạng thái — thứ tự hiển thị cố định như bản thiết kế. */
 export type WorkshopPillKey = 'errorFile' | 'noTool' | 'unreviewed' | 'priority' | 'held';
 
-const PILL_META: Record<
-  WorkshopPillKey,
-  { icon: LucideIcon; on: string; off: string }
-> = {
+const PILL_META: Record<WorkshopPillKey, { icon: LucideIcon; on: string; off: string }> = {
   errorFile: {
     icon: FileWarning,
     on: 'bg-red-600 text-white ring-red-600',
@@ -140,7 +137,7 @@ export function WorkshopToolbar({
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const visibleFacets = facets.filter((f) => !f.hidden && (!f.perm || has(f.perm)));
-  const activeFacetCount = visibleFacets.filter((f) => !!f.value).length;
+  const activeFacetCount = visibleFacets.filter((f) => !!f.value).length + (filterCancelled ? 1 : 0);
 
   // Chip ngày: 1 ngày → "Hôm nay · 06/09/2026" (hoặc Hôm qua/Ngày mai/ngày đó);
   // khoảng → "dd/mm → dd/mm"; rỗng → "Mọi ngày". Mũi tên chỉ dịch khi đang xem 1 ngày.
@@ -167,17 +164,28 @@ export function WorkshopToolbar({
   }, [createdFrom, createdTo, singleDay, t]);
 
   const pillKeys: WorkshopPillKey[] = ['errorFile', 'noTool', 'unreviewed', 'priority', 'held'];
-  const pillCount = (k: WorkshopPillKey) => (k === 'held' ? heldCount : (pillCounts?.[k] ?? 0));
+  const pillCount = (k: WorkshopPillKey) => (k === 'held' ? heldCount : pillCounts?.[k] ?? 0);
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-2', !embedded && 'rounded-lg border border-border bg-card p-3')}>
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-x-2 gap-y-2',
+        !embedded && 'rounded-lg border border-border bg-card p-3',
+      )}
+    >
       {/* One row since 05/10/2026: tools and status pills are all filters, so they share a wrapping line
           (`contents` dissolves the two former rows into this one). */}
       <div className="contents">
         <OrderViewSwitch current="grouped" />
 
         {/* Ô tìm kiếm lớn đã bỏ (07/09/2026) — tra theo mã đơn qua "Nhiều mã", lọc loại SP ở rail. */}
-        <Button variant="outline" size="sm" className="h-9" onClick={() => setBulkOpen(true)} title={t('filterBar.bulkHint')}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9"
+          onClick={() => setBulkOpen(true)}
+          title={t('filterBar.bulkHint')}
+        >
           <ListChecks size={14} />
           {t('filterBar.bulkBtn')}
         </Button>
@@ -241,10 +249,36 @@ export function WorkshopToolbar({
                 {t('workshopBoard.clearFilters')}
               </Button>
             </div>
+            {/* Look-up only (nobody starts the day on cancelled orders), so it lives here instead of in the pill line. */}
+            <div className="mb-2">
+              <button
+                type="button"
+                aria-pressed={filterCancelled}
+                onClick={onToggleCancelled}
+                title={t('tableWorkshop.cancelledOnlyTitle')}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
+                  filterCancelled
+                    ? 'bg-rose-500 text-white ring-rose-500'
+                    : cancelledCount > 0
+                      ? 'bg-rose-100 font-semibold text-rose-700 ring-rose-200 hover:ring-rose-300 dark:bg-rose-900/30 dark:text-rose-200 dark:ring-rose-800'
+                      : 'bg-muted/60 text-muted-foreground/70 ring-border hover:ring-border',
+                )}
+              >
+                <Ban size={13} />
+                {t('workshopBoard.cancelled')} <span className="tabular-nums">{cancelledCount}</span>
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {visibleFacets.map((f) =>
                 f.searchable ? (
-                  <SearchableSelectFilter key={f.key} label={f.label} value={f.value} onChange={f.onChange} options={f.options} />
+                  <SearchableSelectFilter
+                    key={f.key}
+                    label={f.label}
+                    value={f.value}
+                    onChange={f.onChange}
+                    options={f.options}
+                  />
                 ) : (
                   <SelectFilter key={f.key} label={f.label} value={f.value} onChange={f.onChange} options={f.options} />
                 ),
@@ -253,7 +287,14 @@ export function WorkshopToolbar({
           </PopoverContent>
         </Popover>
 
-        <Button variant="outline" size="icon" className="h-9 w-9" onClick={onReload} disabled={loading} title={t('workshopBoard.reload')}>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9"
+          onClick={onReload}
+          disabled={loading}
+          title={t('workshopBoard.reload')}
+        >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
         </Button>
         {onToggleDesignerSummary && (
@@ -292,7 +333,11 @@ export function WorkshopToolbar({
                 className={cn(
                   'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
                   // Zero stays pale grey (information, not a gap); a pill with orders takes its colour as a fill.
-                  active ? meta.on : pillCount(k) > 0 ? cn(meta.off, 'font-semibold') : 'bg-muted/60 text-muted-foreground/70 ring-border hover:ring-border',
+                  active
+                    ? meta.on
+                    : pillCount(k) > 0
+                      ? cn(meta.off, 'font-semibold')
+                      : 'bg-muted/60 text-muted-foreground/70 ring-border hover:ring-border',
                 )}
               >
                 <Icon size={13} />
@@ -300,28 +345,17 @@ export function WorkshopToolbar({
               </button>
             );
           })}
-          <button
-            type="button"
-            aria-pressed={filterCancelled}
-            onClick={onToggleCancelled}
-            title={t('tableWorkshop.cancelledOnlyTitle')}
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition-colors',
-              filterCancelled
-                ? 'bg-rose-500 text-white ring-rose-500'
-                : cancelledCount > 0
-                  ? 'bg-rose-100 font-semibold text-rose-700 ring-rose-200 hover:ring-rose-300 dark:bg-rose-900/30 dark:text-rose-200 dark:ring-rose-800'
-                  : 'bg-muted/60 text-muted-foreground/70 ring-border hover:ring-border',
-            )}
-          >
-            <Ban size={13} />
-            {t('workshopBoard.cancelled')} <span className="tabular-nums">{cancelledCount}</span>
-          </button>
           {windowChip}
         </div>
       </div>
 
-      <BulkProductionIdDialog open={bulkOpen} onOpenChange={setBulkOpen} mode="filter" onApply={onBulkApply} initialIds={bulkIds} />
+      <BulkProductionIdDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        mode="filter"
+        onApply={onBulkApply}
+        initialIds={bulkIds}
+      />
     </div>
   );
 }
