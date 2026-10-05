@@ -16,7 +16,10 @@ export default {
     extend: {
       colors: {
         // Identity thương hiệu Onos (lấy từ onosglobal.com): tím #6f26c2 = brand.600.
-        // Chỉ dùng cho các trang public (landing/marketing); app nội bộ vẫn dùng token shadcn.
+        // Dùng cho các trang public (landing/marketing), và cho MỘT chỗ trong app:
+        // màu khu vực của nhóm "Sản xuất" trên sidebar (`NAV_TONES` ở Sidebar.tsx),
+        // nơi màu thương hiệu đánh dấu khu làm việc chính. Mọi chỗ khác trong app vẫn
+        // dùng token shadcn.
         brand: {
           50: '#f6f1fd',
           100: '#ede1fb',
