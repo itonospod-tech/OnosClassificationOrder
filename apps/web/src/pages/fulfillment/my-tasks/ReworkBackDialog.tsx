@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FulfillmentStage, ProductionOrder } from 'shared';
-import { FULFILLMENT_STAGE_ORDER, FULFILLMENT_STAGES } from 'shared';
+import { canSendBackToToolCheck, FULFILLMENT_STAGE_ORDER, FULFILLMENT_STAGES } from 'shared';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -65,7 +65,7 @@ export function ReworkBackDialog({ order, myStage, allowToolCheck, onClose, onSu
               <button type="button" onClick={() => setTarget('designer')} className={chipClass(target === 'designer')}>
                 {t('reworkDialog.designer')}
               </button>
-              {allowToolCheck && myStage === 'print' && (
+              {canSendBackToToolCheck(allowToolCheck, myStage) && (
                 <button type="button" onClick={() => setTarget('tool-check')} className={chipClass(target === 'tool-check')}>
                   {t('reworkDialog.toolCheck')}
                 </button>
