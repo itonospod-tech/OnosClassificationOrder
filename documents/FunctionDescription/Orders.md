@@ -2321,6 +2321,10 @@ Ghi **thẳng** vào đơn thay vì đi qua `FulfillmentTaskService.transition()
 
 ---
 
+## 23a. SKU biến thể trên dòng đơn (`variantSku`, 05/10/2026)
+
+`GET /orders` + `GET /orders/grouped` gắn `variantSku` cho từng dòng (`attachVariantSku`, 1 truy vấn `productConfigs` mỗi trang): SKU của `ProductConfig.variations[]` KHỚP SIZE của đơn — đúng luật và đúng hàm in trên label giao hàng (`resolveShippingLabelInfo`), nên một đơn chỉ có một SKU biến thể ở mọi nơi. Không khớp (sản phẩm không có biến thể / đơn thiếu size) → để trống, KHÔNG đoán (KHÔNG dùng `resolveBarcodeSkuBase`: hàm đó trả SKU gốc đã gọt size và đoán bằng tiền tố chung khi không khớp). `userSku` là mã TÀI KHOẢN seller, không phải SKU sản phẩm. Phủ trên dữ liệu 30 ngày (dev 05/10): 98,7% đơn (3D 21.228/21.457, 2D 1.130/1.130, thêu 888/926); phần trống là sản phẩm chưa có biến thể (229 đơn 3D) hoặc đơn thiếu size (38 đơn thêu). Hiển thị trên dòng/panel: phần giao diện bảng đơn.
+
 ## 23b. Dọn đơn tồn quá hạn theo lô (SuperAdmin, 05/10/2026)
 
 **Vì sao:** đơn mở quá `OPEN_ORDER_STALE_DAYS` (45, `shared`) gần như toàn là nợ dữ liệu (xong ngoài đời, chưa đóng trên hệ thống). Trên bản sao production 05/10 có 3.825 đơn như vậy: 97% xưởng TN, 0 đơn có vận đơn/kiện/label, 873 không có hoạt động sản xuất nào, 1.212 chưa từng qua thiết kế. Chúng làm sai tồn, SLA, Dashboard, CEO Dashboard (`staleOpen`). Bấm "Chuyển hoàn thành" (§23) từng đơn thì không ai làm nổi.

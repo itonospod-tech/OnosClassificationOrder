@@ -149,7 +149,13 @@ export type DesignerRejection = z.infer<typeof DesignerRejectionZod>;
 
 export const ProductionOrderZod = BaseEntityZod.extend({
   productionId: z.string().min(1),
+  /** Seller ACCOUNT code (e.g. TIKTOKSHOPUS) — not a product SKU. */
   userSku: z.string().optional(),
+  /**
+   * Product variation SKU (`ProductConfig.variations[].sku`) matched by size — computed on list
+   * reads (getOrders / grouped), same rule as the shipping label. Absent when no variation matches.
+   */
+  variantSku: z.string().optional(),
   userEmail: z.string().optional(),
   type: z.string().optional(),
   color: z.string().optional(),
