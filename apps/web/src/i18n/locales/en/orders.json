@@ -866,5 +866,8 @@
     "label": "Order view",
     "grouped": "By product",
     "flat": "Flat table"
+  },
+  "denseRow": {
+    "details": "Details and all fields"
   }
 }

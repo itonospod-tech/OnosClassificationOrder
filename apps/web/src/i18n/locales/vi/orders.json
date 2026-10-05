@@ -866,5 +866,8 @@
     "label": "Cách xem đơn",
     "grouped": "Theo sản phẩm",
     "flat": "Bảng phẳng"
+  },
+  "denseRow": {
+    "details": "Chi tiết và mọi trường"
   }
 }

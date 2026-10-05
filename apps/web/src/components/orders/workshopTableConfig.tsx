@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { Clock } from 'lucide-react';
+import { ChevronDown, Clock } from 'lucide-react';
 import { DesignerStatus, WorkshopConfigCategory } from 'shared';
 
 import { useAuthStore } from '@/store/authStore';
@@ -20,6 +20,7 @@ import { TextEditCell } from '@/components/orders/cells/TextEditCell';
 import { HeldBadge, OnospodHoldBadge } from '@/components/orders/HeldBadge';
 import { ReworkReasonNote } from '@/components/orders/ReworkReasonNote';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 import { cn } from '@/utils/cn';
 import { formatDate } from '@/utils/date';
@@ -293,7 +294,7 @@ function isAdminViewer(): boolean {
  * hợp lệ khi gọi trong 1 component thật, không phải trong hàm `render()` được
  * gọi lại mỗi hàng (số lần gọi hook sẽ đổi theo số dòng → vi phạm Rules of Hooks).
  */
-function PriorityCell({ row, ctx }: { row: WorkshopOrderRow; ctx: WorkshopRenderCtx }) {
+function PriorityCell({ row, ctx, inline }: { row: WorkshopOrderRow; ctx: WorkshopRenderCtx; inline?: boolean }) {
   const { t } = useTranslation('orders');
   const activeStage = getActiveStageKey(row);
   const stageState = activeStage
@@ -309,7 +310,7 @@ function PriorityCell({ row, ctx }: { row: WorkshopOrderRow; ctx: WorkshopRender
   const now = useNow(30_000);
   const countdown = deadline ? formatCountdown(deadline, now, t) : undefined;
   return (
-    <div className="flex flex-col gap-1 items-start">
+    <div className={cn('flex gap-1', inline ? 'flex-row items-center gap-x-2 whitespace-nowrap' : 'flex-col items-start')}>
       <PrioritySelectCell
         orderId={row._id}
         value={row.priority}
@@ -320,6 +321,8 @@ function PriorityCell({ row, ctx }: { row: WorkshopOrderRow; ctx: WorkshopRender
         <span
           className={cn(
             'text-[10px] inline-flex items-center gap-1 whitespace-nowrap',
+            // One-line dense row: no room for the countdown; it stays in the details popover (full priority cell).
+            inline && 'hidden',
             countdown.overdue ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground',
           )}
         >
@@ -915,6 +918,7 @@ export const WORKSHOP_COLS: WorkshopColMeta[] = [
 // ảnh/badge tên) thì bỏ qua label — xem HEADLINE_KEYS.
 export type ColGroupKey =
   | 'identity'
+  | 'status'
   | 'product'
   | 'factory'
   | 'print'
@@ -999,9 +1003,17 @@ export const FIELD_LABELS: Record<string, string> = {
  * key nào không có trong đây bị loại khỏi group; group rỗng hết member thì bỏ
  * hẳn). `roleName === 'Support'` đổi thứ tự group theo `SUPPORT_GROUP_ORDER`.
  */
-export function buildColGroups(visibleCols: WorkshopColMeta[], roleName?: string | null): ResolvedColGroup[] {
+export function buildColGroups(
+  visibleCols: WorkshopColMeta[],
+  roleName?: string | null,
+  /** true → the one-line-per-order layout (`DENSE_GROUP_DEFS`); the rest of the fields live in the details popover. */
+  dense = false,
+): ResolvedColGroup[] {
+  const base = dense ? DENSE_GROUP_DEFS : BASE_GROUP_DEFS;
   const defs =
-    roleName === 'Support' ? SUPPORT_GROUP_ORDER.map((k) => BASE_GROUP_DEFS.find((g) => g.key === k)!) : BASE_GROUP_DEFS;
+    roleName === 'Support' && !dense
+      ? SUPPORT_GROUP_ORDER.map((k) => BASE_GROUP_DEFS.find((g) => g.key === k)!)
+      : base;
   const byKey = new Map(visibleCols.map((c) => [c.key, c]));
   return defs
     .map((g) => ({ ...g, members: g.memberKeys.map((k) => byKey.get(k)).filter((c): c is WorkshopColMeta => !!c) }))
@@ -1052,6 +1064,197 @@ export function GroupCellContent({
         </div>
       ))}
     </div>
+  );
+}
+
+// ─── Dense rows (05/10/2026) ────────────────────────────────────────────────────
+// One order = one ~50px line, like the legacy MRP table, instead of a 200px block of stacked labelled
+// fields. Which fields stay on the line comes from the real edit counts in the order log (manual `update`
+// actions, whole history): toolResult 142.9k · toolResultNote 142.5k · printStatus 67.9k · assignee 15.1k ·
+// errorFile 14.8k — all five stay on the row as chips that open their popover, so editing costs no extra
+// click. productionError / productionErrorNote (≈2.3k each) and the read-only or rarely edited fields move
+// into the details popover (`DenseDetails`). designerStatus joins them: it is mostly written by the
+// designer workflow, not typed in this table.
+export const DENSE_GROUP_DEFS: ColGroupDef[] = [
+  { key: 'identity', title: 'Mã đơn / Ưu tiên', width: 285, memberKeys: ['productionId', 'priority'] },
+  { key: 'product', title: 'Sản phẩm · SKU', width: 270, memberKeys: ['mockupTypeSize'] },
+  { key: 'status', title: 'Trạng thái', width: 120, memberKeys: ['orderStatus'] },
+  { key: 'toolCheck', title: 'Kết quả Tool / File lỗi', width: 240, memberKeys: ['toolResult', 'toolResultNote', 'errorFile'] },
+  { key: 'print', title: 'Trạng thái in', width: 125, memberKeys: ['printStatus'] },
+  { key: 'assignee', title: 'Người thực hiện', width: 120, memberKeys: ['assignee'] },
+];
+
+/** Fields that left the line: shown (and still editable) in the row's details popover. */
+export const DENSE_PANEL_KEYS = [
+  'priority',
+  'typeFullName',
+  'factoryMachine',
+  'fabricType',
+  'machineNumber',
+  'printStatusNote',
+  'errorFileNote',
+  'productionError',
+  'productionErrorSource',
+  'productionErrorNote',
+  'assigneeNote',
+  'designerStatus',
+];
+
+/** Compact renderers for the members whose normal cell is a tall stack (production ID block, mockup block). */
+const DENSE_RENDER: Record<string, (r: WorkshopOrderRow, ctx: WorkshopRenderCtx) => React.ReactNode> = {
+  productionId: (r, ctx) => {
+    const hasCuttingFile = !!(r as { cuttingFileUrl?: string }).cuttingFileUrl;
+    return (
+      <div className="flex min-w-0 items-center gap-1">
+        <CopyButton value={r.productionId} label="Production ID" iconSize={13} className="p-0.5 hover:ring-1 hover:ring-primary/40" />
+        {ctx.openDetail ? (
+          <button
+            type="button"
+            title={ctx.t ? ctx.t('workshopCols.misc.clickForDetail') : 'Click để xem chi tiết'}
+            onClick={(e) => {
+              e.stopPropagation();
+              ctx.openDetail?.(r._id, r.productionId);
+            }}
+            className="shrink-0 whitespace-nowrap text-left font-mono text-[13px] font-semibold text-foreground hover:text-primary hover:underline"
+          >
+            {r.productionId}
+          </button>
+        ) : (
+          <span className="shrink-0 whitespace-nowrap font-mono text-[13px] font-semibold text-foreground">{r.productionId}</span>
+        )}
+        {hasCuttingFile && <span className="shrink-0 text-[10px] text-emerald-600 dark:text-emerald-400">✂</span>}
+      </div>
+    );
+  },
+  priority: (r, ctx) => <PriorityCell row={r} ctx={ctx} inline />,
+  mockupTypeSize: (r, ctx) => {
+    const url = r.mockupOriginalUrl || r.mockupUrl;
+    const qty = r.quantity ?? 1;
+    const sizeColor = `${r.size || '—'}${r.color ? ' / ' + r.color : ''}`;
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        <ImageThumbCell
+          url={r.mockupUrl}
+          originalUrl={r.mockupOriginalUrl}
+          title={url ? `Mockup: ${url}` : 'Mockup'}
+          onOpen={ctx.openPreview}
+          size={36}
+        />
+        <div className="min-w-0 flex-1 leading-tight">
+          <Hint content={r.type ? `Type: ${r.type}` : ''} forceRich>
+            <span className="block truncate text-xs font-medium text-foreground">{r.type || '—'}</span>
+          </Hint>
+          <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+            {/* Quantity decides how many copies the print stage makes — emphasised above 1. */}
+            <span
+              className={cn(
+                'shrink-0 rounded px-1 py-px text-[10px] font-semibold',
+                qty > 1 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-muted text-muted-foreground',
+              )}
+            >
+              {ctx.t ? ctx.t('workshopCols.qty', { quantity: qty }) : `SL ${qty}`}
+            </span>
+            <Hint content={`Size / Color: ${sizeColor}`} forceRich>
+              <span className="shrink-0 whitespace-nowrap">{sizeColor}</span>
+            </Hint>
+            {r.userSku && (
+              <Hint content={`User SKU: ${r.userSku}`} forceRich>
+                <span className="min-w-0 truncate font-mono text-foreground/80">{r.userSku}</span>
+              </Hint>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  },
+};
+
+/** Render one member: the compact variant when `dense` and it has one, otherwise the normal cell. */
+export function renderMember(c: WorkshopColMeta, row: WorkshopOrderRow, ctx: WorkshopRenderCtx, dense: boolean): React.ReactNode {
+  const compact = dense ? DENSE_RENDER[c.key] : undefined;
+  return compact ? compact(row, ctx) : c.render(row, ctx);
+}
+
+/**
+ * Dense group cell: members side by side, no labels (the column header names them). The first group also
+ * carries the details button, drawn in front of the production ID.
+ */
+export function DenseGroupCellContent({
+  group,
+  renderedByKey,
+  extra,
+  leading,
+}: {
+  group: ResolvedColGroup;
+  renderedByKey: Map<string, React.ReactNode>;
+  extra?: (memberKey: string) => React.ReactNode;
+  leading?: React.ReactNode;
+}) {
+  // The identity cell is ONE line (ID, then the priority chip with its countdown); the other cells may wrap chips.
+  const oneLine = group.key === 'identity';
+  return (
+    <div className={cn('flex min-w-0 items-center gap-1', oneLine && 'min-w-[260px]')}>
+      {leading}
+      <div className={cn('min-w-0 flex-1', oneLine ? 'flex flex-nowrap items-center gap-2' : 'flex flex-wrap items-center gap-1')}>
+        {group.members.map((c, i) => (
+          // On the one-line identity cell the production ID must never be cut; the priority chip gives way.
+          <div key={c.key} className={cn('flex items-center gap-1', oneLine && i === 0 ? 'shrink-0' : 'min-w-0')}>
+            {renderedByKey.get(c.key)}
+            {extra?.(c.key)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Details button of a dense row: opens a popover with everything that is not on the line (including the
+ * order / platform IDs, labels and dates of the full production-ID block). The cells render only while it
+ * is open and keep their editors, so a field moved here is one click further, never gone.
+ */
+export function DenseDetails({
+  row,
+  ctx,
+  panelCols,
+  locked,
+}: {
+  row: WorkshopOrderRow;
+  ctx: WorkshopRenderCtx;
+  panelCols: WorkshopColMeta[];
+  /** Held orders are read-only everywhere. */
+  locked: boolean;
+}) {
+  const { t } = useTranslation('orders');
+  const effectiveCtx = locked ? { ...ctx, canEditField: () => false } : ctx;
+  const idBlock = WORKSHOP_COLS.find((c) => c.key === 'productionId');
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          title={t('denseRow.details')}
+          aria-label={t('denseRow.details')}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent touch:h-9 touch:w-9"
+        >
+          <ChevronDown size={14} className="transition-transform [[data-state=open]_&]:rotate-180" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[min(560px,92vw)] p-3">
+        {idBlock && <div className="mb-3 border-b border-border pb-2">{idBlock.render(row, effectiveCtx)}</div>}
+        <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+          {panelCols.map((c) => (
+            <div key={c.key} className="min-w-0">
+              <div className="mb-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                {t(`workshopCols.short.${c.key}`, { defaultValue: FIELD_LABELS[c.key] || c.label })}
+              </div>
+              <div className="flex min-w-0 items-center gap-1">{c.render(row, effectiveCtx)}</div>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
