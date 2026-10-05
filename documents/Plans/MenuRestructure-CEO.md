@@ -165,6 +165,17 @@ tới danh sách trống hoặc danh sách-tất-cả là làm sai.
 trong `Items` bất kể số lượng. Mục rỗng cho nhân viên biết dòng đó tồn tại.
 Kèm số đếm để thấy ngay dòng nào đang chạy.
 
+**Sửa 05/10/2026 — gọn lại theo số liệu thật** (74.195 đơn: 30 ngày qua chỉ 3D, 2D và Thêu có đơn;
+LED/Canvas/Dropship chưa từng có). Sáu dòng KHÔNG còn là sáu mục cố định: chúng gom vào một mục con
+**"Dòng sản phẩm"** trong nhóm Sản xuất (đóng sẵn, kèm tổng đơn đang mở). Mở ra chỉ thấy dòng
+**có đơn** — dòng đếm 0 ẩn đi và tự hiện lại khi có hàng (theo dữ liệu, không phải danh sách cứng);
+dòng đang xem luôn hiện và tự mở mục con. Chưa có số đếm (chưa tải xong / vai không xem được) thì hiện hết.
+Vẫn "chọn dòng rồi mới vào danh sách" như §31, chỉ không chiếm 7 chỗ thường trực. Thêm: **accordion** —
+mở một nhóm cấp một thì nhóm đang mở đóng lại, nhóm chứa trang hiện tại tự mở mỗi lần đổi trang (nhóm đóng
+có chứa trang hiện tại hiện một chấm); nhóm **Hệ thống** (Import, Cutting files, Unmapped, Products,
+Promotions, Workshop config, Customers, Zalo/Telegram, Settings) thành MỘT hàng đóng sẵn — quyền từng mục
+giữ nguyên. Code: `Sidebar.tsx` (`NavChild.subgroup`, `SidebarSubGroup`, `openKey` ở `Sidebar`).
+
 ### 8.3b Kho — để ở Báo cáo, có đường lui
 
 "Kho" (`/ffm/inventory`) nằm ở Báo cáo theo §2, nhưng thủ kho còn NHẬP phiếu ở
