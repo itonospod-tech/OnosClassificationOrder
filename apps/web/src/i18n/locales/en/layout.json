@@ -94,11 +94,11 @@
       },
       "lines": {
         "3d": "3D",
-        "2d": "2D (DTG/DTF)",
+        "2d": "2D",
         "embroidery": "Embroidery",
         "led": "LED",
         "canvas": "Canvas",
-        "wood": "Wood & laser cut",
+        "wood": "Wood",
         "dropship": "Dropship"
       },
       "tool": {

@@ -1136,6 +1136,8 @@ Thứ tự group MẶC ĐỊNH (mọi role trừ Support) đặt `toolCheck` (g�
 
 ### 10.2b `OrderTableClassic.tsx` — "Đơn hàng", flat + phân trang thật
 
+> **Chuyển cách xem (05/10/2026):** sidebar chỉ còn MỘT mục "Tất cả đơn" cho cả hai trang (cùng một tập đơn). Cách xem chọn ở thanh công cụ trang bằng `OrderViewSwitch` ("Theo sản phẩm" ↔ "Bảng phẳng", `components/orders/OrderViewSwitch.tsx`), nhớ lựa chọn ở `store/orderViewStore.ts` (`onosfactory-order-view`) — mục menu mở lại cách xem dùng gần nhất. Hai route giữ nguyên; `/ffm/orders/classic` không còn mục menu nên được khai ở `ROUTE_ONLY_PAGES` (`Sidebar.tsx`) để giữ khoá `page.orders`.
+
 > **Mục tiêu:** Bản thay thế KHÔNG gộp theo sản phẩm của `OrderTableWorkshop` — cùng cột/filter/bulk edit, chỉ khác cách hiển thị (phẳng, phân trang theo SỐ DÒNG ĐƠN thay vì SỐ LOẠI SẢN PHẨM) và KHÔNG có block Designer Summary. Route riêng `/ffm/orders/classic`, menu sidebar **"Đơn hàng"** (`Rows3` icon, key `sidebar.orders.classic`) — nằm trong **NHÓM MENU RIÊNG "Đơn hàng"** (`title: t('sidebar.groups.orders')`, ngang hàng nhóm "Danh mục"/"Cá nhân"/"Quản trị" trong `buildNavGroups()`, KHÔNG còn lồng trong nhóm "Quản lý đơn" nữa), gate cùng permission `page.orders` + `order.view_workshop_table` (mirror `OrdersWorkshopPage`).
 
 **Tái dùng NGUYÊN VẸN** (không duplicate logic, chỉ đổi cách render/fetch):
