@@ -18,6 +18,7 @@ export * from './order';
 export * from './patterns';
 export * from './permission-action';
 export * from './permission-catalog';
+export * from './tool-check-rework';
 export * from './product-level';
 export * from './product-print-area';
 export * from './stock-order';

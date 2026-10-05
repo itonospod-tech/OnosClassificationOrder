@@ -62,6 +62,10 @@ Why (i): smaller, reversible in one switch, and the signal is fast enough. Cost 
 
 ## 4. How we measure, and when the decision flips
 
+> **WARNING — which source the measurement reads.** Count `fulfillmentTimeline[].reworkTarget='tool-check'` (with `at`, `byUserId`). **NEVER read `productionErrorCount`** (or any error dashboard built on it): the kanban path deliberately does NOT increment it (same as the kanban designer path), so once workers move to the kanban the error statistics will UNDER-count tool-check errors. Anyone reading those dashboards will see a low number and conclude "tool-check errors are rare" — the exact wrong conclusion that led here.
+
+> **Prerequisite before the measuring phase — a human must click it once.** Turn the flag on for In Mê Linh, log in as an In Mê Linh worker, open the kanban, open "Báo lỗi" on a Print order and confirm the "Soát tool (Support)" chip is visible and that sending an order lands it in the Support list and the Telegram line. Tests pin the render condition (`tool-check-rework-gate.spec.ts`: one function shared by the dialog chip and the server guard, plus the flag lookup from `/factories/options`) but cannot replace a real click. If the chip is invisible, the measurement reads 0 for the wrong reason and would wrongly conclude "(a): the problem is gone".
+
 Query: send-backs to tool-check per week from the 4 station accounts, split by target (`reworkTarget`), compared with the 0.1/day baseline of Sep.
 
 - Tool-check send-backs **rise clearly** (say > 1 order/day from 4 accounts) → (b): people were blocked, not done. Phase 2 = make Support's path FAST and FINDABLE (hold never hidden by a date window, one-click exits, the same two exits collapsed to one meaning).

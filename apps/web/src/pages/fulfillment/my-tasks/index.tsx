@@ -23,7 +23,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import type { FulfillmentTransitionDto, ProductionOrderRow } from 'shared';
-import { FulfillmentStage, FulfillmentTransitionAction } from 'shared';
+import { factoryAllowsToolCheckRework, FulfillmentStage, FulfillmentTransitionAction } from 'shared';
 import { toast } from 'sonner';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
@@ -292,7 +292,7 @@ function FulfillmentKanbanView() {
   useEffect(() => {
     void loadFactoryOptions();
   }, [loadFactoryOptions]);
-  const allowToolCheck = factoryOptions.find((f) => f._id === String(profile?.factoryId))?.allowToolCheckRework === true;
+  const allowToolCheck = factoryAllowsToolCheckRework(factoryOptions, profile?.factoryId);
   // Admin/Manager/SupportManager (= override roles ở BE) → thấy thêm column
   // "Chưa gán Designer" + được phép gọi tab=unassigned.
   const roleName = profile?.role?.name as string | undefined;

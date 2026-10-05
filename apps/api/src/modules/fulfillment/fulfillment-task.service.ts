@@ -19,6 +19,7 @@ import type {
   ProductionOrder,
 } from 'shared';
 import {
+  canSendBackToToolCheck,
   DesignerStatus,
   FactoryFlowType,
   FULFILLMENT_STAGE_ORDER,
@@ -620,7 +621,7 @@ export class FulfillmentTaskService {
           // (`productionErrorSource='tool-check'` + `toolResultNote='error'`), so the
           // Support list, badge and Telegram line see it; the order stays at this
           // (Print) stage as "waiting back" until Support clears it.
-          if (!input.toolCheckRework || stage !== FulfillmentStage.Print) {
+          if (!canSendBackToToolCheck(input.toolCheckRework, stage)) {
             throw new BadRequestException('Đích "Soát tool" chưa được bật cho công đoạn/xưởng này.');
           }
           set.toolResultNote = 'error';
