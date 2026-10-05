@@ -143,7 +143,9 @@ function OverdueAlertBanner() {
       className="flex items-center gap-3 bg-red-600 text-white px-4 py-2.5 text-sm shadow-md z-20 shrink-0"
     >
       <AlertTriangle size={20} className="shrink-0 animate-pulse" />
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+      {/* From md up the alert is ONE line (it sits above every page, so each extra line costs data area);
+            the call to action only shows on very wide screens and the tail is clipped if it still overflows. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 md:flex-nowrap md:overflow-hidden md:whitespace-nowrap">
         <span className="font-extrabold uppercase tracking-wide">{t('overdueAlert.title', { date: cutoffLabel })}</span>
         {segments.map((seg, i) => (
           <React.Fragment key={i}>
@@ -151,7 +153,7 @@ function OverdueAlertBanner() {
             {seg}
           </React.Fragment>
         ))}
-        <span className="opacity-90">{t('overdueAlert.callToAction')}</span>
+        <span className="opacity-90 md:hidden 2xl:inline">{t('overdueAlert.callToAction')}</span>
       </div>
     </div>
   );

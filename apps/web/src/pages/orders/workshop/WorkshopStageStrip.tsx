@@ -1,8 +1,10 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight } from 'lucide-react';
 import type { WorkshopAvailableFilters, WorkshopStageFilter, WorkshopStageFilterKey } from 'shared';
 import { LIFECYCLE_STAGE_KEYS } from 'shared';
+
+import { useOrderViewStore } from '@/store/orderViewStore';
 
 import { cn } from '@/utils/cn';
 
@@ -31,9 +33,62 @@ export function WorkshopStageStrip({
   const { t } = useTranslation('orders');
   const counts = filters?.stageCounts || {};
   const max = Math.max(1, ...LIFECYCLE_STAGE_KEYS.map((k) => counts[k] || 0));
+  const expanded = useOrderViewStore((s) => s.funnelExpanded);
+  const toggleFunnel = useOrderViewStore((s) => s.toggleFunnel);
+
+  // Compact funnel (default): the same eight stages and counts as one row of chips, still clickable as
+  // filters. The full tiles are a glance at the start of a shift, so they fold away and the choice is kept.
+  if (!expanded) {
+    return (
+      <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          {LIFECYCLE_STAGE_KEYS.map((key) => {
+            const n = counts[key] || 0;
+            const active = activeStage === key;
+            const label = t(`workshopBoard.stages.${key}`);
+            return (
+              <button
+                key={key}
+                type="button"
+                title={t('workshopBoard.stageTileTitle', { stage: label })}
+                aria-pressed={active}
+                onClick={() => onStageChange(active ? '' : key)}
+                className={cn(
+                  'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors',
+                  active ? cn('border-2', STAGE_COLORS[key].tileActive) : n > 0 ? STAGE_COLORS[key].tile : 'border-border bg-muted/30 hover:bg-accent',
+                )}
+              >
+                <span className={cn('h-2 w-2 shrink-0 rounded-full', STAGE_COLORS[key].dot, n === 0 && !active && 'opacity-40')} />
+                <span className={cn('font-medium', n === 0 && !active ? 'text-muted-foreground/60' : STAGE_COLORS[key].text)}>{label}</span>
+                <span className={cn('font-bold tabular-nums', n === 0 && !active ? 'text-muted-foreground/50' : STAGE_COLORS[key].text)}>{n}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={toggleFunnel}
+          title={t('workshopBoard.funnelExpand')}
+          aria-label={t('workshopBoard.funnelExpand')}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+        >
+          <ChevronDown size={14} />
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
+    <div className="relative rounded-lg border border-border bg-card p-3">
+      <button
+        type="button"
+        onClick={toggleFunnel}
+        title={t('workshopBoard.funnelCollapse')}
+        aria-label={t('workshopBoard.funnelCollapse')}
+        className="absolute right-1 top-1 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+      >
+        <ChevronDown size={13} className="rotate-180" />
+      </button>
       {/* Phones: 8 tiles cannot share 390px, so the row scrolls on its own with a readable minimum tile width. */}
       <div className="flex items-stretch gap-1.5 max-md:-mx-1 max-md:overflow-x-auto max-md:px-1 max-md:pb-1">
         {LIFECYCLE_STAGE_KEYS.map((key, i) => {
