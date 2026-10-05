@@ -1189,7 +1189,7 @@ export function OrderTableWorkshop() {
         )}
 
         {/* Vùng rail|bảng chiếm phần còn lại; tối thiểu 260px (màn thấp thì <main> cuộn thay). */}
-        <div className="flex min-h-[260px] flex-1 items-stretch gap-4">
+        <div className="flex min-h-[260px] flex-1 items-stretch gap-4 max-md:flex-col">
           {/* Rail loại sản phẩm — cao bằng vùng bảng, tự cuộn bên trong. */}
           <WorkshopTypeRail
             typeStats={workshopFilters?.typeStats || []}
@@ -1199,9 +1199,9 @@ export function OrderTableWorkshop() {
               setFilterType(ty);
               setPage(1);
             }}
-            className="h-full"
+            className="h-full max-md:h-auto max-md:max-h-56 max-md:w-full"
           />
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col max-md:min-h-[420px]">
         {/* Table */}
         {/* Card = cột flex: tiêu đề (shrink-0) · thân bảng (flex-1, cuộn dọc+ngang) · chân bảng (shrink-0, luôn thấy). */}
         <LoadingOverlay active={loading && items.length > 0} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">

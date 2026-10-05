@@ -46,6 +46,7 @@
     /* Staff app page + surfaces (documents/Plans/DesignSystem-LegacyParity.md §1/§3): light grey
        page, white surfaces lifted by a wide soft shadow instead of an outline. */
     --page: 0 0% 97.3%;
+    --table-head: 214 32% 93.5%;
     --surface-shadow: 0 4px 25px 0 rgb(0 0 0 / 0.1);
 
     /* Status by MEANING, kept from the legacy app (DesignSystem-LegacyParity.md §9): violet = where
@@ -95,6 +96,7 @@
 
     /* Shadows vanish on a dark page, so dark mode keeps the plain page and the borders. */
     --page: 222.2 84% 4.9%;
+    --table-head: 217 33% 11%;
     --surface-shadow: none;
 
     /* Lighter on dark so tinted chips keep readable text. */
@@ -194,4 +196,11 @@
 /* Native controls (checkbox, select arrow, scrollbars, date picker) follow the theme; without this a checkbox is a solid white block on dark pages. */
 .dark {
   color-scheme: dark;
+}
+
+/* Table header row sits one step off the card so the eye finds the columns. Targets `th` (not `thead`)
+   so sticky header cells that carry their own `bg-card` follow the same tint — an element selector
+   outranks the single-class utility. */
+.app-page thead th {
+  background-color: hsl(var(--table-head));
 }
