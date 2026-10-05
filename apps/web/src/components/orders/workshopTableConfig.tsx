@@ -34,6 +34,8 @@ export type WorkshopOrderRow = {
   _id: string;
   productionId: string;
   userSku?: string;
+  /** SKU of the variation matching the order's size — the code printed on the shipping label (absent when none matches). */
+  variantSku?: string;
   size?: string;
   color?: string;
   type?: string;
@@ -1087,6 +1089,7 @@ export const DENSE_GROUP_DEFS: ColGroupDef[] = [
 /** Fields that left the line: shown (and still editable) in the row's details popover. */
 export const DENSE_PANEL_KEYS = [
   'priority',
+  'userSku',
   'typeFullName',
   'factoryMachine',
   'fabricType',
@@ -1157,10 +1160,18 @@ const DENSE_RENDER: Record<string, (r: WorkshopOrderRow, ctx: WorkshopRenderCtx)
             <Hint content={`Size / Color: ${sizeColor}`} forceRich>
               <span className="shrink-0 whitespace-nowrap">{sizeColor}</span>
             </Hint>
-            {r.userSku && (
-              <Hint content={`User SKU: ${r.userSku}`} forceRich>
-                <span className="min-w-0 truncate font-mono text-foreground/80">{r.userSku}</span>
-              </Hint>
+            {/* The variant SKU (what the shelf and the shipping label carry), copyable. The seller account SKU
+                (userSku) moved to the details popover. Absent when no variation matches: shown as "—", never
+                replaced by another code. */}
+            {r.variantSku ? (
+              <span className="inline-flex min-w-0 items-center gap-0.5">
+                <Hint content={`SKU: ${r.variantSku}`} forceRich>
+                  <span className="min-w-0 truncate font-mono text-foreground/80">{r.variantSku}</span>
+                </Hint>
+                <CopyButton value={r.variantSku} label="SKU" iconSize={11} className="p-0.5" />
+              </span>
+            ) : (
+              <span className="shrink-0 font-mono text-muted-foreground/50">—</span>
             )}
           </div>
         </div>
@@ -1247,7 +1258,10 @@ export function DenseDetails({
           {panelCols.map((c) => (
             <div key={c.key} className="min-w-0">
               <div className="mb-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground/70">
-                {t(`workshopCols.short.${c.key}`, { defaultValue: FIELD_LABELS[c.key] || c.label })}
+                {/* userSku is the SELLER ACCOUNT code, not a product SKU: say so (the product SKU is on the line). */}
+                {c.key === 'userSku'
+                  ? t('denseRow.sellerAccount')
+                  : t(`workshopCols.short.${c.key}`, { defaultValue: FIELD_LABELS[c.key] || c.label })}
               </div>
               <div className="flex min-w-0 items-center gap-1">{c.render(row, effectiveCtx)}</div>
             </div>
