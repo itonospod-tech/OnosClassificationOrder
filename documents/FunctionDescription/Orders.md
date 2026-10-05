@@ -2454,3 +2454,12 @@ Cố ý KHÔNG dùng store toàn cục: phạm vi ẩn trong store thì link g�
 ### 25.4 Dấu hiệu trên màn hình
 
 `apps/web/src/components/common/FactoryScopeChip.tsx` — chip "Đang lọc xưởng: X" + nút bỏ lọc, gắn ở `middleRow` của `OrderFilterBar` tại Danh sách đơn và tab Thống kê. Trang bị thu hẹp dữ liệu mà không có dấu hiệu gì là cách chắc chắn nhất để người ta đọc nhầm số. Chip không hiện khi xưởng do TÀI KHOẢN quy định (Fulfillment) — lúc đó bỏ lọc cũng không được.
+
+## 26. Giá vốn không bao giờ rời server với Designer / Fulfillment (05/10/2026)
+
+**Lỗ đã bịt:** trước đây giá vốn chỉ được GIẤU ở trình duyệt (`hidePrice` một dòng ở `OrderStatsTab.tsx`), còn server trả `baseCost`/`shipCost` của từng đơn cho MỌI role xem đơn — `GET /orders`, `/grouped`, `/by-ids`, `/by-production-id`, `/export`, kanban Fulfillment/Designer, tổng tiền Dashboard. 41/53 tài khoản (15 Designer + 26 Fulfillment) mở DevTools hoặc bấm Xuất Excel là có giá vốn (dev 05/10: 72.860 đơn có `baseCost`).
+
+**Cách chặn — một chỗ, mọi route:** `PriceVisibilityInterceptor` (`apps/api/src/interceptors/`) gắn trong `@Auth` và `@Perm`, nên MỌI route có xác thực của MỌI module đều đi qua, kể cả route thêm sau này. Với role thuộc `PRICE_HIDDEN_ROLES` (`shared/constants/price-visibility.ts` = Designer + Fulfillment, ĐÚNG tập FE đã giấu — thêm role là đổi chính sách, chủ dự án quyết), response được sao chép bỏ mọi khóa trong `PRICE_FIELD_KEYS` ở MỌI độ sâu (`baseCost`, `shipCost`, các tổng `*Cost` của Dashboard, `minCost`/`maxCost`). Không sửa tại chỗ (object có thể nằm trong cache dùng chung với role khác). Role khác: response đi thẳng, không tốn gì. FE `hidePrice` đọc cùng hằng (`isPriceHiddenRole`). Ngoài phạm vi có chủ đích: Agent API (khóa riêng), Public Order API của khách (giá của chính khách), CEO Dashboard / seller hub (role khác).
+
+Chi phí đo trên dev: payload lớn nhất một công nhân kéo được (5.000 đơn, 27 MB) mất ~0,57 s để che, ngang lượt serialize vốn có (~0,63 s). Spec `interceptors/price-visibility.spec.ts`: role ẩn không còn khóa giá ở mọi độ sâu (kể cả document có `toJSON`), role khác nhận nguyên response, không mutate input, và mọi route có guard của OrderController / FulfillmentTaskController / DesignerStatsController mang interceptor.
+
