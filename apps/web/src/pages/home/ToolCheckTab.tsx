@@ -130,7 +130,7 @@ export default function ToolCheckTab() {
   // Product line from the "Tool" menu (Tool 3D / Tool 2D–DTF, `?productLine=`) — a scope set by
   // the menu, read straight from the URL. Switching line keeps this tab mounted, so the facet
   // picks of the previous line (a product type that does not exist in the new one) are cleared.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const productLine = searchParams.get('productLine') || '';
   const prevProductLine = useRef(productLine);
   useEffect(() => {
@@ -900,6 +900,32 @@ export default function ToolCheckTab() {
           <FileSearch size={16} className="text-indigo-600" />
           <span className="text-sm font-semibold">{t('header.title')}</span>
           <span className="hidden md:inline text-[11px] text-muted-foreground">— {t('header.subtitle')}</span>
+          {/* Line scope (replaces the two "Tool 3D / 2D" sidebar entries — Tool is one link now). */}
+          <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+            {([['', t('filters.lineAll')], ['3d', '3D'], ['2d', '2D']] as const).map(([code, label]) => (
+              <button
+                key={code}
+                type="button"
+                aria-pressed={productLine === code}
+                onClick={() =>
+                  setSearchParams(
+                    (prev) => {
+                      const next = new URLSearchParams(prev);
+                      if (code) next.set('productLine', code);
+                      else next.delete('productLine');
+                      return next;
+                    },
+                    { replace: true },
+                  )
+                }
+                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors touch:min-h-9 ${
+                  productLine === code ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <Button variant="ghost" size="sm" className="ml-auto" onClick={fetchData} disabled={loading}>
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </Button>

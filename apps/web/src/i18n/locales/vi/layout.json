@@ -110,7 +110,8 @@
       },
       "wallet": {
         "title": "Ví",
-        "sellers": "Ví seller"
+        "sellers": "Ví seller",
+        "transactions": "Giao dịch"
       },
       "hr": {
         "title": "HR"
