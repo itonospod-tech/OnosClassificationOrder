@@ -18,7 +18,12 @@ export function stripPriceFields<T>(body: T): T {
 }
 
 /**
- * Copy without price keys. Never mutates: a response object may be shared with an in-memory cache
+ * Copy without price keys. LIMIT: it only sees object KEYS. A route that returns a string (CSV,
+ * text export) or a binary file is passed through as is, so a price column in it would leak. No such
+ * route exists today (no controller returns `Promise<string>`); a new export route must drop price
+ * columns itself for PRICE_HIDDEN_ROLES.
+ *
+ * Never mutates: a response object may be shared with an in-memory cache
  * that other (allowed) roles read. Plain objects and arrays are copied; objects with `toJSON`
  * (Mongoose documents) are serialized first, like the response itself would be; other instances
  * (Date, ObjectId, Buffer, files) are returned as they are.
