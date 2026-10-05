@@ -850,5 +850,10 @@
   },
   "printCard": {
     "details": "Chi tiết"
+  },
+  "viewSwitch": {
+    "label": "Cách xem đơn",
+    "grouped": "Theo sản phẩm",
+    "flat": "Bảng phẳng"
   }
 }

@@ -21,6 +21,7 @@ import { OrderDetailDialog } from '@/components/orders/OrderDetailDialog';
 import { OrderFilterBar, type OrderFilterFacet } from '@/components/orders/OrderFilterBar';
 import { OrderLogTimelineDialog } from '@/components/orders/OrderLogTimelineDialog';
 import { OrderRowActionsMenu } from '@/components/orders/OrderRowActionsMenu';
+import { OrderViewSwitch } from '@/components/orders/OrderViewSwitch';
 import {
   buildColGroups,
   GroupCellContent,
@@ -747,6 +748,7 @@ export function OrderTableClassic() {
           loading={loading}
           topActionsRight={
             <>
+              <OrderViewSwitch current="flat" />
               <Button
                 variant={filterHeld ? 'default' : 'outline'}
                 size="sm"

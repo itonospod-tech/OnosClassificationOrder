@@ -25,6 +25,7 @@ import { SearchableSelectFilter } from '@/components/common/SearchableSelectFilt
 import { SelectFilter } from '@/components/common/SelectFilter';
 import { BulkProductionIdDialog } from '@/components/orders/BulkProductionIdDialog';
 import type { OrderFilterFacet } from '@/components/orders/OrderFilterBar';
+import { OrderViewSwitch } from '@/components/orders/OrderViewSwitch';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -165,6 +166,8 @@ export function WorkshopToolbar({
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">
+        <OrderViewSwitch current="grouped" />
+
         {/* Ô tìm kiếm lớn đã bỏ (07/09/2026) — tra theo mã đơn qua "Nhiều mã", lọc loại SP ở rail. */}
         <Button variant="outline" size="sm" className="h-9" onClick={() => setBulkOpen(true)} title={t('filterBar.bulkHint')}>
           <ListChecks size={14} />

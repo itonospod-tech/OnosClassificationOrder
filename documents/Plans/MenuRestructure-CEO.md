@@ -192,6 +192,12 @@ có khoảng cách trên. Mỗi nhóm cấp một một màu, CHỈ ở biểu t
 Hệ thống xám. Chữ giữ tông trung tính, mục đang chọn giữ kiểu cũ (gạch trái + nền tím nhạt), badge đỏ giữ nguyên. Ở
 thanh thu gọn màu biểu tượng là thứ duy nhất phân biệt khu vực.
 
+**Sửa 05/10/2026 (lần 4) — nhóm Sản xuất.** "Tất cả đơn" và "Danh sách đơn (bảng phẳng)" là cùng một tập đơn nên
+gộp một mục; hai cách xem chuyển ở thanh công cụ trang (Orders.md §10.2b). Nhãn dòng sản phẩm rút ngắn ("2D", "Gỗ").
+Dòng 0 đơn mờ đi nhưng GIỮ chỗ và không ẩn. Bỏ nhãn mục "Tại trạm" — Quét mã và Danh mục lỗi nối tiếp khối Công việc
+(với vai có bảng task: Công việc đứng TRƯỚC Đơn hàng, đã kiểm trên tài khoản Fulfillment). Mục đang chọn tính theo xưởng
+khoá của tài khoản (`useNavLocation`) nên trang mở bằng link không có `?factoryId=` vẫn sáng và tự mở nhóm.
+
 ### 8.3b Kho — để ở Báo cáo, có đường lui
 
 "Kho" (`/ffm/inventory`) nằm ở Báo cáo theo §2, nhưng thủ kho còn NHẬP phiếu ở

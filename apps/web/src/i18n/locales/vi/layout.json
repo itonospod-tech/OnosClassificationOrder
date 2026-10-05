@@ -94,11 +94,11 @@
       },
       "lines": {
         "3d": "3D",
-        "2d": "2D (DTG/DTF)",
+        "2d": "2D",
         "embroidery": "Thêu",
         "led": "LED",
         "canvas": "Canvas",
-        "wood": "Gỗ & cắt khắc",
+        "wood": "Gỗ",
         "dropship": "Dropship"
       },
       "tool": {

@@ -850,5 +850,10 @@
   },
   "printCard": {
     "details": "Details"
+  },
+  "viewSwitch": {
+    "label": "Order view",
+    "grouped": "By product",
+    "flat": "Flat table"
   }
 }
