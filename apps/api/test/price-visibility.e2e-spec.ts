@@ -110,7 +110,7 @@ describe('price visibility over HTTP (e2e)', () => {
   const get = (path: string, role: RoleType) => request(app.getHttpServer()).get(path).set('Authorization', `Bearer ${tokenFor(role)}`);
 
   describe.each(['/api/v1/orders', '/api/v1/orders/dashboard'])('%s', (path) => {
-    it.each([RoleType.Fulfillment, RoleType.Designer])('%s: no price key at any depth', async (role) => {
+    it.each([RoleType.Fulfillment, RoleType.Designer, RoleType.DesignerLeader])('%s: no price key at any depth', async (role) => {
       const res = await get(path, role).expect(200);
       expect(res.body.success).toBe(true);
       expect(priceKeys(res.body)).toEqual([]);
