@@ -1886,6 +1886,28 @@ export class OrderService implements OnModuleInit {
     return cfgs.map((d) => d.code);
   }
 
+  /**
+   * `variantSku` on list rows: the product variation SKU matched by the order's size, the same rule
+   * and the same code as the SKU printed on the shipping label (`resolveShippingLabelInfo`). No
+   * size match → left empty, never guessed (the barcode tem's base-SKU fallback is a guess and
+   * would show two different SKUs for one order). `userSku` is the seller account, not a product SKU.
+   * One query for all rows of the page. Rows must be plain objects (repository reads are lean).
+   */
+  private async attachVariantSku(rows: Array<Record<string, unknown>>): Promise<void> {
+    const pcIds = [...new Set(rows.map((r) => (r.productConfigId ? String(r.productConfigId) : '')).filter(Boolean))];
+    if (pcIds.length === 0) return;
+    const configs = await this.productConfigRepository.findAll<{ _id: unknown; variations?: { sku?: string }[] }>(
+      { _id: { $in: pcIds } },
+      { select: ['variations.sku'] },
+    );
+    const varsByPc = new Map(configs.map((c) => [String(c._id), c.variations ?? []]));
+    for (const r of rows) {
+      if (!r.productConfigId) continue;
+      const sku = resolveShippingLabelInfo(varsByPc.get(String(r.productConfigId)) ?? [], r.size as string | undefined, undefined, undefined).sku;
+      if (sku) r.variantSku = sku;
+    }
+  }
+
   /** True nếu dto.designerStatus dùng token tách tool (cần resolve toolHasCodes). */
   private needsToolHasCodes(dto: GetProductionOrdersDto): boolean {
     return !!dto.designerStatus && dto.designerStatus.includes('__unassigned_');
@@ -1992,6 +2014,7 @@ export class OrderService implements OnModuleInit {
       total = res.total;
     }
 
+    await this.attachVariantSku(data as Array<Record<string, unknown>>);
     const result = { success: true as const, data: data as never, total };
 
     // [cache disabled]
@@ -2337,6 +2360,7 @@ export class OrderService implements OnModuleInit {
       ],
     });
 
+    await this.attachVariantSku(orders as unknown as Array<Record<string, unknown>>);
     // 4) Re-attach orders to their groups in the (count-desc) order.
     const byType = new Map<string, unknown[]>();
     for (const o of orders as unknown as Array<{ type?: string }>) {
