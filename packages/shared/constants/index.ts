@@ -26,3 +26,4 @@ export * from './transaction';
 export * from './us-states';
 export * from './user';
 export * from './variation-attribute';
+export * from './price-visibility';

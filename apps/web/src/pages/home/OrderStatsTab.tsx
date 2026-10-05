@@ -19,6 +19,7 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Sector, Tooltip as RechartsTooltip } from 'recharts';
+import { isPriceHiddenRole } from 'shared';
 
 import { RepositoryRemote } from '@/services';
 
@@ -233,7 +234,8 @@ export default function OrderStatsTab() {
   // Hide cost/price stats for Designer + Fulfillment — họ chỉ cần số lượng đơn,
   // không cần thấy doanh thu. Admin/Manager/Support thấy đầy đủ.
   const { roleName } = usePermission();
-  const hidePrice = roleName === 'Designer' || roleName === 'Fulfillment';
+  // Same list the server enforces (PriceVisibilityInterceptor): the UI only mirrors it.
+  const hidePrice = isPriceHiddenRole(roleName);
   // Designer không cần "phân bổ theo xưởng" — họ không quan tâm xưởng nào in.
   // Fulfillment thì vẫn thấy vì cần biết workload từng xưởng.
   const hideFactoryDist = roleName === 'Designer';

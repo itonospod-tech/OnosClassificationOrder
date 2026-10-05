@@ -6,7 +6,7 @@ import type { PermissionType, RoleType } from 'shared';
 
 import { PermissionsGuard, RateLimiterGuard, RolesGuard } from '@/guards';
 import { ZaloAccessGuard } from '@/guards/zalo-access.guard';
-import { AuthUserInterceptor } from '@/interceptors';
+import { AuthUserInterceptor, PriceVisibilityInterceptor } from '@/interceptors';
 
 export function Auth(
   roles: RoleType[] = [],
@@ -28,14 +28,19 @@ export function Auth(
     // Đây là decorator TÀI LIỆU, không phải guard: bỏ nó không đổi quyền gọi
     // của bất kỳ route nào. Cửa vẫn là `AuthGuard({ public })` ngay phía trên.
     ...(isPublicRoute ? [] : [ApiBearerAuth()]),
-    UseInterceptors(AuthUserInterceptor),
+    // Cost / price never leaves the server for PRICE_HIDDEN_ROLES, on any route (Orders.md §26).
+    UseInterceptors(AuthUserInterceptor, PriceVisibilityInterceptor),
     ApiUnauthorizedResponse({ description: 'Unauthorized' }),
     PublicRoute(isPublicRoute),
   );
 }
 
 export function Perm(permission: PermissionType[] = []): MethodDecorator {
-  return applyDecorators(SetMetadata('permission', permission), UseGuards(AuthGuard(), PermissionsGuard));
+  return applyDecorators(
+    SetMetadata('permission', permission),
+    UseGuards(AuthGuard(), PermissionsGuard),
+    UseInterceptors(PriceVisibilityInterceptor),
+  );
 }
 
 export const ClientIp = createParamDecorator((data: unknown, ctx: ExecutionContext): string => {
