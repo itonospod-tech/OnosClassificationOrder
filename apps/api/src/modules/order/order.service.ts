@@ -215,6 +215,7 @@ import {
 import {
   runToolQueueReturn,
   toolQueueReturnEligibility,
+  toolQueueStalled,
   type ToolQueueDoc,
 } from './tool-queue-return.logic';
 
@@ -5732,7 +5733,8 @@ export class OrderService implements OnModuleInit {
   async getToolQueueReturn(dto: GetToolQueueReturnDto, roleName?: RoleType): Promise<GetToolQueueReturnResDto> {
     this.assertSuperAdmin(roleName);
     const { excludedId, skipIds } = this.toolQueueContext();
-    const [docs, shortOf] = await Promise.all([
+    const now = new Date();
+    const [docs, shortOf, waiting, lastToolLog] = await Promise.all([
       this.orderModel
         .find({
           cancelledAt: null,
@@ -5745,7 +5747,21 @@ export class OrderService implements OnModuleInit {
         .sort({ inProductionAt: 1, _id: 1 })
         .lean(),
       this.toolQueueFactoryNames(),
+      // Orders the tool could pick up right now: exactly the queue's own filter.
+      this.orderModel.countDocuments(this.designReviewQueueFilter()),
+      // The tool writes through the public API, so its log entries carry no acting user. Existing indexes
+      // (createdAt) serve this; maxTimeMS keeps a very old last write from stalling the page.
+      this.orderModel.db
+        .collection('orderLogs')
+        .find({ field: 'toolResult', userId: null }, { projection: { createdAt: 1 } })
+        .sort({ createdAt: -1 })
+        .limit(1)
+        .maxTimeMS(5000)
+        .toArray()
+        .catch(() => [] as Array<{ createdAt?: Date }>),
     ]);
+    const lastToolWriteAt = (lastToolLog[0] as { createdAt?: Date } | undefined)?.createdAt ?? null;
+    const queue = { waiting, lastToolWriteAt, stalled: toolQueueStalled(waiting, lastToolWriteAt, now) };
     const all = (docs as unknown as Record<string, unknown>[]).map((d) =>
       this.toToolQueueRow(d, shortOf, toolQueueReturnEligibility(d, excludedId, skipIds)),
     );
@@ -5792,6 +5808,7 @@ export class OrderService implements OnModuleInit {
         data: [],
         groups: [...groups.entries()].map(([key, g]) => ({ key, ...g })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key)),
         total: groups.size,
+        queue,
         summary,
       };
     }
@@ -5799,7 +5816,7 @@ export class OrderService implements OnModuleInit {
     const page = Math.max(1, Number(dto.page) || 1);
     const limit = Math.min(200, Math.max(1, Number(dto.limit) || 50));
 
-    return { success: true, data: filtered.slice((page - 1) * limit, page * limit), total: filtered.length, summary };
+    return { success: true, data: filtered.slice((page - 1) * limit, page * limit), total: filtered.length, queue, summary };
   }
 
   /** Read-only: what a run on `ids` would do. Re-checks every order; the export is built from these rows. */
@@ -7785,11 +7802,11 @@ export class OrderService implements OnModuleInit {
     inProductionAt: 1,
   } as const;
 
-  async getNextDesignReviewOrder(dto?: { from?: string; to?: string; pid?: string }): Promise<{
-    success: true;
-    data: DesignReviewOrder | null;
-    remaining: number;
-  }> {
+  /**
+   * The filter of the external tool's queue (`getNextDesignReviewOrder`) — ONE definition, also used by the
+   * queue counter on the tool-queue-return page, so "orders waiting" there is exactly what the tool sees.
+   */
+  private designReviewQueueFilter(): Record<string, unknown> {
     const excludedFactoryId = getExcludedFactoryIdSync(this.orderModel.db);
     // Xưởng bật "bỏ qua soát tool" (`FactoryEntity.skipToolCheck` —
     // FulfillmentWorkflow.md §2.2d) KHÔNG vào hàng đợi soát tool tự động.
@@ -7801,7 +7818,7 @@ export class OrderService implements OnModuleInit {
       ...(excludedFactoryId ? [excludedFactoryId] : []),
       ...listSkipToolCheckFactoryIdsSync(this.orderModel.db),
     ];
-    const baseFilter: Record<string, unknown> = {
+    return {
       deletedAt: { $exists: false },
       cancelledAt: { $exists: false },
       heldAt: { $exists: false },
@@ -7811,6 +7828,14 @@ export class OrderService implements OnModuleInit {
       // đợi — $nin vẫn cho đơn chưa map xưởng (factoryId null) vào queue như cũ.
       ...(blockedFactoryIds.length ? { factoryId: { $nin: blockedFactoryIds } } : {}),
     };
+  }
+
+  async getNextDesignReviewOrder(dto?: { from?: string; to?: string; pid?: string }): Promise<{
+    success: true;
+    data: DesignReviewOrder | null;
+    remaining: number;
+  }> {
+    const baseFilter = this.designReviewQueueFilter();
     if (dto?.from || dto?.to) {
       const range: Record<string, Date> = {};
       if (dto.from) range.$gte = vnDayStart(dto.from);

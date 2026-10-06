@@ -1,4 +1,4 @@
-import type { ToolQueueBlockKey } from 'shared';
+import { TOOL_QUEUE_STALE_MINUTES, type ToolQueueBlockKey } from 'shared';
 
 /**
  * "Return orders to the tool-check queue" (ToolCheckWorkflow.md §2.4): rules shared by the list, the
@@ -80,4 +80,16 @@ export async function runToolQueueReturn(input: {
   }
 
   return { done, skipped, previous };
+}
+
+/**
+ * Is the automatic checker alive? Judged only when something is waiting: an idle tool with an empty
+ * queue is normal, not a fault. `lastToolWriteAt` = newest `toolResult` order-log entry with no acting
+ * user (the tool writes through the public API, so those entries carry no user).
+ */
+export function toolQueueStalled(waiting: number, lastToolWriteAt: Date | null, now: Date): boolean {
+  if (waiting <= 0) return false;
+  if (!lastToolWriteAt) return true;
+
+  return now.getTime() - lastToolWriteAt.getTime() > TOOL_QUEUE_STALE_MINUTES * 60_000;
 }
