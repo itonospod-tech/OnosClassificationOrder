@@ -73,6 +73,22 @@ Support/Admin mở Dashboard → tab "Soát tool":
     - **Nút "Xem chi tiết"** mỗi card → **Dialog chi tiết đơn lỗi của khách** (`custDetail`/`custDetailData`): header = tên khách + **số đơn lỗi** + **số sản phẩm lỗi** + **`SelectFilter` lọc theo sản phẩm**; bảng đơn lỗi (dedup theo orderId, gộp loại lỗi) — Ảnh · Mã đơn · Sản phẩm · Size/Màu · **Loại lỗi** · File lỗi · Note lỗi. Sắp xếp: sản phẩm giống nhau cạnh nhau (nhóm nhiều→ít) → theo loại lỗi (nhiều→ít) → theo file lỗi.
   - ⚠️ Chỉ tính thao tác TRỰC TIẾP của người soát (cell `toolResultNote` qua `updateField`/bulk); KHÔNG tính side-effect `toolResultNote='error'` tự set khi In báo "thiếu file" (đó là lỗi do In, thuộc `errorSource='tool-check'`).
 
+### 2.4 Trả đơn về hàng đợi soát tool (SuperAdmin, 06/10/2026)
+
+**Vì sao:** hàng đợi tool ngoài (`GET /orders/design-review/next`) chỉ nhận đơn có `toolResult` **rỗng**. Ai đặt `toolResult` bằng tay (vd lật 220 đơn `no-tool`→`has-tool` để "ép tool chạy") là KHÓA đơn khỏi hàng đợi vĩnh viễn — tác dụng ngược. Công cụ này xoá `toolResult` về rỗng để đơn quay lại hàng đợi. Cái bẫy gốc: hai trường tên gần nhau trả lời cùng một câu "chưa soát" (`toolResult` cho hàng đợi máy, `toolResultNote` cho mọi luồng nội bộ) — xem `documents/Plans/ToolCheck-Redesign.md` mục 3.
+
+**Lối vào:** trang `/adm/tool-queue-return` (`pages/tool-queue-return/`), CHỈ SuperAdmin, KHÔNG có mục sidebar (công cụ dùng vài lần), cùng khuôn `/adm/stale-orders`: danh sách → xem trước → chạy.
+
+**Ứng viên:** chưa hủy, chưa xóa, chưa hoàn thành (`fulfillmentCompletedAt` null), `toolResult` có giá trị, `toolResultNote` rỗng/thiếu. Mọi ứng viên đều hiện KÈM kết luận từ MỘT hàm thuần (`order/tool-queue-return.logic.ts` → `toolQueueReturnEligibility`, dùng chung cho danh sách / xem trước / chạy nên ba nơi không thể lệch): trả được, hoặc bị chặn có lý do — `has-note` (đã có Note kq Tool: có người đang soát, KHÔNG BAO GIỜ đụng), `excluded-factory` (US), `skip-tool-check` (xưởng bật cờ — hàng đợi loại xưởng đó nên trả về cũng vô ích), `held`, `unmapped`, `completed`, `cancelled`. Nhóm bị chặn hiện thành khối riêng kèm số lượng + lý do (bỏ tick "Chỉ đơn trả về được" để xem từng đơn), không bị bỏ lặng lẽ.
+
+**Việc ghi:** CHỈ `toolResult` → rỗng, từng đơn một qua `updateField('toolResult', null)` (nhật ký đơn giữ giá trị cũ — đường lùi duy nhất; không `updateMany`). Trần `TOOL_QUEUE_RETURN_BATCH_MAX` = 200/lượt (chủ dự án chạy ~50 đơn đầu để xem tool phản ứng), khóa một lượt chạy một lúc, bắt nhập lý do ≥10 ký tự + gõ lại đúng số đơn. **Kiểm LẠI từng đơn ngay trước lệnh ghi của chính nó** (đọc mới từng đơn, không dùng danh sách đọc ở đầu lượt): đơn vừa có Note kq Tool giữa lúc xem trước và lúc bấm bị bỏ qua và BÁO LẠI (toast + nhóm "bị bỏ qua"). Còn một khe hở cỡ mili-giây giữa lần đọc lại và lệnh ghi của `updateField` (hàm này không nhận điều kiện) — chấp nhận, vì kết quả ghi đè chỉ là xoá `toolResult` còn nhật ký giữ giá trị cũ. Log máy chủ mỗi lượt: `runId`, lý do, người chạy và cặp `[id, toolResult cũ]` của mọi đơn đã ghi.
+
+**Xuất file (xem trước):** nút "Xuất danh sách" → Excel, MỖI XƯỞNG MỘT SHEET (mã sản xuất · sản phẩm · xưởng · `toolResult` cũ · ngày vào SX) + sheet "Không trả về" kèm lý do nếu có đơn bị loại. Dùng `xlsx` sẵn có (`XLSX.writeFile`), không thêm thư viện.
+
+**Cảnh báo trên giao diện (trang + hộp xem trước):** nếu 6 mã soát tool (`designReviewCode`) bị đổi chưa sửa lại, đơn trả về sẽ bị tool báo `no-tool` lần nữa rồi TỰ CHUYỂN SANG DESIGNER làm tay — không hỏng nhưng đổ hơn nghìn đơn sang designer cùng lúc là quá tải.
+
+**API:** `GET /orders/tool-queue-return` (+ `returnable=true`, `factoryId`, `type`, `toolResult`, `groupBy=type`), `POST /orders/tool-queue-return/preview`, `POST /orders/tool-queue-return/run` — đều `@Auth([SuperAdmin])`; DTO `ToolQueue*` ở `packages/shared/dtos/production-order.dto.ts`. Spec `tool-queue-return.spec.ts` (điều kiện ứng viên; kiểm-lại-lúc-ghi bỏ qua đơn đã có Note — cả trường hợp Note xuất hiện ngay trong lúc chạy lượt).
+
 ## 3. API / Schema
 
 | Method | Path                               | Auth                                            | Mô tả                                        |

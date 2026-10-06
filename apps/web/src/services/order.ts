@@ -121,6 +121,12 @@ const previewStaleCleanup = (ids: string[]) => callApi(`/${CONFIG.API_VERSION}/o
 const runStaleCleanup = (ids: string[], reason: string) =>
   callApi(`/${CONFIG.API_VERSION}/orders/stale-open/complete`, 'post', { ids, reason });
 
+// Return orders to the tool-check queue (ToolCheckWorkflow.md §2.4, SuperAdmin).
+const getToolQueueReturn = (query: string = '') => callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return${query}`, 'get');
+const previewToolQueueReturn = (ids: string[]) => callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return/preview`, 'post', { ids });
+const runToolQueueReturn = (ids: string[], reason: string) =>
+  callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return/run`, 'post', { ids, reason });
+
 const getFulfillmentStatusCounts = (query: string = '') => {
   return callApi(`/${CONFIG.API_VERSION}/orders/fulfillment-status-counts${query}`, 'get');
 };
@@ -286,6 +292,9 @@ export const order = {
   getStaleOpen,
   previewStaleCleanup,
   runStaleCleanup,
+  getToolQueueReturn,
+  previewToolQueueReturn,
+  runToolQueueReturn,
   getFactoryOverview,
   getLifecycleOverview,
   getCancelledOrders,

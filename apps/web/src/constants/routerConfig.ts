@@ -4,6 +4,7 @@ import { PATHS } from './paths';
 
 const Home = lazy(() => import('../pages/home'));
 const StaleOrders = lazy(() => import('../pages/stale-orders'));
+const ToolQueueReturn = lazy(() => import('../pages/tool-queue-return'));
 const Settings = lazy(() => import('../pages/settings'));
 const Account = lazy(() => import('../pages/account'));
 const Products = lazy(() => import('../pages/products'));
@@ -85,5 +86,6 @@ export const routerConfig: RouterConfig[] = [
   { path: PATHS.INVENTORY, component: InventoryPage },
   { path: PATHS.CEO_DASHBOARD, component: CeoDashboard },
   { path: PATHS.STALE_ORDERS, component: StaleOrders },
+  { path: PATHS.TOOL_QUEUE_RETURN, component: ToolQueueReturn },
   { path: PATHS.DTF_GUIDE, component: DtfGuide },
 ];

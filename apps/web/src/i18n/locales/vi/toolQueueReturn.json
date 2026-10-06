@@ -1,0 +1,84 @@
+{
+  "title": "Trả đơn về hàng đợi soát tool",
+  "description": "Đơn đã có kết quả Tool (toolResult) nhưng chưa có Note kq Tool. Xoá toolResult để đơn quay lại hàng đợi cho tool ngoài soát lại.",
+  "noPermission": "Chỉ SuperAdmin dùng được trang này.",
+  "warning": "Nếu 6 mã soát tool (designReviewCode) bị đổi chưa được sửa lại, đơn trả về hàng đợi sẽ bị tool báo no-tool lần nữa rồi TỰ CHUYỂN SANG DESIGNER làm tay. Không hỏng, nhưng đổ hơn nghìn đơn sang designer cùng lúc là quá tải. Chạy lô nhỏ (khoảng 50 đơn) trước để xem tool phản ứng.",
+  "onlyClears": "Việc ghi duy nhất: xoá toolResult về rỗng, qua nhật ký đơn (giá trị cũ nằm trong nhật ký — đường lùi duy nhất). Đơn đã có Note kq Tool không bao giờ bị đụng.",
+  "summary": {
+    "total": "Đơn ứng viên",
+    "returnable": "Trả về được",
+    "blocked": "Không trả được"
+  },
+  "filters": {
+    "factory": "Xưởng",
+    "allFactories": "Tất cả xưởng",
+    "toolResult": "Giá trị toolResult",
+    "allToolResults": "Mọi giá trị",
+    "onlyReturnable": "Chỉ đơn trả về được",
+    "clear": "Xóa lọc",
+    "product": "Sản phẩm"
+  },
+  "view": {
+    "orders": "Từng đơn",
+    "byProduct": "Nhóm theo sản phẩm"
+  },
+  "group": {
+    "orders": "{{count}} đơn",
+    "returnable": "{{count}} trả về được",
+    "open": "Xem đơn",
+    "select": "Chọn đơn trong nhóm"
+  },
+  "blockedTitle": "Không trả về được (có lý do)",
+  "block": {
+    "not-found": "Không tìm thấy",
+    "cancelled": "Đã hủy / đã xóa",
+    "completed": "Đã hoàn thành",
+    "has-note": "Đã có Note kq Tool — có người đang soát, không đụng",
+    "no-tool-result": "toolResult đã rỗng",
+    "held": "Đang giữ — mở giữ trước",
+    "unmapped": "Chưa gán xưởng",
+    "excluded-factory": "Xưởng ngoài luồng (US) — hàng đợi loại xưởng này",
+    "skip-tool-check": "Xưởng bật Bỏ qua soát tool — hàng đợi loại xưởng này"
+  },
+  "ageDays": "{{count}} ngày",
+  "col": {
+    "order": "Mã sản xuất",
+    "product": "Sản phẩm",
+    "factory": "Xưởng",
+    "toolResult": "toolResult cũ",
+    "inProductionAt": "Ngày vào SX",
+    "reason": "Lý do không trả"
+  },
+  "selection": {
+    "count": "Đã chọn {{count}}/{{max}}",
+    "clear": "Bỏ chọn",
+    "preview": "Xem trước",
+    "capReached": "Đã đủ {{max}} đơn mỗi lượt — chạy lượt này trước rồi chọn tiếp.",
+    "groupAdded": "Đã chọn thêm {{added}} đơn trong nhóm ({{inGroup}} đơn trả về được)."
+  },
+  "preview": {
+    "title": "Trả {{count}} đơn về hàng đợi soát tool",
+    "loading": "Đang kiểm lại từng đơn…",
+    "byFactory": "Theo xưởng",
+    "byToolResult": "toolResult sẽ bị xoá",
+    "skipped": "{{count}} đơn bị loại khi kiểm lại:",
+    "export": "Xuất danh sách (Excel, chia theo xưởng)",
+    "exportHint": "Mã sản xuất · sản phẩm · xưởng · toolResult cũ · ngày vào SX — mỗi xưởng một sheet.",
+    "reason": "Lý do (bắt buộc, ghi vào log chạy)",
+    "reasonPlaceholder": "VD: Sửa lại designReviewCode, trả lô đầu 50 đơn để xem tool soát lại",
+    "confirm": "Gõ {{count}} để xác nhận",
+    "run": "Trả {{count}} đơn về hàng đợi",
+    "running": "Đang trả…",
+    "cancel": "Hủy"
+  },
+  "export": {
+    "sheetBlocked": "Không trả về",
+    "file": "tra-don-ve-hang-doi-soat-tool"
+  },
+  "result": {
+    "done": "Đã trả {{count}} đơn về hàng đợi (mã lượt {{runId}}).",
+    "skipped": "{{count}} đơn bị bỏ qua: {{list}}"
+  },
+  "empty": "Không có đơn nào khớp bộ lọc.",
+  "openFromToolCheck": "Trả đơn về hàng đợi soát tool"
+}
