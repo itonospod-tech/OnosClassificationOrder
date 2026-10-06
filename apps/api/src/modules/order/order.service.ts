@@ -8009,13 +8009,15 @@ export class OrderService implements OnModuleInit {
 
     // Refuse BEFORE the first write: toolResult without toolResultNote would leave the order half-written and
     // out of the queue for good. Only this door is guarded; manual edits (`updateField`) are untouched.
-    if (missingToolResultNote(input)) {
+    const missing = missingToolResultNote(input);
+    if (missing) {
       this.logger.warn({
-        message: JSON.stringify({ designReviewRejected: 'missing-toolResultNote', productionId: trimmed, payload: input }),
+        message: JSON.stringify({ designReviewRejected: `toolResultNote-${missing}`, productionId: trimmed, payload: input }),
       });
+      const how = { absent: 'was not sent', null: 'was sent as null', blank: 'was sent blank' }[missing];
       throw new BadRequestException(
-        'toolResultNote is required when toolResult is set. Nothing was written; the order stays in the queue. ' +
-          'Send toolResultNote together with toolResult (send null explicitly to clear the note).',
+        `toolResultNote is required with a real value when toolResult is set, but it ${how}. ` +
+          'Nothing was written; the order stays in the queue. Send toolResultNote together with toolResult.',
       );
     }
 

@@ -5,18 +5,19 @@ import { OrderService } from './order.service';
 
 describe('missingToolResultNote', () => {
   it('refuses a non-empty toolResult with the note absent', () => {
-    expect(missingToolResultNote({ toolResult: 'has-tool' })).toBe(true);
-    expect(missingToolResultNote({ toolResult: 'no-tool', toolResultNote: undefined })).toBe(true);
+    expect(missingToolResultNote({ toolResult: 'has-tool' })).toBe('absent');
+    expect(missingToolResultNote({ toolResult: 'no-tool', toolResultNote: undefined })).toBe('absent');
+  });
+  it('refuses an explicit null note and a blank note too', () => {
+    expect(missingToolResultNote({ toolResult: 'has-tool', toolResultNote: null })).toBe('null');
+    expect(missingToolResultNote({ toolResult: 'has-tool', toolResultNote: '  ' })).toBe('blank');
   });
   it('allows both fields', () => {
-    expect(missingToolResultNote({ toolResult: 'has-tool', toolResultNote: 'ok' })).toBe(false);
+    expect(missingToolResultNote({ toolResult: 'has-tool', toolResultNote: 'ok' })).toBeNull();
   });
   it('allows clearing toolResult without a note (the way back into the queue)', () => {
-    expect(missingToolResultNote({ toolResult: null })).toBe(false);
-    expect(missingToolResultNote({ toolResult: '' })).toBe(false);
-  });
-  it('allows an explicit null note (intent stated; omission is the bug)', () => {
-    expect(missingToolResultNote({ toolResult: 'has-tool', toolResultNote: null })).toBe(false);
+    expect(missingToolResultNote({ toolResult: null })).toBeNull();
+    expect(missingToolResultNote({ toolResult: '' })).toBeNull();
   });
 });
 
@@ -47,6 +48,15 @@ describe('setDesignReviewResult — refuses before any write', () => {
     expect(writes).toHaveLength(0);
     const logged = JSON.parse(warn.mock.calls[0][0].message);
     expect(logged).toMatchObject({ productionId: 'P-1', payload: { toolResult: 'has-tool' } });
+  });
+
+  it('an explicit null note is refused too, with a message naming that case, and nothing is written', async () => {
+    const { svc, writes, warn } = build();
+
+    await expect(svc.setDesignReviewResult('P-1', { toolResult: 'has-tool', toolResultNote: null })).rejects.toThrow(/sent as null/);
+
+    expect(writes).toHaveLength(0);
+    expect(JSON.parse(warn.mock.calls[0][0].message)).toMatchObject({ designReviewRejected: 'toolResultNote-null', payload: { toolResultNote: null } });
   });
 
   it('writes both fields as before when both are sent', async () => {
