@@ -71,6 +71,11 @@ Support/Admin mở Dashboard → tab "Soát tool":
     - **Nút "Xem chi tiết"** mỗi card → **Dialog chi tiết đơn lỗi của khách** (`custDetail`/`custDetailData`): header = tên khách + **số đơn lỗi** + **số sản phẩm lỗi** + **`SelectFilter` lọc theo sản phẩm**; bảng đơn lỗi (dedup theo orderId, gộp loại lỗi) — Ảnh · Mã đơn · Sản phẩm · Size/Màu · **Loại lỗi** · File lỗi · Note lỗi. Sắp xếp: sản phẩm giống nhau cạnh nhau (nhóm nhiều→ít) → theo loại lỗi (nhiều→ít) → theo file lỗi.
   - ⚠️ Chỉ tính thao tác TRỰC TIẾP của người soát (cell `toolResultNote` qua `updateField`/bulk); KHÔNG tính side-effect `toolResultNote='error'` tự set khi In báo "thiếu file" (đó là lỗi do In, thuộc `errorSource='tool-check'`).
 
+### 2.5 Cửa kết quả của tool ngoài từ chối ghi nửa chừng (06/10/2026)
+
+`POST /orders/design-review/result` → `setDesignReviewResult` từng ghi `toolResult` TRƯỚC rồi mới ghi `toolResultNote` nếu có. Tool gửi thiếu note thì đơn nằm lại với `toolResult` có mà note trống, và hàng đợi (lọc `toolResult` rỗng) không bao giờ nhặt lại — đó là cỗ máy sinh ra hàng nghìn đơn kẹt. Nay: `toolResult` non-rỗng mà `toolResultNote` VẮNG MẶT → 400 (tiếng Anh, nói rõ thiếu `toolResultNote`), KHÔNG ghi gì, đơn ở nguyên hàng đợi, và log máy chủ mức warn `designReviewRejected` kèm `productionId` + payload tool gửi (trước đây ta mù hoàn toàn). Luật ở `order/design-review-result.guard.ts`, chặn trước lệnh ghi đầu tiên (không ở Zod, hình dạng request không đổi).
+Giữ nguyên: `toolResult` null/rỗng không cần note (đường trả đơn về hàng đợi); `toolResultNote: null` TƯỜNG MINH + `toolResult` non-rỗng được phép (tool nói rõ ý định xoá note; bỏ sót trường mới là lỗi) — lưu ý ca này vẫn để lại đơn có `toolResult` mà note trống, chấp nhận theo quyết định; sửa tay ở Danh sách đơn (`updateField`) không bị đụng.
+
 ## 3. API / Schema
 
 | Method | Path                               | Auth                                            | Mô tả                                        |
