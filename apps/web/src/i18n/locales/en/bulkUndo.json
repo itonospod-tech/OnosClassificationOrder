@@ -1,0 +1,63 @@
+{
+  "title": "Undo a bulk edit",
+  "description": "Rewind orders to their state just before a mistaken bulk edit.",
+  "noPermission": "Only SuperAdmin can use this page.",
+  "warning": "Preview and run both read the data AT CLICK TIME. Any order someone changed after the incident is SKIPPED, never overwritten. At most {{max}} orders per run; every changed field is logged.",
+  "form": {
+    "actor": "Account that made the edit",
+    "actorPlaceholder": "Name, email or id (e.g. Admin User)",
+    "from": "From (local time)",
+    "to": "To (local time)",
+    "group": "Kind of change",
+    "preview": "Preview"
+  },
+  "group": {
+    "designer": "Designer removed (assignee)",
+    "tool-ok": "Tool approval 'ok' removed",
+    "tool-note": "Other tool note removed",
+    "tool-result": "Tool result changed"
+  },
+  "groupHelp": {
+    "designer": "Puts the assignee back and rebuilds the designer status and timestamps from the designer's own logs (unassigning erased them without logging).",
+    "tool-ok": "Puts 'ok' and ready-for-production back; an order pushed out of the print queue goes back in, waiting since its original 'ok'.",
+    "tool-note": "Puts back a removed tool note (other than 'ok').",
+    "tool-result": "Puts the tool result back to its value before the incident."
+  },
+  "summary": {
+    "preview": "{{affected}} orders affected · {{restorable}} restorable · {{skipped}} skipped",
+    "result": "Restored {{restorable}} orders · skipped {{skipped}}"
+  },
+  "status": {
+    "restore": "Will restore",
+    "restored": "Restored",
+    "skip": "Skipped"
+  },
+  "skip": {
+    "title": "Skipped",
+    "cancelled": "Order cancelled",
+    "held": "Order on hold",
+    "edited-after": "Someone changed it after the incident",
+    "current-differs": "Current value differs from what the incident left",
+    "changed-during-run": "Changed while running",
+    "not-found": "Order not found"
+  },
+  "file": {
+    "export": "Export before/after file",
+    "productionId": "Production ID",
+    "field": "Field",
+    "current": "Current value",
+    "restore": "Restored value",
+    "status": "Status",
+    "reason": "Skip reason"
+  },
+  "run": {
+    "title": "This batch: {{count}} / {{total}} restorable orders",
+    "reasonPlaceholder": "Reason (required, ≥10 characters) — e.g. undo of the mistaken edit of 05/10 by Admin User",
+    "confirm": "Type {{count}} to confirm",
+    "button": "Undo {{count}} orders",
+    "next": "Preview the next batch"
+  },
+  "result": {
+    "done": "Restored {{restored}} orders, skipped {{skipped}}."
+  }
+}

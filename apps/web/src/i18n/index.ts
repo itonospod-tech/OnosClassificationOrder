@@ -4,6 +4,7 @@ import i18n from 'i18next';
 import agentApiEn from './locales/en/agentApi.json';
 import apiDocsEn from './locales/en/apiDocs.json';
 import authEn from './locales/en/auth.json';
+import bulkUndoEn from './locales/en/bulkUndo.json';
 import careersEn from './locales/en/careers.json';
 import catalogEn from './locales/en/catalog.json';
 import ceoDashboardEn from './locales/en/ceoDashboard.json';
@@ -41,6 +42,7 @@ import zaloGroupsEn from './locales/en/zaloGroups.json';
 import agentApiVi from './locales/vi/agentApi.json';
 import apiDocsVi from './locales/vi/apiDocs.json';
 import authVi from './locales/vi/auth.json';
+import bulkUndoVi from './locales/vi/bulkUndo.json';
 import careersVi from './locales/vi/careers.json';
 import catalogVi from './locales/vi/catalog.json';
 import ceoDashboardVi from './locales/vi/ceoDashboard.json';
@@ -136,6 +138,7 @@ export const resources = {
     staleOrders: staleOrdersVi,
     apiDocs: apiDocsVi,
     dtfGuide: dtfGuideVi,
+    bulkUndo: bulkUndoVi,
   },
   en: {
     common: commonEn,
@@ -175,6 +178,7 @@ export const resources = {
     staleOrders: staleOrdersEn,
     apiDocs: apiDocsEn,
     dtfGuide: dtfGuideEn,
+    bulkUndo: bulkUndoEn,
   },
 } as const;
 

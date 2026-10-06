@@ -260,6 +260,10 @@ const updateOrderDesign = (id: string, data: UpdateOrderDesignDto) => {
   return callApi(`/${CONFIG.API_VERSION}/orders/${id}/design`, 'patch', data);
 };
 
+// Undo of a mistaken bulk edit (Orders.md §27, SuperAdmin).
+const previewBulkUndo = (data: object) => callApi(`/${CONFIG.API_VERSION}/orders/bulk-undo/preview`, 'post', data);
+const runBulkUndo = (data: object) => callApi(`/${CONFIG.API_VERSION}/orders/bulk-undo/run`, 'post', data);
+
 export const order = {
   getOrders,
   getOrdersByIds,
@@ -319,4 +323,6 @@ export const order = {
   bulkHold,
   markToolCheckDone,
   updateOrderDesign,
+  previewBulkUndo,
+  runBulkUndo,
 };

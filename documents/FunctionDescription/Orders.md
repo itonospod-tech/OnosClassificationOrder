@@ -2465,3 +2465,25 @@ Cố ý KHÔNG dùng store toàn cục: phạm vi ẩn trong store thì link g�
 
 Chi phí đo trên dev: payload lớn nhất một công nhân kéo được (5.000 đơn, 27 MB) mất ~0,57 s để che, ngang lượt serialize vốn có (~0,63 s). Spec `interceptors/price-visibility.spec.ts`: role ẩn không còn khóa giá ở mọi độ sâu (kể cả document có `toJSON`), role khác nhận nguyên response, không mutate input, và mọi route có guard của OrderController / FulfillmentTaskController / DesignerStatsController mang interceptor.
 
+
+## 27. Hoàn tác sửa hàng loạt (SuperAdmin, 06/10/2026)
+
+**Sự cố gốc (prod, 05/10 21:33Z):** một lệnh sửa hàng loạt bấm nhầm bằng tài khoản dùng chung "Admin User" — gỡ `assignee` 77 đơn của designer HƯƠNG (trong 19 ms), gỡ `toolResultNote='ok'` của 80 đơn, đổi `toolResult` 220 đơn. Tài khoản đã bị xoá mềm.
+
+**Hai cascade KHÔNG GHI LOG làm hỏng đơn ngoài trường được sửa** (đã bịt, xem cuối mục):
+1. Bỏ gán `assignee` (`updateField` + `bulkUpdateField`) → `designerStatus='unassigned'` + xoá `designerAssignedAt/StartedAt/CompletedAt/RejectedAt/ReworkAt/RejectedReason` + `designerReworkCount=0`. Log chỉ có dòng `assignee`.
+2. Gỡ `toolResultNote` khỏi `'ok'` → `readyForFulfill=false`; đơn đã vào In mà CHƯA ai bắt đầu thì `currentFulfillmentStage=null` + `fulfillmentStages={}` (rơi khỏi hàng chờ In). Không log.
+Thêm: bulk ghi log cho MỌI id gửi lên kể cả đơn không đổi / đang giữ / đã hủy → hàng trăm dòng `None → None`.
+
+**Công cụ:** trang `/adm/bulk-undo` (`pages/bulk-undo/index.tsx`, KHÔNG sidebar, CHỈ SuperAdmin) + `POST /orders/bulk-undo/preview` và `/run` (`bulk-undo.controller.ts` / `bulk-undo.service.ts`, luật thuần `bulk-undo.logic.ts`). Nhập tài khoản gây ra (khớp `userId`/`userName`/`userEmail` của log), khung giờ sự cố (≤ 24 h), và NHÓM — mỗi nhóm một lô riêng: `designer` (gỡ assignee) · `tool-ok` (gỡ 'ok') · `tool-note` (gỡ ghi chú tool khác) · `tool-result` (đổi kết quả tool).
+
+**Nguyên tắc — TUA LẠI, không đảo từng dòng log:** giá trị khôi phục = `before` của dòng sự cố ĐẦU TIÊN trong khung (đúng cả khi đơn bị sửa nhiều lần). Dòng không đổi giá trị, tài khoản khác, ngoài khung → không tính.
+- `designer`: trả `assignee` + DỰNG LẠI trạng thái designer từ log chuyển trạng thái THẬT của designer (không bịa mốc): chu kỳ tính từ lần bỏ gán cuối trước sự cố; status = chuyển trạng thái cuối sau lần gán cuối, không có → `assigned`; `designerStartedAt`/`CompletedAt` = lần `→ in-progress` / `→ done` cuối; vào `rework` không có log (hook lỗi sản xuất / In trả về) nhưng RA khỏi `rework` có log `before:'rework'` → `designerReworkCount` = số lần ra + 1 nếu đang ở rework; `designerReworkAt` = sự kiện có log đầu tiên sau lượt chuyển trước đó (suy luận, lệch tối đa vài giây).
+- `tool-ok`: trả `'ok'` + `readyForFulfill=true`; đơn bị đẩy khỏi hàng chờ In thì đưa lại In "chờ", `waitingAt` = lúc duyệt `'ok'` ban đầu (từ log). Đơn In đã bắt đầu (cascade không xoá) → chỉ trả note + ready.
+- `tool-note` / `tool-result`: trả giá trị trường.
+
+**An toàn (không thương lượng):** CHỈ ghi khi (a) giá trị HIỆN TẠI đúng bằng cái lệnh nhầm để lại, (b) KHÔNG có log nào của bất kỳ ai đổi các trường đó sau khung, (c) đơn không hủy / không giữ. Ngược lại → BỎ QUA kèm lý do (`edited-after` / `current-differs` / `held` / `cancelled` / `changed-during-run`). Xem trước và chạy đều tính lại TỪ DB LÚC BẤM (người ta đang sửa tay); lệnh ghi có điều kiện theo giá trị sự cố để lại (nguyên tử từng đơn). Tối đa `BULK_UNDO_BATCH_MAX` (100) đơn/lượt, một lượt chạy một lúc, lý do ≥ 10 ký tự + gõ lại số đơn. Mỗi trường đổi ghi một dòng log action `restore` (người bấm + giá trị trước/sau). File trước/sau xuất từ cả xem trước lẫn kết quả: mã sản xuất · trường · giá trị hiện tại · giá trị khôi phục · trạng thái · lý do bỏ qua (assignee hiện kèm tên người).
+
+**Kiểm chứng:** spec `bulk-undo.logic.spec.ts` (11 ca). Mô phỏng trên DB scratch: 6 đơn thật chép từ dev, tái hiện sự cố bằng CHÍNH `bulkUpdateField` thật, rồi hoàn tác — 3/3 đơn designer + 2/2 đơn 'ok' khớp trạng thái trước sự cố (chỉ lệch mili-giây do log ghi sau trường; `designerReworkAt` lệch 2 s ở 1 đơn), đơn bị sửa tay sau sự cố bị bỏ qua đúng.
+
+**Bịt nguồn (cùng ngày):** `updateField` ghi thêm log cho trường phụ bị đổi theo (`designerStatus`, `currentFulfillmentStage`, `readyForFulfill` — `CASCADE_LOGGED_FIELDS`); `bulkUpdateField` chụp `before` bằng CHÍNH filter của lệnh update → chỉ đơn thật sự bị ghi mới có log, bỏ dòng không đổi, và ghi cả cascade (spec `cascade-log.spec.ts`).

@@ -105,4 +105,5 @@ export const PATHS = {
   ERROR_403: '/forbidden',
   ERROR_404: '/error/404',
   ANY: '*',
+  BULK_UNDO: '/adm/bulk-undo',
 } as const;
