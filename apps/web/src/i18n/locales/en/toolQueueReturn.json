@@ -1,0 +1,84 @@
+{
+  "title": "Return orders to the tool-check queue",
+  "description": "Orders that have a tool result (toolResult) but no tool result note. Clearing toolResult puts them back in the queue for the external tool to check again.",
+  "noPermission": "SuperAdmin only.",
+  "warning": "If the 6 changed tool-check codes (designReviewCode) have not been fixed, orders returned to the queue will be answered no-tool again and then MOVE TO A DESIGNER for manual work. Nothing breaks, but sending over a thousand orders to designers at once is an overload. Run a small batch (about 50 orders) first to see how the tool reacts.",
+  "onlyClears": "The only write: clearing toolResult to empty, through the order log (the old value stays in the log — the only way back). An order that already has a tool result note is never touched.",
+  "summary": {
+    "total": "Candidate orders",
+    "returnable": "Can be returned",
+    "blocked": "Cannot be returned"
+  },
+  "filters": {
+    "factory": "Factory",
+    "allFactories": "All factories",
+    "toolResult": "toolResult value",
+    "allToolResults": "Any value",
+    "onlyReturnable": "Returnable only",
+    "clear": "Clear filters",
+    "product": "Product"
+  },
+  "view": {
+    "orders": "Order by order",
+    "byProduct": "Group by product"
+  },
+  "group": {
+    "orders": "{{count}} orders",
+    "returnable": "{{count}} returnable",
+    "open": "View orders",
+    "select": "Select the group's orders"
+  },
+  "blockedTitle": "Cannot be returned (with the reason)",
+  "block": {
+    "not-found": "Not found",
+    "cancelled": "Cancelled / deleted",
+    "completed": "Completed",
+    "has-note": "Already has a tool result note — someone is working it, not touched",
+    "no-tool-result": "toolResult is already empty",
+    "held": "On hold — release the hold first",
+    "unmapped": "No factory assigned",
+    "excluded-factory": "Out-of-flow factory (US) — the queue excludes it",
+    "skip-tool-check": "Factory has Skip tool check on — the queue excludes it"
+  },
+  "ageDays": "{{count}} days",
+  "col": {
+    "order": "Production ID",
+    "product": "Product",
+    "factory": "Factory",
+    "toolResult": "Old toolResult",
+    "inProductionAt": "Entered production",
+    "reason": "Why not returned"
+  },
+  "selection": {
+    "count": "Selected {{count}}/{{max}}",
+    "clear": "Clear",
+    "preview": "Preview",
+    "capReached": "{{max}} orders per run reached — run this one first, then select more.",
+    "groupAdded": "Added {{added}} orders from the group ({{inGroup}} returnable)."
+  },
+  "preview": {
+    "title": "Return {{count}} orders to the tool-check queue",
+    "loading": "Re-checking every order…",
+    "byFactory": "By factory",
+    "byToolResult": "toolResult that will be cleared",
+    "skipped": "{{count}} orders dropped on the re-check:",
+    "export": "Export the list (Excel, split by factory)",
+    "exportHint": "Production ID · product · factory · old toolResult · entered production — one sheet per factory.",
+    "reason": "Reason (required, written to the run log)",
+    "reasonPlaceholder": "e.g. designReviewCode fixed, returning the first 50 orders to see the tool check them again",
+    "confirm": "Type {{count}} to confirm",
+    "run": "Return {{count}} orders to the queue",
+    "running": "Returning…",
+    "cancel": "Cancel"
+  },
+  "export": {
+    "sheetBlocked": "Not returned",
+    "file": "return-orders-to-tool-queue"
+  },
+  "result": {
+    "done": "Returned {{count}} orders to the queue (run {{runId}}).",
+    "skipped": "{{count}} orders skipped: {{list}}"
+  },
+  "empty": "No orders match the filters.",
+  "openFromToolCheck": "Return orders to the tool-check queue"
+}

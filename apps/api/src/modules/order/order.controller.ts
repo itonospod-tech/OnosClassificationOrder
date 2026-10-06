@@ -68,6 +68,8 @@ import {
   GetShippingLabelsResDto,
   GetStaleOpenOrdersDto,
   GetStaleOpenOrdersResDto,
+  GetToolQueueReturnDto,
+  GetToolQueueReturnResDto,
   HoldOrderDto,
   HoldOrderResDto,
   ImportFromOnosPodDto,
@@ -92,6 +94,10 @@ import {
   StaleCleanupRunResDto,
   SyncDesignByCustomerDto,
   SyncDesignByCustomerResDto,
+  ToolQueueReturnPreviewDto,
+  ToolQueueReturnPreviewResDto,
+  ToolQueueReturnRunDto,
+  ToolQueueReturnRunResDto,
   SyncOnospodHoldResDto,
   ToolCheckDoneResDto,
   TransferOrderDto,
@@ -503,6 +509,46 @@ export class OrderController {
     return {
       success: true,
       data: await this.orderService.runStaleCleanup(dto.ids, dto.reason, user?.role?.name as RoleType, { user, ip, userAgent }),
+    };
+  }
+
+  /** Return orders to the tool-check queue (ToolCheckWorkflow.md §2.4): candidates with their verdicts. */
+  @Get('tool-queue-return')
+  @Auth([RoleType.SuperAdmin])
+  @ApiOperation({ summary: 'Đơn có toolResult nhưng chưa có Note kq Tool — ứng viên trả về hàng đợi soát tool — SuperAdmin' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetToolQueueReturnResDto })
+  async getToolQueueReturn(@Query() dto: GetToolQueueReturnDto, @AuthUser() user: UserDocument): Promise<GetToolQueueReturnResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'GET', url: '/orders/tool-queue-return', userId: user?._id }) });
+    return this.orderService.getToolQueueReturn(dto, user?.role?.name as RoleType);
+  }
+
+  @Post('tool-queue-return/preview')
+  @Auth([RoleType.SuperAdmin])
+  @ApiOperation({ summary: 'Xem trước một lượt trả đơn về hàng đợi soát tool (chỉ đọc) — SuperAdmin' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ToolQueueReturnPreviewResDto })
+  async previewToolQueueReturn(@Body() dto: ToolQueueReturnPreviewDto, @AuthUser() user: UserDocument): Promise<ToolQueueReturnPreviewResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/tool-queue-return/preview', userId: user?._id, count: dto.ids.length }) });
+    return { success: true, data: await this.orderService.previewToolQueueReturn(dto.ids, user?.role?.name as RoleType) };
+  }
+
+  /** Clears `toolResult` only (through updateField, so every order keeps its log entry). */
+  @Post('tool-queue-return/run')
+  @Auth([RoleType.SuperAdmin])
+  @ApiOperation({ summary: 'Xoá toolResult của một lô đơn để chúng quay lại hàng đợi soát tool — SuperAdmin' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ToolQueueReturnRunResDto })
+  async runToolQueueReturn(
+    @Body() dto: ToolQueueReturnRunDto,
+    @AuthUser() user: UserDocument,
+    @ClientIp() ip: string,
+    @UserAgent() userAgent: string,
+  ): Promise<ToolQueueReturnRunResDto> {
+    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/tool-queue-return/run', userId: user?._id, count: dto.ids.length }) });
+    return {
+      success: true,
+      data: await this.orderService.runToolQueueReturn(dto.ids, dto.reason, user?.role?.name as RoleType, { user, ip, userAgent }),
     };
   }
 

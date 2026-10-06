@@ -31,6 +31,7 @@ import scanErrorEn from './locales/en/scanError.json';
 import shipmentsEn from './locales/en/shipments.json';
 import stageErrorCatalogEn from './locales/en/stageErrorCatalog.json';
 import staleOrdersEn from './locales/en/staleOrders.json';
+import toolQueueReturnEn from './locales/en/toolQueueReturn.json';
 import toolCheckWorkflowEn from './locales/en/toolCheckWorkflow.json';
 import trackEn from './locales/en/track.json';
 import vnpShippingEn from './locales/en/vnpShipping.json';
@@ -68,6 +69,7 @@ import scanErrorVi from './locales/vi/scanError.json';
 import shipmentsVi from './locales/vi/shipments.json';
 import stageErrorCatalogVi from './locales/vi/stageErrorCatalog.json';
 import staleOrdersVi from './locales/vi/staleOrders.json';
+import toolQueueReturnVi from './locales/vi/toolQueueReturn.json';
 import toolCheckWorkflowVi from './locales/vi/toolCheckWorkflow.json';
 import trackVi from './locales/vi/track.json';
 import vnpShippingVi from './locales/vi/vnpShipping.json';
@@ -134,6 +136,7 @@ export const resources = {
     agentApi: agentApiVi,
     ceoDashboard: ceoDashboardVi,
     staleOrders: staleOrdersVi,
+    toolQueueReturn: toolQueueReturnVi,
     apiDocs: apiDocsVi,
     dtfGuide: dtfGuideVi,
   },
@@ -173,6 +176,7 @@ export const resources = {
     agentApi: agentApiEn,
     ceoDashboard: ceoDashboardEn,
     staleOrders: staleOrdersEn,
+    toolQueueReturn: toolQueueReturnEn,
     apiDocs: apiDocsEn,
     dtfGuide: dtfGuideEn,
   },

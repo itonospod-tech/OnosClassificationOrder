@@ -65,6 +65,8 @@ export const PATHS = {
   /** CEO Dashboard — bảng điều hành cho lãnh đạo, CHỈ SuperAdmin/Admin (CeoDashboard.md). */
   CEO_DASHBOARD: '/adm/ceo',
   STALE_ORDERS: '/adm/stale-orders',
+  /** Return orders to the tool-check queue — SuperAdmin only, no sidebar entry (ToolCheckWorkflow.md §2.4). */
+  TOOL_QUEUE_RETURN: '/adm/tool-queue-return',
 
   LOGIN: '/adm/login',
   REGISTER: '/adm/register',

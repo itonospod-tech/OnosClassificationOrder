@@ -70,6 +70,8 @@ import type {
   GetProductionOrdersResDto,
   GetStaleOpenOrdersDto,
   GetStaleOpenOrdersResDto,
+  GetToolQueueReturnDto,
+  GetToolQueueReturnResDto,
   HoldOrderDto,
   HoldOrderResDto,
   ImportProductionOrdersDto,
@@ -114,7 +116,18 @@ import type {
   ProductPrintArea,
   ProductVariation,
 } from 'shared';
-import type { DailyBySellerRow, HeldPrintSkip, ProductLineCounts, StaleCleanupPreview, StaleCleanupRunResult, WorkshopStageFilter } from 'shared';
+import type {
+  DailyBySellerRow,
+  HeldPrintSkip,
+  ProductLineCounts,
+  StaleCleanupPreview,
+  StaleCleanupRunResult,
+  ToolQueueBlockKey,
+  ToolQueueReturnPreview,
+  ToolQueueReturnRow,
+  ToolQueueReturnRunResult,
+  WorkshopStageFilter,
+} from 'shared';
 import {
   customerMatchKey,
   DAILY_BY_SELLER_MAX_DAYS,
@@ -199,6 +212,11 @@ import {
   staleStageKey,
   TIMELINE_PATH,
 } from './stale-cleanup.logic';
+import {
+  runToolQueueReturn,
+  toolQueueReturnEligibility,
+  type ToolQueueDoc,
+} from './tool-queue-return.logic';
 
 const FIELD_CONFIG_CATEGORY: Record<OrderWorkshopField, WorkshopConfigCategory | null> = {
   printStatus: WorkshopConfigCategory.PrintStatus,
@@ -5664,6 +5682,198 @@ export class OrderService implements OnModuleInit {
     }
     this.logger.info({ message: JSON.stringify({ staleCleanup: runId, done, skipped: skipped.length, by: ctx?.user?._id }) });
     return { runId, done, skipped };
+  }
+
+  // ─── Return orders to the tool-check queue (ToolCheckWorkflow.md §2.4, SuperAdmin only) ─────────────
+  /** One run at a time: two overlapping runs on the same ids would double the order logs. */
+  private toolQueueReturnRunning = false;
+
+  private static readonly TOOL_QUEUE_PROJECTION = {
+    productionId: 1, type: 1, factoryId: 1, heldAt: 1, toolResult: 1, toolResultNote: 1, inProductionAt: 1,
+    cancelledAt: 1, deletedAt: 1, fulfillmentCompletedAt: 1,
+  };
+
+  private toolQueueContext(): { excludedId: string | null; skipIds: Set<string> } {
+    return {
+      excludedId: getExcludedFactoryIdSync(this.orderModel.db),
+      skipIds: new Set(listSkipToolCheckFactoryIdsSync(this.orderModel.db)),
+    };
+  }
+
+  private async toolQueueFactoryNames(): Promise<Map<string, string | undefined>> {
+    const docs = await this.factoryRepository.findAll<{ _id: unknown; shortName?: string }>({}, { select: ['shortName'] });
+    return new Map(docs.map((f) => [String(f._id), f.shortName]));
+  }
+
+  private toToolQueueRow(
+    d: Record<string, unknown>,
+    shortOf: Map<string, string | undefined>,
+    block: ToolQueueBlockKey | null,
+  ): ToolQueueReturnRow {
+    return {
+      _id: String(d._id),
+      productionId: String(d.productionId ?? ''),
+      type: (d.type as string) || undefined,
+      factoryId: d.factoryId ? String(d.factoryId) : undefined,
+      factoryShortName: d.factoryId ? shortOf.get(String(d.factoryId)) : undefined,
+      toolResult: String(d.toolResult ?? ''),
+      inProductionAt: (d.inProductionAt as Date) ?? null,
+      returnable: block === null,
+      blockReason: block,
+    };
+  }
+
+  /**
+   * Candidates = a `toolResult` is set, `toolResultNote` is empty, not cancelled/deleted/completed.
+   * Every candidate is listed with its verdict (the US factory, skip-tool-check factories, held and
+   * unmapped orders show up as blocked WITH the reason, never silently dropped). Verdicts come from the
+   * one pure function the preview and the run use, so the three cannot disagree.
+   */
+  async getToolQueueReturn(dto: GetToolQueueReturnDto, roleName?: RoleType): Promise<GetToolQueueReturnResDto> {
+    this.assertSuperAdmin(roleName);
+    const { excludedId, skipIds } = this.toolQueueContext();
+    const [docs, shortOf] = await Promise.all([
+      this.orderModel
+        .find({
+          cancelledAt: null,
+          deletedAt: null,
+          fulfillmentCompletedAt: null,
+          toolResult: { $nin: [null, ''] },
+          toolResultNote: { $in: [null, ''] },
+        })
+        .select(OrderService.TOOL_QUEUE_PROJECTION)
+        .sort({ inProductionAt: 1, _id: 1 })
+        .lean(),
+      this.toolQueueFactoryNames(),
+    ]);
+    const all = (docs as unknown as Record<string, unknown>[]).map((d) =>
+      this.toToolQueueRow(d, shortOf, toolQueueReturnEligibility(d, excludedId, skipIds)),
+    );
+
+    const blocked = new Map<ToolQueueBlockKey, number>();
+    const byFactory = new Map<string, number>();
+    const byToolResult = new Map<string, number>();
+    for (const r of all) {
+      if (r.blockReason) blocked.set(r.blockReason, (blocked.get(r.blockReason) ?? 0) + 1);
+      else {
+        byFactory.set(r.factoryId ?? '', (byFactory.get(r.factoryId ?? '') ?? 0) + 1);
+        byToolResult.set(r.toolResult, (byToolResult.get(r.toolResult) ?? 0) + 1);
+      }
+    }
+    const summary = {
+      total: all.length,
+      returnable: all.filter((r) => r.returnable).length,
+      blocked: [...blocked.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
+      byFactory: [...byFactory.entries()]
+        .map(([factoryId, returnable]) => ({ factoryId, shortName: shortOf.get(factoryId), returnable }))
+        .sort((a, b) => b.returnable - a.returnable),
+      byToolResult: [...byToolResult.entries()].map(([toolResult, returnable]) => ({ toolResult, returnable })).sort((a, b) => b.returnable - a.returnable),
+    };
+
+    const filtered = all.filter(
+      (r) =>
+        (!dto.factoryId || r.factoryId === dto.factoryId) &&
+        (!dto.type || r.type === dto.type) &&
+        (!dto.toolResult || r.toolResult === dto.toolResult) &&
+        (!dto.returnable || r.returnable),
+    );
+
+    if (dto.groupBy) {
+      const groups = new Map<string, { count: number; returnable: number }>();
+      for (const r of filtered) {
+        const g = groups.get(r.type ?? '') ?? { count: 0, returnable: 0 };
+        g.count++;
+        if (r.returnable) g.returnable++;
+        groups.set(r.type ?? '', g);
+      }
+
+      return {
+        success: true,
+        data: [],
+        groups: [...groups.entries()].map(([key, g]) => ({ key, ...g })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key)),
+        total: groups.size,
+        summary,
+      };
+    }
+
+    const page = Math.max(1, Number(dto.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(dto.limit) || 50));
+
+    return { success: true, data: filtered.slice((page - 1) * limit, page * limit), total: filtered.length, summary };
+  }
+
+  /** Read-only: what a run on `ids` would do. Re-checks every order; the export is built from these rows. */
+  async previewToolQueueReturn(ids: string[], roleName?: RoleType): Promise<ToolQueueReturnPreview> {
+    this.assertSuperAdmin(roleName);
+    const unique = [...new Set(ids)];
+    const { excludedId, skipIds } = this.toolQueueContext();
+    const [docs, shortOf] = await Promise.all([
+      this.orderModel.find({ _id: { $in: unique } }).select(OrderService.TOOL_QUEUE_PROJECTION).lean(),
+      this.toolQueueFactoryNames(),
+    ]);
+    const byId = new Map((docs as unknown as Record<string, unknown>[]).map((d) => [String(d._id), d]));
+    const rows: ToolQueueReturnRow[] = [];
+    const skipped: Array<{ id: string; productionId?: string; reason: string }> = [];
+    const byFactory = new Map<string, number>();
+    const byToolResult = new Map<string, number>();
+    for (const id of unique) {
+      const d = byId.get(id);
+      const block = toolQueueReturnEligibility(d, excludedId, skipIds);
+      if (!d) {
+        skipped.push({ id, reason: 'not-found' });
+        continue;
+      }
+      const row = this.toToolQueueRow(d, shortOf, block);
+      rows.push(row);
+      if (block) {
+        skipped.push({ id, productionId: row.productionId, reason: block });
+        continue;
+      }
+      const f = row.factoryShortName ?? row.factoryId ?? '';
+      byFactory.set(f, (byFactory.get(f) ?? 0) + 1);
+      byToolResult.set(row.toolResult, (byToolResult.get(row.toolResult) ?? 0) + 1);
+    }
+
+    return {
+      returnable: rows.filter((r) => r.returnable).length,
+      rows,
+      skipped,
+      byFactory: [...byFactory.entries()].map(([shortName, count]) => ({ shortName, count })).sort((a, b) => b.count - a.count),
+      byToolResult: [...byToolResult.entries()].map(([toolResult, count]) => ({ toolResult, count })).sort((a, b) => b.count - a.count),
+    };
+  }
+
+  /**
+   * Clear `toolResult` (and nothing else) on up to TOOL_QUEUE_RETURN_BATCH_MAX orders, one by one through
+   * `updateField` so each keeps its order-log entry. Every order is re-loaded and re-checked right before
+   * its own write; an order that got a result in the meantime is skipped and reported.
+   */
+  async runToolQueueReturn(ids: string[], reason: string, roleName?: RoleType, ctx?: AuditContext): Promise<ToolQueueReturnRunResult> {
+    this.assertSuperAdmin(roleName);
+    if (this.toolQueueReturnRunning) throw new BadRequestException('Đang có một lượt trả đơn khác chạy — đợi lượt đó xong.');
+    this.toolQueueReturnRunning = true;
+    const runId = `toolq-${Date.now().toString(36)}`;
+    try {
+      const { excludedId, skipIds } = this.toolQueueContext();
+      const { done, skipped, previous } = await runToolQueueReturn({
+        ids,
+        excludedFactoryId: excludedId,
+        skipToolCheckIds: skipIds,
+        load: async (id) =>
+          (await this.orderModel.findById(id).select(OrderService.TOOL_QUEUE_PROJECTION).lean()) as unknown as
+            | (ToolQueueDoc & { productionId?: string })
+            | null,
+        write: async (id) => {
+          await this.updateField(id, { field: 'toolResult', value: null }, RoleType.SuperAdmin, ctx);
+        },
+      });
+      // The previous values also sit in each order log; this line is the run-level index back to them.
+      this.logger.info({ message: JSON.stringify({ toolQueueReturn: runId, reason, by: ctx?.user?._id, done: done.length, skipped: skipped.length, previous }) });
+
+      return { runId, done: done.length, skipped };
+    } finally {
+      this.toolQueueReturnRunning = false;
+    }
   }
 
   /**
