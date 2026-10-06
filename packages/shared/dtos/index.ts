@@ -62,3 +62,4 @@ export * from './workshop-config.dto';
 export * from './zalo-group-link.dto';
 export * from './zalo-group-summary.dto';
 export * from './zalo-identity.dto';
+export * from './bulk-undo.dto';

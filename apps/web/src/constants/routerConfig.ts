@@ -41,6 +41,7 @@ const HandoverPage = lazy(() => import('@/pages/handover'));
 const InventoryPage = lazy(() => import('../pages/inventory'));
 const CeoDashboard = lazy(() => import('../pages/ceo'));
 const DtfGuide = lazy(() => import('../pages/guide/dtf'));
+const BulkUndo = lazy(() => import('../pages/bulk-undo'));
 
 type RouterConfig = {
   path: (typeof PATHS)[keyof typeof PATHS];
@@ -88,4 +89,5 @@ export const routerConfig: RouterConfig[] = [
   { path: PATHS.STALE_ORDERS, component: StaleOrders },
   { path: PATHS.TOOL_QUEUE_RETURN, component: ToolQueueReturn },
   { path: PATHS.DTF_GUIDE, component: DtfGuide },
+  { path: PATHS.BULK_UNDO, component: BulkUndo },
 ];

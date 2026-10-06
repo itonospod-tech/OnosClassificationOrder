@@ -16,6 +16,8 @@ import { ShippingVnpModule } from '../shipping-vnp/shipping-vnp.module';
 import { SystemConfigModule } from '../system-config/system-config.module';
 import { UserEntity, UserSchema } from '../user/user.entity';
 import { WorkshopConfigModule } from '../workshop-config/workshop-config.module';
+import { BulkUndoController } from './bulk-undo.controller';
+import { BulkUndoService } from './bulk-undo.service';
 import { DriveFileNameService } from './drive-file-name.service';
 import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodImportService } from './onospod-import.service';
@@ -51,7 +53,7 @@ import { ShippingLabelPdfService } from './shipping-label-pdf.service';
     // (`shipments`/`shipping_packages`) ngay lúc import đơn.
     ShippingVnpModule,
   ],
-  controllers: [OrderController],
+  controllers: [OrderController, BulkUndoController],
   providers: [
     OrderService,
     OrderRepository,
@@ -61,6 +63,7 @@ import { ShippingLabelPdfService } from './shipping-label-pdf.service';
     OnospodHoldSyncService,
     OnospodOrderLookupService,
     ShippingLabelPdfService,
+    BulkUndoService,
   ],
   exports: [OrderService],
 })

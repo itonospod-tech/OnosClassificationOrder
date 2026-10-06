@@ -319,6 +319,13 @@ function buildFulfillmentEntrySet(): Record<string, unknown> {
   };
 }
 
+/**
+ * Side-effect fields an edit may change besides the edited one; they get their own order-log row
+ * (Orders.md §27 — an unlogged cascade cannot be undone from the log).
+ */
+const CASCADE_LOGGED_FIELDS = ['designerStatus', 'currentFulfillmentStage', 'readyForFulfill'] as const;
+const sameLogValue = (a: unknown, b: unknown): boolean => (a ?? null) === (b ?? null) || ((a ?? '') === '' && (b ?? '') === '');
+
 /** Field workshop có schema array thay vì string đơn. */
 const MULTI_VALUE_FIELDS: OrderWorkshopField[] = ['errorFile'];
 
@@ -7025,6 +7032,14 @@ export class OrderService implements OnModuleInit {
       after: normalized,
       ctx,
     });
+    // Side-effect fields this edit changed are logged too. On 2026-10-05 a mistaken bulk unassign
+    // reset designer status and timestamps with only `assignee` in the log, which made the undo
+    // depend on reconstruction (Orders.md §27).
+    const beforeRec = before as unknown as Record<string, unknown>;
+    const cascadeRows = CASCADE_LOGGED_FIELDS.filter(
+      (k) => k in patch && !(k === 'designerStatus' && autoReworkApplied) && !sameLogValue(beforeRec[k], patch[k]),
+    ).map((k) => ({ orderId: id, action: 'update' as const, field: k, before: beforeRec[k] ?? null, after: patch[k] ?? null, ctx }));
+    if (cascadeRows.length) void this.orderLogService.writeMany(cascadeRows);
 
     if (autoReworkApplied) {
       void this.orderLogService.write({
@@ -7147,12 +7162,6 @@ export class OrderService implements OnModuleInit {
       }
     }
 
-    // Snapshot before-values for the audit log. Cheap because we only need the
-    // field being changed plus _id.
-    const beforeDocs = await this.orderModel
-      .find({ _id: { $in: dto.ids }, deletedAt: { $exists: false } }, { _id: 1, [dto.field]: 1 })
-      .lean();
-
     const matchFilter: Record<string, unknown> = {
       _id: { $in: dto.ids },
       deletedAt: { $exists: false },
@@ -7162,17 +7171,29 @@ export class OrderService implements OnModuleInit {
       cancelledAt: { $exists: false },
     };
     if (extraMatchFilter) Object.assign(matchFilter, extraMatchFilter);
+    // Snapshot with the SAME filter as the update: only orders really written get a log row (held,
+    // cancelled or filtered-out orders used to get one too), and no-op rows are dropped.
+    const beforeDocs = await this.orderModel
+      .find(matchFilter, { _id: 1, [dto.field]: 1, ...Object.fromEntries(CASCADE_LOGGED_FIELDS.map((k) => [k, 1])) })
+      .lean();
     const result = await this.orderModel.updateMany(matchFilter, { $set: patch });
 
     void this.orderLogService.writeMany(
-      beforeDocs.map((doc) => ({
-        orderId: (doc._id as unknown as { toString(): string }).toString(),
-        action: 'bulk_update' as const,
-        field: dto.field,
-        before: (doc as unknown as Record<string, unknown>)[dto.field] ?? null,
-        after: normalized,
-        ctx,
-      })),
+      beforeDocs.flatMap((doc) => {
+        const d = doc as unknown as Record<string, unknown>;
+        const orderId = (doc._id as unknown as { toString(): string }).toString();
+        const rows: Array<{ orderId: string; action: 'bulk_update'; field: string; before: unknown; after: unknown; ctx?: AuditContext }> =
+          sameLogValue(d[dto.field], normalized)
+            ? []
+            : [{ orderId, action: 'bulk_update', field: dto.field, before: d[dto.field] ?? null, after: normalized, ctx }];
+        // Cascades of this bulk edit (e.g. unassigning resets designerStatus) are logged too.
+        for (const k of CASCADE_LOGGED_FIELDS) {
+          if (k in patch && !sameLogValue(d[k], patch[k])) {
+            rows.push({ orderId, action: 'bulk_update', field: k, before: d[k] ?? null, after: patch[k] ?? null, ctx });
+          }
+        }
+        return rows;
+      }),
     );
 
     void this.invalidateListCache();

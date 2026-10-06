@@ -11,6 +11,7 @@
     "hold": "Hold order",
     "unhold": "Release",
     "forceComplete": "Marked completed",
+    "restore": "Undo",
     "reworkBack": "Sent back"
   },
   "importSubaction": {

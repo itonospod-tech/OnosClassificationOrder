@@ -16,6 +16,8 @@ export const ORDER_LOG_ACTIONS = [
   'unhold',
   /** SuperAdmin ép đơn về "đã hoàn thành sản xuất" — xem `Orders.md §23`. */
   'force_complete',
+  /** Undo of a mistaken bulk edit: the field rewound to its value before the incident (Orders.md §27). */
+  'restore',
   /**
    * Đẩy đơn NGƯỢC chặng (rework-back) ở luồng fulfillment. Tách khỏi `update`
    * để nhật ký nói rõ "đẩy về công đoạn nào, vì lý do gì" — trước đây thao tác
