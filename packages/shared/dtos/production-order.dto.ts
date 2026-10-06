@@ -1587,6 +1587,8 @@ export class StaleCleanupRunResDto extends createZodDto(extendApi(ResZod.extend(
 // ─── Return orders to the tool-check queue (ToolCheckWorkflow.md §2.4, SuperAdmin) ─────────────────
 /** Max orders per run — the owner runs ~50 first to watch how the external tool reacts. */
 export const TOOL_QUEUE_RETURN_BATCH_MAX = 200;
+/** The tool counts as stopped when orders are waiting and it has written nothing for this long. */
+export const TOOL_QUEUE_STALE_MINUTES = 60;
 export const ToolQueueBlockZod = z.enum([
   'not-found',
   'cancelled',
@@ -1627,6 +1629,14 @@ export const GetToolQueueReturnResZod = ResZod.extend({
   data: z.array(ToolQueueReturnRowZod),
   groups: z.array(z.object({ key: z.string(), count: z.number(), returnable: z.number() })).optional(),
   total: z.number(),
+  /** State of the queue the returned orders would join (same filter the tool uses). */
+  queue: z.object({
+    waiting: z.number(),
+    /** Newest `toolResult` log entry with no acting user (= written by the tool); null = none ever. */
+    lastToolWriteAt: z.coerce.date().nullable(),
+    /** Orders are waiting and the tool has been silent past TOOL_QUEUE_STALE_MINUTES (or never wrote). */
+    stalled: z.boolean(),
+  }),
   /** Whole candidate set (ignores filters). */
   summary: z.object({
     total: z.number(),

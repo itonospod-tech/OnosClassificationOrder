@@ -80,5 +80,11 @@
     "skipped": "{{count}} orders skipped: {{list}}"
   },
   "empty": "No orders match the filters.",
-  "openFromToolCheck": "Return orders to the tool-check queue"
+  "openFromToolCheck": "Return orders to the tool-check queue",
+  "queue": {
+    "waiting": "{{count}} orders waiting in the tool queue",
+    "last": "the tool last wrote a result {{ago}} ({{at}})",
+    "never": "no tool result write found",
+    "stalled": "The automatic tool check looks stopped — returning orders to the queue now will not get them processed."
+  }
 }

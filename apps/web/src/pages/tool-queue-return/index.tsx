@@ -31,6 +31,7 @@ type Summary = {
   byFactory: Array<{ factoryId: string; shortName?: string; returnable: number }>;
   byToolResult: Array<{ toolResult: string; returnable: number }>;
 };
+type Queue = { waiting: number; lastToolWriteAt: string | null; stalled: boolean };
 type Group = { key: string; count: number; returnable: number };
 type View = 'orders' | 'type';
 type Filters = { factoryId: string; toolResult: string; type: string; returnable: boolean };
@@ -55,6 +56,7 @@ export default function ToolQueueReturnPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [queue, setQueue] = useState<Queue | null>(null);
   const [loading, setLoading] = useState(false);
   const [reload, setReload] = useState(0);
   // id → productionId: selection survives paging and filter changes.
@@ -84,11 +86,12 @@ export default function ToolQueueReturnPage() {
       .getToolQueueReturn(query(extra))
       .then((res) => {
         if (cancelled) return;
-        const body = res.data as { data: ToolQueueReturnRow[]; groups?: Group[]; total: number; summary: Summary };
+        const body = res.data as { data: ToolQueueReturnRow[]; groups?: Group[]; total: number; summary: Summary; queue: Queue };
         setRows(body.data ?? []);
         setGroups(body.groups ?? []);
         setTotal(body.total ?? 0);
         setSummary(body.summary);
+        setQueue(body.queue);
       })
       .catch(handleAxiosError)
       .finally(() => !cancelled && setLoading(false));
@@ -139,6 +142,24 @@ export default function ToolQueueReturnPage() {
   return (
     <div className="space-y-4 pb-24">
       <PageHeader icon={<RotateCcw size={20} />} title={t('title')} description={t('description')} />
+
+      {queue && (
+        <div
+          role={queue.stalled ? 'alert' : 'status'}
+          className={cn(
+            'rounded-lg border-2 p-3 text-sm',
+            queue.stalled ? 'border-tone-danger bg-tone-danger/10 font-medium text-tone-danger' : 'border-border bg-card',
+          )}
+        >
+          <div>
+            {t('queue.waiting', { count: queue.waiting })} ·{' '}
+            {queue.lastToolWriteAt
+              ? t('queue.last', { ago: dayjs(queue.lastToolWriteAt).fromNow(), at: dayjs(queue.lastToolWriteAt).format('DD/MM HH:mm') })
+              : t('queue.never')}
+          </div>
+          {queue.stalled && <div className="mt-1">{t('queue.stalled')}</div>}
+        </div>
+      )}
 
       <div role="alert" className="flex items-start gap-3 rounded-lg border-2 border-tone-warning bg-tone-warning/10 p-3 text-sm font-medium text-tone-warning">
         <AlertTriangle size={20} className="mt-0.5 shrink-0" />

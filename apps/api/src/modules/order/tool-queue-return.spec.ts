@@ -1,4 +1,4 @@
-import { runToolQueueReturn, toolQueueReturnEligibility, type ToolQueueDoc } from './tool-queue-return.logic';
+import { runToolQueueReturn, toolQueueReturnEligibility, toolQueueStalled, type ToolQueueDoc } from './tool-queue-return.logic';
 
 const US = 'f-us';
 const SKIP = new Set(['f-dtf']);
@@ -105,5 +105,29 @@ describe('runToolQueueReturn — re-check at write time', () => {
       { id: 'b', productionId: 'P-B', reason: 'boom' },
       { id: 'gone', productionId: undefined, reason: 'not-found' },
     ]);
+  });
+});
+
+describe('toolQueueStalled — is the automatic checker alive', () => {
+  const now = new Date('2026-10-06T01:00:00Z');
+  const ago = (min: number) => new Date(now.getTime() - min * 60_000);
+
+  it('is stalled when orders wait and the tool has been silent past the threshold', () => {
+    expect(toolQueueStalled(1053, ago(61), now)).toBe(true);
+    expect(toolQueueStalled(5, ago(60 * 24), now)).toBe(true);
+  });
+
+  it('is fine when the tool wrote recently, or exactly at the threshold', () => {
+    expect(toolQueueStalled(1053, ago(5), now)).toBe(false);
+    expect(toolQueueStalled(1053, ago(60), now)).toBe(false);
+  });
+
+  it('with orders waiting and no write ever seen, there is no evidence it works → stalled', () => {
+    expect(toolQueueStalled(3, null, now)).toBe(true);
+  });
+
+  it('an idle tool with an empty queue is normal, never an alarm', () => {
+    expect(toolQueueStalled(0, ago(60 * 24), now)).toBe(false);
+    expect(toolQueueStalled(0, null, now)).toBe(false);
   });
 });

@@ -80,5 +80,11 @@
     "skipped": "{{count}} đơn bị bỏ qua: {{list}}"
   },
   "empty": "Không có đơn nào khớp bộ lọc.",
-  "openFromToolCheck": "Trả đơn về hàng đợi soát tool"
+  "openFromToolCheck": "Trả đơn về hàng đợi soát tool",
+  "queue": {
+    "waiting": "Hàng đợi tool đang chờ {{count}} đơn",
+    "last": "tool ghi kết quả lần cuối {{ago}} ({{at}})",
+    "never": "chưa thấy tool ghi kết quả nào",
+    "stalled": "Tool soát tự động có vẻ đang dừng — trả đơn về hàng đợi lúc này sẽ không có ai xử lý."
+  }
 }
