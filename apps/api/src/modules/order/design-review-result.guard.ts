@@ -1,15 +1,19 @@
 /**
- * Guard for the external tool's result door (`setDesignReviewResult`). The queue only takes orders whose
- * `toolResult` is empty, so setting `toolResult` WITHOUT a real `toolResultNote` drops the order out of the
- * queue for good with no outcome: a silent half-write (that is how thousands of orders got stuck).
- * Better the tool gets a loud error than an order vanishes.
+ * Guard for the external tool's result door (`setDesignReviewResult`).
  *
- * Rule: a non-empty `toolResult` REQUIRES a non-empty `toolResultNote`. Absent, `null` and blank are all
- * refused (no business case sets a result while clearing the outcome, and we do not know what the tool
- * really sends, so the guard is strict). Only clearing `toolResult` itself (null/empty — the way back into
- * the queue) needs no note.
+ * Contract with the tool (see Tool/tool/src/orderApi.js):
+ *   - automated run: sends `toolResult` ('has-tool' | 'no-tool') and OMITS `toolResultNote`. The note is
+ *     filled in later by a human in "Soát design" ('ok' | 'error'). An ABSENT note is therefore normal and
+ *     must go through, otherwise the tool loops on the same order forever (06/10/2026 incident: the strict
+ *     version of this guard refused every automated result and the queue stopped moving).
+ *   - "Soát design" submit: sends both fields.
+ *
+ * What we still refuse: a non-empty `toolResult` together with an EXPLICIT `null` or blank `toolResultNote`.
+ * No caller has a business reason to set a result while clearing the outcome, and that exact shape wipes a
+ * note a human already entered. Clearing `toolResult` itself (null/empty — the way back into the queue) needs
+ * no note.
  */
-export type MissingNoteReason = 'absent' | 'null' | 'blank';
+export type MissingNoteReason = 'null' | 'blank';
 
 export function missingToolResultNote(input: {
   toolResult: string | null;
@@ -17,7 +21,7 @@ export function missingToolResultNote(input: {
 }): MissingNoteReason | null {
   const hasResult = typeof input.toolResult === 'string' && input.toolResult.trim() !== '';
   if (!hasResult) return null;
-  if (input.toolResultNote === undefined) return 'absent';
+  if (input.toolResultNote === undefined) return null;
   if (input.toolResultNote === null) return 'null';
   if (input.toolResultNote.trim() === '') return 'blank';
 

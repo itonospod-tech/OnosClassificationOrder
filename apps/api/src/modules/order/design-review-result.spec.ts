@@ -4,11 +4,11 @@ import { missingToolResultNote } from './design-review-result.guard';
 import { OrderService } from './order.service';
 
 describe('missingToolResultNote', () => {
-  it('refuses a non-empty toolResult with the note absent', () => {
-    expect(missingToolResultNote({ toolResult: 'has-tool' })).toBe('absent');
-    expect(missingToolResultNote({ toolResult: 'no-tool', toolResultNote: undefined })).toBe('absent');
+  it('allows a non-empty toolResult with the note absent (the automated run; the note comes later from "Soát design")', () => {
+    expect(missingToolResultNote({ toolResult: 'has-tool' })).toBeNull();
+    expect(missingToolResultNote({ toolResult: 'no-tool', toolResultNote: undefined })).toBeNull();
   });
-  it('refuses an explicit null note and a blank note too', () => {
+  it('refuses an explicit null note and a blank note', () => {
     expect(missingToolResultNote({ toolResult: 'has-tool', toolResultNote: null })).toBe('null');
     expect(missingToolResultNote({ toolResult: 'has-tool', toolResultNote: '  ' })).toBe('blank');
   });
@@ -40,14 +40,25 @@ describe('setDesignReviewResult — refuses before any write', () => {
     return { svc, writes, warn };
   };
 
-  it('400, zero writes and a warn log carrying productionId + payload', async () => {
+  it('the automated run (toolResult only, note omitted) writes toolResult and nothing else, no warn', async () => {
     const { svc, writes, warn } = build();
 
-    await expect(svc.setDesignReviewResult('P-1', { toolResult: 'has-tool' })).rejects.toBeInstanceOf(BadRequestException);
+    await svc.setDesignReviewResult('P-1', { toolResult: 'has-tool' });
+
+    expect(writes.map((w) => (w as [string, { field: string }])[1].field)).toEqual(['toolResult']);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('a blank note is refused: 400, zero writes and a warn log carrying productionId + payload', async () => {
+    const { svc, writes, warn } = build();
+
+    await expect(svc.setDesignReviewResult('P-1', { toolResult: 'has-tool', toolResultNote: ' ' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
 
     expect(writes).toHaveLength(0);
     const logged = JSON.parse(warn.mock.calls[0][0].message);
-    expect(logged).toMatchObject({ productionId: 'P-1', payload: { toolResult: 'has-tool' } });
+    expect(logged).toMatchObject({ designReviewRejected: 'toolResultNote-blank', productionId: 'P-1', payload: { toolResult: 'has-tool' } });
   });
 
   it('an explicit null note is refused too, with a message naming that case, and nothing is written', async () => {
