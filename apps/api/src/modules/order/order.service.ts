@@ -212,6 +212,7 @@ import {
   staleStageKey,
   TIMELINE_PATH,
 } from './stale-cleanup.logic';
+import { missingToolResultNote } from './design-review-result.guard';
 import {
   runToolQueueReturn,
   toolQueueReturnEligibility,
@@ -8003,6 +8004,18 @@ export class OrderService implements OnModuleInit {
     if (getFactorySkipToolCheckSync(this.orderModel.db, (order as { factoryId?: string }).factoryId)) {
       throw new BadRequestException(
         'Xưởng của đơn này đang bật "Bỏ qua soát tool" — không ghi kết quả soát tự động.',
+      );
+    }
+
+    // Refuse BEFORE the first write: toolResult without toolResultNote would leave the order half-written and
+    // out of the queue for good. Only this door is guarded; manual edits (`updateField`) are untouched.
+    if (missingToolResultNote(input)) {
+      this.logger.warn({
+        message: JSON.stringify({ designReviewRejected: 'missing-toolResultNote', productionId: trimmed, payload: input }),
+      });
+      throw new BadRequestException(
+        'toolResultNote is required when toolResult is set. Nothing was written; the order stays in the queue. ' +
+          'Send toolResultNote together with toolResult (send null explicitly to clear the note).',
       );
     }
 

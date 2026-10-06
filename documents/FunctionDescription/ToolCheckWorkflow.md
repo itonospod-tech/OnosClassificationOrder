@@ -91,6 +91,11 @@ Support/Admin mở Dashboard → tab "Soát tool":
 
 **API:** `GET /orders/tool-queue-return` (+ `returnable=true`, `factoryId`, `type`, `toolResult`, `groupBy=type`), `POST /orders/tool-queue-return/preview`, `POST /orders/tool-queue-return/run` — đều `@Auth([SuperAdmin])`; DTO `ToolQueue*` ở `packages/shared/dtos/production-order.dto.ts`. Spec `tool-queue-return.spec.ts` (điều kiện ứng viên; kiểm-lại-lúc-ghi bỏ qua đơn đã có Note — cả trường hợp Note xuất hiện ngay trong lúc chạy lượt).
 
+### 2.5 Cửa kết quả của tool ngoài từ chối ghi nửa chừng (06/10/2026)
+
+`POST /orders/design-review/result` → `setDesignReviewResult` từng ghi `toolResult` TRƯỚC rồi mới ghi `toolResultNote` nếu có. Tool gửi thiếu note thì đơn nằm lại với `toolResult` có mà note trống, và hàng đợi (lọc `toolResult` rỗng) không bao giờ nhặt lại — đó là cỗ máy sinh ra hàng nghìn đơn kẹt. Nay: `toolResult` non-rỗng mà `toolResultNote` VẮNG MẶT → 400 (tiếng Anh, nói rõ thiếu `toolResultNote`), KHÔNG ghi gì, đơn ở nguyên hàng đợi, và log máy chủ mức warn `designReviewRejected` kèm `productionId` + payload tool gửi (trước đây ta mù hoàn toàn). Luật ở `order/design-review-result.guard.ts`, chặn trước lệnh ghi đầu tiên (không ở Zod, hình dạng request không đổi).
+Giữ nguyên: `toolResult` null/rỗng không cần note (đường trả đơn về hàng đợi); `toolResultNote: null` TƯỜNG MINH + `toolResult` non-rỗng được phép (tool nói rõ ý định xoá note; bỏ sót trường mới là lỗi) — lưu ý ca này vẫn để lại đơn có `toolResult` mà note trống, chấp nhận theo quyết định; sửa tay ở Danh sách đơn (`updateField`) không bị đụng.
+
 ## 3. API / Schema
 
 | Method | Path                               | Auth                                            | Mô tả                                        |
