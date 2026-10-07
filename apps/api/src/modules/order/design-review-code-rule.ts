@@ -20,6 +20,13 @@ const DESIGN_REVIEW_CODE_BY_DESIGN_KEY: Record<string, Partial<Record<keyof Desi
     chestLeft: 'PLNGUC', // thêu ngực
     placket: 'PLTRU', // thêu trụ
   },
+  // Bản Youth: tool PTS riêng (file mẫu khác áo người lớn), cùng cách tách option.
+  // SKU thật trên prod (import OnosPod 07/10/2026) là `EMB-YOUTH-PPOLO`; mã khớp
+  // tên thư mục template trên máy tool.
+  'EMB-YOUTH-PPOLO': {
+    chestLeft: 'POLOKIDTHEU', // thêu ngực
+    placket: 'POLOKIDTRU', // thêu trụ
+  },
 };
 
 /**
