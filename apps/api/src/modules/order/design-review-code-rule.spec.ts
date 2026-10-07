@@ -36,6 +36,15 @@ describe('resolveDesignReviewCodeByDesigns — mã tool theo option', () => {
     expect(resolveDesignReviewCodeByDesigns(' aop-polo-emlogo ', { placket: url })).toBe('PLTRU');
   });
 
+  it('polo thêu Youth → mã Youth riêng (POLOKIDTRU / POLOKIDTHEU), không dùng mã người lớn', () => {
+    const YOUTH = 'EMB-YOUTH-PPOLO';
+    expect(resolveDesignReviewCodeByDesigns(YOUTH, { front: url, placket: url })).toBe('POLOKIDTRU');
+    expect(resolveDesignReviewCodeByDesigns(YOUTH, { front: url, chestLeft: url })).toBe('POLOKIDTHEU');
+    expect(resolveDesignReviewCodeByDesigns(YOUTH, { front: url, chestLeft: url, placket: url })).toBeNull();
+    // SKU cũ đoán trước khi có sản phẩm thật — không còn rule.
+    expect(resolveDesignReviewCodeByDesigns('AOP-YOUTH-POLO-EMLOGO', { front: url, placket: url })).toBeNull();
+  });
+
   it('sản phẩm khác / không có SKU → null, hành vi không đổi', () => {
     expect(resolveDesignReviewCodeByDesigns('AOP-EMLOGOPOLO', { front: url, placket: url })).toBeNull();
     expect(resolveDesignReviewCodeByDesigns('PAOPPOLO', { front: url, chestLeft: url })).toBeNull();
