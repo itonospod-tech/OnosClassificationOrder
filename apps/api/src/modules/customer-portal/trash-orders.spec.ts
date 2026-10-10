@@ -1,3 +1,4 @@
+import { adminOrderCacheSizeForTests, cachedAdminOrderNumbers, clearAdminOrderCache } from './admin-order-cache';
 import { CustomerOrderService } from './customer-order.service';
 
 /**
@@ -10,7 +11,6 @@ import { CustomerOrderService } from './customer-order.service';
 type Filter = Record<string, unknown>;
 interface Surface {
   customerOrderModel: unknown;
-  adminCache: Map<string, unknown>;
   trashOrdersAdmin(ids: string[], by: string): Promise<{ data: { ok: number; skipped: string[] } }>;
   restoreOrdersAdmin(ids: string[]): Promise<{ data: { ok: number; skipped: string[] } }>;
   claimPush(id: string, customerId: string): Promise<boolean>;
@@ -22,7 +22,6 @@ interface Surface {
 const make = (modified: (id: string) => number = () => 1) => {
   const updates: Array<{ filter: Filter; update: Record<string, unknown> }> = [];
   const svc = Object.create(CustomerOrderService.prototype) as Surface;
-  svc.adminCache = new Map([['counts:x', 1]]);
   svc.customerOrderModel = {
     updateOne: (filter: Filter, update: Record<string, unknown>) => {
       updates.push({ filter, update });
@@ -44,11 +43,17 @@ describe('trash / restore', () => {
   });
 
   it('reports exactly what changed (one conditional update per id) and clears the cached counts', async () => {
+    // The counts cache moved to `admin-order-cache.ts` (file scope) on 10/10/2026, so prime it through its own
+    // entry point rather than reaching into a private field of the service.
+    clearAdminOrderCache();
+    await cachedAdminOrderNumbers('counts:x', async () => 1);
+    expect(adminOrderCacheSizeForTests()).toBe(1);
+
     const { svc, updates } = make((id) => (id === 'PUSHED' ? 0 : 1));
     const res = await svc.trashOrdersAdmin(['A', 'PUSHED', 'A'], 'admin1');
     expect(updates).toHaveLength(2); // de-duplicated
     expect(res.data).toEqual({ ok: 1, skipped: ['PUSHED'] });
-    expect(svc.adminCache.size).toBe(0);
+    expect(adminOrderCacheSizeForTests()).toBe(0);
   });
 
   it('restore only touches trashed orders and clears trashedAt', async () => {

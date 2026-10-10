@@ -83,6 +83,7 @@ import { EXCLUDED_PRODUCTION_FACTORY_SHORT_NAME } from '@/utils/excluded-factory
 import { workshopStageSwitchExpr } from '@/utils/workshop-stage';
 
 import type { CustomerOrderItem } from './customer-order.entity';
+import { cachedAdminOrderNumbers, clearAdminOrderCache } from './admin-order-cache';
 import { CustomerOrderEntity } from './customer-order.entity';
 import { CustomerPaymentEntity } from './customer-payment.entity';
 import type { ProductionCostInput } from './production-cost';
@@ -118,7 +119,12 @@ function randomProductionId(): string {
 
 /** Nhãn chặng hiện tại — hiển thị khách hàng, KHÔNG dùng thuật ngữ nội bộ (vd 'sew-in'). */
 export const CUSTOMER_STAGE_LABELS: Record<string, string> = {
-  'tool-check': 'Đang xử lý',
+  // Matches `track:progress.stages.tool-check` ("Tiếp nhận đơn" / "Order intake"), which is what the seller app
+  // shows when it resolves the stage KEY. This constant is the fallback used where only the label is rendered
+  // (customer dashboard, the order drawer, public track). It used to read "Đang xử lý", which collided with the
+  // order-level badge after In Production was redefined on 2026-10-04 (LegacyClone-Orders.md §7): the same order
+  // showed "Đang sản xuất" and "Đang xử lý" side by side.
+  'tool-check': 'Tiếp nhận đơn',
   designer: 'Đang thiết kế',
   ...FULFILLMENT_STAGE_LABELS,
 };
@@ -574,7 +580,7 @@ export class CustomerOrderService implements OnModuleInit {
           { upsert: true },
         );
       }
-      if (total > 0) this.adminCache.clear();
+      if (total > 0) clearAdminOrderCache();
       if (total > 0 || failed > 0 || runFull) {
         console.log(`[customer-orders-sync] ${runFull ? 'FULL' : 'incremental'} +${total} staging rows · ${groups.length} khách · lỗi ${failed}${since ? ` · từ ${since.toISOString()}` : ''}`);
       }
@@ -842,9 +848,13 @@ export class CustomerOrderService implements OnModuleInit {
         currentStageKey: p.cancelledAt ? undefined : stage.key,
         currentStageLabel: p.cancelledAt ? undefined : stage.label,
         currentStageAt: p.cancelledAt ? undefined : stage.at,
-        held: !!p.heldAt,
-        holdReason: p.holdReason,
-        rework: isReworkBadge(p),
+        // A cancelled item carries no live badge. `cancelOrder` does NOT clear `heldAt`, and the
+        // aggregation counts `heldAny`/`reworkAny` over `activeProd` (cancelled excluded) — so reading
+        // `heldAt` raw here made the row show "held" while the Held filter and the tab count did not see it.
+        // Same gate as `currentStage*` just above.
+        held: !p.cancelledAt && !!p.heldAt,
+        holdReason: p.cancelledAt ? undefined : p.holdReason,
+        rework: !p.cancelledAt && isReworkBadge(p),
         cancelledAt: p.cancelledAt,
       };
     });
@@ -1334,7 +1344,7 @@ export class CustomerOrderService implements OnModuleInit {
   }
 
   private trashResult(ids: string[], changed: string[]): TrashCustomerOrdersResDto {
-    this.adminCache.clear(); // counts/stats are cached 60 s; the tab numbers must move now
+    clearAdminOrderCache(); // counts/stats are cached 60 s; the tab numbers must move now
     const done = new Set(changed);
     return { success: true, data: { ok: changed.length, skipped: ids.filter((id) => !done.has(id)) } };
   }
@@ -1445,34 +1455,13 @@ export class CustomerOrderService implements OnModuleInit {
     ];
   }
 
-  /** Cache ngắn (60 s) cho số đếm/thống kê khu quản trị — quét toàn bộ staging mỗi lần gọi mất ~5 s. */
   /**
-   * Cache bộ nhớ cho số liệu admin (counts/stats — quét cả `customer_orders` ≈ 5 s).
-   * Kiểu stale-while-revalidate: còn hạn → trả ngay; hết hạn nhưng có bản cũ → trả bản cũ + tính lại NỀN;
-   * chưa có → chờ tính (1 lần, các request trùng key dùng chung promise). Admin F5 không bao giờ chờ 5 s lần 2.
+   * Cache số liệu admin — dời sang `admin-order-cache.ts` (file scope) ngày 10/10/2026 để
+   * `CustomerOrderEventService` xoá được nó khi đơn đổi trạng thái, và để một tiến trình chạy HAI Nest context
+   * không sinh ra hai bản cache. Lý do đầy đủ nằm ở đầu file đó.
    */
-  private readonly adminCache = new Map<string, { at: number; value: unknown }>();
-  private readonly adminInflight = new Map<string, Promise<unknown>>();
-  private static readonly ADMIN_CACHE_MS = 60_000;
   private async cachedAdmin<T>(key: string, load: () => Promise<T>): Promise<T> {
-    const hit = this.adminCache.get(key);
-    const fresh = !!hit && Date.now() - hit.at < CustomerOrderService.ADMIN_CACHE_MS;
-    if (fresh) return hit.value as T;
-    let inflight = this.adminInflight.get(key) as Promise<T> | undefined;
-    if (!inflight) {
-      inflight = load()
-        .then((value) => {
-          this.adminCache.set(key, { at: Date.now(), value });
-          return value;
-        })
-        .finally(() => this.adminInflight.delete(key));
-      this.adminInflight.set(key, inflight);
-    }
-    if (hit) {
-      inflight.catch(() => undefined); // bản cũ vẫn trả được; lỗi tính nền chỉ ghi log ở load()
-      return hit.value as T;
-    }
-    return inflight;
+    return cachedAdminOrderNumbers(key, load);
   }
 
   /** Làm ấm cache admin sau khi boot (trang `/hub/orders` mở lần đầu không phải chờ counts/stats ≈ 5 s). */
