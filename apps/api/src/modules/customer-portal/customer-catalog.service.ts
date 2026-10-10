@@ -5,11 +5,11 @@ import type { CustomerCatalogFacet, CustomerCatalogItem, CustomerCatalogPrintAre
 import { PRODUCT_LINES, PRODUCT_PRINT_AREA_LABEL_MAP, ProductConfigStatus, toFullSizeImageUrl } from 'shared';
 
 import { CollectionEntity } from '@/modules/collection/collection.entity';
-import { ProductTagEntity } from '@/modules/product-tag/product-tag.entity';
-import { ProductTechniqueEntity } from '@/modules/product-technique/product-technique.entity';
 import type { CustomerDocument } from '@/modules/customer/customer.entity';
 import { ProductCategoryEntity } from '@/modules/product-category/product-category.entity';
 import { ProductConfigEntity } from '@/modules/product-config/product-config.entity';
+import { ProductTagEntity } from '@/modules/product-tag/product-tag.entity';
+import { ProductTechniqueEntity } from '@/modules/product-technique/product-technique.entity';
 import { applyPromotionDiscount, promotionMatches, PromotionService } from '@/modules/promotion/promotion.service';
 import { customerMessage } from '@/shared/i18n/customer-messages';
 

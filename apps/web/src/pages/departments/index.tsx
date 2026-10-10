@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Building2 } from 'lucide-react';
+
 import { PageHeader } from '@/components/common/PageHeader';
 
 export default function Departments() {

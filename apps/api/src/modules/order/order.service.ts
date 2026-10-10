@@ -214,9 +214,9 @@ import {
 } from './stale-cleanup.logic';
 import {
   runToolQueueReturn,
+  type ToolQueueDoc,
   toolQueueReturnEligibility,
   toolQueueStalled,
-  type ToolQueueDoc,
 } from './tool-queue-return.logic';
 
 const FIELD_CONFIG_CATEGORY: Record<OrderWorkshopField, WorkshopConfigCategory | null> = {

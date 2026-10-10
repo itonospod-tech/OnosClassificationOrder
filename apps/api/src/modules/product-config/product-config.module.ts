@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { CollectionModule } from '../collection/collection.module';
-import { ProductTagModule } from '../product-tag/product-tag.module';
-import { ProductTechniqueModule } from '../product-technique/product-technique.module';
 import { FactoryModule } from '../factory/factory.module';
 import { MachineTypeModule } from '../machine-type/machine-type.module';
 import { OrderEntity, OrderSchema } from '../order/order.entity';
 import { ProductCategoryModule } from '../product-category/product-category.module';
+import { ProductTagModule } from '../product-tag/product-tag.module';
+import { ProductTechniqueModule } from '../product-technique/product-technique.module';
 import { SystemConfigModule } from '../system-config/system-config.module';
 import { WorkshopConfigModule } from '../workshop-config/workshop-config.module';
 import { OnospodProductImportService } from './onospod-product-import.service';

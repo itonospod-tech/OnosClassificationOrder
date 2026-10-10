@@ -7,13 +7,13 @@ import { useAuthStore } from '@/store/authStore';
 
 import { RepositoryRemote } from '@/services';
 
+import { PageHeader } from '@/components/common/PageHeader';
 import { Spinner } from '@/components/common/Spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { handleAxiosError } from '@/utils';
-import { PageHeader } from '@/components/common/PageHeader';
 
 type PwField = 'oldPassword' | 'newPassword' | 'newConfirmPassword';
 

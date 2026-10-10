@@ -1,4 +1,4 @@
-import { runToolQueueReturn, toolQueueReturnEligibility, toolQueueStalled, type ToolQueueDoc } from './tool-queue-return.logic';
+import { runToolQueueReturn, type ToolQueueDoc,toolQueueReturnEligibility, toolQueueStalled } from './tool-queue-return.logic';
 
 const US = 'f-us';
 const SKIP = new Set(['f-dtf']);
@@ -48,10 +48,11 @@ describe('runToolQueueReturn — re-check at write time', () => {
     return {
       docs,
       written,
-      load: async (id: string) => docs[id] ?? null,
-      write: async (id: string) => {
+      load: (id: string) => Promise.resolve(docs[id] ?? null),
+      write: (id: string) => {
         written.push(id);
-        docs[id] = { ...docs[id]!, toolResult: '' };
+        docs[id] = { ...docs[id], toolResult: '' };
+        return Promise.resolve();
       },
     };
   };
@@ -63,14 +64,14 @@ describe('runToolQueueReturn — re-check at write time', () => {
       c: { ...base(), productionId: 'P-C' },
     });
     // The tool records a result for "b" AFTER the list/preview was read, BEFORE the run reaches it.
-    db.docs.b = { ...db.docs.b!, toolResultNote: 'ok' };
+    db.docs.b = { ...db.docs.b, toolResultNote: 'ok' };
 
     const res = await runToolQueueReturn({ ids: ['a', 'b', 'c'], load: db.load, write: db.write, excludedFactoryId: US, skipToolCheckIds: SKIP });
 
     expect(db.written).toEqual(['a', 'c']);
     expect(res.done).toEqual(['a', 'c']);
     expect(res.skipped).toEqual([{ id: 'b', productionId: 'P-B', reason: 'has-note' }]);
-    expect(db.docs.b!.toolResult).toBe('has-tool'); // untouched
+    expect(db.docs.b.toolResult).toBe('has-tool'); // untouched
   });
 
   it('re-checks each order right before ITS write, not once up front', async () => {
@@ -79,7 +80,7 @@ describe('runToolQueueReturn — re-check at write time', () => {
     const originalWrite = db.write;
     db.write = async (id: string) => {
       await originalWrite(id);
-      if (id === 'a') db.docs.b = { ...db.docs.b!, toolResultNote: 'error' };
+      if (id === 'a') db.docs.b = { ...db.docs.b, toolResultNote: 'error' };
     };
 
     const res = await runToolQueueReturn({ ids: ['a', 'b'], load: db.load, write: db.write, excludedFactoryId: US, skipToolCheckIds: SKIP });

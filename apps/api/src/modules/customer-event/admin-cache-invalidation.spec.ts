@@ -26,13 +26,13 @@ const makeService = () => {
   const svc = Object.create(CustomerOrderEventService.prototype) as Surface;
   svc.customerWebhookService = { emitForOrders: (...a: unknown[]) => void emitted.push(a) };
   // The portal-notification half talks to Mongo; it is covered elsewhere and is irrelevant here.
-  svc.notify = async () => undefined;
+  svc.notify = () => Promise.resolve();
   return { svc, emitted };
 };
 
 const primeCache = async () => {
   clearAdminOrderCache();
-  await cachedAdminOrderNumbers('counts:{}', async () => ({ all: 1 }));
+  await cachedAdminOrderNumbers('counts:{}', () => Promise.resolve({ all: 1 }));
   expect(adminOrderCacheSizeForTests()).toBe(1);
 };
 
@@ -43,7 +43,7 @@ describe('admin order cache invalidation on customer order events', () => {
       await primeCache();
       const { svc, emitted } = makeService();
 
-      svc.emit(event as Parameters<CustomerOrderEventService['emit']>[0], [{ productionId: 'AB-10000-20000' }]);
+      svc.emit(event, [{ productionId: 'AB-10000-20000' }]);
 
       expect(adminOrderCacheSizeForTests()).toBe(0);
       expect(emitted).toHaveLength(1); // the event still fans out; invalidation is additive

@@ -23,13 +23,13 @@ import type { ProductLine } from 'shared';
 import { myNanoid, PRODUCT_FABRIC_TYPE_NONE, PRODUCT_LINES, ProductConfigStatus, ProductLine as ProductLineEnum, WorkshopConfigCategory } from 'shared';
 
 import { CollectionService } from '../collection/collection.service';
-import { ProductTagService } from '../product-tag/product-tag.service';
-import { ProductTechniqueService } from '../product-technique/product-technique.service';
 import { FactoryService } from '../factory/factory.service';
 import { MachineTypeService } from '../machine-type/machine-type.service';
 import { PRODUCT_TYPE_CODE_MAP } from '../order/design-review-product-code';
 import { OrderEntity } from '../order/order.entity';
 import { ProductCategoryService } from '../product-category/product-category.service';
+import { ProductTagService } from '../product-tag/product-tag.service';
+import { ProductTechniqueService } from '../product-technique/product-technique.service';
 import { SystemConfigService } from '../system-config/system-config.service';
 import { WorkshopConfigRepository } from '../workshop-config/workshop-config.repository';
 import { ProductConfigEntity } from './product-config.entity';

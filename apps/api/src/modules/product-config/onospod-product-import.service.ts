@@ -16,9 +16,9 @@ import { myNanoid, PRODUCT_PRINT_AREA_KEYS, ProductConfigStatus, Status } from '
 import { ApiConfigService } from '@/shared/services';
 
 import { CollectionRepository } from '../collection/collection.repository';
+import { ProductCategoryRepository } from '../product-category/product-category.repository';
 import { ProductTagRepository } from '../product-tag/product-tag.repository';
 import { ProductTechniqueRepository } from '../product-technique/product-technique.repository';
-import { ProductCategoryRepository } from '../product-category/product-category.repository';
 import { ProductConfigEntity } from './product-config.entity';
 import { productLineForNew } from './product-line-migration';
 

@@ -46,7 +46,7 @@ describe('trash / restore', () => {
     // The counts cache moved to `admin-order-cache.ts` (file scope) on 10/10/2026, so prime it through its own
     // entry point rather than reaching into a private field of the service.
     clearAdminOrderCache();
-    await cachedAdminOrderNumbers('counts:x', async () => 1);
+    await cachedAdminOrderNumbers('counts:x', () => Promise.resolve(1));
     expect(adminOrderCacheSizeForTests()).toBe(1);
 
     const { svc, updates } = make((id) => (id === 'PUSHED' ? 0 : 1));

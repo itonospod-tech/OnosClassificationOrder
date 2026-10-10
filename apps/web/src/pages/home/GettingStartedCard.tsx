@@ -5,9 +5,9 @@ import { ArrowRight, BookOpen, ChevronDown, ChevronRight, FileText, PackageSearc
 
 import { PATHS } from '@/constants/paths';
 
-import { usePermission } from '@/hooks/usePermission';
-
 import { cn } from '@/utils/cn';
+
+import { usePermission } from '@/hooks/usePermission';
 
 const COLLAPSED_KEY = 'onos.dashboard.gettingStarted.collapsed';
 
