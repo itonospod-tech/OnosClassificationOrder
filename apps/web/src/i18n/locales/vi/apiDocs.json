@@ -126,7 +126,7 @@
     "params": {
       "page": "Trang (từ 1).",
       "limit": "Số đơn mỗi trang (1–100).",
-      "status": "Lọc theo trạng thái: pending | processing | in-production | fulfilled | completed | refunded | cancelled.",
+      "status": "Lọc theo trạng thái: pending | processing | in-production | fulfilled | completed | refunded | cancelled. Lưu ý từ 04/10/2026: in-production = đơn ĐÃ đẩy vào sản xuất và chưa fulfilled, tính cả giai đoạn tiếp nhận và thiết kế — không phải \"đã lên máy\". processing hiện luôn rỗng, vì đẩy sản xuất là một bước nguyên tử.",
       "held": "true = chỉ đơn đang bị giữ (On Hold).",
       "search": "Tìm theo mã đơn của bạn / tên đơn / productionId."
     },
