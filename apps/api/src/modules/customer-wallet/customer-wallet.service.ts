@@ -13,6 +13,7 @@ import type {
   GetCustomerWalletTxnsDto,
   WalletTxnKind,
 } from 'shared';
+import { requiresStatementCheck, WALLET_BIG_AMOUNT_USD } from 'shared';
 
 import { CustomerEntity } from '@/modules/customer/customer.entity';
 
@@ -377,6 +378,7 @@ export class CustomerWalletService implements OnModuleInit {
     creditLimit: number,
     by?: { userId?: string; userName?: string },
     note?: string,
+    largeIncreaseAck?: boolean,
   ): Promise<{ balance: number; creditLimit: number }> {
     const session = await this.connection.startSession();
     try {
@@ -389,6 +391,14 @@ export class CustomerWalletService implements OnModuleInit {
         balance = round2(customer.walletBalance ?? 0);
         current = creditLimit;
         if (from === creditLimit) return;
+        // Big-amount tick, server side. Only the INCREASE counts: lowering a limit is the safe direction and
+        // must never be slowed down. The browser asks for this tick already; before 2026-10-10 nothing checked
+        // it here, so a direct API call could raise a limit to a million dollars unconfirmed.
+        if (requiresStatementCheck(creditLimit - from) && creditLimit > from && largeIncreaseAck !== true) {
+          throw new BadRequestException(
+            `Raising the credit limit by ${WALLET_BIG_AMOUNT_USD} USD or more must be confirmed explicitly: send largeIncreaseAck=true.`,
+          );
+        }
         await this.customerModel.updateOne({ _id: customerId }, { $set: { creditLimit } }, { session });
         await this.creditLimitChangeModel.create(
           [{ customerId, from, to: creditLimit, note: note?.trim() || undefined, byUserId: by?.userId, byUserName: by?.userName }],

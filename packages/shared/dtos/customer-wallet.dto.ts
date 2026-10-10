@@ -157,41 +157,74 @@ export const WalletRequestIdZod = z
   .max(100)
   .regex(/^[A-Za-z0-9_-]+$/, 'requestId may only contain letters, digits, "-" and "_"');
 
+/**
+ * Server half of the big-amount tick. The staff dialog asks the operator to confirm they checked the bank
+ * statement once the amount reaches `WALLET_BIG_AMOUNT_USD`, but until 2026-10-10 that lived only in the browser,
+ * so any direct API call — or an older bundle — moved up to a million dollars with no confirmation at all. The
+ * flag is optional in the schema and REQUIRED by the refinement precisely at the threshold, so small operations
+ * keep working unchanged.
+ */
+const largeAmountAckIssue = (ctx: z.RefinementCtx, field: string): void => {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [field],
+    message: `An amount of ${WALLET_BIG_AMOUNT_USD} USD or more must be confirmed explicitly: send ${field}=true after checking the statement.`,
+  });
+};
+
 /** Nạp ví tay — phase 1 seller chuyển khoản ngoài hệ thống, admin cộng + ghi chú. */
-export const TopupWalletZod = z.object({
-  requestId: WalletRequestIdZod,
-  amount: z.number().positive().max(1_000_000),
-  note: z.string().min(1).max(500),
-  /** Bank / payment reference. A reference can be credited only once across all sellers. */
-  externalTxnId: z.string().trim().min(1).max(100).optional(),
-  /** Proof of payment. Link only for now; uploading a file is a later phase. */
-  attachmentUrl: z
-    .string()
-    .trim()
-    .max(2000)
-    .url()
-    // `url()` accepts javascript:/data: — this value is rendered as a link, so allow web links only.
-    .refine((u) => /^https?:\/\//i.test(u), 'Only http(s) links are allowed')
-    .optional(),
-});
+export const TopupWalletZod = z
+  .object({
+    requestId: WalletRequestIdZod,
+    amount: z.number().positive().max(1_000_000),
+    note: z.string().min(1).max(500),
+    /** Bank / payment reference. A reference can be credited only once across all sellers. */
+    externalTxnId: z.string().trim().min(1).max(100).optional(),
+    /** Proof of payment. Link only for now; uploading a file is a later phase. */
+    attachmentUrl: z
+      .string()
+      .trim()
+      .max(2000)
+      .url()
+      // `url()` accepts javascript:/data: — this value is rendered as a link, so allow web links only.
+      .refine((u) => /^https?:\/\//i.test(u), 'Only http(s) links are allowed')
+      .optional(),
+    /** Operator confirmed the statement. Required from `WALLET_BIG_AMOUNT_USD` up. */
+    largeAmountAck: z.boolean().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (requiresStatementCheck(v.amount) && v.largeAmountAck !== true) largeAmountAckIssue(ctx, 'largeAmountAck');
+  });
 export class TopupWalletDto extends createZodDto(extendApi(TopupWalletZod)) {}
 
 /** Điều chỉnh tay (+/−) — hoàn tiền hủy label, sửa sai sót... Bắt buộc note. */
-export const AdjustWalletZod = z.object({
-  requestId: WalletRequestIdZod,
-  amount: z
-    .number()
-    .max(1_000_000)
-    .min(-1_000_000)
-    .refine((v) => v !== 0, 'amount phải khác 0'),
-  note: z.string().min(1).max(500),
-});
+export const AdjustWalletZod = z
+  .object({
+    requestId: WalletRequestIdZod,
+    amount: z
+      .number()
+      .max(1_000_000)
+      .min(-1_000_000)
+      .refine((v) => v !== 0, 'amount phải khác 0'),
+    note: z.string().min(1).max(500),
+    /** Operator confirmed the statement. Required once |amount| reaches `WALLET_BIG_AMOUNT_USD`, either direction. */
+    largeAmountAck: z.boolean().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (requiresStatementCheck(v.amount) && v.largeAmountAck !== true) largeAmountAckIssue(ctx, 'largeAmountAck');
+  });
 export class AdjustWalletDto extends createZodDto(extendApi(AdjustWalletZod)) {}
 
 export const UpdateCreditLimitZod = z.object({
   creditLimit: z.number().min(0).max(1_000_000),
   /** Why the limit changes. Optional here so older callers keep working; the staff dialog requires it. */
   note: z.string().trim().max(500).optional(),
+  /**
+   * Operator confirmed a large INCREASE of the limit. Cannot be checked here — only the service knows the
+   * current limit, and it is the increase that matters (lowering a limit is the safe direction and is never
+   * slowed down). Enforced in `CustomerWalletService.updateCreditLimit`.
+   */
+  largeIncreaseAck: z.boolean().optional(),
 });
 export class UpdateCreditLimitDto extends createZodDto(extendApi(UpdateCreditLimitZod)) {}
 
