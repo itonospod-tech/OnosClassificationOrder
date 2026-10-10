@@ -84,9 +84,27 @@ Leaning: option 2. **Not built** until compared on real data. Materials: likely 
   hide them from every product-line page, so importing them would be pointless.
 - **Cost:** one enum value, reversible. Shared enum, labels (vi/en, `customerPortal` + `products` + `layout`),
   badge colour, seller icon; spec `product-line-i18n.spec.ts` fails if a line lacks a label.
-- **Import:** `inferProductLine` maps collection `dropship` → `dropship` at the LOWEST priority, so no existing product
-  changes line; `productLineForNew` therefore stamps new dropship products. The import must be called with
-  `collection=dropship` (the unfiltered legacy query does not return them).
+- **Import:** `inferProductLine` checks collection `dropship` LAST among the collections, but the whole collection
+  step still sits ABOVE factory / machine type / printMethod / default (`product-line-migration.ts:19-49`). So: a
+  product carrying `dropship` *plus* another collection keeps its old line, while a product whose only collection is
+  `dropship` now resolves to `dropship` instead of `wood` (factory TNW) / `embroidery` (printMethod emb) / `3d`
+  (default). Existing products are protected by the backfill picking only an empty `productLine`, by
+  `productLineSource='manual'`, and by the one-time flag `PRD-8:product_line_backfill_v1` — **not** by the priority
+  order. The risk only materialises if that flag is cleared and the backfill re-run. The spec does not pin this
+  ordering (it only tests `productLineForNew('dropship')`). `productLineForNew` stamps new dropship products. The
+  import must be called with `collection=dropship` (the unfiltered legacy query does not return them).
 - **Not done here:** the staff sidebar's fixed line list (`Sidebar.tsx`) has no Dropship entry — owned by a2.
-- **28 products without price on prod** (7 with no variations, 21 with only `-DEFAULT`) will get variations + prices
-  from the legacy system on the next "Import từ OnosPod" — approved by the merger on 04/10/2026.
+- **28 products without price on prod** (7 with no variations, 21 with only `<base>-DEFAULT`) — measured 04/10/2026,
+  **not re-checked since**. The earlier claim that the next "Import từ OnosPod" would price them is **WRONG**:
+  the import is fill-only PER FIELD, and `variations` is only filled when the array is empty
+  (`onospod-product-import.service.ts:535`, `isEmptyValue` at `:184` returns false for a one-element array). So the
+  21 products that already hold a `-DEFAULT` variation will **never** be priced by this import. Worse,
+  `ensureDefaultVariations` (`:585-621`) runs at the END of every import and creates `-DEFAULT` for anything still
+  empty, so each run makes the next run less able to fill. To actually price them, delete the `-DEFAULT` variations
+  first or change the fill rule. The 7 with no variations are only filled if OnosPod returns variations for them in
+  that same run, before `ensureDefaultVariations` fires.
+- **"Fill-only" is not side-effect free:** `mapProduct` calls `resolveCollectionId`/`resolveCategoryId` for every
+  product including the ones it skips, and those CREATE Collection / ProductCategory rows by name. Two other import
+  paths overwrite by design: `importProductConfigs` (`:844`) and `importFullProducts` (`:924`) replace
+  `factoryId`, `machineTypeId`, the whole `collectionIds` array, and variation prices merged by SKU. `importFull`
+  accepts `productLine` in its DTO and silently ignores it.

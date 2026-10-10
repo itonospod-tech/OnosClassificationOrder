@@ -131,15 +131,35 @@ hơn thay vì đổi màu chính.
 - Cỡ chữ 11.2px — quá nhỏ, và nhãn tiếng Việt dài hơn tiếng Anh.
 - Font Montserrat. Inter đang dùng tốt hơn cho giao diện dày đặc dữ liệu.
 
-## 10. Điện thoại — phần quan trọng nhất, hiện gần như chưa làm
+## 10. Điện thoại — phần quan trọng nhất; đã làm phần lớn, còn các điểm dưới
 
 **Ai dùng:** 26/53 tài khoản là công nhân Fulfillment, 15 là Designer. Họ đứng
 tại trạm, cầm điện thoại hoặc máy quét, **không ngồi trước màn hình rộng**. Tức
 đa số người dùng thật của hệ thống là người dùng điện thoại.
 
-**Hiện trạng:** `MainLayout` chỉ có `p-4 md:p-6`. Không có ngăn kéo cho sidebar,
-không có thanh điều hướng dưới, bảng ngang tràn màn hình. Component `sheet.tsx`
-đã có sẵn nhưng sidebar chưa dùng.
+**Hiện trạng (đối chiếu code 10/10/2026 — bản cũ của mục này đã lạc hậu theo
+hướng ngược lại, code vượt xa nó):** `MainLayout` có `MobileTabBar` theo vai
+(`MainLayout.tsx:136`) + vùng an toàn (`MobileTabBar.tsx:78`, `dialog.tsx:68`,
+`viewport-fit=cover` trong `index.html`); Dialog thành sheet kéo từ dưới trên
+điện thoại; Button/Input có biến thể `touch:` 44px (`pointer: coarse` /
+`hover: none`, `tailwind.config.js:142`); `ResponsiveList` + `StatCards` dùng ở
+19 trang. Ba màn công nhân có xử lý riêng (kanban 1 cột + chuyển cột,
+`PrintOrderCards`), không dùng `ResponsiveList`.
+
+**CÒN THIẾU:** `handover/index.tsx:116` — `table min-w-[720px]` trong
+`overflow-x-auto`, **cuộn ngang ở 390px**, đúng trang của công nhân đóng hàng,
+chưa dùng thẻ; `StageErrorPanel.tsx:97` và `DailyBreakdownPanel.tsx:164` là bảng
+không có bản thẻ; Switch `h-5` (`switch.tsx:12` = 20px, không có biến thể
+`touch:`) và checkbox 20px (`fulfillment/my-tasks/index.tsx:1551`,
+`PrintOrderTable.tsx:1013`) dưới 44px; `TabsList h-9` (`tabs.tsx:17`); nút nhỏ
+trong `TaskCard.tsx:147`/`:216` không có `touch:`; chữ 9–11px khắp các thẻ;
+`FulfillmentScanActionDialog.tsx:472` dùng `grid grid-cols-3` không có prefix
+responsive (~110px/cột ở 390px). Bảng workshop đơn hàng cuộn ngang **có chủ
+đích**. "Chuyển cảnh có hướng" chưa kiểm.
+
+**Chưa đo trên thiết bị thật:** mọi kết luận trên là đọc code tĩnh. Cần một lượt
+Playwright ở 390px (so `scrollWidth` với `clientWidth`, đo hộp bao từng nút) hoặc
+máy thật mới chốt được — kể cả chuyện bàn phím ảo của ô quét mã có che sheet không.
 
 **Chuẩn nhắm tới — iOS:**
 - **Vùng chạm tối thiểu 44×44pt.** Nút nhỏ hơn là ngón tay trượt.
@@ -153,7 +173,7 @@ không có thanh điều hướng dưới, bảng ngang tràn màn hình. Compon
 - **Chiều sâu bằng lớp và mờ nền**, không bằng viền.
 
 **Ba màn hình phải đẹp trên điện thoại trước tiên** — đúng thứ công nhân mở:
-1. `/orders/scan-error` — trạm quét mã
+1. `/ffm/orders/scan-error` — trạm quét mã
 2. `/ffm/fulfillment/my-tasks` — bảng việc của công nhân
 3. `/ffm/my-tasks` — bảng việc của designer
 

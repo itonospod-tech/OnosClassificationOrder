@@ -126,7 +126,7 @@
     "params": {
       "page": "Page (from 1).",
       "limit": "Orders per page (1–100).",
-      "status": "Filter by status: pending | processing | in-production | fulfilled | completed | refunded | cancelled.",
+      "status": "Filter by status: pending | processing | in-production | fulfilled | completed | refunded | cancelled. Note, since 2026-10-04: in-production means the order HAS been pushed to production and is not fulfilled yet — it includes the intake and design phases, not just \"on the machine\". processing is now always empty, because pushing to production is a single atomic step.",
       "held": "true = only orders currently On Hold.",
       "search": "Search by your order ref / order name / productionId."
     },
