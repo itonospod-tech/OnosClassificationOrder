@@ -579,9 +579,13 @@ export class ImportFromOnospodResDto extends createZodDto(extendApi(ImportFromOn
 
 // ─── Đồng bộ XƯỞNG sản phẩm theo app OnosPod (Products.md §2.7a) ───
 
-/** Chạy tay 1 lượt. Mặc định CHỈ báo cáo — phải gửi `dryRun:false` mới ghi. */
+/**
+ * Chạy tay 1 lượt. Mặc định CHỈ xem trước (trả `planToken`). Muốn ghi: gửi
+ * `dryRun:false` + `planToken` của lần xem trước (≤30 phút, env phải là `on`).
+ */
 export const SyncOnospodFactoryZod = z.object({
   dryRun: z.boolean().default(true),
+  planToken: z.string().optional(),
 });
 export class SyncOnospodFactoryDto extends createZodDto(extendApi(SyncOnospodFactoryZod)) {}
 
@@ -595,6 +599,9 @@ export const OnospodFactorySyncChangeZod = z.object({
   toFactory: z.string(),
   appProducts: z.string().array(),
   manufacture: z.string(),
+  /** Chỉ có sau lượt ghi. `skipped` = xưởng vừa bị đổi tay nên không ghi đè. */
+  outcome: z.enum(['applied', 'skipped', 'failed']).optional(),
+  error: z.string().optional(),
 });
 export type OnospodFactorySyncChange = z.infer<typeof OnospodFactorySyncChangeZod>;
 
@@ -606,6 +613,7 @@ export const OnospodFactorySyncSkipZod = z.object({
     'not-on-fac',
     'fac-only-factory',
     'conflict',
+    'ambiguous',
   ]),
   appProduct: z.string().optional(),
   productConfigId: z.string().optional(),
@@ -614,8 +622,11 @@ export const OnospodFactorySyncSkipZod = z.object({
 });
 
 export const OnospodFactorySyncResultZod = z.object({
-  /** `aborted` = không ghi gì (lỗi gọi OnosPod / dữ liệu bất thường / vượt trần). */
-  status: z.enum(['ok', 'aborted']),
+  /**
+   * `aborted` = không ghi gì (lỗi gọi OnosPod / dữ liệu bất thường / vượt trần).
+   * `partial` = đã ghi một phần, có dòng lỗi — xem `changes[].outcome`.
+   */
+  status: z.enum(['ok', 'partial', 'aborted']),
   reason: z.string().optional(),
   dryRun: z.boolean(),
   trigger: z.enum(['auto', 'manual']),
@@ -624,8 +635,14 @@ export const OnospodFactorySyncResultZod = z.object({
   unchanged: z.number(),
   /** Kế hoạch đổi xưởng — `dryRun` thì chưa ghi. */
   changes: OnospodFactorySyncChangeZod.array(),
-  /** Số dòng thực sự ghi (có thể < changes nếu người khác vừa đổi tay cùng lúc). */
+  /** Số dòng thực sự ghi. */
   applied: z.number(),
+  /** Không ghi vì xưởng vừa bị đổi tay (ghi có điều kiện không khớp). */
+  applySkipped: z.number(),
+  /** Ghi lỗi (DB). */
+  failed: z.number(),
+  /** Chỉ có ở lần xem trước chạy tay — gửi lại kèm `dryRun:false` để áp dụng đúng kế hoạch này. */
+  planToken: z.string().optional(),
   skipped: OnospodFactorySyncSkipZod.array(),
 });
 export type OnospodFactorySyncResult = z.infer<typeof OnospodFactorySyncResultZod>;

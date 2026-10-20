@@ -21,7 +21,7 @@ import { ProductCategoryRepository } from '../product-category/product-category.
 import { ProductTagRepository } from '../product-tag/product-tag.repository';
 import { ProductTechniqueRepository } from '../product-technique/product-technique.repository';
 import type { FactorySyncAppProduct, FactorySyncManufacture } from './onospod-factory-sync.plan';
-import { parseOnospodFactoryMap } from './onospod-factory-sync.plan';
+import { parseOnospodFactoryMap, parseOnospodFactorySyncMode } from './onospod-factory-sync.plan';
 import { ProductConfigEntity } from './product-config.entity';
 import { productLineForNew } from './product-line-migration';
 
@@ -526,9 +526,10 @@ export class OnospodProductImportService {
    *   (exact, case-insensitive).
    * - Đã tồn tại → CHỈ set field đang trống (`FILLABLE_FIELDS`), giữ nguyên
    *   toàn bộ field sản xuất + mọi giá trị đã cấu hình tay.
-   * - Chưa tồn tại → tạo mới, xưởng lấy theo `manufacture_id` app qua bảng
-   *   quy đổi (§2.7a); quy đổi không được thì để trống → rơi vào cột "Chưa xác
-   *   định xưởng" ở kanban Settings. machineType luôn để trống, gán tay sau.
+   * - Chưa tồn tại → tạo mới. Env `ONOSPOD_FACTORY_SYNC_MODE=on`: xưởng lấy
+   *   theo `manufacture_id` app qua bảng quy đổi (§2.7a). Chế độ khác hoặc quy
+   *   đổi không được → để trống → rơi vào cột "Chưa xác định xưởng" ở kanban
+   *   Settings. machineType luôn để trống, gán tay sau.
    * - Trùng SKU biến thể với sản phẩm khác (unique toàn hệ thống) → retry 1
    *   lần không kèm `variations`, ghi nhận lỗi để xử lý tay.
    */
@@ -548,11 +549,15 @@ export class OnospodProductImportService {
       this.legacyTechniqueSlugs = new Map();
       errors.push({ sku: '', name: '', reason: `Không lấy được danh sách technique hệ cũ: ${err instanceof Error ? err.message : String(err)}` });
     }
+    // Gán xưởng theo app CHỈ khi đồng bộ xưởng bật `on` (§2.7a). `off`/`dry-run`
+    // giữ nguyên hành vi cũ: sản phẩm mới để trống xưởng, không gọi thêm OnosPod.
     let resolveFactory: (manufactureId: string | null | undefined) => string | undefined = () => undefined;
-    try {
-      resolveFactory = await this.loadFactoryResolver();
-    } catch (err) {
-      errors.push({ sku: '', name: '', reason: `Không lấy được danh sách xưởng hệ cũ — sản phẩm mới để trống xưởng: ${err instanceof Error ? err.message : String(err)}` });
+    if (parseOnospodFactorySyncMode(this.apiConfigService.onospodFactorySync.mode) === 'on') {
+      try {
+        resolveFactory = await this.loadFactoryResolver();
+      } catch (err) {
+        errors.push({ sku: '', name: '', reason: `Không lấy được danh sách xưởng hệ cũ — sản phẩm mới để trống xưởng: ${err instanceof Error ? err.message : String(err)}` });
+      }
     }
     // Dedupe theo _id — phân trang OnosPod không ổn định (thứ tự trượt giữa
     // các lần gọi), cùng 1 trang lớn vẫn dedupe phòng hờ. Khuyến nghị FE gọi
@@ -586,11 +591,14 @@ export class OnospodProductImportService {
             .lean());
 
         if (!existing) {
+          // Không có xưởng → KHÔNG đặt key `factoryId` (giống hệt hành vi cũ).
+          const factoryId = resolveFactory(p.manufacture_id);
+          const withFactory = factoryId ? { factoryId } : {};
           try {
             await this.productConfigModel.create({
               ...mapped,
               ...productLineForNew(p.collection),
-              factoryId: resolveFactory(p.manufacture_id),
+              ...withFactory,
             });
           } catch (err) {
             if (!OnospodProductImportService.isDuplicateKeyError(err)) throw err;
@@ -599,7 +607,7 @@ export class OnospodProductImportService {
             await this.productConfigModel.create({
               ...mapped,
               ...productLineForNew(p.collection),
-              factoryId: resolveFactory(p.manufacture_id),
+              ...withFactory,
               sku: undefined,
               variations: undefined,
             });

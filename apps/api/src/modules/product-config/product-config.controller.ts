@@ -175,7 +175,7 @@ export class ProductConfigController {
   @Auth([RoleType.Admin])
   @ApiOperation({
     summary:
-      'Đồng bộ XƯỞNG sản phẩm theo app OnosPod 1 lượt (Products.md §2.7a) — mặc định dryRun=true chỉ trả kế hoạch, dryRun=false mới ghi',
+      'Đồng bộ XƯỞNG sản phẩm theo app OnosPod 1 lượt (Products.md §2.7a) — dryRun=true (mặc định) xem trước + trả planToken; dryRun=false + planToken áp dụng đúng kế hoạch đó (env phải là on)',
   })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: SyncOnospodFactoryResDto })
@@ -186,9 +186,12 @@ export class ProductConfigController {
     this.logger.info({
       message: JSON.stringify({ method: 'POST', url: '/product-configs/onospod-factory-sync', userId: user._id, dryRun: dto.dryRun }),
     });
+    const userId = String(user._id);
     return {
       success: true,
-      data: await this.onospodFactorySyncService.sync({ dryRun: dto.dryRun, trigger: 'manual', userId: String(user._id) }),
+      data: dto.dryRun
+        ? await this.onospodFactorySyncService.preview(userId)
+        : await this.onospodFactorySyncService.apply(dto.planToken, userId),
     };
   }
 

@@ -1,5 +1,6 @@
 import type { FactorySyncAppProduct, FactorySyncFacProduct } from './onospod-factory-sync.plan';
 import {
+  hashFactorySyncPlan,
   parseOnospodFactoryMap,
   parseOnospodFactorySyncMode,
   planOnospodFactorySync,
@@ -145,5 +146,67 @@ describe('planOnospodFactorySync', () => {
     );
     expect(r.changes).toEqual([]);
     expect(r.skipped.map((s) => s.reason)).toEqual(['no-manufacture', 'not-on-fac', 'factory-missing']);
+  });
+
+  it('trùng SKU / trùng tên / SKU biến thể rơi vào nhiều config → ambiguous, không đoán, không rơi xuống bước sau', () => {
+    const r = plan(
+      [
+        app({ name: 'Dup Sku', sku: 'DUP', manufactureId: 'm-tn' }),
+        app({ name: 'Dup Name', manufactureId: 'm-tn' }),
+        app({ name: 'Split Var', variationSkus: ['V-A', 'V-B'], manufactureId: 'm-tn' }),
+      ],
+      [
+        fac({ fullName: 'Dup Sku A', sku: 'DUP', factoryId: 'f-ml' }),
+        fac({ fullName: 'Dup Sku B', sku: 'dup', factoryId: 'f-ml' }),
+        fac({ fullName: 'Dup Name', factoryId: 'f-ml', _id: 'n1' }),
+        fac({ fullName: 'dup name', factoryId: 'f-ml', _id: 'n2' }),
+        fac({ fullName: 'Var A', variationSkus: ['V-A'], factoryId: 'f-ml' }),
+        fac({ fullName: 'Var B', variationSkus: ['V-B'], factoryId: 'f-ml' }),
+      ],
+    );
+    expect(r.changes).toEqual([]);
+    expect(r.skipped.map((s) => [s.reason, s.appProduct])).toEqual([
+      ['ambiguous', 'Dup Sku (DUP)'],
+      ['ambiguous', 'Dup Name'],
+      ['ambiguous', 'Split Var'],
+    ]);
+  });
+
+  it('SKU khớp đúng 1 config thì dùng luôn dù tên trùng nhiều config khác', () => {
+    const r = plan(
+      [app({ name: 'Same Name', sku: 'ONE', manufactureId: 'm-tn' })],
+      [
+        fac({ fullName: 'Same Name', sku: 'ONE', factoryId: 'f-ml', _id: 'x1' }),
+        fac({ fullName: 'same name', factoryId: 'f-ml', _id: 'x2' }),
+      ],
+    );
+    expect(r.changes).toEqual([expect.objectContaining({ productConfigId: 'x1', toFactory: 'TN' })]);
+  });
+
+  it('RỦI RO đã biết: bảo vệ "fac-only" suy từ vế phải bảng quy đổi — thêm MLDTF vào bảng là mất bảo vệ', () => {
+    const products = [app({ name: 'Camo T-shirt DTF', sku: 'CAMO-TSHIRT', manufactureId: 'm-tn' })];
+    const facs = [fac({ fullName: 'Camo T-shirt DTF', sku: 'CAMO-TSHIRT', factoryId: 'f-dtf' })];
+    expect(plan(products, facs).changes).toEqual([]);
+    expect(plan(products, facs, 'ML=ML,TN=TN,TN-DECOR=TNW,X=MLDTF').changes).toEqual([
+      expect.objectContaining({ fromFactory: 'MLDTF', toFactory: 'TN' }),
+    ]);
+  });
+});
+
+describe('hashFactorySyncPlan', () => {
+  const map = parseOnospodFactoryMap(undefined);
+  const a = { productConfigId: 'a', fromFactoryId: 'f-ml', toFactoryId: 'f-tn' };
+  const b = { productConfigId: 'b', toFactoryId: 'f-tn' };
+
+  it('không phụ thuộc thứ tự dòng', () => {
+    expect(hashFactorySyncPlan([a, b], map)).toBe(hashFactorySyncPlan([b, a], map));
+  });
+
+  it('đổi xưởng cũ / xưởng đích / thêm bớt dòng / đổi bảng quy đổi → mã khác', () => {
+    const base = hashFactorySyncPlan([a, b], map);
+    expect(hashFactorySyncPlan([{ ...a, fromFactoryId: 'f-us' }, b], map)).not.toBe(base);
+    expect(hashFactorySyncPlan([{ ...a, toFactoryId: 'f-us' }, b], map)).not.toBe(base);
+    expect(hashFactorySyncPlan([a], map)).not.toBe(base);
+    expect(hashFactorySyncPlan([a, b], parseOnospodFactoryMap('ML=ML'))).not.toBe(base);
   });
 });
