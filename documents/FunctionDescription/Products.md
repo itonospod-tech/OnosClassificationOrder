@@ -232,14 +232,14 @@ Kéo TOÀN BỘ catalog từ hệ cũ (GraphQL `productPreset` — `api.onospod.
 
 **Quyết định 16/10/2026 (chị quản lý chốt):** app OnosPod là hệ thống tổng — fac đồng bộ `ProductConfig.factoryId` theo `productPreset.manufacture_id` của app. Thay cho quyết định 05/08/2026 "xưởng fac là chuẩn", **chỉ riêng field xưởng**. Đổi xưởng chỉ áp cho **đơn nhập sau đó** — đơn đã nhập giữ nguyên xưởng (import đơn vẫn gán xưởng theo Product Config, Orders.md §3).
 
-- **Bảng quy đổi** `manufactures.sku` (app) → `shortName` xưởng fac, env `ONOSPOD_FACTORY_MAP`, mặc định `ML=ML,TN=TN,TN-DECOR=TNW`. App có thêm `GRABINK` (Grabink) và `2DUS` (Houston) — CHƯA chốt là xưởng US nên không nằm trong mặc định; chốt xong thì thêm `GRABINK=US,2DUS=US` vào env.
+- **Bảng quy đổi** `manufactures.sku` (app) → `shortName` xưởng fac, env `ONOSPOD_FACTORY_MAP`, mặc định `ML=ML,TN=TN,TN-DECOR=TNW,GRABINK=US,2DUS=US` (chị quản lý chốt 20/10/2026 Grabink và Houston đều là xưởng US). App không có DTF TN → sản phẩm fac để DTF TN (Camo T-shirt DTF, Camo Shirt...) giữ nguyên.
 - **Khớp sản phẩm** app → Product Config: SKU sản phẩm → tên (không phân biệt hoa thường) → SKU biến thể (bản "VD" trên app có SKU riêng nhưng dùng chung biến thể với bản chính).
 - **Không đổi, chỉ báo cáo** (`skipped[].reason`): app chưa gán xưởng (`no-manufacture`); xưởng app chưa có trong bảng quy đổi (`unmapped-manufacture`); bảng quy đổi trỏ tới xưởng fac không tồn tại (`factory-missing`); không có trên fac (`not-on-fac`); **fac đang để xưởng mà bảng quy đổi không trỏ tới** — vd DTF TN (`MLDTF`) app không có — giữ nguyên (`fac-only-factory`); bản chính và bản "VD" khớp cùng 1 Product Config nhưng khác xưởng (`conflict`).
 - **Chế độ tự động** env `ONOSPOD_FACTORY_SYNC_MODE`: `off` (mặc định) · `dry-run` (lập kế hoạch + Telegram, KHÔNG ghi) · `on` (ghi thật). Chạy ở ĐẦU mỗi lượt import đơn từ OnosPod (`importFromOnosPod`, gồm cả cron `import-from-onospod/cron`) để đơn của lượt đó đã vào xưởng mới; giãn tối thiểu 15 phút/lượt; không bao giờ làm hỏng import đơn.
 - **Chốt an toàn**: OnosPod trả < 100 sản phẩm (thật ~223) hoặc không trả danh sách xưởng → `aborted`, không ghi; lượt TỰ ĐỘNG định đổi > 10 sản phẩm → `aborted` + Telegram (chạy tay không bị chặn trần này). Ghi có điều kiện `{_id, factoryId: <xưởng lúc lập kế hoạch>}` — không đè thao tác tay vừa xảy ra; `applied` có thể < `changes`.
 - **Báo cáo**: kết quả mỗi lượt lưu `system_configs` key `onospod_factory_sync_last_run`; lượt tự động có thay đổi/bị dừng thì gửi Telegram kênh thông báo (cùng nội dung không gửi lại trong 6 giờ), kèm danh sách sản phẩm `fac-only-factory`/`conflict`.
 - **Chạy tay**: `POST /product-configs/onospod-factory-sync {dryRun}` — mặc định `dryRun:true` chỉ trả kế hoạch; `dryRun:false` ghi ngay, bất kể env. Chưa có nút trên UI.
-- **Thứ tự bật trên prod**: chị sửa xưởng trên app khớp fac (25 dòng lệch ở báo cáo 20/10) → bật `dry-run`, đối chiếu kế hoạch phải gần như rỗng → bật `on`.
+- **Thứ tự bật trên prod**: chị sửa xưởng trên app khớp fac (25 dòng lệch ở báo cáo 20/10; chị đã sửa app theo cột Phản hồi bảng đối chiếu) → bật `dry-run`, đối chiếu kế hoạch → bật `on`.
 
 ### 2.8 Crawl "Import US Tax" + "Package gram" từ trang WP hệ cũ (nút "Crawl tax & package")
 

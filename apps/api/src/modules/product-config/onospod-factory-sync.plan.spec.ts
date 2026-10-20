@@ -41,11 +41,13 @@ const plan = (appProducts: FactorySyncAppProduct[], facProducts: FactorySyncFacP
   });
 
 describe('parseOnospodFactoryMap / parseOnospodFactorySyncMode', () => {
-  it('mặc định quy đổi ML, TN, TN-DECOR; chưa có Grabink/Houston', () => {
+  it('mặc định quy đổi ML, TN, TN-DECOR→TNW, Grabink/Houston→US', () => {
     expect([...parseOnospodFactoryMap(undefined)]).toEqual([
       ['ML', 'ML'],
       ['TN', 'TN'],
       ['TN-DECOR', 'TNW'],
+      ['GRABINK', 'US'],
+      ['2DUS', 'US'],
     ]);
   });
 
@@ -110,12 +112,12 @@ describe('planOnospodFactorySync', () => {
     expect(r.skipped).toEqual([expect.objectContaining({ reason: 'fac-only-factory', detail: 'fac MLDTF · app Thái Nguyên' })]);
   });
 
-  it('xưởng US chỉ đồng bộ khi bảng quy đổi có đích US', () => {
+  it('Grabink → US theo mặc định; bỏ khỏi bảng quy đổi thì chỉ báo bỏ qua', () => {
     const products = [app({ name: 'Youth Tee', sku: 'YT-5000B', manufactureId: 'm-grab' })];
     const facs = [fac({ fullName: 'Youth Tee', sku: 'YT-5000B', factoryId: 'f-ml' })];
-    expect(plan(products, facs).skipped).toEqual([expect.objectContaining({ reason: 'unmapped-manufacture', detail: 'Grabink' })]);
-    expect(plan(products, facs, 'ML=ML,TN=TN,TN-DECOR=TNW,GRABINK=US').changes).toEqual([
-      expect.objectContaining({ fromFactory: 'ML', toFactory: 'US' }),
+    expect(plan(products, facs).changes).toEqual([expect.objectContaining({ fromFactory: 'ML', toFactory: 'US' })]);
+    expect(plan(products, facs, 'ML=ML,TN=TN,TN-DECOR=TNW').skipped).toEqual([
+      expect.objectContaining({ reason: 'unmapped-manufacture', detail: 'Grabink' }),
     ]);
   });
 

@@ -19,11 +19,11 @@ export function parseOnospodFactorySyncMode(raw: string | undefined): OnospodFac
 /**
  * Mã manufacture app (`manufactures.sku`) → `shortName` xưởng fac. Đọc thật
  * 20/10/2026: ML "Mê Linh", TN "Thái Nguyên", TN-DECOR "Thái Nguyên Decor",
- * GRABINK "Grabink", 2DUS "Houston". GRABINK/2DUS CHƯA được chốt là xưởng US
- * nên KHÔNG có trong mặc định — sản phẩm của chúng bị bỏ qua + báo cáo; chốt
- * xong thì thêm qua env `ONOSPOD_FACTORY_MAP` (vd `...,GRABINK=US,2DUS=US`).
+ * GRABINK "Grabink", 2DUS "Houston" — chị quản lý chốt 20/10/2026 Grabink và
+ * Houston đều là xưởng US. App không có DTF TN (`MLDTF`) → sản phẩm fac để
+ * DTF TN được giữ nguyên (`fac-only-factory`).
  */
-export const DEFAULT_ONOSPOD_FACTORY_MAP = 'ML=ML,TN=TN,TN-DECOR=TNW';
+export const DEFAULT_ONOSPOD_FACTORY_MAP = 'ML=ML,TN=TN,TN-DECOR=TNW,GRABINK=US,2DUS=US';
 
 /** `"ML=ML,TN-DECOR=TNW"` → Map(manufactureSku → factoryShortName), cả hai vế uppercase. Cặp hỏng bị bỏ. */
 export function parseOnospodFactoryMap(raw: string | undefined): Map<string, string> {
@@ -79,7 +79,7 @@ export interface FactorySyncChange {
 export type FactorySyncSkipReason =
   /** App chưa gán xưởng cho sản phẩm. */
   | 'no-manufacture'
-  /** Xưởng app chưa có trong bảng quy đổi (vd Grabink/Houston chưa chốt). */
+  /** Xưởng app chưa có trong bảng quy đổi (xưởng mới thêm trên app). */
   | 'unmapped-manufacture'
   /** Bảng quy đổi trỏ tới shortName không có bên fac. */
   | 'factory-missing'
