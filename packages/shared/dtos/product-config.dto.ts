@@ -577,6 +577,67 @@ export const ImportFromOnospodResZod = ResZod.extend({
 });
 export class ImportFromOnospodResDto extends createZodDto(extendApi(ImportFromOnospodResZod)) {}
 
+// ─── Đồng bộ XƯỞNG sản phẩm theo app OnosPod (Products.md §2.7a) ───
+
+/** Chạy tay 1 lượt. Mặc định CHỈ báo cáo — phải gửi `dryRun:false` mới ghi. */
+export const SyncOnospodFactoryZod = z.object({
+  dryRun: z.boolean().default(true),
+});
+export class SyncOnospodFactoryDto extends createZodDto(extendApi(SyncOnospodFactoryZod)) {}
+
+export const OnospodFactorySyncChangeZod = z.object({
+  productConfigId: z.string(),
+  fullName: z.string(),
+  fromFactoryId: z.string().optional(),
+  /** shortName xưởng cũ — trống = sản phẩm đang chưa có xưởng. */
+  fromFactory: z.string().optional(),
+  toFactoryId: z.string(),
+  toFactory: z.string(),
+  appProducts: z.string().array(),
+  manufacture: z.string(),
+});
+export type OnospodFactorySyncChange = z.infer<typeof OnospodFactorySyncChangeZod>;
+
+export const OnospodFactorySyncSkipZod = z.object({
+  reason: z.enum([
+    'no-manufacture',
+    'unmapped-manufacture',
+    'factory-missing',
+    'not-on-fac',
+    'fac-only-factory',
+    'conflict',
+  ]),
+  appProduct: z.string().optional(),
+  productConfigId: z.string().optional(),
+  fullName: z.string().optional(),
+  detail: z.string().optional(),
+});
+
+export const OnospodFactorySyncResultZod = z.object({
+  /** `aborted` = không ghi gì (lỗi gọi OnosPod / dữ liệu bất thường / vượt trần). */
+  status: z.enum(['ok', 'aborted']),
+  reason: z.string().optional(),
+  dryRun: z.boolean(),
+  trigger: z.enum(['auto', 'manual']),
+  ranAt: z.string(),
+  appProducts: z.number(),
+  unchanged: z.number(),
+  /** Kế hoạch đổi xưởng — `dryRun` thì chưa ghi. */
+  changes: OnospodFactorySyncChangeZod.array(),
+  /** Số dòng thực sự ghi (có thể < changes nếu người khác vừa đổi tay cùng lúc). */
+  applied: z.number(),
+  skipped: OnospodFactorySyncSkipZod.array(),
+});
+export type OnospodFactorySyncResult = z.infer<typeof OnospodFactorySyncResultZod>;
+
+export const SyncOnospodFactoryResZod = ResZod.extend({ data: OnospodFactorySyncResultZod });
+export class SyncOnospodFactoryResDto extends createZodDto(extendApi(SyncOnospodFactoryResZod)) {}
+
+export const GetOnospodFactorySyncLastRunResZod = ResZod.extend({
+  data: OnospodFactorySyncResultZod.nullable(),
+});
+export class GetOnospodFactorySyncLastRunResDto extends createZodDto(extendApi(GetOnospodFactorySyncLastRunResZod)) {}
+
 // ─── Kanban Settings — sync sản phẩm chưa có config từ đơn gần đây ───
 
 /** Quét đơn `days` ngày gần nhất (mặc định 14) tìm `type` chưa có trong Product Config. */
