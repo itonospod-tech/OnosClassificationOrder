@@ -9,6 +9,8 @@
  */
 import { createHash } from 'crypto';
 
+import { EXCLUDED_PRODUCTION_FACTORY_SHORT_NAME } from '@/utils/excluded-factory';
+
 /** Chế độ đồng bộ tự động (env `ONOSPOD_FACTORY_SYNC_MODE`): tắt / chỉ báo cáo / ghi thật. */
 export type OnospodFactorySyncMode = 'off' | 'dry-run' | 'on';
 
@@ -75,8 +77,11 @@ export interface FactorySyncChange {
   /** Tên + SKU sản phẩm bên app (có thể nhiều bản trùng, vd bản "VD") — để người đọc báo cáo đối chiếu. */
   appProducts: string[];
   manufacture: string;
-  /** Chỉ có sau lượt ghi: `skipped` = xưởng vừa bị đổi tay nên ghi có điều kiện không khớp. */
+  /** Xưởng đích là xưởng ngoài luồng sản xuất (US) — đơn mới của sản phẩm sẽ rời soát tool/designer/fulfillment/thống kê. */
+  outOfProduction?: boolean;
+  /** Chỉ có sau lượt ghi: `skipped` = ghi có điều kiện không khớp, nguyên nhân ở `skipReason`. */
   outcome?: 'applied' | 'skipped' | 'failed';
+  skipReason?: 'changed' | 'already-target' | 'missing';
   error?: string;
 }
 
@@ -91,9 +96,17 @@ export type FactorySyncSkipReason =
   | 'not-on-fac'
   /** Fac đang để xưởng mà app không có (vd DTF TN) — giữ nguyên, không kéo về xưởng app. */
   | 'fac-only-factory'
-  /** Nhiều sản phẩm app khớp cùng 1 config nhưng khác xưởng — không biết theo bản nào. */
+  /**
+   * Nhiều sản phẩm app khớp cùng 1 config nhưng khác xưởng — không biết theo bản
+   * nào. Gồm cả trường hợp một bản (vd bản chính) CHƯA gán xưởng còn bản khác (vd
+   * bản "VD") có gán: không để bản phụ tự quyết xưởng của sản phẩm.
+   */
   | 'conflict'
-  /** 1 sản phẩm app khớp NHIỀU Product Config (trùng SKU/tên/SKU biến thể) — không đoán, bỏ qua. */
+  /**
+   * 1 sản phẩm app khớp NHIỀU Product Config (trùng SKU/tên/SKU biến thể), hoặc
+   * các bước khớp (SKU / tên / SKU biến thể) mỗi bước ra đúng 1 config nhưng
+   * KHÁC nhau — không đoán, bỏ qua.
+   */
   | 'ambiguous';
 
 export interface FactorySyncSkip {
@@ -119,6 +132,8 @@ const appLabel = (p: FactorySyncAppProduct) => (p.sku ? `${p.name} (${p.sku})` :
  * phân biệt hoa thường, giống `importFromOnospod`) → SKU biến thể (bản "VD"
  * trên app có SKU riêng nhưng dùng chung biến thể với bản chính).
  */
+type FacMatch = { match: FactorySyncFacProduct } | { ambiguous: FactorySyncFacProduct[]; detail: string };
+
 export function planOnospodFactorySync(input: {
   appProducts: FactorySyncAppProduct[];
   manufactures: FactorySyncManufacture[];
@@ -151,16 +166,30 @@ export function planOnospodFactorySync(input: {
     index(facByName, norm(p.fullName), p);
     for (const v of p.variationSkus) index(facByVariationSku, norm(v), p);
   }
-  /** Bước đầu tiên có kết quả quyết định: đúng 1 config → khớp; >1 → mơ hồ, KHÔNG rơi xuống bước sau. */
-  const findFac = (a: FactorySyncAppProduct): FactorySyncFacProduct | FactorySyncFacProduct[] | undefined => {
-    const steps = [
-      a.sku ? facBySku.get(norm(a.sku)) ?? [] : [],
-      facByName.get(norm(a.name)) ?? [],
-      [...new Set(a.variationSkus.flatMap((v) => facByVariationSku.get(norm(v)) ?? []))],
+  /**
+   * Bước đầu tiên có kết quả quyết định: đúng 1 config → khớp; >1 → mơ hồ, KHÔNG
+   * rơi xuống bước sau. Nhưng nếu một bước SAU cũng ra đúng 1 config mà KHÁC
+   * config đã chốt (vd đổi tên tay trên fac làm SKU trỏ A, tên trỏ B) → mơ hồ,
+   * không âm thầm lấy bản SKU.
+   */
+  const findFac = (a: FactorySyncAppProduct): FacMatch | undefined => {
+    const steps: [string, FactorySyncFacProduct[]][] = [
+      ['SKU', a.sku ? facBySku.get(norm(a.sku)) ?? [] : []],
+      ['tên', facByName.get(norm(a.name)) ?? []],
+      ['SKU biến thể', [...new Set(a.variationSkus.flatMap((v) => facByVariationSku.get(norm(v)) ?? []))]],
     ];
-    const hit = steps.find((s) => s.length > 0);
-    if (!hit) return undefined;
-    return hit.length === 1 ? hit[0] : hit;
+    const first = steps.findIndex(([, s]) => s.length > 0);
+    if (first < 0) return undefined;
+    const [label, hit] = steps[first];
+    if (hit.length > 1) return { ambiguous: hit, detail: hit.map((p) => p.fullName).join(' · ') };
+    const disagree = steps.slice(first + 1).filter(([, s]) => s.length === 1 && s[0] !== hit[0]);
+    if (disagree.length) {
+      return {
+        ambiguous: [hit[0], ...disagree.map(([, s]) => s[0])],
+        detail: [[label, hit] as const, ...disagree].map(([l, s]) => `${l} → ${s[0].fullName}`).join(' · '),
+      };
+    }
+    return { match: hit[0] };
   };
 
   const skipped: FactorySyncSkip[] = [];
@@ -169,11 +198,15 @@ export function planOnospodFactorySync(input: {
     string,
     { fac: FactorySyncFacProduct; wants: { factory: FactorySyncFactory; app: string; manufacture: string }[] }
   >();
+  // configId → sản phẩm app khớp config đó nhưng CHƯA gán xưởng (để bắt "bản chính trống, bản VD có").
+  const unassigned = new Map<string, string[]>();
 
   for (const a of appProducts) {
     const label = appLabel(a);
     if (!a.manufactureId) {
       skipped.push({ reason: 'no-manufacture', appProduct: label });
+      const m = findFac(a);
+      if (m && 'match' in m) unassigned.set(m.match._id, [...(unassigned.get(m.match._id) ?? []), label]);
       continue;
     }
     const manu = manufactureById.get(a.manufactureId);
@@ -188,15 +221,16 @@ export function planOnospodFactorySync(input: {
       skipped.push({ reason: 'factory-missing', appProduct: label, detail: `${manuName} → ${shortName}` });
       continue;
     }
-    const fac = findFac(a);
-    if (!fac) {
+    const m = findFac(a);
+    if (!m) {
       skipped.push({ reason: 'not-on-fac', appProduct: label, detail: manuName });
       continue;
     }
-    if (Array.isArray(fac)) {
-      skipped.push({ reason: 'ambiguous', appProduct: label, detail: fac.map((p) => p.fullName).join(' · ') });
+    if ('ambiguous' in m) {
+      skipped.push({ reason: 'ambiguous', appProduct: label, detail: m.detail });
       continue;
     }
+    const fac = m.match;
     const entry = targets.get(fac._id) ?? { fac, wants: [] };
     entry.wants.push({ factory, app: label, manufacture: manuName });
     targets.set(fac._id, entry);
@@ -206,12 +240,13 @@ export function planOnospodFactorySync(input: {
   let unchanged = 0;
   for (const { fac, wants } of targets.values()) {
     const distinct = new Set(wants.map((w) => w.factory._id));
-    if (distinct.size > 1) {
+    const blank = unassigned.get(fac._id) ?? [];
+    if (distinct.size > 1 || blank.length > 0) {
       skipped.push({
         reason: 'conflict',
         productConfigId: fac._id,
         fullName: fac.fullName,
-        detail: wants.map((w) => `${w.app}: ${w.manufacture}`).join(' · '),
+        detail: [...wants.map((w) => `${w.app}: ${w.manufacture}`), ...blank.map((b) => `${b}: app chưa gán xưởng`)].join(' · '),
       });
       continue;
     }
@@ -243,6 +278,7 @@ export function planOnospodFactorySync(input: {
       toFactory: want.factory.shortName,
       appProducts: wants.map((w) => w.app),
       manufacture: want.manufacture,
+      ...(norm(want.factory.shortName) === EXCLUDED_PRODUCTION_FACTORY_SHORT_NAME ? { outOfProduction: true } : {}),
     });
   }
 

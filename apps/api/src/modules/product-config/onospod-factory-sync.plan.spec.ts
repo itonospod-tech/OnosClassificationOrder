@@ -116,7 +116,7 @@ describe('planOnospodFactorySync', () => {
   it('Grabink → US theo mặc định; bỏ khỏi bảng quy đổi thì chỉ báo bỏ qua', () => {
     const products = [app({ name: 'Youth Tee', sku: 'YT-5000B', manufactureId: 'm-grab' })];
     const facs = [fac({ fullName: 'Youth Tee', sku: 'YT-5000B', factoryId: 'f-ml' })];
-    expect(plan(products, facs).changes).toEqual([expect.objectContaining({ fromFactory: 'ML', toFactory: 'US' })]);
+    expect(plan(products, facs).changes).toEqual([expect.objectContaining({ fromFactory: 'ML', toFactory: 'US', outOfProduction: true })]);
     expect(plan(products, facs, 'ML=ML,TN=TN,TN-DECOR=TNW').skipped).toEqual([
       expect.objectContaining({ reason: 'unmapped-manufacture', detail: 'Grabink' }),
     ]);
@@ -132,6 +132,41 @@ describe('planOnospodFactorySync', () => {
     const diff = plan([main, app({ name: 'VD Raglan Ver 1', sku: 'R-CLONE-V1', variationSkus: ['V1-S'], manufactureId: 'm-ml' })], facs);
     expect(diff.changes).toEqual([]);
     expect(diff.skipped).toEqual([expect.objectContaining({ reason: 'conflict', productConfigId: 'c-Raglan Ver 1' })]);
+  });
+
+  it('chỉ xưởng đích US mới bị đánh dấu ngoài luồng sản xuất', () => {
+    const r = plan([app({ name: 'Hoodie', sku: 'HD', manufactureId: 'm-tn' })], [fac({ fullName: 'Hoodie', sku: 'HD', factoryId: 'f-ml' })]);
+    expect(r.changes[0].outOfProduction).toBeUndefined();
+  });
+
+  it('bản chính CHƯA gán xưởng + bản "VD" có gán → xung đột, bản VD không tự quyết xưởng', () => {
+    const r = plan(
+      [
+        app({ name: 'Raglan Ver 1', sku: 'R-V1' }),
+        app({ name: 'VD Raglan Ver 1', sku: 'R-CLONE-V1', variationSkus: ['V1-S'], manufactureId: 'm-tn' }),
+      ],
+      [fac({ fullName: 'Raglan Ver 1', sku: 'R-V1', variationSkus: ['V1-S'], factoryId: 'f-ml' })],
+    );
+    expect(r.changes).toEqual([]);
+    expect(r.skipped).toEqual([
+      expect.objectContaining({ reason: 'no-manufacture', appProduct: 'Raglan Ver 1 (R-V1)' }),
+      expect.objectContaining({
+        reason: 'conflict',
+        productConfigId: 'c-Raglan Ver 1',
+        detail: 'VD Raglan Ver 1 (R-CLONE-V1): Thái Nguyên · Raglan Ver 1 (R-V1): app chưa gán xưởng',
+      }),
+    ]);
+  });
+
+  it('SKU trỏ config A nhưng tên trỏ đúng 1 config B khác → ambiguous, không âm thầm lấy bản SKU', () => {
+    const r = plan(
+      [app({ name: 'Kids Hoodie', sku: 'HDKID', manufactureId: 'm-tn' })],
+      [fac({ fullName: 'Kids Hoodie Old', sku: 'HDKID', factoryId: 'f-ml' }), fac({ fullName: 'Kids Hoodie', factoryId: 'f-ml' })],
+    );
+    expect(r.changes).toEqual([]);
+    expect(r.skipped).toEqual([
+      expect.objectContaining({ reason: 'ambiguous', detail: 'SKU → Kids Hoodie Old · tên → Kids Hoodie' }),
+    ]);
   });
 
   it('app chưa gán xưởng / không có trên fac / xưởng đích không tồn tại → bỏ qua kèm lý do', () => {

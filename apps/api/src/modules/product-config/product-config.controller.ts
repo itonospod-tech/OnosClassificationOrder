@@ -184,14 +184,14 @@ export class ProductConfigController {
     @AuthUser() user: UserDocument,
   ): Promise<SyncOnospodFactoryResDto> {
     this.logger.info({
-      message: JSON.stringify({ method: 'POST', url: '/product-configs/onospod-factory-sync', userId: user._id, dryRun: dto.dryRun }),
+      message: JSON.stringify({ method: 'POST', url: '/product-configs/onospod-factory-sync', userId: user._id, dryRun: dto.dryRun, force: dto.force }),
     });
     const userId = String(user._id);
     return {
       success: true,
       data: dto.dryRun
         ? await this.onospodFactorySyncService.preview(userId)
-        : await this.onospodFactorySyncService.apply(dto.planToken, userId),
+        : await this.onospodFactorySyncService.apply(dto.planToken, userId, dto.force),
     };
   }
 
@@ -205,6 +205,18 @@ export class ProductConfigController {
       message: JSON.stringify({ method: 'GET', url: '/product-configs/onospod-factory-sync/last-run', userId: user._id }),
     });
     return { success: true, data: await this.onospodFactorySyncService.getLastRun() };
+  }
+
+  @Get('onospod-factory-sync/last-write')
+  @Auth([RoleType.Admin])
+  @ApiOperation({ summary: 'Lượt đồng bộ xưởng theo OnosPod GHI THẬT gần nhất (không bị lượt 0 thay đổi đè)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetOnospodFactorySyncLastRunResDto })
+  async getOnospodFactorySyncLastWrite(@AuthUser() user: UserDocument): Promise<GetOnospodFactorySyncLastRunResDto> {
+    this.logger.info({
+      message: JSON.stringify({ method: 'GET', url: '/product-configs/onospod-factory-sync/last-write', userId: user._id }),
+    });
+    return { success: true, data: await this.onospodFactorySyncService.getLastWrite() };
   }
 
   @Post('crawl-mockups')

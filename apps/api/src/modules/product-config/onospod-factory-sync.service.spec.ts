@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import type { FactorySyncAppProduct } from './onospod-factory-sync.plan';
 import {
   ONOSPOD_FACTORY_SYNC_LAST_RUN_KEY,
+  ONOSPOD_FACTORY_SYNC_LAST_WRITE_KEY,
   ONOSPOD_FACTORY_SYNC_LOCK_KEY,
   OnospodFactorySyncService,
 } from './onospod-factory-sync.service';
@@ -82,6 +83,7 @@ function setup(opts: { mode: string; n?: number; lockDoc?: LockDoc }) {
   };
   const productConfigModel = {
     find: () => ({ select: () => ({ lean: () => Promise.resolve(data.fac) }) }),
+    findOne: (q: { _id: string }) => ({ select: () => ({ lean: () => Promise.resolve(data.fac.find((d) => d._id === q._id) ?? null) }) }),
     updateOne,
     db: { collection: (name: string) => (name === 'system_configs' ? configs : null) },
   };
@@ -118,6 +120,7 @@ function setup(opts: { mode: string; n?: number; lockDoc?: LockDoc }) {
     importService,
     updateOne,
     systemConfigService,
+    logger,
     hold: () => {
       let open!: () => void;
       fetchGate = new Promise<void>((r) => (open = r));
@@ -138,7 +141,7 @@ describe('OnospodFactorySyncService — env off / dry-run', () => {
   it('dry-run: lập kế hoạch + lưu last-run nhưng KHÔNG ghi factoryId', async () => {
     const t = setup({ mode: 'dry-run' });
     const r = await t.service.runIfDue();
-    expect(r).toEqual(expect.objectContaining({ status: 'ok', dryRun: true, applied: 0 }));
+    expect(r).toEqual(expect.objectContaining({ status: 'ok', dryRun: true, applied: 0, reassigned: 3, firstAssigned: 0 }));
     expect(r?.changes).toHaveLength(3);
     expect(t.updateOne).not.toHaveBeenCalled();
     expect(t.store.get(ONOSPOD_FACTORY_SYNC_LAST_RUN_KEY)).toEqual(expect.objectContaining({ dryRun: true }));
@@ -241,6 +244,75 @@ describe('OnospodFactorySyncService — xem trước → áp dụng', () => {
   });
 });
 
+describe('OnospodFactorySyncService — trần chạy tay / dấu vết lượt ghi', () => {
+  it('kế hoạch > 30 dòng: áp dụng không force → 400, không ghi, mã còn dùng được; kèm force → ghi', async () => {
+    const t = setup({ mode: 'on', n: 31 });
+    const pv = await t.service.preview('u1');
+    expect(pv.reason).toMatch(/force:true/);
+    await expect(t.service.apply(pv.planToken, 'u1')).rejects.toBeInstanceOf(BadRequestException);
+    expect(t.updateOne).not.toHaveBeenCalled();
+    await expect(t.service.apply(pv.planToken, 'u1', true)).resolves.toEqual(expect.objectContaining({ applied: 31 }));
+  });
+
+  it('áp dụng tay → báo Telegram + lưu last-write; lượt tự động 0 thay đổi sau đó không đè last-write', async () => {
+    const t = setup({ mode: 'on', n: 2 });
+    const { planToken } = await t.service.preview('u1');
+    await t.service.apply(planToken, 'u1');
+    expect(t.logger.warn).toHaveBeenCalledWith({ message: expect.stringContaining('(chạy tay): 2/2') });
+    expect(t.store.get(ONOSPOD_FACTORY_SYNC_LAST_WRITE_KEY)).toEqual(expect.objectContaining({ trigger: 'manual', applied: 2 }));
+
+    await expect(t.service.runIfDue()).resolves.toEqual(expect.objectContaining({ trigger: 'auto', changes: [] }));
+    expect(t.store.get(ONOSPOD_FACTORY_SYNC_LAST_RUN_KEY)).toEqual(expect.objectContaining({ trigger: 'auto' }));
+    expect(t.store.get(ONOSPOD_FACTORY_SYNC_LAST_WRITE_KEY)).toEqual(expect.objectContaining({ trigger: 'manual', applied: 2 }));
+  });
+
+  it('xem trước không ghi last-write', async () => {
+    const t = setup({ mode: 'on' });
+    await t.service.preview('u1');
+    expect(t.store.has(ONOSPOD_FACTORY_SYNC_LAST_WRITE_KEY)).toBe(false);
+  });
+
+  it('bỏ qua tách đúng nguyên nhân: đã đúng xưởng sẵn / config không còn', async () => {
+    const t = setup({ mode: 'on', n: 3 });
+    const real = t.updateOne.getMockImplementation()!;
+    t.updateOne.mockImplementation(async (filter, update) => {
+      if (filter._id === 'c0') {
+        t.data.fac[0].factoryId = 'f-tn'; // ai đó vừa sửa tay về đúng đích
+        return { modifiedCount: 0 };
+      }
+      if (filter._id === 'c1') {
+        t.data.fac.splice(1, 1); // config vừa bị xoá
+        return { modifiedCount: 0 };
+      }
+      return real(filter, update);
+    });
+    const { planToken } = await t.service.preview('u1');
+    const r = await t.service.apply(planToken, 'u1');
+    expect(r.changes.map((c) => [c.productConfigId, c.outcome, c.skipReason])).toEqual([
+      ['c0', 'skipped', 'already-target'],
+      ['c1', 'skipped', 'missing'],
+      ['c2', 'applied', undefined],
+    ]);
+  });
+
+  it('mã bị lần xem trước của admin khác thay → báo rõ của ai', async () => {
+    const t = setup({ mode: 'on' });
+    const mine = (await t.service.preview('u1')).planToken;
+    t.data.fac[0].factoryId = 'f-tn';
+    await t.service.preview('u2');
+    await expect(t.service.apply(mine, 'u1')).rejects.toThrow(/của user u2/);
+  });
+
+  it('thua khoá → lượt tự động KHÔNG mất 15 phút, lượt import sau chạy được ngay', async () => {
+    const lockDoc: LockDoc = { value: { lockedAt: new Date(), lockId: 'other' } };
+    const t = setup({ mode: 'dry-run', lockDoc });
+    await expect(t.service.runIfDue()).resolves.toBeUndefined();
+    lockDoc.value = { lockedAt: null, lockId: null };
+    await expect(t.service.runIfDue()).resolves.toEqual(expect.objectContaining({ trigger: 'auto' }));
+    await expect(t.service.runIfDue()).resolves.toBeUndefined(); // vừa chạy → chờ 15 phút
+  });
+});
+
 describe('OnospodFactorySyncService — ghi một phần / lỗi lưu báo cáo', () => {
   it('1 dòng lỗi giữa chừng → vẫn ghi các dòng còn lại, status partial, last-run lưu đủ applied/skipped/failed', async () => {
     const t = setup({ mode: 'on', n: 4 });
@@ -260,6 +332,7 @@ describe('OnospodFactorySyncService — ghi một phần / lỗi lưu báo cáo'
       ['c3', 'applied'],
     ]);
     expect(r.changes[1].error).toBe('write conflict');
+    expect(r.changes[2].skipReason).toBe('changed'); // fac vẫn ML ≠ đích TN
     expect(t.store.get(ONOSPOD_FACTORY_SYNC_LAST_RUN_KEY)).toEqual(
       expect.objectContaining({ status: 'partial', applied: 2, applySkipped: 1, failed: 1 }),
     );

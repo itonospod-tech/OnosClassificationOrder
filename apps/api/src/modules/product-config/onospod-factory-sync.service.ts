@@ -22,6 +22,11 @@ import { ProductConfigEntity } from './product-config.entity';
 
 /** Kết quả lượt gần nhất (cả tự động lẫn chạy tay) — xem qua `GET .../onospod-factory-sync/last-run`. */
 export const ONOSPOD_FACTORY_SYNC_LAST_RUN_KEY = 'onospod_factory_sync_last_run';
+/**
+ * Lượt GHI THẬT gần nhất (đã chạy vòng ghi, kể cả partial) — key riêng để lượt
+ * tự động 0 thay đổi 15 phút sau không đè mất. Xem qua `GET .../last-write`.
+ */
+export const ONOSPOD_FACTORY_SYNC_LAST_WRITE_KEY = 'onospod_factory_sync_last_write';
 /** Mã kế hoạch của lần xem trước gần nhất — áp dụng tay phải gửi đúng mã này. */
 export const ONOSPOD_FACTORY_SYNC_PREVIEW_KEY = 'onospod_factory_sync_preview';
 /** Khoá chạy (dùng chung mọi process) — chỉ 1 lượt đồng bộ tại một thời điểm. */
@@ -30,9 +35,11 @@ export const ONOSPOD_FACTORY_SYNC_LOCK_KEY = 'onospod_factory_sync_lock';
 const AUTO_INTERVAL_MS = 15 * 60 * 1000;
 /**
  * Lượt tự động định đổi quá số sản phẩm này = bất thường (app bị sửa hàng loạt,
- * bảng quy đổi sai...) → dừng, không ghi, báo Telegram. Chạy tay không bị chặn.
+ * bảng quy đổi sai...) → dừng, không ghi, báo Telegram.
  */
 const AUTO_MAX_CHANGES = 10;
+/** Áp dụng tay quá số dòng này phải gửi `force:true` — không ai đọc hết preview vài trăm dòng. */
+const MANUAL_MAX_CHANGES = 30;
 /** App trả ít hơn chừng này sản phẩm = nghi lỗi phía OnosPod (thật ~223) → dừng. */
 const MIN_APP_PRODUCTS = 100;
 /** Mã xem trước hết hạn sau chừng này — quá hạn phải xem trước lại. */
@@ -42,6 +49,12 @@ const LOCK_STALE_MS = 10 * 60 * 1000;
 /** Cùng một cảnh báo không gửi lại trong khoảng này. */
 const ALERT_THROTTLE_MS = 6 * 60 * 60 * 1000;
 const TELEGRAM_MAX_LINES = 30;
+
+const SKIP_REASON_LABEL: Record<NonNullable<FactorySyncChange['skipReason']>, string> = {
+  changed: 'bỏ qua — vừa bị đổi tay',
+  'already-target': 'bỏ qua — đã đúng xưởng sẵn',
+  missing: 'bỏ qua — sản phẩm không còn',
+};
 
 const SKIP_LABEL: Record<FactorySyncSkip['reason'], string> = {
   'no-manufacture': 'app chưa gán xưởng',
@@ -56,7 +69,7 @@ const SKIP_LABEL: Record<FactorySyncSkip['reason'], string> = {
 type SyncOpts =
   | { trigger: 'auto'; dryRun: boolean }
   | { trigger: 'manual'; dryRun: true; userId?: string }
-  | { trigger: 'manual'; dryRun: false; planToken: string; userId?: string };
+  | { trigger: 'manual'; dryRun: false; planToken: string; userId?: string; force?: boolean };
 
 interface PreviewRecord {
   token: string;
@@ -102,13 +115,14 @@ export class OnospodFactorySyncService {
   async runIfDue(): Promise<OnospodFactorySyncResult | undefined> {
     const mode = this.mode;
     if (mode === 'off' || Date.now() - this.lastAutoAt < AUTO_INTERVAL_MS) return undefined;
-    this.lastAutoAt = Date.now();
     try {
       const lockId = await this.acquireLock();
       if (!lockId) {
+        // Không đặt `lastAutoAt` — lượt import sau thử lại ngay, không mất 15 phút.
         this.logger.info({ message: '[onospod-factory-sync] bỏ lượt tự động: đang có lượt khác chạy' });
         return undefined;
       }
+      this.lastAutoAt = Date.now();
       try {
         return await this.run({ trigger: 'auto', dryRun: mode === 'dry-run' });
       } finally {
@@ -127,9 +141,10 @@ export class OnospodFactorySyncService {
 
   /**
    * Áp dụng đúng kế hoạch đã xem trước. Từ chối nếu env khác `on`, thiếu/sai/
-   * hết hạn mã, hoặc dữ liệu đã đổi khiến kế hoạch khác lúc xem trước.
+   * hết hạn mã, dữ liệu đã đổi khiến kế hoạch khác lúc xem trước, hoặc kế hoạch
+   * > 30 dòng mà không có `force`.
    */
-  async apply(planToken: string | undefined, userId?: string): Promise<OnospodFactorySyncResult> {
+  async apply(planToken: string | undefined, userId?: string, force?: boolean): Promise<OnospodFactorySyncResult> {
     if (this.mode !== 'on') {
       throw new BadRequestException(
         `Đồng bộ xưởng đang ở chế độ "${this.mode}" — chỉ áp dụng được khi ONOSPOD_FACTORY_SYNC_MODE=on`,
@@ -137,14 +152,28 @@ export class OnospodFactorySyncService {
     }
     if (!planToken) throw new BadRequestException('Thiếu planToken — chạy xem trước (dryRun:true) rồi gửi lại mã nhận được');
     const preview = await this.systemConfigService.get<PreviewRecord>(ONOSPOD_FACTORY_SYNC_PREVIEW_KEY);
-    if (!preview || preview.token !== planToken || Date.now() - Date.parse(preview.createdAt) > PREVIEW_TTL_MS) {
-      throw new BadRequestException('planToken không khớp lần xem trước gần nhất hoặc đã hết hạn — chạy xem trước lại');
+    if (!preview?.token) {
+      throw new BadRequestException('Chưa có lần xem trước nào còn hiệu lực (mã đã dùng hoặc chưa xem trước) — chạy xem trước lại');
     }
-    return this.runManual({ trigger: 'manual', dryRun: false, planToken, userId });
+    if (preview.token !== planToken) {
+      // Chỉ giữ 1 lần xem trước mới nhất (chung mọi admin) — nói rõ của ai để người bị đè hiểu vì sao.
+      const owner = preview.userId && preview.userId === userId ? 'của chính bạn' : `của user ${preview.userId ?? '?'}`;
+      throw new BadRequestException(
+        `planToken không khớp lần xem trước gần nhất (${owner} lúc ${preview.createdAt}) — mỗi lần xem trước thay mã cũ, chạy xem trước lại`,
+      );
+    }
+    if (Date.now() - Date.parse(preview.createdAt) > PREVIEW_TTL_MS) {
+      throw new BadRequestException('planToken đã quá 30 phút — chạy xem trước lại');
+    }
+    return this.runManual({ trigger: 'manual', dryRun: false, planToken, userId, force });
   }
 
   async getLastRun(): Promise<OnospodFactorySyncResult | null> {
     return this.systemConfigService.get<OnospodFactorySyncResult>(ONOSPOD_FACTORY_SYNC_LAST_RUN_KEY);
+  }
+
+  async getLastWrite(): Promise<OnospodFactorySyncResult | null> {
+    return this.systemConfigService.get<OnospodFactorySyncResult>(ONOSPOD_FACTORY_SYNC_LAST_WRITE_KEY);
   }
 
   private async runManual(opts: SyncOpts): Promise<OnospodFactorySyncResult> {
@@ -166,6 +195,8 @@ export class OnospodFactorySyncService {
       appProducts: 0,
       unchanged: 0,
       changes: [],
+      reassigned: 0,
+      firstAssigned: 0,
       applied: 0,
       applySkipped: 0,
       failed: 0,
@@ -214,10 +245,15 @@ export class OnospodFactorySyncService {
     result.changes = plan.changes;
     result.skipped = plan.skipped;
     result.unchanged = plan.unchanged;
+    result.firstAssigned = plan.changes.filter((c) => !c.fromFactoryId).length;
+    result.reassigned = plan.changes.length - result.firstAssigned;
     const token = hashFactorySyncPlan(plan.changes, factoryMap);
 
     if (opts.trigger === 'manual' && opts.dryRun) {
       result.planToken = token;
+      if (plan.changes.length > MANUAL_MAX_CHANGES) {
+        result.reason = `Kế hoạch ${plan.changes.length} dòng (> ${MANUAL_MAX_CHANGES}) — áp dụng phải gửi kèm force:true`;
+      }
       const record: PreviewRecord = { token, createdAt: result.ranAt, userId };
       await this.systemConfigService.set(ONOSPOD_FACTORY_SYNC_PREVIEW_KEY, record, 'Mã kế hoạch xem trước đồng bộ xưởng OnosPod');
       return this.finish(result, userId);
@@ -225,6 +261,12 @@ export class OnospodFactorySyncService {
     if (opts.trigger === 'manual' && !opts.dryRun && token !== opts.planToken) {
       // Không ghi gì, không đè last-run — chỉ yêu cầu xem trước lại.
       throw new ConflictException('Dữ liệu app/fac đã đổi sau lần xem trước, kế hoạch không còn như cũ — chạy xem trước lại');
+    }
+    if (opts.trigger === 'manual' && !opts.dryRun && plan.changes.length > MANUAL_MAX_CHANGES && !opts.force) {
+      // Chặn TRƯỚC khi vô hiệu mã — gửi lại cùng mã kèm force:true là áp dụng được.
+      throw new BadRequestException(
+        `Kế hoạch ${plan.changes.length} dòng (> ${MANUAL_MAX_CHANGES}/lượt chạy tay) — đọc kỹ xem trước rồi gửi lại kèm force:true`,
+      );
     }
     if (opts.dryRun || plan.changes.length === 0) return this.finish(result, userId);
     if (opts.trigger === 'auto' && plan.changes.length > AUTO_MAX_CHANGES) {
@@ -252,6 +294,7 @@ export class OnospodFactorySyncService {
           result.applied++;
         } else {
           c.outcome = 'skipped';
+          c.skipReason = await this.skipReasonOf(c);
           result.applySkipped++;
         }
       } catch (err) {
@@ -267,9 +310,21 @@ export class OnospodFactorySyncService {
     return this.finish(result, userId);
   }
 
+  /** Ghi có điều kiện không khớp → đọc lại để nói đúng nguyên nhân thay vì đoán "đổi tay". */
+  private async skipReasonOf(c: FactorySyncChange): Promise<FactorySyncChange['skipReason']> {
+    try {
+      const doc = await this.productConfigModel.findOne({ _id: c.productConfigId }).select('factoryId deletedAt').lean();
+      if (!doc || doc.deletedAt) return 'missing';
+      return String(doc.factoryId ?? '') === c.toFactoryId ? 'already-target' : 'changed';
+    } catch {
+      return undefined;
+    }
+  }
+
   /**
-   * Log + lưu last-run + Telegram (lượt tự động). Lỗi khi lưu/báo KHÔNG được
-   * nuốt mất kết quả: vẫn trả `r` (dữ liệu có thể đã đổi) và ghi log lỗi.
+   * Log + lưu last-run (+ last-write nếu đã chạy vòng ghi) + Telegram (lượt tự
+   * động, và MỌI lượt đã chạy vòng ghi kể cả chạy tay). Lỗi khi lưu/báo KHÔNG
+   * được nuốt mất kết quả: vẫn trả `r` (dữ liệu có thể đã đổi) và ghi log lỗi.
    */
   private async finish(r: OnospodFactorySyncResult, userId?: string): Promise<OnospodFactorySyncResult> {
     this.logger.info({
@@ -283,7 +338,9 @@ export class OnospodFactorySyncService {
         applied: r.applied,
         applySkipped: r.applySkipped,
         failed: r.failed,
-        changes: r.changes.map((c) => `${c.productConfigId}:${c.fromFactory ?? '-'}→${c.toFactory}${c.outcome ? `:${c.outcome}` : ''}`),
+        changes: r.changes.map(
+          (c) => `${c.productConfigId}:${c.fromFactory ?? '-'}→${c.toFactory}${c.outcome ? `:${c.outcome}` : ''}${c.skipReason ? `:${c.skipReason}` : ''}`,
+        ),
       }),
     });
     try {
@@ -291,7 +348,15 @@ export class OnospodFactorySyncService {
     } catch (err) {
       this.logger.error({ message: `[onospod-factory-sync] không lưu được last-run: ${err instanceof Error ? err.message : String(err)}` });
     }
-    if (r.trigger === 'auto') {
+    const wrote = !r.dryRun && r.changes.some((c) => c.outcome);
+    if (wrote) {
+      try {
+        await this.systemConfigService.set(ONOSPOD_FACTORY_SYNC_LAST_WRITE_KEY, r, 'Lượt GHI THẬT gần nhất của đồng bộ xưởng theo OnosPod');
+      } catch (err) {
+        this.logger.error({ message: `[onospod-factory-sync] không lưu được last-write: ${err instanceof Error ? err.message : String(err)}` });
+      }
+    }
+    if (r.trigger === 'auto' || wrote) {
       try {
         await this.notify(r);
       } catch (err) {
@@ -352,24 +417,35 @@ export class OnospodFactorySyncService {
   }
 
   /**
-   * Telegram cho lượt tự động: có ghi thật, có kế hoạch đổi (dry-run) hoặc bị
-   * dừng. Lượt không có gì để đổi thì im lặng. Cùng nội dung không gửi lại trong 6 giờ.
+   * Telegram cho lượt tự động (có ghi thật, có kế hoạch đổi khi dry-run, hoặc bị
+   * dừng) và cho MỌI lượt chạy tay đã ghi. Lượt không có gì để đổi thì im lặng.
+   * Lượt tự động cùng nội dung không gửi lại trong 6 giờ; lượt chạy tay luôn gửi.
    */
   private async notify(r: OnospodFactorySyncResult): Promise<void> {
     if (r.status === 'ok' && r.changes.length === 0) return;
     const line = (c: FactorySyncChange) =>
-      `• ${c.fullName}: ${c.fromFactory ?? '(trống)'} → ${c.toFactory}${c.outcome && c.outcome !== 'applied' ? ` (${c.outcome === 'failed' ? 'LỖI' : 'bỏ qua — vừa bị đổi tay'})` : ''}`;
+      `• ${c.fullName}: ${c.fromFactory ?? '(trống — gán lần đầu)'} → ${c.toFactory}` +
+      (c.outOfProduction ? ' ⚠️ ngoài luồng SX' : '') +
+      (c.outcome === 'failed' ? ' (LỖI)' : c.outcome === 'skipped' ? ` (${c.skipReason ? SKIP_REASON_LABEL[c.skipReason] : 'bỏ qua'})` : '');
     let text: string;
     if (r.status === 'aborted') {
       text = `⚠️ Đồng bộ xưởng theo OnosPod bị dừng, chưa ghi gì.\nLý do: ${r.reason}`;
     } else {
+      const who = r.trigger === 'manual' ? ' (chạy tay)' : '';
+      const split = ` — ${r.reassigned} đổi xưởng · ${r.firstAssigned} gán lần đầu`;
       const head = r.dryRun
-        ? `🔎 Đồng bộ xưởng theo OnosPod (chế độ chỉ báo cáo, CHƯA ghi): ${r.changes.length} sản phẩm sẽ đổi xưởng`
-        : `${r.status === 'partial' ? '⚠️' : '🏭'} Đã đồng bộ xưởng theo OnosPod: ${r.applied}/${r.changes.length} sản phẩm đổi xưởng (áp cho đơn nhập từ giờ)` +
+        ? `🔎 Đồng bộ xưởng theo OnosPod (chế độ chỉ báo cáo, CHƯA ghi): ${r.changes.length} sản phẩm sẽ đổi${split}`
+        : `${r.status === 'partial' ? '⚠️' : '🏭'} Đã đồng bộ xưởng theo OnosPod${who}: ${r.applied}/${r.changes.length} sản phẩm (áp cho đơn nhập từ giờ)${split}` +
           (r.failed ? ` · ${r.failed} lỗi` : '') +
           (r.applySkipped ? ` · ${r.applySkipped} bỏ qua` : '');
       const lines = r.changes.slice(0, TELEGRAM_MAX_LINES).map(line);
       if (r.changes.length > TELEGRAM_MAX_LINES) lines.push(`… và ${r.changes.length - TELEGRAM_MAX_LINES} sản phẩm khác`);
+      const out = r.changes.filter((c) => c.outOfProduction).length;
+      if (out) {
+        lines.push(
+          `⚠️ ${out} sản phẩm sang xưởng ngoài luồng sản xuất (US): đơn mới của chúng KHÔNG vào soát tool, auto-gán designer, fulfillment, thống kê.`,
+        );
+      }
       text = [head, ...lines].join('\n');
     }
     const kept = r.skipped.filter((s) => s.reason === 'fac-only-factory' || s.reason === 'conflict' || s.reason === 'ambiguous');
@@ -377,9 +453,11 @@ export class OnospodFactorySyncService {
       text += `\n\nKhông đồng bộ (${kept.length}):\n` + kept.map((s) => `• ${s.fullName ?? s.appProduct}: ${SKIP_LABEL[s.reason]}`).join('\n');
     }
 
-    const now = Date.now();
-    if (this.lastAlert && this.lastAlert.text === text && now - this.lastAlert.at < ALERT_THROTTLE_MS) return;
-    this.lastAlert = { text, at: now };
+    if (r.trigger === 'auto') {
+      const now = Date.now();
+      if (this.lastAlert && this.lastAlert.text === text && now - this.lastAlert.at < ALERT_THROTTLE_MS) return;
+      this.lastAlert = { text, at: now };
+    }
 
     const c = this.apiConfigService.telegram;
     const channels = (c.notificationChannelId || c.channelId || '')
