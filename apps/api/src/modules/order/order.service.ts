@@ -193,6 +193,7 @@ import { WorkshopConfigRepository } from '../workshop-config/workshop-config.rep
 import { andWith } from './and-with';
 import { resolveBarcodeSkuBase } from './barcode-label';
 import { resolveDesignReviewCodeByDesigns } from './design-review-code-rule';
+import { missingToolResultNote } from './design-review-result.guard';
 import { DriveFileNameService } from './drive-file-name.service';
 import { planForceComplete } from './force-complete-plan';
 import { shouldNotifyCustomerOnManualUnhold } from './onospod-hold-sync.plan';
@@ -8024,6 +8025,21 @@ export class OrderService implements OnModuleInit {
     if (getFactorySkipToolCheckSync(this.orderModel.db, (order as { factoryId?: string }).factoryId)) {
       throw new BadRequestException(
         'Xưởng của đơn này đang bật "Bỏ qua soát tool" — không ghi kết quả soát tự động.',
+      );
+    }
+
+    // Refuse BEFORE the first write when the tool sets toolResult while explicitly clearing toolResultNote
+    // (null/blank). An ABSENT note is the normal automated run and goes through — see the guard's header.
+    // Only this door is guarded; manual edits (`updateField`) are untouched.
+    const missing = missingToolResultNote(input);
+    if (missing) {
+      this.logger.warn({
+        message: JSON.stringify({ designReviewRejected: `toolResultNote-${missing}`, productionId: trimmed, payload: input }),
+      });
+      const how = { null: 'was sent as null', blank: 'was sent blank' }[missing];
+      throw new BadRequestException(
+        `toolResultNote must not be cleared when toolResult is set, but it ${how}. ` +
+          'Nothing was written; the order stays in the queue. Either omit toolResultNote or send a real value.',
       );
     }
 

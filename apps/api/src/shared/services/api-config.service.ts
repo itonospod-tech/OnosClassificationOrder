@@ -253,6 +253,20 @@ export class ApiConfigService {
   }
 
   /**
+   * Đồng bộ XƯỞNG sản phẩm theo app OnosPod (Products.md §2.7a). Mặc định TẮT.
+   * - `ONOSPOD_FACTORY_SYNC_MODE`: `off` | `dry-run` (chỉ báo cáo + Telegram) | `on` (ghi thật)
+   * - `ONOSPOD_FACTORY_MAP`: mã manufacture app → shortName xưởng fac, vd `ML=ML,TN=TN,TN-DECOR=TNW`
+   *   (trống = mặc định `DEFAULT_ONOSPOD_FACTORY_MAP`)
+   * Đọc mỗi lần gọi (không cache) để đổi env + restart là ăn ngay.
+   */
+  get onospodFactorySync(): { mode: string; factoryMap: string } {
+    return {
+      mode: this.configService.get<string>('ONOSPOD_FACTORY_SYNC_MODE') || 'off',
+      factoryMap: this.configService.get<string>('ONOSPOD_FACTORY_MAP') || '',
+    };
+  }
+
+  /**
    * OnosPod order API (api.onospod.com/graphql) — dùng để "lấy ngược"
    * design/địa chỉ ship cho đơn đang GIỮ chờ khách cập nhật (xem
    * `OnospodOrderLookupService`). Token lấy từ phiên đăng nhập admin OnosPod —

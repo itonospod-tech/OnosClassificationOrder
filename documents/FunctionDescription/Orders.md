@@ -194,6 +194,11 @@ Thay cho thao tác thủ công hàng ngày (8h/17h): vào `qc.onospod.com` bấm
 xlsx → paste vào tab Import. Nút "Lấy đơn từ OnosPod" (chỉ hiện ở mode `new`) tự động hoá
 toàn bộ chuỗi này trong 1 click.
 
+**Bước đầu mỗi lượt (từ 20/10/2026):** trước khi lấy đơn, `runImport` gọi
+`OnospodFactorySyncService.runIfDue()` — đồng bộ xưởng sản phẩm theo app OnosPod để đơn
+của lượt này vào đúng xưởng mới (Products.md §2.7a). Bật/tắt theo env
+`ONOSPOD_FACTORY_SYNC_MODE` (mặc định `off`), giãn tối thiểu 15 phút, không bao giờ ném.
+
 Cạnh nút có 1 `DateRangePicker` (`apps/web/src/components/common/DateRangePicker.tsx`, component
 dùng chung toàn app) cho phép chọn khoảng ngày tùy ý — state `onosPodFrom`/`onosPodTo` ở
 `ImportOrderTab.tsx`. Để trống (mặc định) → gọi `POST /v1/orders/import-from-onospod` với
@@ -1978,6 +1983,10 @@ Sản phẩm chưa cấu hình vị trí in nào và đơn cũng không có desi
 | --- | --- | --- |
 | `AOP-POLO-EMLOGO` (polo thêu) | `chestLeft` (thêu ngực) | `PLNGUC` |
 | `AOP-POLO-EMLOGO` (polo thêu) | `placket` (thêu trụ) | `PLTRU` |
+| `EMB-YOUTH-PPOLO` (polo thêu Youth) | `chestLeft` (thêu ngực) | `POLOKIDTHEU` |
+| `EMB-YOUTH-PPOLO` (polo thêu Youth) | `placket` (thêu trụ) | `POLOKIDTRU` |
+
+Bản Youth: SKU lấy theo sản phẩm thật import từ OnosPod (07/10/2026), mã = tên thư mục template trên máy tool. `ProductConfig.designReviewCode` của sản phẩm này nên đặt `POLOKIDTHEU` để đơn không có option đặc biệt (thêu chỗ khác) rơi về template thêu ngực.
 
 Chỉ dùng mã theo option khi khớp **đúng một** key; không khớp key nào, khớp cả hai (`chestLeft` + `placket` — chưa có quy tắc nghiệp vụ), hoặc sản phẩm không có entry → `designReviewCode` như cũ. Thêm sản phẩm/option mới = thêm entry vào map (cần deploy). Lý do: dữ liệu prod 09/2026 cho thấy từ 22/09 đơn thêu trụ đến dưới SKU polo thêu ngực với key `placket`, trước đó cùng chạy `PLNGUC` và bị lỗi "Trụ" (~18% so với ~1% đơn thêu ngực).
 

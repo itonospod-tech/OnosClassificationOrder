@@ -10,6 +10,7 @@ import { ProductTagModule } from '../product-tag/product-tag.module';
 import { ProductTechniqueModule } from '../product-technique/product-technique.module';
 import { SystemConfigModule } from '../system-config/system-config.module';
 import { WorkshopConfigModule } from '../workshop-config/workshop-config.module';
+import { OnospodFactorySyncService } from './onospod-factory-sync.service';
 import { OnospodProductImportService } from './onospod-product-import.service';
 import { ProductConfigController } from './product-config.controller';
 import { ProductConfigEntity, ProductConfigSchema } from './product-config.entity';
@@ -33,7 +34,8 @@ import { ProductConfigService } from './product-config.service';
     WorkshopConfigModule,
   ],
   controllers: [ProductConfigController],
-  providers: [ProductConfigService, ProductConfigRepository, OnospodProductImportService],
-  exports: [ProductConfigService, ProductConfigRepository],
+  providers: [ProductConfigService, ProductConfigRepository, OnospodProductImportService, OnospodFactorySyncService],
+  // OnospodFactorySyncService: import đơn OnosPod (OrderModule) chạy đồng bộ xưởng trước mỗi lượt.
+  exports: [ProductConfigService, ProductConfigRepository, OnospodFactorySyncService],
 })
 export class ProductConfigModule {}
