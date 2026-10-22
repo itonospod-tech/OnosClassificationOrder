@@ -6,6 +6,7 @@ import {
   Header,
   HttpCode,
   HttpStatus,
+  Inject,
   Param,
   Patch,
   Post,
@@ -15,7 +16,7 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiFile, IFile } from 'core';
+import { ApiFile, AuthUser, IFile } from 'core';
 import type { FastifyRequest } from 'fastify';
 import { createReadStream } from 'fs';
 import {
@@ -25,6 +26,7 @@ import {
   CrawlProductMockupsResDto,
   CreateProductConfigDto,
   CreateProductConfigResDto,
+  GetOnospodFactorySyncLastRunResDto,
   GetProductConfigResDto,
   GetProductConfigsDto,
   GetProductConfigsResDto,
@@ -38,14 +40,19 @@ import {
   ImportProductConfigResDto,
   ResDto,
   RoleType,
+  SyncOnospodFactoryDto,
+  SyncOnospodFactoryResDto,
   UpdateProductConfigDto,
   UpdateProductConfigResDto,
   UploadProductImageDto,
   UploadProductImageResDto,
 } from 'shared';
+import { Logger } from 'winston';
 
 import { Auth } from '@/decorators';
 
+import type { UserDocument } from '../user/user.entity';
+import { OnospodFactorySyncService } from './onospod-factory-sync.service';
 import { OnospodProductImportService } from './onospod-product-import.service';
 import { ProductConfigService } from './product-config.service';
 
@@ -55,6 +62,8 @@ export class ProductConfigController {
   constructor(
     private readonly productConfigService: ProductConfigService,
     private readonly onospodProductImportService: OnospodProductImportService,
+    private readonly onospodFactorySyncService: OnospodFactorySyncService,
+    @Inject('winston') private readonly logger: Logger,
   ) {}
 
   @Get()
@@ -160,6 +169,54 @@ export class ProductConfigController {
   @ApiOkResponse({ type: ImportFromOnospodResDto })
   async importFromOnospod(@Body() dto: ImportFromOnospodDto): Promise<ImportFromOnospodResDto> {
     return this.onospodProductImportService.importFromOnospod(dto);
+  }
+
+  @Post('onospod-factory-sync')
+  @Auth([RoleType.Admin])
+  @ApiOperation({
+    summary:
+      'Đồng bộ XƯỞNG sản phẩm theo app OnosPod 1 lượt (Products.md §2.7a) — dryRun=true (mặc định) xem trước + trả planToken; dryRun=false + planToken áp dụng đúng kế hoạch đó (env phải là on)',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: SyncOnospodFactoryResDto })
+  async syncOnospodFactory(
+    @Body() dto: SyncOnospodFactoryDto,
+    @AuthUser() user: UserDocument,
+  ): Promise<SyncOnospodFactoryResDto> {
+    this.logger.info({
+      message: JSON.stringify({ method: 'POST', url: '/product-configs/onospod-factory-sync', userId: user._id, dryRun: dto.dryRun, force: dto.force }),
+    });
+    const userId = String(user._id);
+    return {
+      success: true,
+      data: dto.dryRun
+        ? await this.onospodFactorySyncService.preview(userId)
+        : await this.onospodFactorySyncService.apply(dto.planToken, userId, dto.force),
+    };
+  }
+
+  @Get('onospod-factory-sync/last-run')
+  @Auth([RoleType.Admin])
+  @ApiOperation({ summary: 'Kết quả lượt đồng bộ xưởng theo OnosPod gần nhất (tự động hoặc chạy tay)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetOnospodFactorySyncLastRunResDto })
+  async getOnospodFactorySyncLastRun(@AuthUser() user: UserDocument): Promise<GetOnospodFactorySyncLastRunResDto> {
+    this.logger.info({
+      message: JSON.stringify({ method: 'GET', url: '/product-configs/onospod-factory-sync/last-run', userId: user._id }),
+    });
+    return { success: true, data: await this.onospodFactorySyncService.getLastRun() };
+  }
+
+  @Get('onospod-factory-sync/last-write')
+  @Auth([RoleType.Admin])
+  @ApiOperation({ summary: 'Lượt đồng bộ xưởng theo OnosPod GHI THẬT gần nhất (không bị lượt 0 thay đổi đè)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetOnospodFactorySyncLastRunResDto })
+  async getOnospodFactorySyncLastWrite(@AuthUser() user: UserDocument): Promise<GetOnospodFactorySyncLastRunResDto> {
+    this.logger.info({
+      message: JSON.stringify({ method: 'GET', url: '/product-configs/onospod-factory-sync/last-write', userId: user._id }),
+    });
+    return { success: true, data: await this.onospodFactorySyncService.getLastWrite() };
   }
 
   @Post('crawl-mockups')

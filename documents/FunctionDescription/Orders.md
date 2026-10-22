@@ -194,6 +194,11 @@ Thay cho thao tác thủ công hàng ngày (8h/17h): vào `qc.onospod.com` bấm
 xlsx → paste vào tab Import. Nút "Lấy đơn từ OnosPod" (chỉ hiện ở mode `new`) tự động hoá
 toàn bộ chuỗi này trong 1 click.
 
+**Bước đầu mỗi lượt (từ 20/10/2026):** trước khi lấy đơn, `runImport` gọi
+`OnospodFactorySyncService.runIfDue()` — đồng bộ xưởng sản phẩm theo app OnosPod để đơn
+của lượt này vào đúng xưởng mới (Products.md §2.7a). Bật/tắt theo env
+`ONOSPOD_FACTORY_SYNC_MODE` (mặc định `off`), giãn tối thiểu 15 phút, không bao giờ ném.
+
 Cạnh nút có 1 `DateRangePicker` (`apps/web/src/components/common/DateRangePicker.tsx`, component
 dùng chung toàn app) cho phép chọn khoảng ngày tùy ý — state `onosPodFrom`/`onosPodTo` ở
 `ImportOrderTab.tsx`. Để trống (mặc định) → gọi `POST /v1/orders/import-from-onospod` với

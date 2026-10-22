@@ -16,9 +16,12 @@ import { myNanoid, PRODUCT_PRINT_AREA_KEYS, ProductConfigStatus, Status } from '
 import { ApiConfigService } from '@/shared/services';
 
 import { CollectionRepository } from '../collection/collection.repository';
+import { FactoryRepository } from '../factory/factory.repository';
+import { ProductCategoryRepository } from '../product-category/product-category.repository';
 import { ProductTagRepository } from '../product-tag/product-tag.repository';
 import { ProductTechniqueRepository } from '../product-technique/product-technique.repository';
-import { ProductCategoryRepository } from '../product-category/product-category.repository';
+import type { FactorySyncAppProduct, FactorySyncManufacture } from './onospod-factory-sync.plan';
+import { parseOnospodFactoryMap, parseOnospodFactorySyncMode } from './onospod-factory-sync.plan';
 import { ProductConfigEntity } from './product-config.entity';
 import { productLineForNew } from './product-line-migration';
 
@@ -46,7 +49,12 @@ const productPresetQuery = (collection: string) => `query { productPreset (_id:"
   category,size_chart,print_document,
   print_areas { key,print,width,height,addition_price,is_required,is_embroidery },
   print_template,weight,package_width,package_height,package_length,
-  collection,visible,skip_design_check,skip_affiliate,product_tag_ids,product_technique_ids
+  collection,visible,skip_design_check,skip_affiliate,product_tag_ids,product_technique_ids,manufacture_id
+}}`;
+
+/** Bản rút gọn chỉ để đồng bộ xưởng (§2.7a) — khớp sản phẩm + biết xưởng app. */
+const productPresetFactoryQuery = `query { productPreset (_id:"",identity:"",name:"",provider:"",category:"All",category_id:[],collection:"") {
+  _id,sku,name,manufacture_id,attribute_specifics { sku }
 }}`;
 
 interface OnospodProduct {
@@ -104,6 +112,8 @@ interface OnospodProduct {
   product_tag_ids?: string[] | null;
   /** Legacy technique ids — resolved through `productTechniques` (id → slug). */
   product_technique_ids?: string[] | null;
+  /** Xưởng sản xuất bên app (`manufactures._id`) — fac đồng bộ theo, xem §2.7a. */
+  manufacture_id?: string | null;
 }
 
 /** Field mapped từ OnosPod — SUBSET của ProductConfig, dùng cho cả create lẫn fill. */
@@ -142,8 +152,10 @@ type MappedProduct = Partial<
  * Các field ĐƯỢC PHÉP fill khi sản phẩm đã tồn tại — CHỈ fill ô đang trống,
  * KHÔNG BAO GIỜ đè giá trị đã có. TUYỆT ĐỐI KHÔNG có nhóm field sản xuất
  * (factoryId/machineTypeId/machineNumber/fabricType/toolResult/level/guide/
- * status/fullName/shortName) — xưởng hiện tại là CHUẨN, xưởng bên cũ sai
- * (quyết định 2026-08-05).
+ * status/fullName/shortName) — quyết định 2026-08-05. Riêng `factoryId` từ
+ * 16/10/2026 theo app OnosPod nhưng KHÔNG đi qua đây: sản phẩm đã có do
+ * `OnospodFactorySyncService` đồng bộ (§2.7a), sản phẩm tạo mới mang xưởng app
+ * ngay lúc tạo.
  */
 const FILLABLE_FIELDS: (keyof MappedProduct)[] = [
   'sku',
@@ -217,6 +229,7 @@ export class OnospodProductImportService {
     private readonly productCategoryRepository: ProductCategoryRepository,
     private readonly productTagRepository: ProductTagRepository,
     private readonly productTechniqueRepository: ProductTechniqueRepository,
+    private readonly factoryRepository: FactoryRepository,
     @InjectModel(ProductConfigEntity.name)
     private readonly productConfigModel: Model<ProductConfigEntity>,
   ) {}
@@ -255,6 +268,66 @@ export class OnospodProductImportService {
     const rows = res.data?.data?.productPreset ?? [];
     const total = Number(res.headers['x-total'] ?? rows.length) || rows.length;
     return { rows, total };
+  }
+
+  /**
+   * Toàn bộ sản phẩm app, bản rút gọn cho đồng bộ xưởng (§2.7a). Gọi limit
+   * 500 như import (phân trang OnosPod không ổn định); trang đầy thì gọi tiếp,
+   * tối đa 3 trang, dedupe theo `_id`.
+   */
+  async fetchFactorySyncProducts(): Promise<FactorySyncAppProduct[]> {
+    const LIMIT = 500;
+    const byId = new Map<string, FactorySyncAppProduct>();
+    for (let page = 1; page <= 3; page++) {
+      const res = await this.gql<{ productPreset?: OnospodProduct[] }>(productPresetFactoryQuery, page, LIMIT);
+      if (res.data && 'errors' in res.data) throw new Error(`OnosPod trả lỗi GraphQL: ${JSON.stringify(res.data.errors).slice(0, 300)}`);
+      const rows = res.data?.data?.productPreset ?? [];
+      for (const r of rows) {
+        const name = cleanStr(r.name);
+        if (!r._id || !name || byId.has(r._id)) continue;
+        byId.set(r._id, {
+          _id: r._id,
+          name,
+          sku: cleanStr(r.sku)?.toUpperCase(),
+          variationSkus: (r.attribute_specifics ?? [])
+            .map((v) => cleanStr(v.sku)?.toUpperCase())
+            .filter((v): v is string => !!v),
+          manufactureId: cleanStr(r.manufacture_id),
+        });
+      }
+      if (rows.length < LIMIT) break;
+    }
+    return [...byId.values()];
+  }
+
+  /** Danh sách xưởng bên app — `sku` là mã dùng trong bảng quy đổi (`ML`, `TN`, `TN-DECOR`...). */
+  async fetchManufactures(): Promise<FactorySyncManufacture[]> {
+    const res = await this.gql<{ manufactures?: { _id?: string; sku?: string; name?: string }[] }>(
+      'query { manufactures { _id,sku,name } }',
+      1,
+      100,
+    );
+    return (res.data?.data?.manufactures ?? [])
+      .filter((m): m is { _id: string; sku?: string; name?: string } => !!m._id)
+      .map((m) => ({ _id: m._id, sku: cleanStr(m.sku), name: cleanStr(m.name) }));
+  }
+
+  /**
+   * manufacture_id app → `_id` xưởng fac theo bảng quy đổi (env `ONOSPOD_FACTORY_MAP`).
+   * Dùng cho sản phẩm TẠO MỚI khi import: mang luôn xưởng app thay vì rơi vào
+   * cột "Chưa xác định xưởng". Không quy đổi được → để trống như trước.
+   */
+  private async loadFactoryResolver(): Promise<(manufactureId: string | null | undefined) => string | undefined> {
+    const map = parseOnospodFactoryMap(this.apiConfigService.onospodFactorySync.factoryMap);
+    const [manufactures, factories] = await Promise.all([this.fetchManufactures(), this.factoryRepository.findAll({})]);
+    const factoryIdByShort = new Map(factories.map((f) => [f.shortName.toUpperCase(), String(f._id)]));
+    const factoryIdByManu = new Map<string, string>();
+    for (const m of manufactures) {
+      const short = map.get((m.sku ?? '').toUpperCase());
+      const factoryId = short ? factoryIdByShort.get(short) : undefined;
+      if (factoryId) factoryIdByManu.set(m._id, factoryId);
+    }
+    return (manufactureId) => (manufactureId ? factoryIdByManu.get(manufactureId) : undefined);
   }
 
   /** Legacy tag id → slug. The query is paginated by headers, so ask for a page far larger than the ~18 tags. */
@@ -453,8 +526,10 @@ export class OnospodProductImportService {
    *   (exact, case-insensitive).
    * - Đã tồn tại → CHỈ set field đang trống (`FILLABLE_FIELDS`), giữ nguyên
    *   toàn bộ field sản xuất + mọi giá trị đã cấu hình tay.
-   * - Chưa tồn tại → tạo mới (KHÔNG factory/machineType → tự rơi vào cột
-   *   "Chưa xác định xưởng" ở kanban Settings để gán tay sau).
+   * - Chưa tồn tại → tạo mới. Env `ONOSPOD_FACTORY_SYNC_MODE=on`: xưởng lấy
+   *   theo `manufacture_id` app qua bảng quy đổi (§2.7a). Chế độ khác hoặc quy
+   *   đổi không được → để trống → rơi vào cột "Chưa xác định xưởng" ở kanban
+   *   Settings. machineType luôn để trống, gán tay sau.
    * - Trùng SKU biến thể với sản phẩm khác (unique toàn hệ thống) → retry 1
    *   lần không kèm `variations`, ghi nhận lỗi để xử lý tay.
    */
@@ -473,6 +548,16 @@ export class OnospodProductImportService {
     } catch (err) {
       this.legacyTechniqueSlugs = new Map();
       errors.push({ sku: '', name: '', reason: `Không lấy được danh sách technique hệ cũ: ${err instanceof Error ? err.message : String(err)}` });
+    }
+    // Gán xưởng theo app CHỈ khi đồng bộ xưởng bật `on` (§2.7a). `off`/`dry-run`
+    // giữ nguyên hành vi cũ: sản phẩm mới để trống xưởng, không gọi thêm OnosPod.
+    let resolveFactory: (manufactureId: string | null | undefined) => string | undefined = () => undefined;
+    if (parseOnospodFactorySyncMode(this.apiConfigService.onospodFactorySync.mode) === 'on') {
+      try {
+        resolveFactory = await this.loadFactoryResolver();
+      } catch (err) {
+        errors.push({ sku: '', name: '', reason: `Không lấy được danh sách xưởng hệ cũ — sản phẩm mới để trống xưởng: ${err instanceof Error ? err.message : String(err)}` });
+      }
     }
     // Dedupe theo _id — phân trang OnosPod không ổn định (thứ tự trượt giữa
     // các lần gọi), cùng 1 trang lớn vẫn dedupe phòng hờ. Khuyến nghị FE gọi
@@ -506,8 +591,15 @@ export class OnospodProductImportService {
             .lean());
 
         if (!existing) {
+          // Không có xưởng → KHÔNG đặt key `factoryId` (giống hệt hành vi cũ).
+          const factoryId = resolveFactory(p.manufacture_id);
+          const withFactory = factoryId ? { factoryId } : {};
           try {
-            await this.productConfigModel.create({ ...mapped, ...productLineForNew(p.collection) });
+            await this.productConfigModel.create({
+              ...mapped,
+              ...productLineForNew(p.collection),
+              ...withFactory,
+            });
           } catch (err) {
             if (!OnospodProductImportService.isDuplicateKeyError(err)) throw err;
             // SKU (sản phẩm hoặc biến thể) đụng unique index của sản phẩm khác
@@ -515,6 +607,7 @@ export class OnospodProductImportService {
             await this.productConfigModel.create({
               ...mapped,
               ...productLineForNew(p.collection),
+              ...withFactory,
               sku: undefined,
               variations: undefined,
             });

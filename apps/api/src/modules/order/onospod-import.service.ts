@@ -12,6 +12,7 @@ import type {
 import { ApiConfigService } from '@/shared/services';
 
 import type { AuditContext } from '../order-log/order-log.service';
+import { OnospodFactorySyncService } from '../product-config/onospod-factory-sync.service';
 import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
 import type { OnospodQcConfig } from './onospod-qc.client';
@@ -547,6 +548,7 @@ export class OnospodImportService {
     private readonly orderService: OrderService,
     private readonly onospodOrderLookupService: OnospodOrderLookupService,
     private readonly onospodHoldSyncService: OnospodHoldSyncService,
+    private readonly onospodFactorySyncService: OnospodFactorySyncService,
   ) {}
 
   /**
@@ -642,6 +644,11 @@ export class OnospodImportService {
         'OnosPod QC chưa được cấu hình (thiếu ONOSPOD_QC_API_URL / ONOSPOD_QC_BEARER_TOKEN)',
       );
     }
+
+    // Đồng bộ xưởng sản phẩm theo app TRƯỚC khi nhập đơn, để đơn của lượt này
+    // đã vào xưởng mới (Products.md §2.7a). Tự giãn 15 phút, tắt theo env,
+    // không bao giờ ném.
+    await this.onospodFactorySyncService.runIfDue();
 
     const { start, end } = this.resolvePeriod(dto);
 

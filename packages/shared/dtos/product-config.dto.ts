@@ -577,6 +577,100 @@ export const ImportFromOnospodResZod = ResZod.extend({
 });
 export class ImportFromOnospodResDto extends createZodDto(extendApi(ImportFromOnospodResZod)) {}
 
+// ─── Đồng bộ XƯỞNG sản phẩm theo app OnosPod (Products.md §2.7a) ───
+
+/**
+ * Chạy tay 1 lượt. Mặc định CHỈ xem trước (trả `planToken`). Muốn ghi: gửi
+ * `dryRun:false` + `planToken` của lần xem trước (≤30 phút, env phải là `on`).
+ * Kế hoạch > 30 dòng phải gửi thêm `force:true` (trần chạy tay).
+ */
+export const SyncOnospodFactoryZod = z.object({
+  dryRun: z.boolean().default(true),
+  planToken: z.string().optional(),
+  force: z.boolean().optional(),
+});
+export class SyncOnospodFactoryDto extends createZodDto(extendApi(SyncOnospodFactoryZod)) {}
+
+export const OnospodFactorySyncChangeZod = z.object({
+  productConfigId: z.string(),
+  fullName: z.string(),
+  fromFactoryId: z.string().optional(),
+  /** shortName xưởng cũ — trống = sản phẩm đang chưa có xưởng. */
+  fromFactory: z.string().optional(),
+  toFactoryId: z.string(),
+  toFactory: z.string(),
+  appProducts: z.string().array(),
+  manufacture: z.string(),
+  /**
+   * Xưởng đích là xưởng ngoài luồng sản xuất (US — `excluded-factory.ts`): đơn
+   * nhập sau đó KHÔNG vào soát tool / auto-gán designer / fulfillment / thống kê.
+   */
+  outOfProduction: z.boolean().optional(),
+  /** Chỉ có sau lượt ghi. `skipped` = điều kiện ghi không khớp — nguyên nhân ở `skipReason`. */
+  outcome: z.enum(['applied', 'skipped', 'failed']).optional(),
+  /**
+   * `changed` = xưởng vừa bị đổi tay sang xưởng khác · `already-target` = đã đúng
+   * xưởng đích sẵn · `missing` = config không còn (bị xoá).
+   */
+  skipReason: z.enum(['changed', 'already-target', 'missing']).optional(),
+  error: z.string().optional(),
+});
+export type OnospodFactorySyncChange = z.infer<typeof OnospodFactorySyncChangeZod>;
+
+export const OnospodFactorySyncSkipZod = z.object({
+  reason: z.enum([
+    'no-manufacture',
+    'unmapped-manufacture',
+    'factory-missing',
+    'not-on-fac',
+    'fac-only-factory',
+    'conflict',
+    'ambiguous',
+  ]),
+  appProduct: z.string().optional(),
+  productConfigId: z.string().optional(),
+  fullName: z.string().optional(),
+  detail: z.string().optional(),
+});
+
+export const OnospodFactorySyncResultZod = z.object({
+  /**
+   * `aborted` = không ghi gì (lỗi gọi OnosPod / dữ liệu bất thường / vượt trần).
+   * `partial` = đã ghi một phần, có dòng lỗi — xem `changes[].outcome`.
+   */
+  status: z.enum(['ok', 'partial', 'aborted']),
+  reason: z.string().optional(),
+  dryRun: z.boolean(),
+  trigger: z.enum(['auto', 'manual']),
+  ranAt: z.string(),
+  appProducts: z.number(),
+  unchanged: z.number(),
+  /** Kế hoạch đổi xưởng — `dryRun` thì chưa ghi. */
+  changes: OnospodFactorySyncChangeZod.array(),
+  /** Trong `changes`: số config ĐỔI từ xưởng này sang xưởng khác. */
+  reassigned: z.number(),
+  /** Trong `changes`: số config đang TRỐNG xưởng được điền lần đầu (việc của cột "Chưa xác định xưởng"). */
+  firstAssigned: z.number(),
+  /** Số dòng thực sự ghi. */
+  applied: z.number(),
+  /** Không ghi vì điều kiện ghi không khớp (đổi tay / đã đúng sẵn / config mất) — xem `changes[].skipReason`. */
+  applySkipped: z.number(),
+  /** Ghi lỗi (DB). */
+  failed: z.number(),
+  /** Chỉ có ở lần xem trước chạy tay — gửi lại kèm `dryRun:false` để áp dụng đúng kế hoạch này. */
+  planToken: z.string().optional(),
+  skipped: OnospodFactorySyncSkipZod.array(),
+});
+export type OnospodFactorySyncResult = z.infer<typeof OnospodFactorySyncResultZod>;
+
+export const SyncOnospodFactoryResZod = ResZod.extend({ data: OnospodFactorySyncResultZod });
+export class SyncOnospodFactoryResDto extends createZodDto(extendApi(SyncOnospodFactoryResZod)) {}
+
+export const GetOnospodFactorySyncLastRunResZod = ResZod.extend({
+  data: OnospodFactorySyncResultZod.nullable(),
+});
+export class GetOnospodFactorySyncLastRunResDto extends createZodDto(extendApi(GetOnospodFactorySyncLastRunResZod)) {}
+
 // ─── Kanban Settings — sync sản phẩm chưa có config từ đơn gần đây ───
 
 /** Quét đơn `days` ngày gần nhất (mặc định 14) tìm `type` chưa có trong Product Config. */
