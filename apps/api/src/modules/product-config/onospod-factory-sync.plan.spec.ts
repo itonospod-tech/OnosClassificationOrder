@@ -158,6 +158,46 @@ describe('planOnospodFactorySync', () => {
     ]);
   });
 
+  it('bản "VD" có xưởng NGOÀI bảng quy đổi → xung đột, bản chính không tự quyết xưởng', () => {
+    const r = plan(
+      [
+        app({ name: 'Raglan Ver 1', sku: 'R-V1', manufactureId: 'm-tn' }),
+        app({ name: 'VD Raglan Ver 1', sku: 'R-CLONE-V1', variationSkus: ['V1-S'], manufactureId: 'm-grab' }),
+      ],
+      [fac({ fullName: 'Raglan Ver 1', sku: 'R-V1', variationSkus: ['V1-S'], factoryId: 'f-ml' })],
+      'ML=ML,TN=TN',
+    );
+    expect(r.changes).toEqual([]);
+    expect(r.skipped).toEqual([
+      expect.objectContaining({ reason: 'unmapped-manufacture', appProduct: 'VD Raglan Ver 1 (R-CLONE-V1)' }),
+      expect.objectContaining({
+        reason: 'conflict',
+        productConfigId: 'c-Raglan Ver 1',
+        detail: 'Raglan Ver 1 (R-V1): Thái Nguyên · VD Raglan Ver 1 (R-CLONE-V1): Grabink chưa có trong bảng quy đổi',
+      }),
+    ]);
+  });
+
+  it('bản "VD" có xưởng quy đổi được nhưng fac KHÔNG có xưởng đó → xung đột, không đổi', () => {
+    const r = plan(
+      [
+        app({ name: 'Raglan Ver 1', sku: 'R-V1', manufactureId: 'm-tn' }),
+        app({ name: 'VD Raglan Ver 1', sku: 'R-CLONE-V1', variationSkus: ['V1-S'], manufactureId: 'm-decor' }),
+      ],
+      [fac({ fullName: 'Raglan Ver 1', sku: 'R-V1', variationSkus: ['V1-S'], factoryId: 'f-ml' })],
+      'ML=ML,TN=TN,TN-DECOR=GONE',
+    );
+    expect(r.changes).toEqual([]);
+    expect(r.skipped).toEqual([
+      expect.objectContaining({ reason: 'factory-missing', appProduct: 'VD Raglan Ver 1 (R-CLONE-V1)' }),
+      expect.objectContaining({
+        reason: 'conflict',
+        productConfigId: 'c-Raglan Ver 1',
+        detail: 'Raglan Ver 1 (R-V1): Thái Nguyên · VD Raglan Ver 1 (R-CLONE-V1): Thái Nguyên Decor → GONE không có trên fac',
+      }),
+    ]);
+  });
+
   it('SKU trỏ config A nhưng tên trỏ đúng 1 config B khác → ambiguous, không âm thầm lấy bản SKU', () => {
     const r = plan(
       [app({ name: 'Kids Hoodie', sku: 'HDKID', manufactureId: 'm-tn' })],
