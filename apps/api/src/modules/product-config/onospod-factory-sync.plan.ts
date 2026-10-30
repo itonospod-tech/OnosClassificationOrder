@@ -198,15 +198,20 @@ export function planOnospodFactorySync(input: {
     string,
     { fac: FactorySyncFacProduct; wants: { factory: FactorySyncFactory; app: string; manufacture: string }[] }
   >();
-  // configId → sản phẩm app khớp config đó nhưng CHƯA gán xưởng (để bắt "bản chính trống, bản VD có").
-  const unassigned = new Map<string, string[]>();
+  // configId → sản phẩm app khớp config đó nhưng KHÔNG quy ra được xưởng (chưa gán / xưởng ngoài
+  // bảng quy đổi / xưởng không có trên fac). Có mặt ở đây là config thành xung đột — bản còn lại
+  // (vd bản "VD") không được tự quyết xưởng thay.
+  const unresolved = new Map<string, string[]>();
+  const markUnresolved = (a: FactorySyncAppProduct, why: string) => {
+    const m = findFac(a);
+    if (m && 'match' in m) unresolved.set(m.match._id, [...(unresolved.get(m.match._id) ?? []), `${appLabel(a)}: ${why}`]);
+  };
 
   for (const a of appProducts) {
     const label = appLabel(a);
     if (!a.manufactureId) {
       skipped.push({ reason: 'no-manufacture', appProduct: label });
-      const m = findFac(a);
-      if (m && 'match' in m) unassigned.set(m.match._id, [...(unassigned.get(m.match._id) ?? []), label]);
+      markUnresolved(a, 'app chưa gán xưởng');
       continue;
     }
     const manu = manufactureById.get(a.manufactureId);
@@ -214,11 +219,13 @@ export function planOnospodFactorySync(input: {
     const shortName = manu ? factoryMap.get(norm(manu.sku)) : undefined;
     if (!shortName) {
       skipped.push({ reason: 'unmapped-manufacture', appProduct: label, detail: manuName });
+      markUnresolved(a, `${manuName} chưa có trong bảng quy đổi`);
       continue;
     }
     const factory = factoryByShort.get(shortName);
     if (!factory) {
       skipped.push({ reason: 'factory-missing', appProduct: label, detail: `${manuName} → ${shortName}` });
+      markUnresolved(a, `${manuName} → ${shortName} không có trên fac`);
       continue;
     }
     const m = findFac(a);
@@ -240,13 +247,13 @@ export function planOnospodFactorySync(input: {
   let unchanged = 0;
   for (const { fac, wants } of targets.values()) {
     const distinct = new Set(wants.map((w) => w.factory._id));
-    const blank = unassigned.get(fac._id) ?? [];
-    if (distinct.size > 1 || blank.length > 0) {
+    const blocked = unresolved.get(fac._id) ?? [];
+    if (distinct.size > 1 || blocked.length > 0) {
       skipped.push({
         reason: 'conflict',
         productConfigId: fac._id,
         fullName: fac.fullName,
-        detail: [...wants.map((w) => `${w.app}: ${w.manufacture}`), ...blank.map((b) => `${b}: app chưa gán xưởng`)].join(' · '),
+        detail: [...wants.map((w) => `${w.app}: ${w.manufacture}`), ...blocked].join(' · '),
       });
       continue;
     }
