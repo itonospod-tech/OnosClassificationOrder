@@ -15,6 +15,9 @@ import type { AuditContext } from '../order-log/order-log.service';
 import { OnospodFactorySyncService } from '../product-config/onospod-factory-sync.service';
 import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
+import type { ResyncAppItem } from './onospod-order-resync.plan';
+import { ONOSPOD_ORDER_RESYNC_WINDOW_DAYS } from './onospod-order-resync.plan';
+import { OnospodOrderResyncService } from './onospod-order-resync.service';
 import type { OnospodQcConfig } from './onospod-qc.client';
 import { fetchMrpProductPage } from './onospod-qc.client';
 import { buildShippingWrites, orderIdsToLookUp } from './onospod-shipping-backfill.plan';
@@ -488,6 +491,25 @@ export function mapItemToRow(
   };
 }
 
+/**
+ * Item MRP → dữ liệu so sánh cho đồng bộ đơn theo app (Orders.md §9e). Dùng
+ * CHUNG `mapItemToRow()` để type/size/giá/design khớp đúng cách lượt import
+ * ghi, cộng thêm mã manufacture + SKU biến thể (`meta_data` "Sku") cho báo cáo.
+ */
+export function toResyncItem(item: MrpProductItem): ResyncAppItem {
+  const row = mapItemToRow(item);
+  const sku = (item.print?.meta_data || []).find((m) => m?.key?.toLowerCase() === 'sku')?.value || undefined;
+  return {
+    productionId: row.productionId,
+    manufactureSku: item.manufacture?.sku || undefined,
+    type: row.type,
+    size: row.size,
+    sku,
+    baseCost: row.baseCost,
+    designs: row.designs,
+  };
+}
+
 // Vùng in custom thêu (embroidery): match "front"/"back" trên key hoặc name
 // (lowercase, defensive — key thực tế có thể là "front_embroidery"/"Front
 // Embroidery"...). Không match → undefined, vô hại.
@@ -549,6 +571,7 @@ export class OnospodImportService {
     private readonly onospodOrderLookupService: OnospodOrderLookupService,
     private readonly onospodHoldSyncService: OnospodHoldSyncService,
     private readonly onospodFactorySyncService: OnospodFactorySyncService,
+    private readonly onospodOrderResyncService: OnospodOrderResyncService,
   ) {}
 
   /**
@@ -666,6 +689,7 @@ export class OnospodImportService {
     const allItems = itemsByStatus.flat();
 
     if (allItems.length === 0) {
+      await this.runOrderResync(config, ctx);
       // Không có đơn "To Do"/"Ready" mới trong khoảng này — trạng thái BÌNH
       // THƯỜNG (sáng vắng, ngày lễ), đặc biệt với đường cron tự động. Trả
       // success với số 0 thay vì 400 để cron monitoring không báo động giả.
@@ -721,6 +745,7 @@ export class OnospodImportService {
     }
 
     const importResult = await this.orderService.importOrders({ rows }, ctx);
+    await this.runOrderResync(config, ctx);
 
     return {
       success: true,
@@ -860,6 +885,27 @@ export class OnospodImportService {
 
     setTotalPages(result.paginate.total_pages || 1);
     return result.items;
+  }
+
+  /**
+   * Đồng bộ lại đơn đang mở theo app (Orders.md §9e) — chạy SAU khi import xong
+   * để không so với dữ liệu cũ của chính lượt này. Quét To Do + Ready trong
+   * `ONOSPOD_ORDER_RESYNC_WINDOW_DAYS` ngày (tuần tự, nhẹ tay với OnosPod); service
+   * tự lọc manufacture + tự giãn 20 phút + tắt theo env. Không bao giờ ném, và
+   * không thêm gì vào response import (kết quả xem ở `system_configs` + Telegram).
+   */
+  private async runOrderResync(config: OnospodQcConfig, ctx?: AuditContext): Promise<void> {
+    try {
+      await this.onospodOrderResyncService.runIfDue(async () => {
+        const end = new Date();
+        const start = new Date(end.getTime() - ONOSPOD_ORDER_RESYNC_WINDOW_DAYS * 24 * 3600 * 1000);
+        const items: MrpProductItem[] = [];
+        for (const status of MRP_STATUSES) items.push(...(await this.fetchAllPages(config, status, start, end)));
+        return items.filter((i) => i.increment_id).map(toResyncItem);
+      }, ctx);
+    } catch (err) {
+      console.warn('[onospod-order-resync] chạy sau import thất bại:', err instanceof Error ? err.message : err);
+    }
   }
 
   /**

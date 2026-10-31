@@ -1053,6 +1053,55 @@ crontab ngoài, ví dụ:
 
 ---
 
+## 9e. Đồng bộ đơn đang mở theo app OnosPod (design + size)
+
+Lượt import (§3.6) chỉ kéo đơn trong khoảng ngày vào sản xuất. Qua ngày đó mà app đổi design hoặc **map lại SKU** (đổi size) thì fac không biết: design chỉ cập nhật khi có người bấm "Kiểm tra design mới" (§9c.5), còn size thì không có đường nào. Ca gốc 29/10/2026: 2 đơn decor Wooden Ornament Garland đổi design + `5 in` → `4 in` phải sửa tay. Bước này lấp chỗ hở đó.
+
+### 9e.1 Files
+| File | Vai trò |
+|---|---|
+| `apps/api/src/modules/order/onospod-order-resync.plan.ts` (+ `.spec.ts`) | Hàm thuần `planOnospodOrderResync()` — mọi luật quyết định + `formatResyncReport()` (tin Telegram) |
+| `apps/api/src/modules/order/onospod-order-resync.service.ts` | Đọc đơn fac → lập kế hoạch → ghi có điều kiện (chế độ `on`) → lưu `system_configs` + Telegram |
+| `apps/api/src/modules/order/onospod-import.service.ts` | `toResyncItem()` (dùng CHUNG `mapItemToRow()`) + `runOrderResync()` gọi cuối mỗi lượt import |
+| `apps/api/src/modules/order/order.service.ts` | `resyncDesignFromOnospod()` — bọc `applyDesignFromOnospod()` (§9c.3), KHÔNG `forceUnhold` |
+
+### 9e.2 Bật / tắt (env, đọc mỗi lượt)
+| Biến | Giá trị |
+|---|---|
+| `ONOSPOD_ORDER_RESYNC_MODE` | `off` (mặc định, không làm gì) · `dry-run` (lập kế hoạch + lưu + báo Telegram, KHÔNG ghi) · `on` (ghi thật) |
+| `ONOSPOD_ORDER_RESYNC_MANUFACTURES` | Mã manufacture bên app, phân cách dấu phẩy. Trống = `TN-DECOR` (decor) |
+
+### 9e.3 Luật (hàm thuần)
+Quét item **To Do + Ready** có `mrp_created_at` trong **14 ngày** (`ONOSPOD_ORDER_RESYNC_WINDOW_DAYS`), lọc theo manufacture, gộp trùng `productionId`, so với đơn fac cùng `productionId`:
+
+| Tình huống | Xử lý |
+|---|---|
+| Fac chưa có đơn | Đếm `notFound`, không làm gì |
+| Đơn hủy / đã xong fulfillment | Bỏ qua |
+| `type` khác (đổi hẳn sản phẩm) | **Chỉ báo** `product-changed` — kéo theo xưởng/cấu hình/designer, xử lý tay |
+| Design khác, chưa vào In, không giữ | **Cập nhật** qua `resyncDesignFromOnospod()`: ghi design + xoá `toolResult`/`toolResultNote` (đơn soát tool lại) + log `update_design` — y nút "Kiểm tra design mới" |
+| Design khác, **đã vào In** / **đang giữ** | **Chỉ báo** `design-after-print` / `design-held` |
+| Size khác, chưa vào In | **Cập nhật** `size` + `baseCost` theo app (giống lượt import vẫn ghi; app không có giá → giữ giá cũ) + log `update` field `size` |
+| Size khác, đã vào In | **Chỉ báo** `size-after-print` |
+
+- "Đã vào In" = `fulfillmentStages.print` có `firstStartedAt`/`startedAt`/`completedAt`.
+- So design theo đúng cách §9c.3: baseline `designsOriginal ?? designs`, chỉ xét vị trí app trả về. So size/type bỏ qua hoa thường + khoảng trắng.
+- **An toàn:** số ĐƠN cần ghi > 30 (`ONOSPOD_ORDER_RESYNC_MAX_WRITES`) → `aborted`, không ghi gì, báo Telegram.
+- Ghi size **có điều kiện** (`size` còn như lúc lập kế hoạch, chưa hủy/xong, chưa vào In) — lệch thì bỏ, không log. Design đọc lại đơn ngay trước khi ghi, đang giữ/đã hủy thì bỏ.
+
+### 9e.4 Kích hoạt + kết quả
+- Chạy **cuối mỗi lượt `importFromOnosPod`** (cron ngoài 30 phút/lần + nút), tối đa 1 lượt / 20 phút, không bao giờ ném (lỗi chỉ log; lỗi gọi app thì lượt import sau thử lại ngay). Không thêm gì vào response import.
+- Kết quả lượt gần nhất: `system_configs` key `onospod_order_resync_last_run` (`status`, `mode`, `designUpdates`, `sizeUpdates`, `notices`, `appliedDesign`, `appliedSize`…).
+- Telegram (cùng kênh/cơ chế chống gửi trùng của §9d `alert()`): mỗi lượt có việc → 1 tin liệt kê "SẼ cập nhật" (dry-run) / "Đã cập nhật" (on) + "Cần người xử lý".
+- Log đơn mang userAgent `onospod-order-resync`.
+
+### 9e.5 Giới hạn
+- Chỉ item app đang **To Do/Ready**; đơn app đã sang In Print/In Sewing… không được quét (đơn đó thường đã vào In bên fac — vốn chỉ báo).
+- Không tạo biến thể mới: size mới chưa có trong `variations` của sản phẩm vẫn được ghi vào đơn (như import), giá theo app.
+- Không phản chiếu ngược: sửa ở fac KHÔNG đẩy sang app.
+
+---
+
 ## 10. Danh sách đơn (Phase 4)
 
 ### 10.1 Router quyết định bảng nào

@@ -6190,6 +6190,20 @@ export class OrderService implements OnModuleInit {
   }
 
   /**
+   * Đồng bộ đơn theo app (`OnospodOrderResyncService`, Orders.md §9e) — CÙNG
+   * logic nút "Kiểm tra design mới" (ghi design + xoá kết quả soát tool + log
+   * `update_design`) nhưng KHÔNG `forceUnhold` và bỏ qua đơn đang giữ / đã hủy
+   * (đọc lại ngay trước khi ghi). Trả `true` khi design thật sự đổi.
+   */
+  async resyncDesignFromOnospod(id: string, ctx?: AuditContext): Promise<boolean> {
+    const order = await this.orderModel.findById(id).lean();
+    if (!order || order.cancelledAt || order.heldAt) return false;
+    const res = await this.applyDesignFromOnospod(order, ctx);
+    if (res.updated) void this.invalidateListCache();
+    return res.updated;
+  }
+
+  /**
    * Nút thủ công "Đồng bộ design theo mã khách hàng" — truyền `userSku`, tìm
    * TOÀN BỘ đơn của khách (kể cả đơn đã hủy → skip, không kiểm tra), tra lại
    * OnosPod cho từng đơn qua `applyDesignFromOnospod({skipSideEffects: true})`
