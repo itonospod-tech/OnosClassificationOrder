@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, useOutlet } from 'react-router-dom';
+import { Navigate, useLocation, useOutlet } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+
+import { PATHS } from '@/constants/paths';
 
 import { useAuthStore } from '@/store/authStore';
 
@@ -23,6 +25,7 @@ function MainLayout() {
   const isMobile = useIsMobile();
   const setProfile = useAuthStore((s) => s.setProfile);
   const roleName = useAuthStore((s) => s.profile?.role?.name);
+  const mustChangePassword = useAuthStore((s) => !!s.profile?.forcePassChange);
   const showTabBar = isMobile && !!roleName && TAB_BAR_ROLES.includes(roleName);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -46,6 +49,10 @@ function MainLayout() {
       cancelled = true;
     };
   }, [setProfile]);
+
+  // Tài khoản bị bắt đổi mật khẩu → KHÔNG dựng Sidebar/banner/trang (chúng gọi API
+  // ngoài `PathAccess`, BE trả 405) mà chuyển sang trang đổi mật khẩu riêng.
+  if (mustChangePassword) return <Navigate to={PATHS.CHANGE_PASSWORD} replace />;
 
   return (
     // Khung CỐ ĐỊNH (07/09/2026): root cao đúng màn hình và không cuộn — sidebar +

@@ -42,6 +42,9 @@ export const PATHS = {
   SETTINGS: '/adm/settings',
   SETTINGS_SECTION: '/adm/settings/:section',
   ACCOUNT: '/adm/account',
+  // Trang BẮT BUỘC đổi mật khẩu (`forcePassChange`) — cố ý NGOÀI `/adm` + `MainLayout`
+  // để không mount Sidebar/banner (gọi API bị 405 → vòng tải lại). Auth.md §6.1.
+  CHANGE_PASSWORD: '/change-password',
   PRODUCTS: '/adm/products',
   PRODUCT_DETAIL: '/adm/products/:id',
   PROMOTIONS: '/adm/promotions',
