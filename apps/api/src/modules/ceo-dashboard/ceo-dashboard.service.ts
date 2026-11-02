@@ -11,6 +11,7 @@ import { workshopStageSwitchExpr } from '@/utils/workshop-stage';
 import { OrderDocument, OrderEntity } from '../order/order.entity';
 import { SLA_TARGETS } from '../scheduled-reports/build-period';
 import { UserEntity } from '../user/user.entity';
+import { summarizeCustomerHealth } from './ceo-customers';
 
 const TZ = 'Asia/Ho_Chi_Minh';
 const DAY_MS = 86_400_000;
@@ -144,6 +145,8 @@ export class CeoDashboardService {
         revenue: { $sum: { $ifNull: ['$baseCost', 0] } },
         held: { $sum: { $cond: [{ $ne: [{ $ifNull: ['$heldAt', null] }, null] }, 1, 0] } },
         errored: { $sum: { $cond: [erroredCond, 1, 0] } },
+        mature: factoryGroup.$group.mature,
+        matureN2: factoryGroup.$group.matureN2,
       },
     };
     const overdueCutoff = new Date(vnDayStart(toVnDay(now)).getTime() - 2 * DAY_MS); // vào SX trước hôm-nay−2 (N3+)
@@ -352,9 +355,21 @@ export class CeoDashboardService {
       if (cur0 === undefined || (t.tier ?? -1) > (cur0 ?? -1)) tierBySku.set(t.userSku, t.tier ?? null);
     }
     const prevBySku = new Map(custPrev.map((r) => [String(r._id), num(r.n)]));
-    const custRows = custCur.map((r) => ({ userSku: String(r._id), orders: num(r.n), prevOrders: prevBySku.get(String(r._id)) || 0, revenue: round(num(r.revenue), 2), tier: tierBySku.get(String(r._id)) ?? null, held: num(r.held), errored: num(r.errored) }));
+    const custRows = custCur.map((r) => ({
+      userSku: String(r._id),
+      orders: num(r.n),
+      prevOrders: prevBySku.get(String(r._id)) || 0,
+      revenue: round(num(r.revenue), 2),
+      tier: tierBySku.get(String(r._id)) ?? null,
+      held: num(r.held),
+      errored: num(r.errored),
+      errorPct: pct(num(r.errored), num(r.n)),
+      n2Pct: pct(num(r.matureN2), num(r.mature)),
+      mature: num(r.mature),
+    }));
     const totalCur = num(c.n);
-    const top = custRows.slice(0, TOP_CUSTOMERS);
+    const top = custRows.slice(0, TOP_CUSTOMERS).map(({ mature: _m, ...r }) => r);
+    const { retention, service } = summarizeCustomerHealth(custRows, prevBySku);
     const rising = custRows.filter((r) => r.prevOrders >= 3 && r.orders >= r.prevOrders * 1.5).sort((a, b) => b.orders - b.prevOrders - (a.orders - a.prevOrders)).slice(0, 5).map(({ userSku, orders, prevOrders }) => ({ userSku, orders, prevOrders }));
     const curSkus = new Set(custRows.map((r) => r.userSku));
     const dropping = [...prevBySku.entries()]
@@ -449,6 +464,8 @@ export class CeoDashboardService {
         top,
         rising,
         dropping,
+        retention,
+        service,
       },
       capacity: {
         backlog: backlogNow,
@@ -524,6 +541,10 @@ export class CeoDashboardService {
       else if (rDelta !== null && rDelta <= -1) f.push({ code: 'error_rate_down', severity: 'good', params: { pct: o.quality.ratePct, delta: Math.abs(rDelta) } });
     }
     if (longEnough && o.customers.dropping.length) f.push({ code: 'customers_dropping', severity: 'warning', params: { n: o.customers.dropping.length, list: o.customers.dropping.slice(0, 3).map((x) => `${x.userSku} ${x.prevOrders}→${x.orders}`).join(', ') }, action: 'act_contact_customers' });
+    const churned = o.customers.retention.churned;
+    if (longEnough && churned.length) f.push({ code: 'customers_churned', severity: 'warning', params: { n: churned.length, pct: o.customers.retention.pct ?? 0, list: churned.slice(0, 3).map((x) => `${x.userSku} ${x.prevOrders}→0`).join(', ') }, action: 'act_contact_customers' });
+    const svc = o.customers.service;
+    if (longEnough && svc.okPct !== null && svc.rated >= 5 && svc.okPct < 80 && svc.atRisk.length) f.push({ code: 'service_below', severity: 'warning', params: { pct: svc.okPct, list: svc.atRisk.slice(0, 3).map((x) => x.userSku).join(', ') }, action: 'act_service_followup' });
     if (longEnough && o.customers.rising.length) f.push({ code: 'customers_rising', severity: 'good', params: { n: o.customers.rising.length, list: o.customers.rising.slice(0, 3).map((x) => `${x.userSku} ${x.prevOrders}→${x.orders}`).join(', ') } });
     const vipIssue = o.customers.top.filter((x) => (x.tier ?? 0) >= 3 && x.held + x.errored > 0);
     if (vipIssue.length) f.push({ code: 'vip_issues', severity: 'warning', params: { list: vipIssue.slice(0, 3).map((x) => `${x.userSku} (${x.held} giữ/${x.errored} lỗi)`).join(', ') }, action: 'act_vip_followup' });

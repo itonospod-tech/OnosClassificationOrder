@@ -99,7 +99,9 @@
     "weekend_day": "Ngày {{day}} là {{weekday}} — đơn vào/ra thấp theo nhịp tuần, không phải sụt giảm.",
     "sla_pending": "Chưa có lô đơn đủ tuổi để đánh giá đúng hẹn (lô vào {{cohort}} chưa qua 2 ngày).",
     "output_down_day": "Đơn ra {{out}} thấp hơn hôm qua ({{prev}}) và thấp hơn trung bình 7 ngày ({{avg7}}) {{pctAvg}}% — không phải nhịp tuần.",
-    "output_up_day": "Đơn ra {{out}} cao hơn hôm qua ({{prev}}) và vượt trung bình 7 ngày ({{avg7}}) {{pctAvg}}%."
+    "output_up_day": "Đơn ra {{out}} cao hơn hôm qua ({{prev}}) và vượt trung bình 7 ngày ({{avg7}}) {{pctAvg}}%.",
+    "customers_churned": "{{n}} khách cũ không đặt đơn kỳ này (giữ chân {{pct}}%): {{list}}.",
+    "service_below": "Chỉ {{pct}}% khách được phục vụ tốt (lỗi thấp + ra đúng hẹn N2); chưa đạt: {{list}}."
   },
   "actions": {
     "act_unblock_stage": "Họp trưởng ca xưởng {{factory}} giải kẹt công đoạn ngay hôm nay",
@@ -110,7 +112,8 @@
     "act_review_factory": "Rà lỗi công đoạn với xưởng, đối chiếu danh mục lỗi",
     "act_contact_customers": "Sale liên hệ khách đang giảm đơn trong tuần này",
     "act_vip_followup": "Ưu tiên xử lý đơn giữ/lỗi của khách VIP",
-    "act_rebalance_design": "Chia lại việc thiết kế cho designer đang tồn cao"
+    "act_rebalance_design": "Chia lại việc thiết kế cho designer đang tồn cao",
+    "act_service_followup": "Rà đơn lỗi/trễ của các khách chưa đạt, báo sale xin lỗi + ưu tiên đơn tiếp"
   },
   "ops": {
     "title": "Vận hành theo ngày",
@@ -154,9 +157,19 @@
       "orders": "Đơn",
       "prev": "Kỳ trước",
       "revenue": "Giá trị",
-      "issues": "Giữ/lỗi"
+      "issues": "Giữ/lỗi",
+      "errorPct": "Lỗi",
+      "n2Pct": "N2"
     },
-    "vip": "VIP {{tier}}"
+    "vip": "VIP {{tier}}",
+    "retention": "Giữ chân khách cũ",
+    "retentionHint": "{{retained}}/{{prev}} khách kỳ trước còn đặt kỳ này",
+    "churned": "Rời bỏ",
+    "service": "Phục vụ tốt",
+    "serviceHint": "{{ok}}/{{rated}} khách (≥{{min}} đơn đủ tuổi) có lỗi < {{err}}% và đúng hẹn N2 ≥ {{n2}}% — số tạm thay cho mức độ hài lòng",
+    "atRisk": "Chưa đạt",
+    "atRiskItem": "{{sku}} (lỗi {{err}} · N2 {{n2}})",
+    "proxyNote": "Giữ chân và Phục vụ tốt là số thay thế từ dữ liệu đơn — chưa có ghi nhận chăm sóc / điểm hài lòng thật."
   },
   "capacity": {
     "title": "Năng lực",
@@ -176,7 +189,8 @@
     },
     "days": "{{n}} ngày",
     "na": "—",
-    "stale": "{{n}} đơn treo quá {{days}} ngày chưa đóng trên hệ thống — không tính vào tồn/quá hạn (nợ dữ liệu, cần dọn)"
+    "stale": "{{n}} đơn treo quá {{days}} ngày chưa đóng trên hệ thống — không tính vào tồn/quá hạn (nợ dữ liệu, cần dọn)",
+    "staleReview": "Rà soát & dọn"
   },
   "people": {
     "title": "Nhân sự",
