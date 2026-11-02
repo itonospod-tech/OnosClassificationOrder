@@ -134,10 +134,48 @@ export const CeoOverviewZod = z.object({
         tier: z.number().nullable(),
         held: z.number(),
         errored: z.number(),
+        /** % đơn kỳ này có lỗi xưởng. */
+        errorPct: z.number().nullable(),
+        /** % đơn đủ tuổi (≥2 ngày) đã ra trong N2. null khi chưa có đơn đủ tuổi. */
+        n2Pct: z.number().nullable(),
       }),
     ),
     rising: z.array(z.object({ userSku: z.string(), orders: z.number(), prevOrders: z.number() })),
     dropping: z.array(z.object({ userSku: z.string(), orders: z.number(), prevOrders: z.number() })),
+    /**
+     * Giữ chân khách cũ (mục "chăm sóc lại khách cũ" — số THAY THẾ: đo kết quả giữ khách,
+     * chưa đo việc sale có chăm sóc hay không). Khách cũ = có đơn kỳ trước; giữ được =
+     * kỳ này vẫn có đơn. `churned` = khách kỳ trước có ≥3 đơn, kỳ này 0 đơn.
+     */
+    retention: z.object({
+      retained: z.number(),
+      /** Mẫu số của `pct`: khách kỳ trước có `userSku` (khác `prevActive` — không tính đơn thiếu mã khách). */
+      base: z.number(),
+      pct: z.number().nullable(),
+      churned: z.array(z.object({ userSku: z.string(), prevOrders: z.number() })),
+    }),
+    /**
+     * Chất lượng phục vụ theo khách (mục "mức độ hài lòng" — số THAY THẾ cho tới khi có
+     * điểm hài lòng thật). Chỉ xét khách có ≥ `minMature` đơn đủ tuổi N2; "phục vụ tốt" =
+     * lỗi < `maxErrorPct`% VÀ đúng hẹn N2 ≥ `minN2Pct`%. `atRisk` = khách chưa đạt, nhiều đơn trước.
+     */
+    service: z.object({
+      rated: z.number(),
+      ok: z.number(),
+      okPct: z.number().nullable(),
+      minMature: z.number(),
+      maxErrorPct: z.number(),
+      minN2Pct: z.number(),
+      atRisk: z.array(
+        z.object({
+          userSku: z.string(),
+          orders: z.number(),
+          errorPct: z.number().nullable(),
+          n2Pct: z.number().nullable(),
+          held: z.number(),
+        }),
+      ),
+    }),
   }),
   capacity: z.object({
     /** Tồn HOẠT ĐỘNG: đơn chưa đóng hàng vào SX trong `staleDays` ngày gần đây. */

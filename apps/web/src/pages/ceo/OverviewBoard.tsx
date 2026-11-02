@@ -466,6 +466,49 @@ export function OverviewBoard() {
             {d.customers.rising.length > 0 && <span className="text-emerald-700">{t('customers.rising')}: {d.customers.rising.map((r) => `${r.userSku} ${r.prevOrders}→${r.orders}`).join(' · ')}</span>}
             {d.customers.dropping.length > 0 && <span className="text-rose-700">{t('customers.dropping')}: {d.customers.dropping.map((r) => `${r.userSku} ${r.prevOrders}→${r.orders}`).join(' · ')}</span>}
           </div>
+          <div className="mb-3 grid gap-3 text-xs sm:grid-cols-2">
+            <div className="rounded-md border p-2.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-medium">{t('customers.retention')}</span>
+                <b className="text-base tabular-nums">{d.customers.retention.pct != null ? `${d.customers.retention.pct}%` : '—'}</b>
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">{t('customers.retentionHint', { retained: d.customers.retention.retained, prev: d.customers.retention.base })}</div>
+              {d.customers.retention.churned.length > 0 && (
+                <div className="mt-1.5 text-rose-700">
+                  {t('customers.churned')}:{' '}
+                  {d.customers.retention.churned.map((r, i) => (
+                    <span key={r.userSku}>
+                      {i > 0 && ' · '}
+                      <button type="button" onClick={() => go({ wusersku: r.userSku })} className="hover:underline">{r.userSku} {r.prevOrders}→0</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="rounded-md border p-2.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-medium">{t('customers.service')}</span>
+                <b className="text-base tabular-nums">{d.customers.service.okPct != null ? `${d.customers.service.okPct}%` : '—'}</b>
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                {t('customers.serviceHint', { ok: d.customers.service.ok, rated: d.customers.service.rated, min: d.customers.service.minMature, err: d.customers.service.maxErrorPct, n2: d.customers.service.minN2Pct })}
+              </div>
+              {d.customers.service.atRisk.length > 0 && (
+                <div className="mt-1.5 text-amber-700">
+                  {t('customers.atRisk')}:{' '}
+                  {d.customers.service.atRisk.map((r, i) => (
+                    <span key={r.userSku}>
+                      {i > 0 && ' · '}
+                      <button type="button" onClick={() => go({ wusersku: r.userSku })} className="hover:underline">
+                        {t('customers.atRiskItem', { sku: r.userSku, err: r.errorPct != null ? `${r.errorPct}%` : '—', n2: r.n2Pct != null ? `${r.n2Pct}%` : '—' })}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground sm:col-span-2">{t('customers.proxyNote')}</p>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -474,6 +517,8 @@ export function OverviewBoard() {
                   <th className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">{t('customers.cols.orders')}</th>
                   <th className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">{t('customers.cols.prev')}</th>
                   <th className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">{t('customers.cols.revenue')}</th>
+                  <th className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">{t('customers.cols.errorPct')}</th>
+                  <th className="whitespace-nowrap py-1.5 pr-3 text-right font-medium">{t('customers.cols.n2Pct')}</th>
                   <th className="whitespace-nowrap py-1.5 text-right font-medium">{t('customers.cols.issues')}</th>
                 </tr>
               </thead>
@@ -487,6 +532,8 @@ export function OverviewBoard() {
                     <td className="py-1.5 pr-3 text-right tabular-nums"><b>{c.orders}</b> <Delta cur={c.orders} prev={c.prevOrders} /></td>
                     <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">{c.prevOrders}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{fmtMoney(c.revenue)}</td>
+                    <td className={cn('py-1.5 pr-3 text-right tabular-nums', (c.errorPct ?? 0) >= d.customers.service.maxErrorPct ? 'text-rose-600' : 'text-muted-foreground')}>{c.errorPct != null ? `${c.errorPct}%` : '—'}</td>
+                    <td className={cn('py-1.5 pr-3 text-right tabular-nums', c.n2Pct != null && c.n2Pct < d.customers.service.minN2Pct ? 'text-amber-700' : 'text-muted-foreground')}>{c.n2Pct != null ? `${c.n2Pct}%` : '—'}</td>
                     <td className="py-1.5 text-right tabular-nums">{c.held + c.errored > 0 ? <span className="text-rose-600">{c.held}/{c.errored}</span> : <span className="text-muted-foreground">—</span>}</td>
                   </tr>
                 ))}
