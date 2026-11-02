@@ -149,6 +149,8 @@ export const CeoOverviewZod = z.object({
      */
     retention: z.object({
       retained: z.number(),
+      /** Mẫu số của `pct`: khách kỳ trước có `userSku` (khác `prevActive` — không tính đơn thiếu mã khách). */
+      base: z.number(),
       pct: z.number().nullable(),
       churned: z.array(z.object({ userSku: z.string(), prevOrders: z.number() })),
     }),

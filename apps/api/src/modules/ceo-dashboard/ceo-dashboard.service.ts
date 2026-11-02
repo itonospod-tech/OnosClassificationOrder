@@ -373,7 +373,11 @@ export class CeoDashboardService {
     const rising = custRows.filter((r) => r.prevOrders >= 3 && r.orders >= r.prevOrders * 1.5).sort((a, b) => b.orders - b.prevOrders - (a.orders - a.prevOrders)).slice(0, 5).map(({ userSku, orders, prevOrders }) => ({ userSku, orders, prevOrders }));
     const curSkus = new Set(custRows.map((r) => r.userSku));
     const dropping = [...prevBySku.entries()]
-      .filter(([sku, n]) => n >= 5 && (custRows.find((r) => r.userSku === sku)?.orders || 0) <= n * 0.5)
+      .filter(([sku, n]) => {
+        // Về 0 đơn là "rời bỏ" (`retention.churned`) — không báo trùng ở đây.
+        const cur = custRows.find((r) => r.userSku === sku)?.orders || 0;
+        return n >= 5 && cur > 0 && cur <= n * 0.5;
+      })
       .map(([sku, n]) => ({ userSku: sku, orders: custRows.find((r) => r.userSku === sku)?.orders || 0, prevOrders: n }))
       .sort((a, b) => b.prevOrders - b.orders - (a.prevOrders - a.orders))
       .slice(0, 5);

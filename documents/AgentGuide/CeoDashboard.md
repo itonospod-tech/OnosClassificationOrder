@@ -60,8 +60,8 @@ Khác `ceo-report`: ảnh dựng được cho **bất kỳ** khoảng ngày vì 
 - `sla.overdue` = đơn còn mở, vào SX từ 3 ngày trước, **trong 45 ngày** — đơn mở cũ hơn là `capacity.staleOpen` (nợ dữ liệu), không phải quá hạn.
 - `quality.ratePct` = % đơn trong kỳ có lỗi xưởng; `bySource`: designer / factory / tool-check.
 - `capacity.backlog` = đơn chưa đóng, vào SX trong 45 ngày; `byStage` theo 8 chặng; `history` tồn cuối ngày 30 ngày.
-- `customers.top` xếp theo đơn; `rising` (≥3 đơn kỳ trước, tăng ≥50%), `dropping` (≥5 đơn kỳ trước, giảm ≥50%); `tier` = hạng VIP; `errorPct`/`n2Pct` = % lỗi và % đúng hẹn N2 của riêng khách đó.
-- `customers.retention` — `pct` = % khách kỳ trước còn đặt kỳ này, `churned` = khách kỳ trước ≥3 đơn mà kỳ này 0 đơn. `customers.service` — `okPct` = % khách (đủ `minMature` đơn đủ tuổi) có lỗi < `maxErrorPct`% và N2 ≥ `minN2Pct`%; `atRisk` = khách chưa đạt. **Cả hai là số THAY THẾ** từ dữ liệu đơn: khi nói phải gọi là "tỷ lệ giữ chân khách cũ" và "chất lượng phục vụ theo khách" — KHÔNG gọi là "tỷ lệ chăm sóc" hay "mức độ hài lòng" (hệ thống chưa có dữ liệu đó).
+- `customers.top` xếp theo đơn; `rising` (≥3 đơn kỳ trước, tăng ≥50%), `dropping` (≥5 đơn kỳ trước, giảm ≥50%, kỳ này vẫn còn đơn — khách về 0 nằm ở `retention.churned`); `tier` = hạng VIP; `errorPct`/`n2Pct` = % lỗi và % đúng hẹn N2 của riêng khách đó.
+- `customers.retention` — `pct` = `retained`/`base` (% khách kỳ trước có mã khách còn đặt kỳ này), `churned` = khách kỳ trước ≥3 đơn mà kỳ này 0 đơn. `customers.service` — `okPct` = % khách (đủ `minMature` đơn đủ tuổi) có lỗi < `maxErrorPct`% và N2 ≥ `minN2Pct`%; `atRisk` = khách chưa đạt. **Cả hai là số THAY THẾ** từ dữ liệu đơn: khi nói phải gọi là "tỷ lệ giữ chân khách cũ" và "chất lượng phục vụ theo khách" — KHÔNG gọi là "tỷ lệ chăm sóc" hay "mức độ hài lòng" (hệ thống chưa có dữ liệu đó).
 
 ## Bảng mã `findings`
 

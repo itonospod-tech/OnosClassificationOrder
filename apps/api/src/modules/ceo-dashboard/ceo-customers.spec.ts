@@ -20,6 +20,7 @@ describe('summarizeCustomerHealth', () => {
     ]);
     const { retention } = summarizeCustomerHealth([row('A', 8), row('NEW', 3)], prev);
     expect(retention.retained).toBe(1);
+    expect(retention.base).toBe(3);
     expect(retention.pct).toBe(33.3);
     // C chỉ 2 đơn kỳ trước → dưới ngưỡng rời bỏ; '' không bao giờ vào danh sách.
     expect(retention.churned).toEqual([{ userSku: 'B', prevOrders: 4 }]);

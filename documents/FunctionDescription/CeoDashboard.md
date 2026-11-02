@@ -33,7 +33,7 @@ Chỉ SuperAdmin/Admin: sidebar khóa theo vai (`onlyForRoles`), route không g�
   sla: { targets, mature, within:{n,count,pct}[3], prevN2Pct, dailyN2, overdue:{ total, byFactory, sample[5] } },
   quality: { errored, ratePct, prevRatePct, bySource, topTypes },
   customers: { active, prevActive, newCount, top10SharePct, top[10] (+errorPct, n2Pct), rising[5], dropping[5],
-               retention: { retained, pct, churned[5] }, service: { rated, ok, okPct, minMature, maxErrorPct, minN2Pct, atRisk[5] } },
+               retention: { retained, base, pct, churned[5] }, service: { rated, ok, okPct, minMature, maxErrorPct, minN2Pct, atRisk[5] } },
   capacity: { backlog, prevBacklog, avgAgeDays, staleOpen, staleDays, byStage, history[30] },
   people: { designers[], workers[] },
   findings: { code, severity, params, action? }[]   // tối đa 8, sắp critical → info
@@ -57,7 +57,7 @@ Chỉ SuperAdmin/Admin: sidebar khóa theo vai (`onlyForRoles`), route không g�
 - Thêm 2 kết luận thông tin: `weekend_day` (kỳ 1 ngày rơi vào T7/CN — `period.weekday`), `sla_pending` (chưa có lô đủ tuổi).
 - Lời nhắc mô hình (`ceo-report.service.ts` → "QUY TẮC THEO KỲ") nêu cùng luật: báo cáo ngày không kết luận công suất/khách/giá trị từ dao động một ngày, việc cần làm tập trung vào quá hạn, tồn theo chặng, designer.
 
-**Kết luận theo luật (`buildFindings`)** — mã → câu i18n `ceoDashboard:findings.<code>`, việc → `actions.<action>`: `sla_n2_below`/`sla_n2_ok` (cần ≥10 đơn đủ tuổi), `overdue_orders`, `output_up/down` (|Δ|≥10%), `in_exceeds_out` (vào − ra > 25% vào), `backlog_rising` (≥15%), `factory_slow_clear` (xả hết ≥3 ngày), `error_rate_high` (≥5% hoặc +2 điểm) / `error_rate_down`, `customers_dropping` (kỳ trước ≥5, giảm ≥50%) / `customers_rising` (≥3, tăng ≥50%), `customers_churned` (khách kỳ trước ≥3 đơn, kỳ này 0 — việc `act_contact_customers`), `service_below` (% khách phục vụ tốt < 80%, cần ≥5 khách được chấm — việc `act_service_followup`), `vip_issues` (tier ≥3 có giữ/lỗi), `customer_concentration` (top10 ≥70%), `designer_overload` (tồn ≥30), `revenue_up/down` (|Δ|≥10%). Kỳ 1 ngày: `output_down_day`/`output_up_day` (xấu/tốt ở cả hai phía, ≥20% so TB 7 ngày), `weekend_day`, `sla_pending`. Đổi ngưỡng: sửa tại `buildFindings`, FE không cần đổi.
+**Kết luận theo luật (`buildFindings`)** — mã → câu i18n `ceoDashboard:findings.<code>`, việc → `actions.<action>`: `sla_n2_below`/`sla_n2_ok` (cần ≥10 đơn đủ tuổi), `overdue_orders`, `output_up/down` (|Δ|≥10%), `in_exceeds_out` (vào − ra > 25% vào), `backlog_rising` (≥15%), `factory_slow_clear` (xả hết ≥3 ngày), `error_rate_high` (≥5% hoặc +2 điểm) / `error_rate_down`, `customers_dropping` (kỳ trước ≥5, giảm ≥50%, kỳ này vẫn còn đơn — về 0 là `customers_churned`) / `customers_rising` (≥3, tăng ≥50%), `customers_churned` (khách kỳ trước ≥3 đơn, kỳ này 0 — việc `act_contact_customers`), `service_below` (% khách phục vụ tốt < 80%, cần ≥5 khách được chấm — việc `act_service_followup`), `vip_issues` (tier ≥3 có giữ/lỗi), `customer_concentration` (top10 ≥70%), `designer_overload` (tồn ≥30), `revenue_up/down` (|Δ|≥10%). Kỳ 1 ngày: `output_down_day`/`output_up_day` (xấu/tốt ở cả hai phía, ≥20% so TB 7 ngày), `weekend_day`, `sla_pending`. Đổi ngưỡng: sửa tại `buildFindings`, FE không cần đổi.
 
 ## 3b. Nhận định của hệ thống + Agent (07/09/2026)
 

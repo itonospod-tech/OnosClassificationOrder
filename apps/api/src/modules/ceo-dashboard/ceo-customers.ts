@@ -49,7 +49,7 @@ export function summarizeCustomerHealth(
     .map(({ userSku, orders, errorPct, n2Pct, held }) => ({ userSku, orders, errorPct, n2Pct, held }));
 
   return {
-    retention: { retained, pct: pct(retained, prevNamed.length), churned },
+    retention: { retained, base: prevNamed.length, pct: pct(retained, prevNamed.length), churned },
     service: {
       rated: rated.length,
       ok,

@@ -472,7 +472,7 @@ export function OverviewBoard() {
                 <span className="font-medium">{t('customers.retention')}</span>
                 <b className="text-base tabular-nums">{d.customers.retention.pct != null ? `${d.customers.retention.pct}%` : '—'}</b>
               </div>
-              <div className="mt-0.5 text-[11px] text-muted-foreground">{t('customers.retentionHint', { retained: d.customers.retention.retained, prev: d.customers.prevActive })}</div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">{t('customers.retentionHint', { retained: d.customers.retention.retained, prev: d.customers.retention.base })}</div>
               {d.customers.retention.churned.length > 0 && (
                 <div className="mt-1.5 text-rose-700">
                   {t('customers.churned')}:{' '}
