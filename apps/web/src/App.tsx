@@ -16,6 +16,7 @@ import { useAuthStore } from './store/authStore';
 import { useCustomerAuthStore } from './store/customerAuthStore';
 
 const CompanyCareers = lazy(() => import('./pages/company/careers'));
+const ChangePassword = lazy(() => import('./pages/change-password'));
 
 // Catalog công khai — cùng nhóm route public với landing/careers, KHÔNG qua PrivateRoute.
 const PublicCatalog = lazy(() => import('./pages/catalog'));
@@ -153,6 +154,15 @@ function App() {
         />
 
         <Route element={<PrivateRoute />}>
+          {/* Đổi mật khẩu bắt buộc — NGOÀI MainLayout (Auth.md §6.1). */}
+          <Route
+            path={PATHS.CHANGE_PASSWORD}
+            element={
+              <Suspense fallback={<Loading />}>
+                <ChangePassword />
+              </Suspense>
+            }
+          />
           <Route element={<MainLayout />}>
             {/* Bare `/adm` và `/ffm` — redirect legacy về trang mặc định của mỗi root router. */}
             <Route path="/adm" element={<Navigate to={PATHS.ACCOUNT} replace />} />

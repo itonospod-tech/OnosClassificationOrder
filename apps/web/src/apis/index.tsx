@@ -107,8 +107,14 @@ apiAxios.interceptors.response.use(
       useAuthStore.getState().clearToken();
     }
 
+    // 405 = tài khoản đang bị bắt đổi mật khẩu (`forcePassChange`, RolesGuard).
+    // Sang trang đổi mật khẩu RIÊNG (ngoài MainLayout) và CHỈ khi chưa đứng ở đó —
+    // trước đây đẩy về `/adm/account` nằm trong MainLayout, Sidebar/banner ở đó lại
+    // ăn 405 → tải lại trang vô tận (màn hình trắng, Auth.md §6.1).
     if (error?.response?.status === 405) {
-      window.location.href = PATHS.ACCOUNT;
+      if (window.location.pathname !== PATHS.CHANGE_PASSWORD) {
+        window.location.href = PATHS.CHANGE_PASSWORD;
+      }
       return Promise.reject(new Error('You need to change password'));
     }
 

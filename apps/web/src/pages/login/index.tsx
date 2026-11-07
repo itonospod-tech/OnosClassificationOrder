@@ -20,6 +20,7 @@ import { RepositoryRemote } from '../../services';
 import { useAuthStore } from '../../store/authStore';
 import { AUTH_IDENTITY_KEY, getRememberedIdentity, setRememberedIdentity } from '../../store/sessionPersist';
 import { handleAxiosError } from '../../utils';
+import { homePathForRole } from '../../utils/homePath';
 
 function buildLoginSchema(t: TFunction<'auth'>) {
   return z.object({
@@ -63,19 +64,22 @@ function Login() {
 
         // Pull fresh profile (with role.permissionCodes populated) — login
         // response itself doesn't always include permission data.
+        let mustChangePassword = false;
         try {
           const meRes = await RepositoryRemote.auth.getMe();
           if (meRes?.data?.data) {
             setProfile(meRes.data.data);
+            mustChangePassword = !!meRes.data.data.forcePassChange;
           }
         } catch {
           /* fall back to login payload */
         }
 
+        // Admin vừa reset mật khẩu → vào thẳng trang đổi mật khẩu (Auth.md §6.1).
         // Sub-designer login → vào thẳng /my-tasks (Kanban Phase 4). Các role
         // khác dùng dashboard chung.
         const roleName = (loginInfo.user as { role?: { name?: string } })?.role?.name;
-        navigate(roleName === 'Designer' ? PATHS.MY_TASKS : PATHS.HOME);
+        navigate(mustChangePassword ? PATHS.CHANGE_PASSWORD : homePathForRole(roleName));
         toast.success(t('login.welcomeBack'));
       }
     } catch (error) {

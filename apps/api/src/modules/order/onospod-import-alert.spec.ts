@@ -16,6 +16,7 @@ describe('OnospodImportService — cảnh báo khi import hỏng liên tiếp', 
       {} as never,
       { alert } as never,
       { runIfDue: jest.fn().mockResolvedValue(undefined) } as never,
+      { runIfDue: jest.fn().mockResolvedValue(undefined) } as never,
     );
     return { service, alert };
   };

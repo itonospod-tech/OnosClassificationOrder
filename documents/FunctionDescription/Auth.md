@@ -202,6 +202,7 @@ interface AuthStore {
 ### 5.3 Axios interceptor
 - Request: attach `Authorization: Bearer {accessToken}`
 - Response 401: thử refresh → retry → nếu refresh fail → logout + redirect `/login`
+- Response 405 (tài khoản `forcePassChange`): chuyển cứng sang `/change-password` — **chỉ khi chưa đứng ở đó** (xem §6.1)
 
 ---
 
@@ -211,13 +212,28 @@ interface AuthStore {
 |-------|------|-------|
 | Login | `pages/login/index.tsx` | Form login + logo + tagline |
 | Register | `pages/register/index.tsx` | (Demo, có thể tắt) |
-| Account | `pages/account/index.tsx` | Profile + đổi password |
+| Account | `pages/account/index.tsx` | Profile + đổi password (form dùng chung `components/account/ChangePasswordForm.tsx`) |
+| Đổi mật khẩu bắt buộc | `pages/change-password/index.tsx` | Route `/change-password` NGOÀI `MainLayout` — xem §6.1 |
 | Users | `pages/users/` | Admin quản lý user — mặc định lọc "Đang hoạt động" + chip Đã khóa/Tất cả kèm số đếm + lọc theo vai trò (FE, tải limit=200; cảnh báo khi `total` > 200) |
 | Roles | `pages/roles/` | Hiển thị role mặc định + permission |
 | Custom Roles | `pages/custom-roles/` | **Trang giữ chỗ** (tiêu đề + "comingSoon", chưa từng làm CRUD) — gỡ khỏi menu 01/10/2026, route vẫn gác `page.roles` qua `ROUTE_ONLY_PAGES` |
 | Departments | `pages/departments/` | **Trang giữ chỗ** (tiêu đề + "comingSoon", chưa từng làm CRUD) — gỡ khỏi menu 01/10/2026, route vẫn gác `page.users` qua `ROUTE_ONLY_PAGES`; BE `departments/` giữ nguyên |
 | Settings | `pages/settings/` | System config (Admin only) |
 | Notifications | `pages/notifications/` | List notification của user |
+
+### 6.1 Bắt buộc đổi mật khẩu (`forcePassChange`)
+
+Admin reset mật khẩu (`POST /users/:userId/reset-password`, `POST /designer/team/:userId/reset-password`) hoặc gọi `GET /users/force-change-password/:userId` → `forcePassChange=true`. Từ đó `RolesGuard` trả **405** cho mọi endpoint có role ngoài `PathAccess` (`constants/force-change-password-path.ts`: login, `/auth/me`, `/users/change-password`, `/actions`, `/notifications*`). Cờ chỉ về `false` khi chính user gọi `POST /users/change-password` — admin KHÔNG có nút tắt cờ.
+
+**Sự cố 31/10/2026 (màn hình trắng):** interceptor 405 trước đây `location.href = /adm/account` — trang Tài khoản nằm trong `MainLayout`, nơi Sidebar (`/designer/sidebar-counts`) + OverdueAlertBanner (`/designer/overdue-alert`) gọi API ngay khi mount → 405 → tải lại chính trang đó → vô tận; user không bao giờ thấy được form đổi mật khẩu.
+
+Luồng hiện tại (FE):
+1. **Login**: `getMe()` thấy `forcePassChange` → `navigate(PATHS.CHANGE_PASSWORD)` thay vì trang mặc định (`utils/homePath.ts` `homePathForRole`).
+2. **`MainLayout`**: `profile.forcePassChange` → `<Navigate to=/change-password>` TRƯỚC khi dựng Sidebar/Header/banner/trang → không có request nào bị 405.
+3. **Interceptor 405** (phiên đang mở khi admin reset — profile trong storage còn cũ): chuyển cứng sang `/change-password`, bỏ qua nếu đã đứng ở đó.
+4. **`/change-password`** (`PrivateRoute` nhưng NGOÀI `MainLayout`): chỉ gọi `/auth/me` (mount — profile cũ mà BE đã hạ cờ thì trả về trang làm việc) + `/users/change-password`. Đổi xong → `getMe()` lấy profile mới (cờ `false`) → về `homePathForRole`. Có nút Đăng xuất.
+
+Thêm request mới vào khung chính (Sidebar/Header/banner) không cần thêm vào `PathAccess` — gate ở bước 2 đã chặn mount.
 
 ---
 

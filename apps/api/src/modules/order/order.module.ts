@@ -22,6 +22,7 @@ import { DriveFileNameService } from './drive-file-name.service';
 import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodImportService } from './onospod-import.service';
 import { OnospodOrderLookupService } from './onospod-order-lookup.service';
+import { OnospodOrderResyncService } from './onospod-order-resync.service';
 import { OrderController } from './order.controller';
 import { OrderEntity, OrderSchema } from './order.entity';
 import { OrderRepository } from './order.repository';
@@ -62,6 +63,7 @@ import { ShippingLabelPdfService } from './shipping-label-pdf.service';
     OnospodImportService,
     OnospodHoldSyncService,
     OnospodOrderLookupService,
+    OnospodOrderResyncService,
     ShippingLabelPdfService,
     BulkUndoService,
   ],

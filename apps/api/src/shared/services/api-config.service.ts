@@ -267,6 +267,19 @@ export class ApiConfigService {
   }
 
   /**
+   * Đồng bộ lại đơn ĐANG MỞ theo app OnosPod — design + size (Orders.md §9e).
+   * - `ONOSPOD_ORDER_RESYNC_MODE`: `off` (mặc định) | `dry-run` (chỉ báo cáo + Telegram) | `on` (ghi thật)
+   * - `ONOSPOD_ORDER_RESYNC_MANUFACTURES`: mã manufacture app, phân cách dấu phẩy (trống = `TN-DECOR`)
+   * Đọc mỗi lần gọi (không cache) để đổi env + restart là ăn ngay.
+   */
+  get onospodOrderResync(): { mode: string; manufactures: string } {
+    return {
+      mode: this.configService.get<string>('ONOSPOD_ORDER_RESYNC_MODE') || 'off',
+      manufactures: this.configService.get<string>('ONOSPOD_ORDER_RESYNC_MANUFACTURES') || '',
+    };
+  }
+
+  /**
    * OnosPod order API (api.onospod.com/graphql) — dùng để "lấy ngược"
    * design/địa chỉ ship cho đơn đang GIỮ chờ khách cập nhật (xem
    * `OnospodOrderLookupService`). Token lấy từ phiên đăng nhập admin OnosPod —
