@@ -40,7 +40,7 @@ export function WorkshopTypeRail({ typeStats, totalOrders, selected, onSelect, c
   }, [typeStats, q, t]);
 
   return (
-    <aside className={cn('flex w-[280px] shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-card', className)}>
+    <aside className={cn('flex w-[240px] shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-card min-[1600px]:w-[280px]', className)}>
       <div className="border-b border-border p-2">
         <div className="relative">
           <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />

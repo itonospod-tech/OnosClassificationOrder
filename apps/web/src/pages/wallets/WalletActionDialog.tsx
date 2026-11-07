@@ -69,8 +69,10 @@ const isWebLink = (value: string) => {
  *     amounts asks for a tick) → 3. Result (what the server actually wrote).
  *  - One idempotency key (`requestId`) is made when the dialog opens and re-sent on every retry, so a double
  *    click or a retry after a timeout cannot write twice; the server answers `replayed` instead. The key is
- *    replaced only if the payload CHANGED after an attempt (otherwise the server would rightly refuse a
- *    different amount under the old key).
+ *    replaced only if the MODE or the AMOUNT changed after an attempt (otherwise the server would rightly refuse a
+ *    different amount under the old key). Editing the note or the reference does NOT mint a new key — doing so
+ *    was a double-spend hole, because a retry after a lost connection with a corrected note looked like a new
+ *    operation to the server.
  *  - The submit button is locked from the click until the answer, and the dialog cannot be dismissed meanwhile.
  *  - It is mounted fresh for each operation (the parent renders it conditionally), so state never leaks
  *    from one seller or operation to the next.
@@ -159,14 +161,29 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
       const trimmedNote = note.trim();
       const ext = externalTxnId.trim();
       const link = attachmentUrl.trim();
+      // `bigAmount` is the same threshold the server now enforces (`requiresStatementCheck`), so the tick the
+      // operator gave above has to travel with the request — otherwise the API rejects it.
+      const ack = bigAmount ? { largeAmountAck: acknowledged } : {};
       const payload =
         mode === 'topup'
-          ? { amount, note: trimmedNote, ...(ext ? { externalTxnId: ext } : {}), ...(link ? { attachmentUrl: link } : {}) }
+          ? {
+              amount,
+              note: trimmedNote,
+              ...(ext ? { externalTxnId: ext } : {}),
+              ...(link ? { attachmentUrl: link } : {}),
+              ...ack,
+            }
           : mode === 'adjust'
-            ? { amount, note: trimmedNote }
+            ? { amount, note: trimmedNote, ...ack }
             : { creditLimit: amount, note: trimmedNote };
-      const fingerprint = JSON.stringify(payload);
-      // Same payload as the last attempt → keep the key (this is a retry). Changed payload → new operation.
+      // The key must depend ONLY on what decides money: the mode and the amount. It must NOT depend on
+      // note/externalTxnId/attachmentUrl — those are metadata, and the server compares the amount alone when it
+      // detects a replay. Including them used to mint a NEW key whenever the operator edited a note after a failed
+      // attempt, so fixing a typo in the note after a lost connection wrote the money a SECOND time (`adjust` has
+      // no externalTxnId, so the unique index could not catch it either).
+      // A genuinely different operation means a different amount here, or a freshly opened dialog (a new mount
+      // makes a new key — see the component comment).
+      const fingerprint = `${mode}:${amount}`;
       if (attempt.current.fingerprint && attempt.current.fingerprint !== fingerprint) {
         attempt.current = { requestId: crypto.randomUUID() };
       }
@@ -177,6 +194,8 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
         const res = await RepositoryRemote.customerWallet.setCreditLimit(seller.customerId, {
           creditLimit: amount,
           note: trimmedNote,
+          // Only an INCREASE is slowed down; `bigAmount` already encodes that (see where it is computed).
+          ...(bigAmount ? { largeIncreaseAck: acknowledged } : {}),
         });
         const data = res.data?.data as { balance: number; creditLimit: number };
         setDone({ replayed: false, unchanged: false, balance: data.balance, creditLimit: data.creditLimit });

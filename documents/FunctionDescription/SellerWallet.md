@@ -52,8 +52,9 @@ BE ném `BadRequestException` với **message = đúng 1 mã** trong `SELLER_SHI
 | GET | `admin/customer-wallets/:customerId` | Ví của MỘT seller, đọc mới (số dư + hạn mức + danh tính, cùng hình dạng một dòng của list) — dialog nạp/điều chỉnh/hạn mức đọc số này ở bước xác nhận thay vì tin dòng list có thể cũ |
 | GET | `admin/customer-wallets/transactions` | Sổ cái MỌI seller, mới nhất trước (`@Auth([Admin])`; lọc `kind`/`from`/`to` (YYYY-MM-DD, ngày giờ VN)/`search` seller/`customerId`; mỗi dòng kèm `userSku`/`userEmail`/`fullName` + `productionIds` đã dịch từ `refs.orderIds` — mảng đó chứa `_id` đơn, vô nghĩa với nhân viên). Lọc dựng ở hàm thuần `wallet-txn-filter.ts` (+spec); index `{createdAt:-1}` + `{kind:1,createdAt:-1}` |
 | GET | `admin/customer-wallets/:customerId/transactions` | Sổ cái 1 seller |
-| POST | `admin/customer-wallets/:customerId/topup` | Nạp (+). Body: `requestId` (BẮT BUỘC), `amount`, `note` (bắt buộc), `externalTxnId?` (mã giao dịch ngân hàng), `attachmentUrl?` (link chứng từ, chỉ http/https; tải file thật là việc sau). Trả `replayed:true` khi `requestId` đã áp dụng trước đó (không ghi gì). 409 khi: cùng `requestId` khác số tiền; `externalTxnId` đã nạp (cho bất kỳ seller nào) — thông báo nêu seller + giờ + "dùng Điều chỉnh" |
-| POST | `admin/customer-wallets/:customerId/adjust` | Điều chỉnh (±). Body: `requestId` (BẮT BUỘC), `amount`, `note` (bắt buộc). Cùng cơ chế `replayed`/409 như nạp |
+| POST | `admin/customer-wallets/:customerId/topup` | Nạp (+). Body: `requestId` (BẮT BUỘC), `amount`, `note` (bắt buộc), `externalTxnId?` (mã giao dịch ngân hàng), `attachmentUrl?` (link chứng từ, chỉ http/https; tải file thật là việc sau), `largeAmountAck` (**BẮT BUỘC = true khi `amount` ≥ `WALLET_BIG_AMOUNT_USD`**, từ 10/10/2026 — xác nhận đã soát sao kê; dưới ngưỡng thì bỏ qua). Trả `replayed:true` khi `requestId` đã áp dụng trước đó (không ghi gì). 409 khi: cùng `requestId` khác số tiền; `externalTxnId` đã nạp (cho bất kỳ seller nào) — thông báo nêu seller + giờ + "dùng Điều chỉnh" |
+| POST | `admin/customer-wallets/:customerId/adjust` | Điều chỉnh (±). Body: `requestId` (BẮT BUỘC), `amount`, `note` (bắt buộc), `largeAmountAck` (**BẮT BUỘC = true khi `|amount|` ≥ ngưỡng**, CẢ HAI chiều). Cùng cơ chế `replayed`/409 như nạp |
+| PATCH | `admin/customer-wallets/:customerId/credit-limit` | Đặt hạn mức nợ. Body: `creditLimit`, `note?`, `largeIncreaseAck` (**BẮT BUỘC = true khi phần TĂNG ≥ ngưỡng**; hạ hạn mức không bao giờ bị đòi). Chặn ở `CustomerWalletService.updateCreditLimit` chứ không ở Zod, vì chỉ service biết hạn mức cũ |
 | PATCH | `admin/customer-wallets/:customerId/credit-limit` | Đặt hạn mức. Body: `creditLimit`, `note?` (bắt buộc ở dialog `/adm`, tuỳ chọn ở API để caller cũ không gãy). Mỗi lần đổi giá trị thật ghi 1 dòng audit CÙNG transaction; đặt đúng giá trị hiện có thì không ghi gì |
 | GET | `admin/customer-wallets/:customerId/credit-limit-history` | Lịch sử đổi hạn mức, mới nhất trước: `from → to`, ai, lúc nào, lý do |
 | GET/POST | `admin/seller-shipping/price-table{,/import}` | Xem/thay bảng giá (mốc tăng dần) |
@@ -69,7 +70,7 @@ Shared (`packages/shared`): hàm thuần + hằng ở **`client/seller-shipping.
   amount,                 // + cộng / − trừ (USD, round2)
   balanceBefore, balanceAfter,   // BẮT BUỘC mỗi record — seller xem được cả 2
   note?, byUserId?, byUserName?,
-  refs?: { requestId?, shipmentId?, orderIds?, stagingOrderId? } }
+  refs?: { requestId?, shipmentId?, orderIds?, stagingOrderId?, externalTxnId?, attachmentUrl? } }
 // unique partial: (customerId, kind, refs.requestId)
 ```
 

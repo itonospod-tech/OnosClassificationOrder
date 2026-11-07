@@ -39,7 +39,7 @@
   "list": {
     "reworkTab": "Cần làm lại ({{count}})",
     "unreviewedTab": "Chưa soát ({{count}})",
-    "reworkHint": "⚠ Ưu tiên — In trả về do thiếu file. Note kq Tool → \"ok\" = file ổn, chạy lại từ In · \"Đã soát xong\" = cần thiết kế, đẩy về designer / tự gán.",
+    "reworkHint": "⚠ Ưu tiên — In trả về do thiếu file. Note kq Tool → \"ok\" = file ổn: In làm lại ngay, TRỪ đơn từng có designer làm xong thì về designer \"Cần làm lại\" trước · \"Đã soát xong\" = file lỗi thật (ghi vào lịch sử lỗi): về designer cũ, hoặc tự gán designer / vào backlog nếu chưa có.",
     "unreviewedHint": "Backlog đơn chưa có Note kq Tool.",
     "noReworkOrders": "Không có đơn In trả về.",
     "noUnreviewedOrders": "Không có đơn chưa soát.",

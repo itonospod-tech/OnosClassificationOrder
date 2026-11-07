@@ -3,6 +3,10 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/../src/$1",
+    "^@anthropic-ai/claude-agent-sdk$": "<rootDir>/stubs/claude-agent-sdk.ts"
+  },
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   }

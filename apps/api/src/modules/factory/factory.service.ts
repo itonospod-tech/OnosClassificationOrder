@@ -53,7 +53,12 @@ export class FactoryService implements OnModuleInit {
     return {
       success: true,
       data: data
-        .map((f) => ({ _id: String(f._id), name: f.name, shortName: f.shortName }))
+        .map((f) => ({
+          _id: String(f._id),
+          name: f.name,
+          shortName: f.shortName,
+          allowToolCheckRework: f.allowToolCheckRework === true,
+        }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     };
   }

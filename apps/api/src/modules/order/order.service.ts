@@ -51,6 +51,7 @@ import type {
   FulfillmentTimelineEntry,
   GetCancelledOrdersDto,
   GetCancelledOrdersResDto,
+  GetDailyBySellerDto,
   GetDesignReviewErrorFileOptionsResDto,
   GetErrorLogDto,
   GetErrorLogResDto,
@@ -69,6 +70,8 @@ import type {
   GetProductionOrdersResDto,
   GetStaleOpenOrdersDto,
   GetStaleOpenOrdersResDto,
+  GetToolQueueReturnDto,
+  GetToolQueueReturnResDto,
   HoldOrderDto,
   HoldOrderResDto,
   ImportProductionOrdersDto,
@@ -113,9 +116,21 @@ import type {
   ProductPrintArea,
   ProductVariation,
 } from 'shared';
-import type { HeldPrintSkip, ProductLineCounts, StaleCleanupPreview, StaleCleanupRunResult, WorkshopStageFilter } from 'shared';
+import type {
+  DailyBySellerRow,
+  HeldPrintSkip,
+  ProductLineCounts,
+  StaleCleanupPreview,
+  StaleCleanupRunResult,
+  ToolQueueBlockKey,
+  ToolQueueReturnPreview,
+  ToolQueueReturnRow,
+  ToolQueueReturnRunResult,
+  WorkshopStageFilter,
+} from 'shared';
 import {
   customerMatchKey,
+  DAILY_BY_SELLER_MAX_DAYS,
   DESIGNER_ACTIVE_STATUSES,
   DESIGNER_ASSIGNMENT_CONFIG_KEY,
   DESIGNER_REASSIGNABLE_STATUSES,
@@ -178,6 +193,7 @@ import { WorkshopConfigRepository } from '../workshop-config/workshop-config.rep
 import { andWith } from './and-with';
 import { resolveBarcodeSkuBase } from './barcode-label';
 import { resolveDesignReviewCodeByDesigns } from './design-review-code-rule';
+import { missingToolResultNote } from './design-review-result.guard';
 import { DriveFileNameService } from './drive-file-name.service';
 import { planForceComplete } from './force-complete-plan';
 import { shouldNotifyCustomerOnManualUnhold } from './onospod-hold-sync.plan';
@@ -197,7 +213,12 @@ import {
   staleStageKey,
   TIMELINE_PATH,
 } from './stale-cleanup.logic';
-import { missingToolResultNote } from './design-review-result.guard';
+import {
+  runToolQueueReturn,
+  type ToolQueueDoc,
+  toolQueueReturnEligibility,
+  toolQueueStalled,
+} from './tool-queue-return.logic';
 
 const FIELD_CONFIG_CATEGORY: Record<OrderWorkshopField, WorkshopConfigCategory | null> = {
   printStatus: WorkshopConfigCategory.PrintStatus,
@@ -298,6 +319,13 @@ function buildFulfillmentEntrySet(): Record<string, unknown> {
     },
   };
 }
+
+/**
+ * Side-effect fields an edit may change besides the edited one; they get their own order-log row
+ * (Orders.md §27 — an unlogged cascade cannot be undone from the log).
+ */
+const CASCADE_LOGGED_FIELDS = ['designerStatus', 'currentFulfillmentStage', 'readyForFulfill'] as const;
+const sameLogValue = (a: unknown, b: unknown): boolean => (a ?? null) === (b ?? null) || ((a ?? '') === '' && (b ?? '') === '');
 
 /** Field workshop có schema array thay vì string đơn. */
 const MULTI_VALUE_FIELDS: OrderWorkshopField[] = ['errorFile'];
@@ -1887,6 +1915,28 @@ export class OrderService implements OnModuleInit {
     return cfgs.map((d) => d.code);
   }
 
+  /**
+   * `variantSku` on list rows: the product variation SKU matched by the order's size, the same rule
+   * and the same code as the SKU printed on the shipping label (`resolveShippingLabelInfo`). No
+   * size match → left empty, never guessed (the barcode tem's base-SKU fallback is a guess and
+   * would show two different SKUs for one order). `userSku` is the seller account, not a product SKU.
+   * One query for all rows of the page. Rows must be plain objects (repository reads are lean).
+   */
+  private async attachVariantSku(rows: Array<Record<string, unknown>>): Promise<void> {
+    const pcIds = [...new Set(rows.map((r) => (r.productConfigId ? String(r.productConfigId) : '')).filter(Boolean))];
+    if (pcIds.length === 0) return;
+    const configs = await this.productConfigRepository.findAll<{ _id: unknown; variations?: { sku?: string }[] }>(
+      { _id: { $in: pcIds } },
+      { select: ['variations.sku'] },
+    );
+    const varsByPc = new Map(configs.map((c) => [String(c._id), c.variations ?? []]));
+    for (const r of rows) {
+      if (!r.productConfigId) continue;
+      const sku = resolveShippingLabelInfo(varsByPc.get(String(r.productConfigId)) ?? [], r.size as string | undefined, undefined, undefined).sku;
+      if (sku) r.variantSku = sku;
+    }
+  }
+
   /** True nếu dto.designerStatus dùng token tách tool (cần resolve toolHasCodes). */
   private needsToolHasCodes(dto: GetProductionOrdersDto): boolean {
     return !!dto.designerStatus && dto.designerStatus.includes('__unassigned_');
@@ -1993,6 +2043,7 @@ export class OrderService implements OnModuleInit {
       total = res.total;
     }
 
+    await this.attachVariantSku(data as Array<Record<string, unknown>>);
     const result = { success: true as const, data: data as never, total };
 
     // [cache disabled]
@@ -2338,6 +2389,7 @@ export class OrderService implements OnModuleInit {
       ],
     });
 
+    await this.attachVariantSku(orders as unknown as Array<Record<string, unknown>>);
     // 4) Re-attach orders to their groups in the (count-desc) order.
     const byType = new Map<string, unknown[]>();
     for (const o of orders as unknown as Array<{ type?: string }>) {
@@ -3903,6 +3955,66 @@ export class OrderService implements OnModuleInit {
     }));
 
     return { success: true, data, total };
+  }
+
+  /**
+   * Legacy "Daily report" (Dashboard.md, Production Report): per VN day and seller, items finished
+   * (`fulfillmentCompletedAt`) and packages handed over (`shipping_packages.handoverAt`).
+   * Standard order exclusions (cancelled, deleted, unmapped, US factory). A Fulfillment worker is
+   * locked to their own factory whatever `factoryId` says; other roles may pick one.
+   */
+  async getDailyBySeller(dto: GetDailyBySellerDto, roleName?: RoleType, userFactoryId?: string): Promise<DailyBySellerRow[]> {
+    const start = vnDayStart(dto.from);
+    const end = vnDayEnd(dto.to);
+    const days = Math.round((vnDayStart(dto.to).getTime() - start.getTime()) / 86_400_000) + 1;
+    if (!(days >= 1 && days <= DAILY_BY_SELLER_MAX_DAYS)) {
+      throw new BadRequestException(`Khoảng ngày phải từ 1 đến ${DAILY_BY_SELLER_MAX_DAYS} ngày.`);
+    }
+    let factoryId: string | undefined = dto.factoryId;
+    if (roleName === RoleType.Fulfillment) factoryId = userFactoryId || '__no_factory__';
+    const factoryClause: Record<string, unknown> = factoryId
+      ? { $and: [{ factoryId }, { factoryId: productionFactoryClause(this.orderModel.db) }] }
+      : { factoryId: productionFactoryClause(this.orderModel.db) };
+    const vnDay = (field: string) => ({ $dateToString: { format: '%Y-%m-%d', date: field, timezone: 'Asia/Ho_Chi_Minh' } });
+
+    const [itemRows, packageRows] = await Promise.all([
+      this.orderModel.aggregate<{ _id: { date: string; userSku: string | null }; items: number; quantity: number }>([
+        {
+          $match: {
+            cancelledAt: { $exists: false },
+            deletedAt: { $exists: false },
+            fulfillmentCompletedAt: { $gte: start, $lte: end },
+            ...factoryClause,
+          },
+        },
+        {
+          $group: {
+            _id: { date: vnDay('$fulfillmentCompletedAt'), userSku: '$userSku' },
+            items: { $sum: 1 },
+            quantity: { $sum: { $ifNull: ['$quantity', 1] } },
+          },
+        },
+      ]),
+      this.orderModel.db
+        .collection('shipping_packages')
+        .aggregate<{ _id: { date: string; userSku: string | null }; packages: number }>([
+          { $match: { handoverAt: { $gte: start, $lte: end }, deletedAt: { $exists: false }, ...factoryClause } },
+          // Seller of a package = seller of its first item (one package = one seller order).
+          { $lookup: { from: 'orders', localField: 'productionIds', foreignField: 'productionId', pipeline: [{ $project: { userSku: 1 } }, { $limit: 1 }], as: 'o' } },
+          { $group: { _id: { date: vnDay('$handoverAt'), userSku: { $first: '$o.userSku' } }, packages: { $sum: 1 } } },
+        ])
+        .toArray(),
+    ]);
+    const rows = new Map<string, DailyBySellerRow>();
+    const row = (date: string, userSku: string | null) => {
+      const key = `${date}|${userSku ?? ''}`;
+      let r = rows.get(key);
+      if (!r) rows.set(key, (r = { date, userSku: userSku ?? '', items: 0, quantity: 0, packages: 0 }));
+      return r;
+    };
+    for (const r of itemRows) Object.assign(row(r._id.date, r._id.userSku), { items: r.items, quantity: r.quantity });
+    for (const r of packageRows) row(r._id.date, r._id.userSku).packages = r.packages;
+    return [...rows.values()].sort((a, b) => a.date.localeCompare(b.date) || b.items - a.items || a.userSku.localeCompare(b.userSku));
   }
 
   /**
@@ -5581,6 +5693,214 @@ export class OrderService implements OnModuleInit {
     return { runId, done, skipped };
   }
 
+  // ─── Return orders to the tool-check queue (ToolCheckWorkflow.md §2.4, SuperAdmin only) ─────────────
+  /** One run at a time: two overlapping runs on the same ids would double the order logs. */
+  private toolQueueReturnRunning = false;
+
+  private static readonly TOOL_QUEUE_PROJECTION = {
+    productionId: 1, type: 1, factoryId: 1, heldAt: 1, toolResult: 1, toolResultNote: 1, inProductionAt: 1,
+    cancelledAt: 1, deletedAt: 1, fulfillmentCompletedAt: 1,
+  };
+
+  private toolQueueContext(): { excludedId: string | null; skipIds: Set<string> } {
+    return {
+      excludedId: getExcludedFactoryIdSync(this.orderModel.db),
+      skipIds: new Set(listSkipToolCheckFactoryIdsSync(this.orderModel.db)),
+    };
+  }
+
+  private async toolQueueFactoryNames(): Promise<Map<string, string | undefined>> {
+    const docs = await this.factoryRepository.findAll<{ _id: unknown; shortName?: string }>({}, { select: ['shortName'] });
+    return new Map(docs.map((f) => [String(f._id), f.shortName]));
+  }
+
+  private toToolQueueRow(
+    d: Record<string, unknown>,
+    shortOf: Map<string, string | undefined>,
+    block: ToolQueueBlockKey | null,
+  ): ToolQueueReturnRow {
+    return {
+      _id: String(d._id),
+      productionId: String(d.productionId ?? ''),
+      type: (d.type as string) || undefined,
+      factoryId: d.factoryId ? String(d.factoryId) : undefined,
+      factoryShortName: d.factoryId ? shortOf.get(String(d.factoryId)) : undefined,
+      toolResult: String(d.toolResult ?? ''),
+      inProductionAt: (d.inProductionAt as Date) ?? null,
+      returnable: block === null,
+      blockReason: block,
+    };
+  }
+
+  /**
+   * Candidates = a `toolResult` is set, `toolResultNote` is empty, not cancelled/deleted/completed.
+   * Every candidate is listed with its verdict (the US factory, skip-tool-check factories, held and
+   * unmapped orders show up as blocked WITH the reason, never silently dropped). Verdicts come from the
+   * one pure function the preview and the run use, so the three cannot disagree.
+   */
+  async getToolQueueReturn(dto: GetToolQueueReturnDto, roleName?: RoleType): Promise<GetToolQueueReturnResDto> {
+    this.assertSuperAdmin(roleName);
+    const { excludedId, skipIds } = this.toolQueueContext();
+    const now = new Date();
+    const [docs, shortOf, waiting, lastToolLog] = await Promise.all([
+      this.orderModel
+        .find({
+          cancelledAt: null,
+          deletedAt: null,
+          fulfillmentCompletedAt: null,
+          toolResult: { $nin: [null, ''] },
+          toolResultNote: { $in: [null, ''] },
+        })
+        .select(OrderService.TOOL_QUEUE_PROJECTION)
+        .sort({ inProductionAt: 1, _id: 1 })
+        .lean(),
+      this.toolQueueFactoryNames(),
+      // Orders the tool could pick up right now: exactly the queue's own filter.
+      this.orderModel.countDocuments(this.designReviewQueueFilter()),
+      // The tool writes through the public API, so its log entries carry no acting user. Existing indexes
+      // (createdAt) serve this; maxTimeMS keeps a very old last write from stalling the page.
+      this.orderModel.db
+        .collection('orderLogs')
+        .find({ field: 'toolResult', userId: null }, { projection: { createdAt: 1 } })
+        .sort({ createdAt: -1 })
+        .limit(1)
+        .maxTimeMS(5000)
+        .toArray()
+        .catch(() => [] as Array<{ createdAt?: Date }>),
+    ]);
+    const lastToolWriteAt = (lastToolLog[0] as { createdAt?: Date } | undefined)?.createdAt ?? null;
+    const queue = { waiting, lastToolWriteAt, stalled: toolQueueStalled(waiting, lastToolWriteAt, now) };
+    const all = (docs as unknown as Record<string, unknown>[]).map((d) =>
+      this.toToolQueueRow(d, shortOf, toolQueueReturnEligibility(d, excludedId, skipIds)),
+    );
+
+    const blocked = new Map<ToolQueueBlockKey, number>();
+    const byFactory = new Map<string, number>();
+    const byToolResult = new Map<string, number>();
+    for (const r of all) {
+      if (r.blockReason) blocked.set(r.blockReason, (blocked.get(r.blockReason) ?? 0) + 1);
+      else {
+        byFactory.set(r.factoryId ?? '', (byFactory.get(r.factoryId ?? '') ?? 0) + 1);
+        byToolResult.set(r.toolResult, (byToolResult.get(r.toolResult) ?? 0) + 1);
+      }
+    }
+    const summary = {
+      total: all.length,
+      returnable: all.filter((r) => r.returnable).length,
+      blocked: [...blocked.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
+      byFactory: [...byFactory.entries()]
+        .map(([factoryId, returnable]) => ({ factoryId, shortName: shortOf.get(factoryId), returnable }))
+        .sort((a, b) => b.returnable - a.returnable),
+      byToolResult: [...byToolResult.entries()].map(([toolResult, returnable]) => ({ toolResult, returnable })).sort((a, b) => b.returnable - a.returnable),
+    };
+
+    const filtered = all.filter(
+      (r) =>
+        (!dto.factoryId || r.factoryId === dto.factoryId) &&
+        (!dto.type || r.type === dto.type) &&
+        (!dto.toolResult || r.toolResult === dto.toolResult) &&
+        (!dto.returnable || r.returnable),
+    );
+
+    if (dto.groupBy) {
+      const groups = new Map<string, { count: number; returnable: number }>();
+      for (const r of filtered) {
+        const g = groups.get(r.type ?? '') ?? { count: 0, returnable: 0 };
+        g.count++;
+        if (r.returnable) g.returnable++;
+        groups.set(r.type ?? '', g);
+      }
+
+      return {
+        success: true,
+        data: [],
+        groups: [...groups.entries()].map(([key, g]) => ({ key, ...g })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key)),
+        total: groups.size,
+        queue,
+        summary,
+      };
+    }
+
+    const page = Math.max(1, Number(dto.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(dto.limit) || 50));
+
+    return { success: true, data: filtered.slice((page - 1) * limit, page * limit), total: filtered.length, queue, summary };
+  }
+
+  /** Read-only: what a run on `ids` would do. Re-checks every order; the export is built from these rows. */
+  async previewToolQueueReturn(ids: string[], roleName?: RoleType): Promise<ToolQueueReturnPreview> {
+    this.assertSuperAdmin(roleName);
+    const unique = [...new Set(ids)];
+    const { excludedId, skipIds } = this.toolQueueContext();
+    const [docs, shortOf] = await Promise.all([
+      this.orderModel.find({ _id: { $in: unique } }).select(OrderService.TOOL_QUEUE_PROJECTION).lean(),
+      this.toolQueueFactoryNames(),
+    ]);
+    const byId = new Map((docs as unknown as Record<string, unknown>[]).map((d) => [String(d._id), d]));
+    const rows: ToolQueueReturnRow[] = [];
+    const skipped: Array<{ id: string; productionId?: string; reason: string }> = [];
+    const byFactory = new Map<string, number>();
+    const byToolResult = new Map<string, number>();
+    for (const id of unique) {
+      const d = byId.get(id);
+      const block = toolQueueReturnEligibility(d, excludedId, skipIds);
+      if (!d) {
+        skipped.push({ id, reason: 'not-found' });
+        continue;
+      }
+      const row = this.toToolQueueRow(d, shortOf, block);
+      rows.push(row);
+      if (block) {
+        skipped.push({ id, productionId: row.productionId, reason: block });
+        continue;
+      }
+      const f = row.factoryShortName ?? row.factoryId ?? '';
+      byFactory.set(f, (byFactory.get(f) ?? 0) + 1);
+      byToolResult.set(row.toolResult, (byToolResult.get(row.toolResult) ?? 0) + 1);
+    }
+
+    return {
+      returnable: rows.filter((r) => r.returnable).length,
+      rows,
+      skipped,
+      byFactory: [...byFactory.entries()].map(([shortName, count]) => ({ shortName, count })).sort((a, b) => b.count - a.count),
+      byToolResult: [...byToolResult.entries()].map(([toolResult, count]) => ({ toolResult, count })).sort((a, b) => b.count - a.count),
+    };
+  }
+
+  /**
+   * Clear `toolResult` (and nothing else) on up to TOOL_QUEUE_RETURN_BATCH_MAX orders, one by one through
+   * `updateField` so each keeps its order-log entry. Every order is re-loaded and re-checked right before
+   * its own write; an order that got a result in the meantime is skipped and reported.
+   */
+  async runToolQueueReturn(ids: string[], reason: string, roleName?: RoleType, ctx?: AuditContext): Promise<ToolQueueReturnRunResult> {
+    this.assertSuperAdmin(roleName);
+    if (this.toolQueueReturnRunning) throw new BadRequestException('Đang có một lượt trả đơn khác chạy — đợi lượt đó xong.');
+    this.toolQueueReturnRunning = true;
+    const runId = `toolq-${Date.now().toString(36)}`;
+    try {
+      const { excludedId, skipIds } = this.toolQueueContext();
+      const { done, skipped, previous } = await runToolQueueReturn({
+        ids,
+        excludedFactoryId: excludedId,
+        skipToolCheckIds: skipIds,
+        load: async (id) =>
+          (await this.orderModel.findById(id).select(OrderService.TOOL_QUEUE_PROJECTION).lean()) as unknown as
+            | (ToolQueueDoc & { productionId?: string })
+            | null,
+        write: async (id) => {
+          await this.updateField(id, { field: 'toolResult', value: null }, RoleType.SuperAdmin, ctx);
+        },
+      });
+      // The previous values also sit in each order log; this line is the run-level index back to them.
+      this.logger.info({ message: JSON.stringify({ toolQueueReturn: runId, reason, by: ctx?.user?._id, done: done.length, skipped: skipped.length, previous }) });
+
+      return { runId, done: done.length, skipped };
+    } finally {
+      this.toolQueueReturnRunning = false;
+    }
+  }
+
   /**
    * Ép 1 đơn về trạng thái **đã hoàn thành sản xuất**, và điền mốc thời gian
    * cho các khâu chưa xong bằng cách CHIA ĐỀU khoảng
@@ -6727,6 +7047,14 @@ export class OrderService implements OnModuleInit {
       after: normalized,
       ctx,
     });
+    // Side-effect fields this edit changed are logged too. On 2026-10-05 a mistaken bulk unassign
+    // reset designer status and timestamps with only `assignee` in the log, which made the undo
+    // depend on reconstruction (Orders.md §27).
+    const beforeRec = before as unknown as Record<string, unknown>;
+    const cascadeRows = CASCADE_LOGGED_FIELDS.filter(
+      (k) => k in patch && !(k === 'designerStatus' && autoReworkApplied) && !sameLogValue(beforeRec[k], patch[k]),
+    ).map((k) => ({ orderId: id, action: 'update' as const, field: k, before: beforeRec[k] ?? null, after: patch[k] ?? null, ctx }));
+    if (cascadeRows.length) void this.orderLogService.writeMany(cascadeRows);
 
     if (autoReworkApplied) {
       void this.orderLogService.write({
@@ -6849,12 +7177,6 @@ export class OrderService implements OnModuleInit {
       }
     }
 
-    // Snapshot before-values for the audit log. Cheap because we only need the
-    // field being changed plus _id.
-    const beforeDocs = await this.orderModel
-      .find({ _id: { $in: dto.ids }, deletedAt: { $exists: false } }, { _id: 1, [dto.field]: 1 })
-      .lean();
-
     const matchFilter: Record<string, unknown> = {
       _id: { $in: dto.ids },
       deletedAt: { $exists: false },
@@ -6864,17 +7186,29 @@ export class OrderService implements OnModuleInit {
       cancelledAt: { $exists: false },
     };
     if (extraMatchFilter) Object.assign(matchFilter, extraMatchFilter);
+    // Snapshot with the SAME filter as the update: only orders really written get a log row (held,
+    // cancelled or filtered-out orders used to get one too), and no-op rows are dropped.
+    const beforeDocs = await this.orderModel
+      .find(matchFilter, { _id: 1, [dto.field]: 1, ...Object.fromEntries(CASCADE_LOGGED_FIELDS.map((k) => [k, 1])) })
+      .lean();
     const result = await this.orderModel.updateMany(matchFilter, { $set: patch });
 
     void this.orderLogService.writeMany(
-      beforeDocs.map((doc) => ({
-        orderId: (doc._id as unknown as { toString(): string }).toString(),
-        action: 'bulk_update' as const,
-        field: dto.field,
-        before: (doc as unknown as Record<string, unknown>)[dto.field] ?? null,
-        after: normalized,
-        ctx,
-      })),
+      beforeDocs.flatMap((doc) => {
+        const d = doc as unknown as Record<string, unknown>;
+        const orderId = (doc._id as unknown as { toString(): string }).toString();
+        const rows: Array<{ orderId: string; action: 'bulk_update'; field: string; before: unknown; after: unknown; ctx?: AuditContext }> =
+          sameLogValue(d[dto.field], normalized)
+            ? []
+            : [{ orderId, action: 'bulk_update', field: dto.field, before: d[dto.field] ?? null, after: normalized, ctx }];
+        // Cascades of this bulk edit (e.g. unassigning resets designerStatus) are logged too.
+        for (const k of CASCADE_LOGGED_FIELDS) {
+          if (k in patch && !sameLogValue(d[k], patch[k])) {
+            rows.push({ orderId, action: 'bulk_update', field: k, before: d[k] ?? null, after: patch[k] ?? null, ctx });
+          }
+        }
+        return rows;
+      }),
     );
 
     void this.invalidateListCache();
@@ -7504,11 +7838,11 @@ export class OrderService implements OnModuleInit {
     inProductionAt: 1,
   } as const;
 
-  async getNextDesignReviewOrder(dto?: { from?: string; to?: string; pid?: string }): Promise<{
-    success: true;
-    data: DesignReviewOrder | null;
-    remaining: number;
-  }> {
+  /**
+   * The filter of the external tool's queue (`getNextDesignReviewOrder`) — ONE definition, also used by the
+   * queue counter on the tool-queue-return page, so "orders waiting" there is exactly what the tool sees.
+   */
+  private designReviewQueueFilter(): Record<string, unknown> {
     const excludedFactoryId = getExcludedFactoryIdSync(this.orderModel.db);
     // Xưởng bật "bỏ qua soát tool" (`FactoryEntity.skipToolCheck` —
     // FulfillmentWorkflow.md §2.2d) KHÔNG vào hàng đợi soát tool tự động.
@@ -7520,7 +7854,7 @@ export class OrderService implements OnModuleInit {
       ...(excludedFactoryId ? [excludedFactoryId] : []),
       ...listSkipToolCheckFactoryIdsSync(this.orderModel.db),
     ];
-    const baseFilter: Record<string, unknown> = {
+    return {
       deletedAt: { $exists: false },
       cancelledAt: { $exists: false },
       heldAt: { $exists: false },
@@ -7530,6 +7864,14 @@ export class OrderService implements OnModuleInit {
       // đợi — $nin vẫn cho đơn chưa map xưởng (factoryId null) vào queue như cũ.
       ...(blockedFactoryIds.length ? { factoryId: { $nin: blockedFactoryIds } } : {}),
     };
+  }
+
+  async getNextDesignReviewOrder(dto?: { from?: string; to?: string; pid?: string }): Promise<{
+    success: true;
+    data: DesignReviewOrder | null;
+    remaining: number;
+  }> {
+    const baseFilter = this.designReviewQueueFilter();
     if (dto?.from || dto?.to) {
       const range: Record<string, Date> = {};
       if (dto.from) range.$gte = vnDayStart(dto.from);

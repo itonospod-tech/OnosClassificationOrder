@@ -116,7 +116,7 @@ Không ai nhìn thấy [CHƯA XÁC NHẬN]. [DOC]: `replacement`/`return` là tr
 ## 7. Tóm tắt ưu tiên
 
 1. **Quyết định cần anh Tuấn:** (a) mang RAR sang không; (b) hook tiền lúc đóng kiện thuộc vùng nào (tôi nghiêng `tool`, vì đó là sổ cái); (c) bỏ Grabink/2D US khỏi menu xưởng (0 hoạt động).
-2. **Làm được ngay, không cần xác nhận thêm (nhỏ):** link sidebar xưởng mang bộ lọc mặc định; ánh xạ nhãn MRP↔chặng; preset ngày "Last 7 Days/All Time"; chip đếm theo hãng ở trang kiện.
+2. **Làm được ngay, không cần xác nhận thêm (nhỏ):** link sidebar xưởng mang bộ lọc mặc định; ánh xạ nhãn MRP↔chặng; chip đếm theo hãng ở trang kiện. — Preset ngày "Last 7 Days/All Time" **CHƯA LÀM** (soát 10/10/2026: không tìm thấy preset này trong các trang orders; §9 đã bỏ sót nó trong im lặng).
 3. **Cần xác nhận của xưởng trước khi code (chặn mô hình lô):** nút printer lô in ra gì; có giao việc theo lô không; `trending-up`; xưởng có thật sự tách đơn giữa hai lô; đóng hàng bằng quét mã đơn hay mã vận đơn.
 4. **Mô hình lô mức nhẹ** làm được sau khi mục 3 không bật nhánh 4B/4C (đã viết sẵn, `ProductionBatch-Proposal.md`).
 
@@ -130,6 +130,6 @@ Toàn bộ cột/bộ lọc của Box Packages, Production Report, Return & Repl
 - **Không có hook giá vốn lúc đóng kiện:** hệ cũ ghi base cost lúc THANH TOÁN đơn, làn Tiền ghi `variations[].cost` lúc đẩy sản xuất (sổ bóng). Mục này thuộc làn Tiền.
 - **Grabink / 2D US:** không dựng màn riêng, nhưng KHÔNG xoá khỏi dữ liệu và vẫn hiện ở bộ chọn xưởng (Grabink là xưởng đối tác, prod vẫn có đơn mang nhãn Grabink; xưởng US đã cố ý loại khỏi thống kê ở `excluded-factory.ts`).
 - **Link xưởng mang bộ lọc mặc định:** menu đã đổi sang bộ chọn xưởng trên header (Orders.md §25), nên không còn 4 link mỗi xưởng. Các link dòng sản phẩm đã mở sẵn "đơn đang mở" (`WORKSHOP_STAGE_OPEN`); link "Tất cả đơn" mặc định ngày hôm nay. Không sửa `Sidebar.tsx` (của a2).
-- **Bảng ánh xạ MRP cũ ↔ chặng mới:** `packages/shared/constants/legacy-mrp-status.ts` (`LEGACY_MRP_STATUS_BY_STAGE`), test `apps/api/src/utils/legacy-mrp-status.spec.ts`. Chỉ là gợi ý hiển thị; chỉ dòng may và đóng hàng có bằng chứng từ timeline thật, còn To Do/Ready và QC sau ép là đoán.
+- **Bảng ánh xạ MRP cũ ↔ chặng mới:** `packages/shared/constants/legacy-mrp-status.ts` (`LEGACY_MRP_STATUS_BY_STAGE`), test `apps/api/src/utils/legacy-mrp-status.spec.ts`. **Hiện là hằng số KHÔNG CÓ NƠI GỌI** — chỉ định nghĩa + export ở barrel (`constants/index.ts:14`) + spec; chưa nối vào UI nào, không route/gate/filter/ghi DB. Soát 10/10/2026. Giới hạn phải biết trước khi dùng: map đánh khoá theo `LifecycleStageKey` nên **không có mục cho `done`** (trả `undefined`); bỏ qua `heldAt`/`cancelledAt`; `press-waiting` và `qc-post-press` **đều** ra "In Print"; "In Cutting" không bao giờ sinh ra. Spec (3 test) chỉ kiểm cấu trúc, không khẳng định display-only. Chỉ dòng may và đóng hàng có bằng chứng từ timeline thật, còn To Do/Ready và QC sau ép là đoán.
 - **Mô hình lô:** vẫn ĐÓNG chờ xưởng trả lời.
 - **Chip theo hãng ở màn kiện/vận đơn: hoãn.** Đo trên production 04/10/2026: bảng `shipments` có 58 bản ghi, TẤT CẢ `provider='customer'`, `status='created'`, `lastTrackingStatus` null; chưa mua nhãn VNP thật lần nào, nên chip sẽ rỗng. Làm khi có dữ liệu thật. Cũng không có bộ lọc ngày/lịch sử bàn giao ở `/ffm/handover` (đó là tính năng mới, không phải clone).

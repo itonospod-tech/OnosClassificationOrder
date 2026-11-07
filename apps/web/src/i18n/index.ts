@@ -4,6 +4,7 @@ import i18n from 'i18next';
 import agentApiEn from './locales/en/agentApi.json';
 import apiDocsEn from './locales/en/apiDocs.json';
 import authEn from './locales/en/auth.json';
+import bulkUndoEn from './locales/en/bulkUndo.json';
 import careersEn from './locales/en/careers.json';
 import catalogEn from './locales/en/catalog.json';
 import ceoDashboardEn from './locales/en/ceoDashboard.json';
@@ -32,6 +33,7 @@ import shipmentsEn from './locales/en/shipments.json';
 import stageErrorCatalogEn from './locales/en/stageErrorCatalog.json';
 import staleOrdersEn from './locales/en/staleOrders.json';
 import toolCheckWorkflowEn from './locales/en/toolCheckWorkflow.json';
+import toolQueueReturnEn from './locales/en/toolQueueReturn.json';
 import trackEn from './locales/en/track.json';
 import vnpShippingEn from './locales/en/vnpShipping.json';
 import walletsEn from './locales/en/wallets.json';
@@ -41,6 +43,7 @@ import zaloGroupsEn from './locales/en/zaloGroups.json';
 import agentApiVi from './locales/vi/agentApi.json';
 import apiDocsVi from './locales/vi/apiDocs.json';
 import authVi from './locales/vi/auth.json';
+import bulkUndoVi from './locales/vi/bulkUndo.json';
 import careersVi from './locales/vi/careers.json';
 import catalogVi from './locales/vi/catalog.json';
 import ceoDashboardVi from './locales/vi/ceoDashboard.json';
@@ -69,6 +72,7 @@ import shipmentsVi from './locales/vi/shipments.json';
 import stageErrorCatalogVi from './locales/vi/stageErrorCatalog.json';
 import staleOrdersVi from './locales/vi/staleOrders.json';
 import toolCheckWorkflowVi from './locales/vi/toolCheckWorkflow.json';
+import toolQueueReturnVi from './locales/vi/toolQueueReturn.json';
 import trackVi from './locales/vi/track.json';
 import vnpShippingVi from './locales/vi/vnpShipping.json';
 import walletsVi from './locales/vi/wallets.json';
@@ -134,8 +138,10 @@ export const resources = {
     agentApi: agentApiVi,
     ceoDashboard: ceoDashboardVi,
     staleOrders: staleOrdersVi,
+    toolQueueReturn: toolQueueReturnVi,
     apiDocs: apiDocsVi,
     dtfGuide: dtfGuideVi,
+    bulkUndo: bulkUndoVi,
   },
   en: {
     common: commonEn,
@@ -173,8 +179,10 @@ export const resources = {
     agentApi: agentApiEn,
     ceoDashboard: ceoDashboardEn,
     staleOrders: staleOrdersEn,
+    toolQueueReturn: toolQueueReturnEn,
     apiDocs: apiDocsEn,
     dtfGuide: dtfGuideEn,
+    bulkUndo: bulkUndoEn,
   },
 } as const;
 

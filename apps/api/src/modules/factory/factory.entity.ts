@@ -43,6 +43,15 @@ export class FactoryEntity extends DatabaseEntityAbstract {
   skipToolCheck: boolean;
 
   /**
+   * Let the Print worker send an order back to Support ("Soát tool") from the
+   * kanban rework dialog. Off by default: the experiment in
+   * `documents/Plans/ToolCheck-Redesign.md` enables it for one site first.
+   * Sync cache: `merged-flow-factory.ts` (`getFactoryToolCheckReworkSync`).
+   */
+  @Prop({ required: true, default: false })
+  allowToolCheckRework: boolean;
+
+  /**
    * Tự TRỪ TỒN KHO sau khi in label giao hàng tại trạm quét (mặc định tắt —
    * quét `ACT-STOCK-OUT` xác nhận tay). FE đọc cờ qua scan-out preview;
    * trừ lặp vô hại nhờ idempotency sổ cái `inventory_transactions`.

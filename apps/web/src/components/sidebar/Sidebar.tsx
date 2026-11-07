@@ -31,7 +31,6 @@ import {
   Palette,
   PanelLeft,
   PanelLeftClose,
-  Rows3,
   ScanLine,
   Scissors,
   ScrollText,
@@ -71,6 +70,7 @@ import { useFactoryScope } from '../../hooks/useFactoryScope';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { RepositoryRemote } from '../../services';
 import { useAuthStore } from '../../store/authStore';
+import { type OrderView, useOrderViewStore } from '../../store/orderViewStore';
 import { useSidebarBadgeStore } from '../../store/sidebarBadgeStore';
 import { useSidebarResetStore } from '../../store/sidebarResetStore';
 import { handleAxiosError } from '../../utils';
@@ -211,6 +211,8 @@ interface NavChild {
   looseScope?: boolean;
   /** Area colour of a top-level link (a group takes it from its `NavItem`). */
   tone?: NavTone;
+  /** Other paths where this entry is the active one (the second order view lives on its own route). */
+  alsoActiveOn?: string[];
   /**
    * Query the menu adds when OPENING the page (its most useful default view, MenuRestructure-CEO.md
    * §8.1) — NOT part of the entry's identity: active highlighting and the "click again to clear
@@ -303,6 +305,8 @@ const SCOPE_PARAMS = ['factoryId', 'productLine', 'view'];
  * that leaves the sidebar must be listed here in the same change.
  */
 const ROUTE_ONLY_PAGES: { to: string; perm: string }[] = [
+  // Flat order table: reached from the view switch on the orders page, no menu entry of its own since 05/10/2026.
+  { to: PATHS.ORDERS_CLASSIC, perm: 'page.orders' },
   // DTF role guide — reached from the Dashboard "Getting started" block since 01/10/2026.
   { to: PATHS.DTF_GUIDE, perm: 'page.guide_dtf' },
   // Departments and custom roles are placeholder pages (title + "coming soon", never built);
@@ -377,7 +381,12 @@ function withQuery(to: string, query: string): string {
  * Production-area links carry the `?factoryId=` chosen in the header factory picker
  * (`FactoryScopeSwitch`, Orders.md §25) so switching pages keeps the scope.
  */
-function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: string): NavItem[] {
+function buildMainItems(
+  t: TFunction<'layout'>,
+  factoryId?: string,
+  roleName?: string,
+  orderView: OrderView = 'grouped',
+): NavItem[] {
   const to = (path: string) => withFactory(path, factoryId);
   // Follows PRODUCT_LINES, so a new line shows up in the menu without touching this file; only the
   // icon is mapped by hand (unknown lines get a generic package). The CEO's drawing fixes the order of
@@ -419,21 +428,16 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
   if (!tasksFirst) taskBlock[0] = { ...taskBlock[0], sectionBefore: t('sidebar.work.title') };
   const orderBlock: NavChild[] = [
     {
+      // ONE entry for the one order set: the grouped view and the flat table are switched on the page
+      // toolbar (`OrderViewSwitch`), and the entry opens whichever the person used last. The flat route
+      // stays (old links) and is listed in `ROUTE_ONLY_PAGES` so it keeps its permission gate.
       key: 'orders-workshop',
       label: t('sidebar.nav.production.all'),
-      to: to(PATHS.ORDERS_WORKSHOP),
+      to: to(orderView === 'flat' ? PATHS.ORDERS_CLASSIC : PATHS.ORDERS_WORKSHOP),
+      alsoActiveOn: [to(PATHS.ORDERS_WORKSHOP), to(PATHS.ORDERS_CLASSIC)],
       icon: <List size={14} />,
       perm: 'page.orders',
       sectionBefore: t('sidebar.nav.production.orders'),
-    },
-    {
-      // Flat table, REAL pagination, NOT grouped by product (OrderTableClassic.tsx). Daily work
-      // (hundreds of visits a day on production), so it sits with the order lists, not under System.
-      key: PATHS.ORDERS_CLASSIC,
-      label: t('sidebar.orders.classic'),
-      to: PATHS.ORDERS_CLASSIC,
-      icon: <Rows3 size={14} />,
-      perm: 'page.orders',
     },
     ...lines.map(({ code, icon }) => ({
       key: `line-${code}`,
@@ -451,7 +455,6 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
       to: to(PATHS.ORDERS_SCAN_ERROR),
       icon: <ScanLine size={14} />,
       perm: 'page.scan_error',
-      sectionBefore: t('sidebar.nav.production.station'),
     },
     {
       key: 'orders-stage-errors',
@@ -461,8 +464,11 @@ function buildMainItems(t: TFunction<'layout'>, factoryId?: string, roleName?: s
       perm: 'page.stage_errors',
     },
   ];
+  // The station tools (scan, error catalog) are work too, so they follow the task block with no caption of
+  // their own — a label over two links cost more room than the links. Roles with a task board get the work
+  // first ("what do I do now"); everyone else starts from the orders.
   const productionChildren = tasksFirst
-    ? [...taskBlock, ...orderBlock, ...stationBlock]
+    ? [...taskBlock, ...stationBlock, ...orderBlock]
     : [...orderBlock, ...taskBlock, ...stationBlock];
 
   return [
@@ -601,9 +607,10 @@ function buildNavGroups(
   factoryScopeId?: string,
   userEmail?: string,
   roleName?: string,
+  orderView: OrderView = 'grouped',
 ): NavGroup[] {
   return [
-    { title: '', items: buildMainItems(t, factoryScopeId, roleName) },
+    { title: '', items: buildMainItems(t, factoryScopeId, roleName, orderView) },
     {
       // Group 7 "System" (MenuRestructure-CEO.md §8.2 #1/#3/#5): admin and data-intake work that the
       // legacy app also kept in a separate flat admin area. Each entry keeps its own permission, so
@@ -790,6 +797,28 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
 }
 
+/**
+ * The location the menu compares links against. A factory-locked account (Fulfillment) is always on its
+ * own factory even when the URL carries no `factoryId` (a bookmark, a redirect after login); the menu
+ * links carry it, so without this the page the worker is ON would not light up and its group would stay
+ * closed — the one moment the menu has to say "you are here".
+ */
+function useNavLocation() {
+  const location = useLocation();
+  const scope = useFactoryScope();
+  const params = new URLSearchParams(location.search);
+  if (scope && !params.get('factoryId')) params.set('factoryId', scope);
+  const search = params.toString();
+  return { pathname: location.pathname, search: search ? `?${search}` : '' };
+}
+
+function isEntryActive(c: NavChild, currentPath: string, currentSearch: string): boolean {
+  return (
+    isLinkActive(c.to, currentPath, currentSearch, c.matchPrefix, c.looseScope) ||
+    !!c.alsoActiveOn?.some((p) => isLinkActive(p, currentPath, currentSearch, c.matchPrefix, c.looseScope))
+  );
+}
+
 function isLinkActive(
   linkPath: string,
   currentPath: string,
@@ -847,10 +876,13 @@ function SidebarLeaf({
   level?: number;
   badges?: SidebarBadge[];
 }) {
-  const location = useLocation();
-  const active = isLinkActive(item.to, location.pathname, location.search, item.matchPrefix, item.looseScope);
+  const location = useNavLocation();
+  const active = isEntryActive(item, location.pathname, location.search);
   const requestReset = useSidebarResetStore((s) => s.requestReset);
   const hasBadges = !!badges?.length;
+  // A product line with no open orders steps back visually (never hidden, never moved): its only badge is a
+  // neutral 0.
+  const quiet = !active && !!badges?.length && badges.every((b) => b.tone === 'neutral' && b.count === 0);
   return (
     <Link
       to={hrefOf(item)}
@@ -868,6 +900,7 @@ function SidebarLeaf({
           ? 'bg-nav-accent/10 font-medium text-nav-accent before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-nav-accent'
           : 'text-nav-text hover:bg-nav-open hover:text-foreground',
         collapsed && 'justify-center',
+        quiet && 'opacity-55',
         // Children sit inside the group's guide line and read one step lighter and smaller than a parent.
         !collapsed && level === 1 && 'py-1.5 text-[13px]',
         !collapsed && level > 1 && 'ml-4 py-1.5 text-[13px]',
@@ -917,8 +950,8 @@ function SidebarSubGroup({
   items: NavChild[];
   badgeMap: BadgeMap;
 }) {
-  const location = useLocation();
-  const anyActive = items.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix, c.looseScope));
+  const location = useNavLocation();
+  const anyActive = items.some((c) => isEntryActive(c, location.pathname, location.search));
   const [open, setOpen] = useState(anyActive);
   useEffect(() => {
     if (anyActive) setOpen(true);
@@ -967,7 +1000,7 @@ function SidebarParent({
   onToggle: () => void;
 }) {
   const { t } = useTranslation('layout');
-  const location = useLocation();
+  const location = useNavLocation();
   const hasChildren = !!item.children?.length;
   const childBadges = hasChildren ? item.children!.flatMap((c) => badgeMap[c.key] || []) : [];
 
@@ -977,7 +1010,7 @@ function SidebarParent({
 
   // Parent with children
   const anyChildActive = item.children!.some((c) =>
-    isLinkActive(c.to, location.pathname, location.search, c.matchPrefix, c.looseScope),
+    isEntryActive(c, location.pathname, location.search),
   );
 
   const tone = item.tone ? NAV_TONES[item.tone] : undefined;
@@ -1091,25 +1124,26 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
   // Through `useFactoryScope` (Orders.md §25): a Fulfillment account is always on its own factory,
   // even when a shared link carries another `?factoryId=` — the BE splits its badges only for that.
   const factoryScopeId = useFactoryScope();
+  const orderView = useOrderViewStore((s) => s.view);
   const navGroups = useMemo(
     () =>
       filterMenuByPermissions(
-        buildNavGroups(t, factoryScopeId, userEmail, roleName),
+        buildNavGroups(t, factoryScopeId, userEmail, roleName, orderView),
         permissionCodes,
         isAdmin,
         roleName,
       ),
-    [t, factoryScopeId, userEmail, permissionCodes, isAdmin, roleName],
+    [t, factoryScopeId, userEmail, permissionCodes, isAdmin, roleName, orderView],
   );
 
   // Accordion: one group open at a time. The group holding the current page opens itself on every
   // navigation, so the user is never left looking at a closed menu with no sign of where they are.
-  const location = useLocation();
+  const location = useNavLocation();
   const [openKey, setOpenKey] = useState<string | null>(null);
   useEffect(() => {
     const holder = navGroups
       .flatMap((g) => g.items)
-      .find((it) => it.children?.some((c) => isLinkActive(c.to, location.pathname, location.search, c.matchPrefix, c.looseScope)));
+      .find((it) => it.children?.some((c) => isEntryActive(c, location.pathname, location.search)));
     if (holder) setOpenKey(holder.key);
   }, [navGroups, location.pathname, location.search]);
 

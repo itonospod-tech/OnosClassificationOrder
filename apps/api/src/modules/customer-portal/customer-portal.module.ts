@@ -3,8 +3,6 @@ import { MongooseModule } from '@nestjs/mongoose';
 
 import { AuthModule } from '@/modules/auth/auth.module';
 import { CollectionEntity, CollectionSchema } from '@/modules/collection/collection.entity';
-import { ProductTagEntity, ProductTagSchema } from '@/modules/product-tag/product-tag.entity';
-import { ProductTechniqueEntity, ProductTechniqueSchema } from '@/modules/product-technique/product-technique.entity';
 import { CustomerModule } from '@/modules/customer/customer.module';
 import { CustomerEventModule } from '@/modules/customer-event/customer-event.module';
 import { DesignStorageModule } from '@/modules/design-storage/design-storage.module';
@@ -12,6 +10,8 @@ import { OrderEntity, OrderSchema } from '@/modules/order/order.entity';
 import { OrderModule } from '@/modules/order/order.module';
 import { ProductCategoryEntity, ProductCategorySchema } from '@/modules/product-category/product-category.entity';
 import { ProductConfigEntity, ProductConfigSchema } from '@/modules/product-config/product-config.entity';
+import { ProductTagEntity, ProductTagSchema } from '@/modules/product-tag/product-tag.entity';
+import { ProductTechniqueEntity, ProductTechniqueSchema } from '@/modules/product-technique/product-technique.entity';
 import { PromotionModule } from '@/modules/promotion/promotion.module';
 import { SystemConfigModule } from '@/modules/system-config/system-config.module';
 

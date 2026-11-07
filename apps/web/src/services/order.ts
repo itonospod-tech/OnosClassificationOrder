@@ -112,11 +112,20 @@ const getWorkshopFilters = (query: string = '') => {
   return callApi(`/${CONFIG.API_VERSION}/orders/workshop-filters${query}`, 'get');
 };
 
+// Legacy daily report: items finished + packages handed over per VN day and seller.
+const getDailyBySeller = (query: string) => callApi(`/${CONFIG.API_VERSION}/orders/daily-by-seller${query}`, 'get');
+
 // Stale-order cleanup (Orders.md §23b, SuperAdmin).
 const getStaleOpen = (query: string = '') => callApi(`/${CONFIG.API_VERSION}/orders/stale-open${query}`, 'get');
 const previewStaleCleanup = (ids: string[]) => callApi(`/${CONFIG.API_VERSION}/orders/stale-open/preview`, 'post', { ids });
 const runStaleCleanup = (ids: string[], reason: string) =>
   callApi(`/${CONFIG.API_VERSION}/orders/stale-open/complete`, 'post', { ids, reason });
+
+// Return orders to the tool-check queue (ToolCheckWorkflow.md §2.4, SuperAdmin).
+const getToolQueueReturn = (query: string = '') => callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return${query}`, 'get');
+const previewToolQueueReturn = (ids: string[]) => callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return/preview`, 'post', { ids });
+const runToolQueueReturn = (ids: string[], reason: string) =>
+  callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return/run`, 'post', { ids, reason });
 
 const getFulfillmentStatusCounts = (query: string = '') => {
   return callApi(`/${CONFIG.API_VERSION}/orders/fulfillment-status-counts${query}`, 'get');
@@ -257,6 +266,10 @@ const updateOrderDesign = (id: string, data: UpdateOrderDesignDto) => {
   return callApi(`/${CONFIG.API_VERSION}/orders/${id}/design`, 'patch', data);
 };
 
+// Undo of a mistaken bulk edit (Orders.md §27, SuperAdmin).
+const previewBulkUndo = (data: object) => callApi(`/${CONFIG.API_VERSION}/orders/bulk-undo/preview`, 'post', data);
+const runBulkUndo = (data: object) => callApi(`/${CONFIG.API_VERSION}/orders/bulk-undo/run`, 'post', data);
+
 export const order = {
   getOrders,
   getOrdersByIds,
@@ -279,9 +292,13 @@ export const order = {
   getOrdersGrouped,
   getWorkshopFilters,
   getFulfillmentStatusCounts,
+  getDailyBySeller,
   getStaleOpen,
   previewStaleCleanup,
   runStaleCleanup,
+  getToolQueueReturn,
+  previewToolQueueReturn,
+  runToolQueueReturn,
   getFactoryOverview,
   getLifecycleOverview,
   getCancelledOrders,
@@ -315,4 +332,6 @@ export const order = {
   bulkHold,
   markToolCheckDone,
   updateOrderDesign,
+  previewBulkUndo,
+  runBulkUndo,
 };

@@ -91,7 +91,7 @@ Công sức: S ≤ 0,5 ngày · M ≈ 1–2 ngày · L ≈ 3–5 ngày · XL > 1
 |---|---|---|
 | Link menu hub mặc định `?status=processing` (đổi sang `in-production` theo §7) | `18f11d3` | Đã gộp `dev` |
 | Cột Ghi chú (`customer_orders.note`) | `18f11d3` | Đã gộp `dev` |
-| Lọc xưởng + Ưu tiên (list + counts, chính xác, không trần) | `5b9ab6c` | Đã gộp `dev`, kiểm API: list = counts ở 10 tổ hợp |
+| Lọc xưởng + Ưu tiên (list + counts, chính xác, không trần) | `5b9ab6c` | Đã gộp `dev`. Kiểm 04/10: list = counts ở 10 tổ hợp **mà `/counts` hỗ trợ** (ngày, dòng, xưởng, ưu tiên, seller, thùng rác). `/counts` KHÔNG áp `search`/`stage`/`status`/`held` (đó là số của tab, theo thiết kế) và đi qua cache 60 giây kiểu stale-while-revalidate. **Vá 10/10/2026:** cache dời sang `customer-portal/admin-order-cache.ts` (file scope — một tiến trình chạy HAI Nest context nên provider sẽ sinh hai bản cache) và được xoá ở `CustomerOrderEventService.emit`, tức mọi sự kiện đẩy/giữ/nhả/huỷ/sản-xuất-xong đều làm số tab nhảy ngay; trước đó chỉ đồng bộ legacy và thùng rác xoá cache, nên số tab lệch danh sách tới 60 giây. **Giới hạn còn lại:** cache theo TIẾN TRÌNH — chạy nhiều tiến trình pm2 thì ghi ở tiến trình A không xoá cache tiến trình B. Test: `admin-cache-invalidation.spec.ts` |
 | Tab Thùng rác (chỉ đơn chưa đẩy, admin, có khôi phục) | `456a087`, `3ed1862` | Đã gộp `dev` |
 | Số đếm hub: lọc trước `$lookup`, `byLine` bỏ derive | `4043788` | Đã gộp `dev`, số không đổi |
 | Shipments: lọc trạng thái hãng + cột item/địa chỉ + preset ngày | `0759e98` | Xong trên `agent/a1`, chờ gộp |
@@ -109,6 +109,10 @@ Công sức: S ≤ 0,5 ngày · M ≈ 1–2 ngày · L ≈ 3–5 ngày · XL > 1
 **Căn cứ:** `OnosPodLegacy-BusinessFlows.md` §4 bước 6 `process_order` — hệ cũ trừ ví (payment + import_tax), set `paid_at` VÀ `inproduction_at`, đơn sang `In Production`, production item sinh ở MRP `To Do`. Đó là MỘT sự kiện: đơn rời tay seller, vào tay xưởng; tiền chỉ đi kèm sự kiện, không phải định nghĩa của nó. Hệ mới có đúng sự kiện đó: `pushToProduction` sinh `OrderEntity` + set `inProductionAt`. Khác biệt duy nhất (chưa trừ tiền, `waived`) thuộc vùng Tiền, không đổi nghĩa tab.
 
 **Trước quyết định này** hệ mới tính: Processing = đã đẩy nhưng chưa vào công đoạn fulfillment nào (đang soát tool / thiết kế); In Production = đã vào bất kỳ công đoạn fulfillment nào. Theo nghĩa mới, giai đoạn soát tool / thiết kế chuyển sang In Production.
+
+**Hệ quả với khách dùng API** (phát hiện 10/10/2026): `?status=in-production` trên Open API trả **cả đơn đang tiếp nhận / thiết kế**, và `?status=processing` luôn rỗng. Tên webhook event không đổi. Đã vá cùng ngày: trang tài liệu API của khách nói rõ hai điều này (i18n `apiDocs.list.params.status`, vi + en), và `CUSTOMER_STAGE_LABELS['tool-check']` đổi từ "Đang xử lý" sang **"Tiếp nhận đơn"** — khớp nhãn `track:progress.stages.tool-check` mà seller app vốn đã dùng khi tra theo KHOÁ chặng, hết cảnh một đơn hiện "Đang sản xuất" cạnh "Đang xử lý". **CÒN LẠI (việc người):** chưa ai thông báo cho khách đang gọi API rằng nghĩa của `in-production` đã rộng ra.
+
+**Trước khi sửa `deriveItemStatus`/`buildDerivePipeline`:** nửa so khớp JS ↔ Mongo của `derive-status-mirror.spec.ts` **bị skip mặc định** (chỉ chạy khi đặt `DERIVE_MIRROR_MONGO_URI`, spec dòng 84), nên CI không bắt được lệch. Phải chạy với biến này.
 
 **Hệ quả cần biết:** hệ mới đẩy sản xuất NGUYÊN TỬ — không có trạng thái "đã gửi, chờ xử lý" như hệ cũ (bước 3–5: chờ mua label/trừ ví) → tab Processing không có đơn nào cho tới khi có cổng ví trước sản xuất. Seller thấy "In Production" ngay sau khi đẩy (như hệ cũ).
 

@@ -63,6 +63,8 @@ interface ListItem {
   autoCompletePack?: boolean;
   /** Chỉ factory — bỏ qua soát tool: đơn mới vào thẳng cột In (xưởng DTF). */
   skipToolCheck?: boolean;
+  /** Factory only — Print worker may send an order back to Support from the kanban. */
+  allowToolCheckRework?: boolean;
   /** Chỉ factory — trạm quét tự trừ tồn kho sau khi in label giao hàng. */
   autoStockOut?: boolean;
 }
@@ -79,6 +81,7 @@ interface FormState {
     flowType: FactoryFlowType;
     autoCompletePack: boolean;
     skipToolCheck: boolean;
+    allowToolCheckRework: boolean;
     autoStockOut: boolean;
   };
 }
@@ -94,6 +97,7 @@ const DEFAULT_FORM: FormState = {
     flowType: FactoryFlowType.Standard,
     autoCompletePack: false,
     skipToolCheck: false,
+    allowToolCheckRework: false,
     autoStockOut: false,
   },
 };
@@ -233,6 +237,7 @@ export function FactoryTab() {
         flowType: FactoryFlowType.Standard,
         autoCompletePack: false,
         skipToolCheck: false,
+        allowToolCheckRework: false,
         autoStockOut: false,
       },
     });
@@ -250,6 +255,7 @@ export function FactoryTab() {
         flowType: item.flowType ?? FactoryFlowType.Standard,
         autoCompletePack: item.autoCompletePack ?? false,
         skipToolCheck: item.skipToolCheck ?? false,
+        allowToolCheckRework: item.allowToolCheckRework ?? false,
         autoStockOut: item.autoStockOut ?? false,
       },
     });
@@ -309,6 +315,7 @@ export function FactoryTab() {
             flowType: data.flowType,
             autoCompletePack: data.autoCompletePack,
             skipToolCheck: data.skipToolCheck,
+            allowToolCheckRework: data.allowToolCheckRework,
             autoStockOut: data.autoStockOut,
           });
         } else {
@@ -328,6 +335,7 @@ export function FactoryTab() {
             flowType: data.flowType,
             autoCompletePack: data.autoCompletePack,
             skipToolCheck: data.skipToolCheck,
+            allowToolCheckRework: data.allowToolCheckRework,
             autoStockOut: data.autoStockOut,
           });
         } else {
@@ -711,6 +719,18 @@ export function FactoryTab() {
                     {t('factoryTab.form.autoPack.sweepBtn')}
                   </Button>
                 )}
+              </div>
+            )}
+            {form.type === 'factory' && (
+              <div className="space-y-2 rounded-md border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <Label>{t('factoryTab.form.allowToolCheckRework.label')}</Label>
+                  <Switch
+                    checked={form.data.allowToolCheckRework}
+                    onCheckedChange={(v) => setForm({ ...form, data: { ...form.data, allowToolCheckRework: v } })}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{t('factoryTab.form.allowToolCheckRework.hint')}</p>
               </div>
             )}
             {form.type === 'factory' && (

@@ -721,7 +721,11 @@
     "olderOpen_one": "Còn {{n}} đơn vào sản xuất trước {{days}} ngày qua mà chưa xong — bấm để xem",
     "olderOpen_other": "Còn {{n}} đơn vào sản xuất trước {{days}} ngày qua mà chưa xong — bấm để xem",
     "olderOpenActive": "Đang xem đơn chưa xong vào sản xuất từ {{days}} đến {{staleDays}} ngày trước",
-    "backToWindow": "Về {{days}} ngày gần nhất"
+    "backToWindow": "Về {{days}} ngày gần nhất",
+    "olderOpenChip_one": "{{n}} đơn cũ chưa xong",
+    "olderOpenChip_other": "{{n}} đơn cũ chưa xong",
+    "olderOpenActiveChip": "Đơn cũ chưa xong ({{days}}–{{staleDays}} ngày trước)",
+    "backToWindowShort": "về {{days}} ngày"
   },
   "classicPage": {
     "title": "Đơn hàng",
@@ -851,9 +855,20 @@
       "allHeader": "{{orders}} đơn · {{types}} loại sản phẩm",
       "viewing": "Đang xem {{shown}} / {{total}} đơn của loại này",
       "empty": "Không có loại sản phẩm nào khớp"
-    }
+    },
+    "funnelExpand": "Hiện ô chặng",
+    "funnelCollapse": "Thu gọn chặng"
   },
   "printCard": {
     "details": "Chi tiết"
+  },
+  "viewSwitch": {
+    "label": "Cách xem đơn",
+    "grouped": "Theo sản phẩm",
+    "flat": "Bảng phẳng"
+  },
+  "denseRow": {
+    "details": "Chi tiết và mọi trường",
+    "sellerAccount": "Tài khoản seller"
   }
 }

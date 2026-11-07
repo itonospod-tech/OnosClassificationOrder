@@ -28,6 +28,8 @@ Kiến trúc xương sống: **sổ cái append-only** mirror nguyên khuôn ví
 3. Không có config/variations → `type + '-' + size` — `resolvedBy='fallback'` (thủ kho nên soát).
 4. Quét gặp SKU chưa có trong kho → **tự tạo item** `autoCreated=true` (badge vàng ở trang kho, tồn đi từ 0 xuống âm), không chặn.
 
+Bước 1 TRÙNG luật `variantSku` của dòng đơn (Orders.md §23a — cùng mã in trên label). Bước 2–3 là CHỈ của kho: dòng đơn cố ý để trống khi không khớp. Hai nơi khác nhau có chủ đích; đừng đồng bộ chúng (lý do ở Orders.md §23a).
+
 ### 2.2 Ba đường trừ kho — chung 1 hàm, không bao giờ trừ đúp
 
 Cả 3 đường đều gọi `InventoryService.scanOut()` → `applyTransaction()` với

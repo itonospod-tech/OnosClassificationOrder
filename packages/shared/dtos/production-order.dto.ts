@@ -149,7 +149,13 @@ export type DesignerRejection = z.infer<typeof DesignerRejectionZod>;
 
 export const ProductionOrderZod = BaseEntityZod.extend({
   productionId: z.string().min(1),
+  /** Seller ACCOUNT code (e.g. TIKTOKSHOPUS) — not a product SKU. */
   userSku: z.string().optional(),
+  /**
+   * Product variation SKU (`ProductConfig.variations[].sku`) matched by size — computed on list
+   * reads (getOrders / grouped), same rule as the shipping label. Absent when no variation matches.
+   */
+  variantSku: z.string().optional(),
   userEmail: z.string().optional(),
   type: z.string().optional(),
   color: z.string().optional(),
@@ -1578,6 +1584,90 @@ export const StaleCleanupRunResultZod = z.object({ runId: z.string(), done: z.nu
 export type StaleCleanupRunResult = z.infer<typeof StaleCleanupRunResultZod>;
 export class StaleCleanupRunResDto extends createZodDto(extendApi(ResZod.extend({ data: StaleCleanupRunResultZod }))) {}
 
+// ─── Return orders to the tool-check queue (ToolCheckWorkflow.md §2.4, SuperAdmin) ─────────────────
+/** Max orders per run — the owner runs ~50 first to watch how the external tool reacts. */
+export const TOOL_QUEUE_RETURN_BATCH_MAX = 200;
+/** The tool counts as stopped when orders are waiting and it has written nothing for this long. */
+export const TOOL_QUEUE_STALE_MINUTES = 60;
+export const ToolQueueBlockZod = z.enum([
+  'not-found',
+  'cancelled',
+  'completed',
+  'has-note', // a person (or the tool) already recorded a result: never touched
+  'no-tool-result', // nothing to clear
+  'held',
+  'unmapped',
+  'excluded-factory', // US factory: out of the production flow
+  'skip-tool-check', // factory flag: the queue excludes it, so returning would be useless
+]);
+export type ToolQueueBlockKey = z.infer<typeof ToolQueueBlockZod>;
+
+export const GetToolQueueReturnZod = PageQueryZod.extend({
+  factoryId: IDZod.optional(),
+  type: z.string().optional(),
+  toolResult: z.string().optional(),
+  /** `true` = only orders a run would take; omitted = candidates AND the blocked ones with their reason. */
+  returnable: z.enum(['true']).optional(),
+  groupBy: z.enum(['type']).optional(),
+});
+export class GetToolQueueReturnDto extends createZodDto(extendApi(GetToolQueueReturnZod)) {}
+
+export const ToolQueueReturnRowZod = z.object({
+  _id: z.string(),
+  productionId: z.string(),
+  type: z.string().optional(),
+  factoryId: z.string().optional(),
+  factoryShortName: z.string().optional(),
+  /** The value that locks the order out of the queue (`has-tool` / `no-tool` / ...). */
+  toolResult: z.string(),
+  inProductionAt: z.coerce.date().nullable(),
+  returnable: z.boolean(),
+  blockReason: ToolQueueBlockZod.nullable(),
+});
+export type ToolQueueReturnRow = z.infer<typeof ToolQueueReturnRowZod>;
+export const GetToolQueueReturnResZod = ResZod.extend({
+  data: z.array(ToolQueueReturnRowZod),
+  groups: z.array(z.object({ key: z.string(), count: z.number(), returnable: z.number() })).optional(),
+  total: z.number(),
+  /** State of the queue the returned orders would join (same filter the tool uses). */
+  queue: z.object({
+    waiting: z.number(),
+    /** Newest `toolResult` log entry with no acting user (= written by the tool); null = none ever. */
+    lastToolWriteAt: z.coerce.date().nullable(),
+    /** Orders are waiting and the tool has been silent past TOOL_QUEUE_STALE_MINUTES (or never wrote). */
+    stalled: z.boolean(),
+  }),
+  /** Whole candidate set (ignores filters). */
+  summary: z.object({
+    total: z.number(),
+    returnable: z.number(),
+    blocked: z.array(z.object({ reason: ToolQueueBlockZod, count: z.number() })),
+    byFactory: z.array(z.object({ factoryId: z.string(), shortName: z.string().optional(), returnable: z.number() })),
+    byToolResult: z.array(z.object({ toolResult: z.string(), returnable: z.number() })),
+  }),
+});
+export class GetToolQueueReturnResDto extends createZodDto(extendApi(GetToolQueueReturnResZod)) {}
+
+export const ToolQueueReturnIdsZod = z.object({ ids: z.array(IDZod).min(1).max(TOOL_QUEUE_RETURN_BATCH_MAX) });
+export class ToolQueueReturnPreviewDto extends createZodDto(extendApi(ToolQueueReturnIdsZod)) {}
+export const ToolQueueReturnRunZod = ToolQueueReturnIdsZod.extend({ reason: z.string().trim().min(10).max(500) });
+export class ToolQueueReturnRunDto extends createZodDto(extendApi(ToolQueueReturnRunZod)) {}
+
+export const ToolQueueReturnSkipZod = z.object({ id: z.string(), productionId: z.string().optional(), reason: z.string() });
+export const ToolQueueReturnPreviewZod = z.object({
+  returnable: z.number(),
+  /** Every requested order with its verdict: the export lists them by factory, the dialog counts them. */
+  rows: z.array(ToolQueueReturnRowZod),
+  skipped: z.array(ToolQueueReturnSkipZod),
+  byFactory: z.array(z.object({ shortName: z.string(), count: z.number() })),
+  byToolResult: z.array(z.object({ toolResult: z.string(), count: z.number() })),
+});
+export type ToolQueueReturnPreview = z.infer<typeof ToolQueueReturnPreviewZod>;
+export class ToolQueueReturnPreviewResDto extends createZodDto(extendApi(ResZod.extend({ data: ToolQueueReturnPreviewZod }))) {}
+export const ToolQueueReturnRunResultZod = z.object({ runId: z.string(), done: z.number(), skipped: z.array(ToolQueueReturnSkipZod) });
+export type ToolQueueReturnRunResult = z.infer<typeof ToolQueueReturnRunResultZod>;
+export class ToolQueueReturnRunResDto extends createZodDto(extendApi(ResZod.extend({ data: ToolQueueReturnRunResultZod }))) {}
+
 // ─── Giữ đơn (hold / unhold) ────────────────────────────────────────
 // Hold: tạm dừng đơn — set heldAt + holdReason, khóa mọi thao tác cho tới khi
 // mở lại (unhold). REVERSIBLE (khác cancel). Bulk: hold/unhold nhiều đơn 1 lần.
@@ -1910,6 +2000,30 @@ export const GetFactoryOverviewZod = z.object({
 });
 export class GetFactoryOverviewDto extends createZodDto(extendApi(GetFactoryOverviewZod)) {}
 
+// ─── Daily report by seller (legacy "Production Report › Daily report", Dashboard.md) ─────
+/** Max days per request: the report is a day × seller matrix read on one screen. */
+export const DAILY_BY_SELLER_MAX_DAYS = 31;
+export const GetDailyBySellerZod = z.object({
+  /** VN calendar days, inclusive (YYYY-MM-DD). */
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  factoryId: IDZod.optional(),
+});
+export class GetDailyBySellerDto extends createZodDto(extendApi(GetDailyBySellerZod)) {}
+export const DailyBySellerRowZod = z.object({
+  /** VN day the items were finished (`fulfillmentCompletedAt`) or the packages handed over. */
+  date: z.string(),
+  userSku: z.string(),
+  /** Items (production orders) finished that day. */
+  items: z.number(),
+  quantity: z.number(),
+  /** Packages handed over to the carrier that day (`shipping_packages.handoverAt`). */
+  packages: z.number(),
+});
+export type DailyBySellerRow = z.infer<typeof DailyBySellerRowZod>;
+export const GetDailyBySellerResZod = ResZod.extend({ data: z.array(DailyBySellerRowZod) });
+export class GetDailyBySellerResDto extends createZodDto(extendApi(GetDailyBySellerResZod)) {}
+
 export const GetFactoryOverviewResZod = ResZod.extend({ data: FactoryOverviewZod });
 export class GetFactoryOverviewResDto extends createZodDto(extendApi(GetFactoryOverviewResZod)) {}
 
@@ -2091,8 +2205,12 @@ export class BulkResolveErrorResDto extends createZodDto(extendApi(BulkResolveEr
 export const FulfillmentTransitionZod = z.object({
   stage: FulfillmentStageZod,
   action: FulfillmentTransitionActionZod,
-  /** Required khi action='rework-back': 'designer' hoặc FulfillmentStage trước stage hiện tại. */
-  target: z.union([z.literal('designer'), FulfillmentStageZod]).optional(),
+  /**
+   * Required khi action='rework-back': 'designer', FulfillmentStage trước stage hiện tại,
+   * hoặc 'tool-check' (đẩy về Support — chỉ công đoạn In ở xưởng bật
+   * `FactoryEntity.allowToolCheckRework`, BE kiểm tra).
+   */
+  target: z.union([z.literal('designer'), z.literal('tool-check'), FulfillmentStageZod]).optional(),
   /** Required khi action='rework-back'. */
   reason: z.string().max(500).optional(),
   /**

@@ -9,6 +9,9 @@ import { OnospodOrderLookupService } from './onospod-order-lookup.service';
  * production without an address in 18 days.
  */
 jest.mock('axios');
+// jest.mock has replaced axios.post with a mock; this reference only reads it to assert calls, it is never
+// invoked detached from axios.
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const post = axios.post as jest.Mock;
 
 const make = () => {

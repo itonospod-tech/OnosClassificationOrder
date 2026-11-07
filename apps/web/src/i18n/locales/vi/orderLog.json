@@ -11,6 +11,7 @@
     "hold": "Giữ đơn",
     "unhold": "Mở giữ",
     "forceComplete": "Chuyển hoàn thành",
+    "restore": "Hoàn tác",
     "reworkBack": "Đẩy về"
   },
   "importSubaction": {

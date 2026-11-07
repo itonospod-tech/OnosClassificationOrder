@@ -43,6 +43,7 @@ function buildActionBadge(
     hold: { label: t('actionBadge.hold'), variant: 'warning' },
     unhold: { label: t('actionBadge.unhold'), variant: 'success' },
     force_complete: { label: t('actionBadge.forceComplete'), variant: 'warning' },
+    restore: { label: t('actionBadge.restore'), variant: 'success' },
     rework_back: { label: t('actionBadge.reworkBack'), variant: 'warning' },
   };
 }
