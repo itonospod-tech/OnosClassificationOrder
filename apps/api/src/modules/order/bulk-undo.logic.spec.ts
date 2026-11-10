@@ -117,6 +117,18 @@ describe('tool-ok group', () => {
     expect(p?.status === 'restore' && p.set).toEqual({ toolResultNote: 'ok', readyForFulfill: true });
   });
 
+  it('skips an order a designer took after the incident (never ok + print while a designer holds it)', () => {
+    const logs = [...okLogs, log('assignee', null, huong, '2026-10-06T02:00:00Z', 'Leader')];
+    const order = { _id: 'O2', productionId: 'P2', toolResultNote: null, assignee: huong, designerStatus: DesignerStatus.Assigned };
+    expect(planUndo('tool-ok', order, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+    expect(planUndo('tool-ok', order, okLogs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('designer group skips an order whose tool note changed after the incident', () => {
+    const logs = [...huongLogs, log('toolResultNote', null, 'ok', '2026-10-06T02:00:00Z', 'Hanh')];
+    expect(planUndo('designer', { ...afterIncident, toolResultNote: 'ok' }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
   it('skips when someone set a tool note again after the incident', () => {
     const logs = [...okLogs, log('toolResultNote', null, 'ok', '2026-10-06T02:00:00Z', 'Hoang Anh')];
     expect(planUndo('tool-ok', { _id: 'O2', productionId: 'P2', toolResultNote: 'ok' }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });

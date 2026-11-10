@@ -56,9 +56,18 @@ export const UNDO_GROUP_FIELD: Record<BulkUndoGroup, string> = {
 /** Fields whose later edits (by anyone) mean someone already worked on the order: skip it. */
 const LATER_FIELDS: Record<BulkUndoGroup, string[]> = {
   designer: ['assignee', 'designerStatus', 'designer'],
-  'tool-ok': ['toolResultNote'],
+  'tool-ok': ['toolResultNote', 'tool-check'],
   'tool-note': ['toolResultNote'],
   'tool-result': ['toolResult'],
+};
+/**
+ * The designer and tool-ok undos overlap (one hands the order back to a designer, the other sends it
+ * to print), so each also skips an order whose OTHER side changed since the incident. 'designer' /
+ * 'tool-check' are the rework-back rows (designer → rework; Support → toolResultNote 'error').
+ */
+const CROSS_FIELDS: Partial<Record<BulkUndoGroup, string[]>> = {
+  designer: ['toolResultNote', 'readyForFulfill', 'currentFulfillmentStage', 'tool-check'],
+  'tool-ok': ['assignee', 'designerStatus', 'designer'],
 };
 
 /**
@@ -85,6 +94,23 @@ function designerTransitions(rows: UndoLogRow[]): UndoLogRow[] {
     }
   }
   return out;
+}
+
+const designerStatusOf = (v: unknown): string => (isEmptyValue(v) ? DesignerStatus.Unassigned : String(v));
+
+/** Assignee + designer status as the logs leave them (assigning sets 'assigned' without its own row). */
+function designerStateBefore(rows: UndoLogRow[]): { assignee: unknown; status: string } {
+  let assignee: unknown = null;
+  let status: string = DesignerStatus.Unassigned;
+  for (const r of rows) {
+    if (r.field === 'assignee') {
+      assignee = r.after ?? null;
+      if (isEmptyValue(r.after)) status = DesignerStatus.Unassigned;
+      else if (status === DesignerStatus.Unassigned) status = DesignerStatus.Assigned;
+    } else if (r.field === 'designerStatus') status = designerStatusOf(r.after);
+    else if (isReworkBack(r)) status = DesignerStatus.Rework;
+  }
+  return { assignee, status };
 }
 
 const READY = 'ok';
@@ -122,11 +148,25 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
   if (order.heldAt) return { status: 'skip', reason: 'held', changes: preview };
   const later = logs.some((r) => r.createdAt > w.to && LATER_FIELDS[group].includes(r.field ?? ''));
   if (later) return { status: 'skip', reason: 'edited-after', changes: preview };
+  // The other side's fields: the incident's own cascade rows (actor, inside the window) do not count.
+  const cross = CROSS_FIELDS[group] ?? [];
+  const crossLater = logs.some(
+    (r) => cross.includes(r.field ?? '') && (r.createdAt > w.to || (r.createdAt >= inc[0].createdAt && !isActorRow(r, w.actor))),
+  );
+  if (crossLater) return { status: 'skip', reason: 'edited-after', changes: preview };
   if (!sameValue(order[field], leftValue)) return { status: 'skip', reason: 'current-differs', changes: preview };
 
   const before = logs.filter((r) => r.createdAt < w.from);
   if (group === 'designer') return planDesigner(order, before, restoreValue as string, w.from);
-  if (group === 'tool-ok') return planToolOk(order, before, w.from);
+  if (group === 'tool-ok') {
+    // Never send to print an order a designer holds: its designer state must still be what it was at
+    // the incident (this also catches a change nobody logged).
+    const atIncident = designerStateBefore(before);
+    if (!sameValue(order.assignee, atIncident.assignee) || designerStatusOf(order.designerStatus) !== atIncident.status) {
+      return { status: 'skip', reason: 'edited-after', changes: preview };
+    }
+    return planToolOk(order, before, w.from);
+  }
   const set = { [field]: restoreValue };
   return {
     status: 'restore',
@@ -215,7 +255,14 @@ function planToolOk(order: OrderDoc, before: UndoLogRow[], from: Date): UndoPlan
     status: 'restore',
     changes,
     set,
-    guard: { toolResultNote: { $in: [null, ''] }, ...(emptied ? { currentFulfillmentStage: { $in: [null, ''] } } : {}) },
+    guard: {
+      toolResultNote: { $in: [null, ''] },
+      ...(emptied ? { currentFulfillmentStage: { $in: [null, ''] } } : {}),
+      // No designer took the order meanwhile.
+      assignee: isEmptyValue(order.assignee) ? { $in: [null, ''] } : order.assignee,
+      designerStatus:
+        designerStatusOf(order.designerStatus) === DesignerStatus.Unassigned ? { $in: [null, DesignerStatus.Unassigned] } : order.designerStatus,
+    },
     restoredFrom: from,
   };
 }
