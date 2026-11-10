@@ -50,6 +50,11 @@ async function fillForm(dialog: Locator, f: { amount: string; ref?: string; note
 
 /** The footer "Close" (the corner X has the same accessible name). */
 const closeDialog = (dialog: Locator) => dialog.getByRole('button', { name: 'Close', exact: true }).first().click();
+/**
+ * The 409 notice. It must stay TRUE for every 409 kind — one of them (a resend whose bank reference / note
+ * changed) means the money WAS recorded by the earlier attempt — so it may never say "nothing written".
+ */
+const CONFLICT_NOTICE = /Nothing more was written this time\. An earlier attempt may ALREADY have been recorded/;
 const confirmButton = (dialog: Locator) => dialog.getByRole('button', { name: /^(Top up|Adjust) [-−]?\$/ });
 
 /** The next request matching `pattern` reaches the server, but the browser only sees a dropped connection. */
@@ -147,7 +152,7 @@ test.describe('wallet top-up / adjust', () => {
     expect(await balanceOf(seller._id)).toBe(3999.98);
   });
 
-  test('duplicate bank reference: "not saved" box with the server message, balance unchanged', async ({ page }) => {
+  test('duplicate bank reference: 409 notice with the server message, balance unchanged', async ({ page }) => {
     const first = await seedSeller(0);
     const second = await seedSeller(0);
     const ref = `E2E-DUP-${first.userSku}`;
@@ -166,7 +171,7 @@ test.describe('wallet top-up / adjust', () => {
     await dialog.getByRole('button', { name: 'Continue' }).click();
     await confirmButton(dialog).click();
 
-    await expect(dialog.getByText('Not saved — the server refused this request and wrote nothing.')).toBeVisible();
+    await expect(dialog.getByText(CONFLICT_NOTICE)).toBeVisible();
     await expect(dialog.getByText(`Mã giao dịch "${ref}" đã được nạp cho ${first.userSku}`)).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'View ledger' })).toBeVisible();
     await expect(dialog.getByText('If the connection drops, just press again')).toHaveCount(0);
@@ -197,7 +202,7 @@ test.describe('wallet top-up / adjust', () => {
     expect(await walletTxns(seller._id)).toHaveLength(1);
   });
 
-  test('lost connection, then the bank reference / note is edited and resent: 409 "not saved", nothing written (bug 2)', async ({ page }) => {
+  test('lost connection, then the bank reference / note is edited and resent: 409, credited exactly once (bug 2)', async ({ page }) => {
     const seller = await seedSeller(0);
     const sheet = await openLedger(page, seller);
     const dialog = await openAction(page, sheet, 'Top up', seller.name);
@@ -217,9 +222,23 @@ test.describe('wallet top-up / adjust', () => {
     await dialog.getByRole('button', { name: 'Continue' }).click();
     await confirmButton(dialog).click();
 
-    await expect(dialog.getByText('Not saved — the server refused this request and wrote nothing.')).toBeVisible();
+    await expect(dialog.getByText(CONFLICT_NOTICE)).toBeVisible();
     await expect(dialog.getByText(/Thay đổi mã giao dịch ngân hàng \(đã ghi: "E2E-B2A-/)).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'View ledger' })).toBeVisible();
+    // The money of the FIRST attempt is in the ledger: the notice must not claim otherwise.
+    await expect(dialog.getByText(/wrote nothing|Not saved/)).toHaveCount(0);
+
+    // The operator closes and reopens (a NEW request key): the dialog shows the balance credited exactly
+    // once — the 409 resend wrote nothing more — so there is no reason to top up again.
+    await closeDialog(dialog);
+    await expect(dialog).toBeHidden();
+    const reopened = await openAction(page, sheet, 'Top up', seller.name);
+    await expect(reopened.getByText('$300.00').first()).toBeVisible();
+    await fillForm(reopened, { amount: '1', note: 'e2e bug 2 look only' });
+    await reopened.getByRole('button', { name: 'Continue' }).click();
+    await expect(reopened.getByText('$300.00 → $301.00')).toBeVisible();
+    await closeDialog(reopened);
+    await expect(reopened).toBeHidden();
 
     expect(await balanceOf(seller._id)).toBe(300);
     const txns = await walletTxns(seller._id);

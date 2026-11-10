@@ -47,6 +47,7 @@ interface WalletActionDialogProps {
    * After a lost connection nobody knows whether the write landed. The dialog offers a shortcut to the
    * ledger (parent closes the dialog and reloads it) so the operator can LOOK before pressing again or
    * editing the amount — the one place where a changed amount would be a genuinely new operation.
+   * The same shortcut is the primary action after a 409, where an earlier attempt may already be recorded.
    */
   onViewLedger: () => void;
 }
@@ -97,7 +98,13 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [connectionLost, setConnectionLost] = useState(false);
-  /** 409: the server refused and wrote nothing (e.g. this request was already recorded with other values). */
+  /**
+   * 409: THIS attempt wrote nothing more — which does NOT mean nothing was ever recorded. Three server cases
+   * share the status and the web only gets `message` (the global filter): a key reused with another amount,
+   * a replay of an operation ALREADY recorded whose note / bank reference / proof changed, and a bank
+   * reference already credited. In the second case the money is in the ledger, so the notice always says
+   * "may already have been recorded" and the ledger button becomes the primary action.
+   */
   const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState<DoneState | null>(null);
   const [wrote, setWrote] = useState(false);
@@ -192,7 +199,8 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
       // after a failed attempt, so fixing a typo in the note after a lost connection wrote the money a SECOND time
       // (`adjust` has no externalTxnId, so the unique index could not catch it either). With the same key, a resend
       // whose note / bank reference / proof link differs from what was already recorded is refused by the server
-      // (409, nothing written — handled in the catch below); an identical resend is a harmless replay.
+      // (409: this resend writes nothing more, but the earlier attempt DID record the money — handled in the
+      // catch below); an identical resend is a harmless replay.
       // A genuinely different operation means a different amount here, or a freshly opened dialog (a new mount
       // makes a new key — see the component comment).
       // Rule lives in shared (`nextWalletRequestAttempt`, tested in apps/api wallet-request-key.spec.ts).
@@ -238,9 +246,11 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
       // No response at all: the write may well have gone through, so say that instead of a vague "unknown error".
       const lost = axios.isAxiosError(err) && !err.response;
       setConnectionLost(lost);
-      // 409 = refused, nothing written. A replay of an operation already recorded with a different bank
-      // reference / note / proof link lands here: the server message names what it kept. Pressing again
-      // would get the same answer, so the "safe to retry" hint is not shown and no new key is minted.
+      // 409 = this attempt wrote nothing MORE, but an earlier one may already have recorded the money: a
+      // replay of an operation already recorded with a different bank reference / note / proof link lands
+      // here (the server message names what it kept). The 409 kinds cannot be told apart here, so the notice
+      // is worded to be true for all of them and sends the operator to the ledger. Pressing again would get
+      // the same answer, so the "safe to retry" hint is not shown and no new key is minted.
       setConflict(axios.isAxiosError(err) && err.response?.status === 409);
       setError(lost ? t('dialog.review.networkError') : message);
     } finally {
@@ -400,7 +410,14 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
               </Notice>
             )}
             {(connectionLost || conflict) && (
-              <Button variant="outline" size="sm" onClick={onViewLedger} disabled={submitting}>
+              <Button
+                // On a 409 the ledger is THE next step (the money may already be there), so it is the primary
+                // button, not an outline aside.
+                variant={conflict ? 'default' : 'outline'}
+                size="sm"
+                onClick={onViewLedger}
+                disabled={submitting}
+              >
                 <BookOpenText size={16} className="mr-1.5" />
                 {t('dialog.review.viewLedger')}
               </Button>
