@@ -222,13 +222,21 @@ export function OrderTableClassic() {
     return Number.isFinite(s) && s > 0 ? s : DEFAULT_PAGE_SIZE;
   });
   const [pid, setPid] = useState(() => searchParams.get('pid')?.trim() || '');
+  // Date range the user CHOSE (picker or a shared `cfrom`/`cto` link); `null` = the view's default. Only a chosen
+  // range goes into the URL: the default is derived every render, so F5 / a bookmark opened the next day lands on
+  // TODAY's window, and switching `?productLine` without a reload moves to that line's window (R1107-1, R8).
+  // Opening on a `pid` keeps the old "no window" start so the lookup spans every date.
+  const [pickedDates, setPickedDates] = useState<{ from: string; to: string } | null>(() => {
+    const from = searchParams.get('cfrom') || '';
+    const to = searchParams.get('cto') || '';
+    if (from || to) return { from, to };
+    return searchParams.get('pid') ? { from: '', to: '' } : null;
+  });
   // A product-line view opens on its line window (same default as the grouped page and the sidebar badge).
-  const [createdFrom, setCreatedFrom] = useState(
-    () => searchParams.get('cfrom') || (productLine && !searchParams.get('pid') ? localISO(PRODUCT_LINE_WINDOW_DAYS - 1) : ''),
-  );
-  const [createdTo, setCreatedTo] = useState(
-    () => searchParams.get('cto') || (productLine && !searchParams.get('pid') ? localISO() : ''),
-  );
+  const lineWindowFrom = productLine ? localISO(PRODUCT_LINE_WINDOW_DAYS - 1) : '';
+  const lineWindowTo = productLine ? localISO() : '';
+  const createdFrom = pickedDates ? pickedDates.from : lineWindowFrom;
+  const createdTo = pickedDates ? pickedDates.to : lineWindowTo;
   const [search, setSearch] = useState(() => searchParams.get('csearch') || '');
   const debouncedSearch = useDebounce(search, 300);
   const [bulkIds, setBulkIds] = useState<string[]>([]);
@@ -265,8 +273,8 @@ export function OrderTableClassic() {
         const sp = new URLSearchParams(prev);
         pid.trim() ? sp.set('pid', pid.trim()) : sp.delete('pid');
         search ? sp.set('csearch', search) : sp.delete('csearch');
-        createdFrom ? sp.set('cfrom', createdFrom) : sp.delete('cfrom');
-        createdTo ? sp.set('cto', createdTo) : sp.delete('cto');
+        pickedDates?.from ? sp.set('cfrom', pickedDates.from) : sp.delete('cfrom');
+        pickedDates?.to ? sp.set('cto', pickedDates.to) : sp.delete('cto');
         filterType ? sp.set('ctype', filterType) : sp.delete('ctype');
         filterPrintStatus ? sp.set('cprint', filterPrintStatus) : sp.delete('cprint');
         filterToolResultNote ? sp.set('cnote', filterToolResultNote) : sp.delete('cnote');
@@ -289,8 +297,7 @@ export function OrderTableClassic() {
   }, [
     pid,
     search,
-    createdFrom,
-    createdTo,
+    pickedDates,
     filterType,
     filterPrintStatus,
     filterToolResultNote,
@@ -710,16 +717,16 @@ export function OrderTableClassic() {
     });
   }
   // The line window is what a product-line view IS, not a filter the user added: no chip (and no "Filtering" bar).
-  const onLineWindow = !!productLine && createdFrom === localISO(PRODUCT_LINE_WINDOW_DAYS - 1) && createdTo === localISO();
-  if ((createdFrom || createdTo) && !onLineWindow) {
+  const onLineWindow = !!productLine && createdFrom === lineWindowFrom && createdTo === lineWindowTo;
+  if (pickedDates && (createdFrom || createdTo) && !onLineWindow) {
     activeFilters.push({
       key: 'date',
       label: t('tableWorkshop.chips.date'),
       display: `${fmtChipDate(createdFrom) || '…'} → ${fmtChipDate(createdTo) || '…'}`,
       color: FILTER_CHIP_COLORS.date,
       onClear: () => {
-        setCreatedFrom('');
-        setCreatedTo('');
+        // Back to the view's default (the line window on a product-line view, no date filter otherwise).
+        setPickedDates(null);
         setPage(1);
       },
     });
@@ -756,8 +763,7 @@ export function OrderTableClassic() {
     setFilterHeld(false);
     // KHÔNG reset về hôm nay như Workshop — Classic cố ý mặc định rỗng (BR-8; riêng view dòng sản phẩm về cửa sổ dòng,
     // người dùng đã chọn giữ nguyên khác biệt này).
-    setCreatedFrom(productLine ? localISO(PRODUCT_LINE_WINDOW_DAYS - 1) : '');
-    setCreatedTo(productLine ? localISO() : '');
+    setPickedDates(null);
     setFilterType('');
     setFilterFabricType('');
     setFilterMachineNumber('');
@@ -800,8 +806,7 @@ export function OrderTableClassic() {
           createdFrom={createdFrom}
           createdTo={createdTo}
           onDateRangeChange={(f, to) => {
-            setCreatedFrom(f);
-            setCreatedTo(to);
+            setPickedDates({ from: f, to });
             setPage(1);
           }}
           onReload={() => {
