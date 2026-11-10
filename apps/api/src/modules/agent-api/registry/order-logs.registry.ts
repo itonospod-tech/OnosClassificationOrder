@@ -31,6 +31,7 @@ export const orderLogsRegistry: AgentTableSpec = {
     field: plain('string', 'Tên trường bị đổi trong thao tác này'),
     before: plain('object', 'Giá trị TRƯỚC khi đổi — nguyên văn, kiểu tuỳ trường (`API-19`)'),
     after: plain('object', 'Giá trị SAU khi đổi — nguyên văn, kiểu tuỳ trường (`API-19`)'),
+    undoOf: plain('object', "Chỉ trên dòng action 'restore' của hoàn tác sửa hàng loạt: sự cố đã tua { group, actor, from, to } (Orders.md §27)"),
 
     // ── `API-17` mở đọc danh tính người thao tác; `API-19` mở nốt lọc/nhóm —
     // nhóm theo `userId` là ra sản lượng theo từng người.
