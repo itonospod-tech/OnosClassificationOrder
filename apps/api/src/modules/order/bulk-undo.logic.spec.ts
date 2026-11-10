@@ -100,7 +100,7 @@ describe('tool-ok group', () => {
     { field: 'toolResultNote', before: 'ok', after: null, createdAt: INCIDENT, userName: ACTOR },
   ];
 
-  it('puts the order back in the print queue, waiting since its original ok, when the cascade emptied it', () => {
+  it('older log without a stage snapshot: back in the print queue, without a made-up waiting moment', () => {
     const p = planUndo('tool-ok', { _id: 'O2', productionId: 'P2', toolResultNote: null, readyForFulfill: false }, okLogs, W);
     expect(p?.status).toBe('restore');
     if (p?.status !== 'restore') return;
@@ -108,7 +108,7 @@ describe('tool-ok group', () => {
       toolResultNote: 'ok',
       readyForFulfill: true,
       currentFulfillmentStage: 'print',
-      'fulfillmentStages.print': { status: 'waiting', reworkCount: 0, workMs: 0, waitingAt: t('2026-10-05T08:00:00Z') },
+      'fulfillmentStages.print': { status: 'waiting', reworkCount: 0, workMs: 0 },
     });
   });
 

@@ -9,9 +9,11 @@ import { DesignerStatus, FulfillmentStage, FulfillmentStageStatus } from 'shared
  *  - clearing `assignee` also resets `designerStatus` to unassigned and clears the designer
  *    timestamps and rework count (`updateField` / `bulkUpdateField`), but only `assignee` is logged;
  *    the state is rebuilt from the designer's own logged transitions (real timestamps, nothing guessed);
- *  - clearing `toolResultNote` from 'ok' sets `readyForFulfill=false` and, when nobody had started
- *    the print stage yet, clears `currentFulfillmentStage` + `fulfillmentStages`; the order is put
- *    back in the print queue, waiting since its original 'ok'.
+ *  - moving `toolResultNote` away from 'ok' — or clearing another note — when no stage was started yet
+ *    clears `currentFulfillmentStage` + `fulfillmentStages`. The wipe logs a full snapshot of the
+ *    stages (`stage-wipe.logic.ts`), and the tool-ok / tool-note undo writes it back exactly. Older logs
+ *    have no snapshot: tool-ok then puts the order back in the print queue without a waiting moment
+ *    (unknown, never made up), tool-note restores the note only.
  *
  * Safety: an order is only touched while its CURRENT values are exactly what the incident left, nobody
  * logged a change to the same fields after the window, and the OTHER side (designer ↔ production) did not
@@ -227,6 +229,18 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
   if (crossLater) return { status: 'skip', reason: 'edited-after', changes: preview };
   if (!sameValue(order[field], leftValue)) return { status: 'skip', reason: 'current-differs', changes: preview };
 
+  // Stages the incident's cascade wiped, from the snapshot it logged (tool-ok / tool-note only). Written
+  // back only onto an order still exactly as the wipe left it, and nobody moved its stages since.
+  const wiped = group === 'tool-ok' || group === 'tool-note' ? wipedStagesOf(logs, w) : null;
+  if (wiped) {
+    if (!isEmptyValue(order.currentFulfillmentStage) || !isEmptyStages(order.fulfillmentStages)) {
+      return { status: 'skip', reason: 'current-differs', changes: preview };
+    }
+    if (logs.some((r) => r.createdAt > w.to && isStageRow(r) && !isRestoreOf(r, w))) {
+      return { status: 'skip', reason: 'edited-after', changes: preview };
+    }
+  }
+
   if (group === 'designer') return planDesigner(order, before, restoreValue as string, w.from);
   if (group === 'tool-ok') {
     // Never send to print an order a designer holds: its designer state must still be what it was at
@@ -239,17 +253,53 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
     const leftByThisIncident =
       incidentRows('designer', logs, w).length > 0 && isEmptyValue(order.assignee) && current === DesignerStatus.Unassigned;
     if (!sameAsIncident && !leftByThisIncident) return { status: 'skip', reason: 'edited-after', changes: preview };
-    return planToolOk(order, before, w.from);
+    return planToolOk(order, wiped, w.from);
   }
-  const set = { [field]: restoreValue };
-  return {
-    status: 'restore',
-    changes: preview,
-    set,
-    guard: { [field]: isEmptyValue(leftValue) ? { $in: [null, ''] } : leftValue },
-    restoredFrom: w.from,
-  };
+  const set: Record<string, unknown> = { [field]: restoreValue };
+  const guard: Record<string, unknown> = { [field]: isEmptyValue(leftValue) ? { $in: [null, ''] } : leftValue };
+  const changes = [...preview];
+  // tool-note: no snapshot (older log, or nothing was wiped) → the note only, as before; nothing is guessed.
+  if (wiped) {
+    Object.assign(set, stagesSet(wiped));
+    Object.assign(guard, WIPED_STAGES_GUARD);
+    changes.push(...stagesChanges(order, wiped));
+  }
+  return { status: 'restore', changes, set, guard, restoredFrom: w.from };
 }
+
+/**
+ * The stage state the incident's cascade wiped: the `fulfillmentStages` row it logged (before = full
+ * snapshot, after = {}) and the `currentFulfillmentStage` row cleared with it, both by the actor inside
+ * the window — the earliest pair, i.e. the state at the start of the window. Null when the log has no
+ * snapshot (written before it existed, or no wipe happened): the caller then guesses nothing.
+ */
+export function wipedStagesOf(logs: UndoLogRow[], w: UndoWindow): WipedStages | null {
+  const inWindow = (r: UndoLogRow) => r.createdAt >= w.from && r.createdAt <= w.to && isActorRow(r, w.actor);
+  const snap = logs.find(
+    (r) => inWindow(r) && r.field === 'fulfillmentStages' && !isEmptyStages(r.before) && isEmptyStages(r.after),
+  );
+  const stage = logs.find((r) => inWindow(r) && r.field === 'currentFulfillmentStage' && !isEmptyValue(r.before) && isEmptyValue(r.after));
+  if (!snap || !stage) return null;
+  return { currentFulfillmentStage: stage.before as string, fulfillmentStages: snap.before as Record<string, unknown> };
+}
+
+export interface WipedStages {
+  currentFulfillmentStage: string;
+  fulfillmentStages: Record<string, unknown>;
+}
+
+/** `{}`, missing or null: what the wipe leaves (`$in: [{}, null]` matches the same in Mongo). */
+const isEmptyStages = (v: unknown): boolean =>
+  v === null || v === undefined || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+/** A row that moved the order's stages: stage pointer, a whole-stages snapshot or a per-stage step. */
+const isStageRow = (r: UndoLogRow): boolean => r.field === 'currentFulfillmentStage' || (r.field ?? '').startsWith('fulfillmentStages');
+/** Write only onto an order whose stages are still exactly what the wipe left. */
+const WIPED_STAGES_GUARD = { currentFulfillmentStage: { $in: [null, ''] }, fulfillmentStages: { $in: [{}, null] } };
+const stagesSet = (s: WipedStages) => ({ currentFulfillmentStage: s.currentFulfillmentStage, fulfillmentStages: s.fulfillmentStages });
+const stagesChanges = (order: OrderDoc, s: WipedStages): UndoChange[] => [
+  { field: 'currentFulfillmentStage', current: order.currentFulfillmentStage ?? null, restore: s.currentFulfillmentStage },
+  { field: 'fulfillmentStages', current: order.fulfillmentStages ?? {}, restore: s.fulfillmentStages },
+];
 
 /**
  * Designer state just before the incident, rebuilt from the logs (real timestamps):
@@ -306,28 +356,36 @@ function planDesigner(order: OrderDoc, before: UndoLogRow[], assignee: string, f
   };
 }
 
-/** 'ok' back, ready for fulfillment, and back in the print queue if the cascade had emptied it. */
-function planToolOk(order: OrderDoc, before: UndoLogRow[], from: Date): UndoPlan {
-  const okAt = [...before].reverse().find((r) => r.field === 'toolResultNote' && r.after === READY)?.createdAt ?? (order.toolCheckedAt as Date | undefined) ?? null;
+/**
+ * 'ok' back, ready for fulfillment, and the stages the cascade wiped put back:
+ *  - from the snapshot the wipe logged (`wiped`) — status, waitingAt, reworkAt exactly as they were;
+ *  - an older log without a snapshot: back in the print queue as waiting. When it had entered that queue
+ *    is not known (the 'ok' row is not it — e.g. a stage sent back for rework keeps its earlier
+ *    waitingAt), so no waitingAt is written rather than a made-up one.
+ */
+function planToolOk(order: OrderDoc, wiped: WipedStages | null, from: Date): UndoPlan {
   const set: Record<string, unknown> = { toolResultNote: READY, readyForFulfill: true };
   const stages = (order.fulfillmentStages ?? {}) as Record<string, unknown>;
   const emptied = !order.currentFulfillmentStage && !order.fulfillmentCompletedAt && Object.keys(stages).length === 0;
-  if (emptied) {
-    set.currentFulfillmentStage = FulfillmentStage.Print;
-    set['fulfillmentStages.print'] = { status: FulfillmentStageStatus.Waiting, reworkCount: 0, workMs: 0, waitingAt: okAt ?? from };
-  }
   const changes: UndoChange[] = [
     { field: 'toolResultNote', current: order.toolResultNote ?? null, restore: READY },
     { field: 'readyForFulfill', current: order.readyForFulfill ?? null, restore: true },
-    ...(emptied ? [{ field: 'currentFulfillmentStage', current: null, restore: `${FulfillmentStage.Print} (waiting since ${(okAt ?? from).toISOString()})` }] : []),
   ];
+  if (wiped) {
+    Object.assign(set, stagesSet(wiped));
+    changes.push(...stagesChanges(order, wiped));
+  } else if (emptied) {
+    set.currentFulfillmentStage = FulfillmentStage.Print;
+    set['fulfillmentStages.print'] = { status: FulfillmentStageStatus.Waiting, reworkCount: 0, workMs: 0 };
+    changes.push({ field: 'currentFulfillmentStage', current: null, restore: FulfillmentStage.Print });
+  }
   return {
     status: 'restore',
     changes,
     set,
     guard: {
       toolResultNote: { $in: [null, ''] },
-      ...(emptied ? { currentFulfillmentStage: { $in: [null, ''] } } : {}),
+      ...(wiped ? WIPED_STAGES_GUARD : emptied ? { currentFulfillmentStage: { $in: [null, ''] } } : {}),
       // No designer took the order meanwhile.
       assignee: isEmptyValue(order.assignee) ? { $in: [null, ''] } : order.assignee,
       designerStatus: designerStatusOf(order.designerStatus) === DesignerStatus.Unassigned ? UNASSIGNED_DESIGNER_GUARD : order.designerStatus,

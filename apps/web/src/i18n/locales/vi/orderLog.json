@@ -46,7 +46,8 @@
     "quantity": "Số lượng",
     "status": "Trạng thái đơn (OnosPod)",
     "fulfillmentStage": "Công đoạn {{stage}}",
-    "currentFulfillmentStage": "Công đoạn hiện tại"
+    "currentFulfillmentStage": "Công đoạn hiện tại",
+    "fulfillmentStages": "Trạng thái các công đoạn"
   },
   "designerStatusLabels": {
     "unassigned": "Chưa gán",

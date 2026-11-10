@@ -203,6 +203,7 @@ import { OrderRepository } from './order.repository';
 import { parseTypeFilter, TYPE_NONE_TOKEN } from './parse-type-filter';
 import { productLineCondition } from './product-line-filter';
 import { resolveShippingLabelInfo } from './shipping-label';
+import { planStageWipe, type StageWipeInput } from './stage-wipe.logic';
 import {
   lastProductionActivity,
   lastProductionActivityExpr,
@@ -6792,6 +6793,8 @@ export class OrderService implements OnModuleInit {
     const normalized = normalizeFieldValue(dto.field, dto.value);
     const patch: Record<string, unknown> = { [dto.field]: normalized };
     if (dto.field === 'priority') patch.priority = normalized ? Number(normalized) : null;
+    /** Stage state wiped by leaving 'ok' — kept as a snapshot in the order log (`planStageWipe`). */
+    let wipedStages: Record<string, unknown> | null = null;
 
     if (dto.field === 'toolResultNote') {
       patch.readyForFulfill = normalized === READY_FOR_FULFILL_CODE;
@@ -6845,14 +6848,12 @@ export class OrderService implements OnModuleInit {
         // (firstStartedAt missing toàn bộ stages) → clear stage để tránh
         // orphan ngược (FactoryOverview không đếm nhưng my-tasks lại đếm).
         // Đơn đã được worker chạm vào → giữ stage, worker tiếp tục xử lý.
-        const beforeStages =
-          (before as unknown as { fulfillmentStages?: Record<string, { firstStartedAt?: Date }> }).fulfillmentStages ||
-          {};
-        const anyStageStarted = Object.values(beforeStages).some((s) => !!s?.firstStartedAt);
-        const beforeStage = (before as unknown as { currentFulfillmentStage?: string | null }).currentFulfillmentStage;
-        if (beforeStage && !anyStageStarted) {
+        // Bản chụp stage bị xoá được ghi log bên dưới để Hoàn tác trả lại đúng nguyên văn (Orders.md §27).
+        const wipe = planStageWipe(before as unknown as StageWipeInput);
+        if (wipe) {
           patch.currentFulfillmentStage = null;
           patch.fulfillmentStages = {};
+          wipedStages = wipe.snapshot;
         }
       }
     }
@@ -7068,7 +7069,11 @@ export class OrderService implements OnModuleInit {
     const beforeRec = before as unknown as Record<string, unknown>;
     const cascadeRows = CASCADE_LOGGED_FIELDS.filter(
       (k) => k in patch && !(k === 'designerStatus' && autoReworkApplied) && !sameLogValue(beforeRec[k], patch[k]),
-    ).map((k) => ({ orderId: id, action: 'update' as const, field: k, before: beforeRec[k] ?? null, after: patch[k] ?? null, ctx }));
+    ).map((k) => ({ orderId: id, action: 'update' as const, field: k as string, before: beforeRec[k] ?? null, after: patch[k] ?? null, ctx }));
+    // The stage wipe keeps the only copy of the stage state (waitingAt, reworkAt, status): log it whole.
+    if (wipedStages && Object.keys(wipedStages).length > 0) {
+      cascadeRows.push({ orderId: id, action: 'update', field: 'fulfillmentStages', before: wipedStages, after: {}, ctx });
+    }
     if (cascadeRows.length) void this.orderLogService.writeMany(cascadeRows);
 
     if (autoReworkApplied) {

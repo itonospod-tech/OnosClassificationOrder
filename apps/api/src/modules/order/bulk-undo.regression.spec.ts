@@ -174,7 +174,8 @@ describe('bug 4 — undo never crosses into the other flow (designer vs tool-ok/
       toolResultNote: 'ok',
       readyForFulfill: true,
       currentFulfillmentStage: 'print',
-      'fulfillmentStages.print': { status: 'waiting', reworkCount: 0, workMs: 0, waitingAt: t('2026-10-05T08:00:00Z') },
+      // Log written before the stage snapshot existed: no waiting moment is made up.
+      'fulfillmentStages.print': { status: 'waiting', reworkCount: 0, workMs: 0 },
     });
   });
 
@@ -440,5 +441,103 @@ describe('production movement blocks the designer undo only when the restored de
   it('done designer, but a DESIGNER-side edit after the window → still skipped', () => {
     const logs = [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), ...stageSteps, row('designerStatus', 'unassigned', 'assigned', AFTER, 'Leader')];
     expect(planUndo('designer', inPrint, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+});
+
+describe('R5 — stages wiped by a tool note change come back from the logged snapshot, exactly', () => {
+  // The wipe (`updateField`, `planStageWipe`) logs, in the same edit: the note row, the
+  // currentFulfillmentStage cascade row and a `fulfillmentStages` row whose `before` is the full snapshot.
+  const waitingAt = t('2026-10-05T16:00:00Z');
+  const reworkAt = t('2026-10-05T20:00:00Z');
+  const printWaiting = { print: { status: 'waiting', reworkCount: 0, workMs: 0, waitingAt } };
+  const printRework = { print: { status: 'rework', reworkCount: 0, workMs: 0, waitingAt, reworkAt } };
+  const wipe = (note: string, stages: Record<string, unknown>) => [
+    row('toolResultNote', note, null, INCIDENT, ACTOR),
+    row('currentFulfillmentStage', 'print', null, INCIDENT, ACTOR),
+    row('fulfillmentStages', stages, {}, INCIDENT, ACTOR),
+  ];
+  /** In reported "missing file" (tool-check): note 'error', the order waits in Print's "waiting to come back". */
+  const reported = rows(
+    row('toolResultNote', null, 'ok', '2026-10-05T16:00:00Z', 'Support'),
+    row('toolResultNote', 'ok', 'error', '2026-10-05T18:00:00Z', 'Print worker'),
+  );
+  const wiped = {
+    _id: 'O9',
+    productionId: 'P9',
+    toolResultNote: null,
+    productionErrorSource: 'tool-check',
+    readyForFulfill: false,
+    currentFulfillmentStage: null,
+    fulfillmentStages: {},
+  };
+
+  it('tool-note: note, stage pointer and the exact stage state are restored, guarded on the wiped state', () => {
+    const p = planUndo('tool-note', wiped, [...reported, ...wipe('error', printWaiting)], W);
+    expect(p?.status).toBe('restore');
+    if (p?.status !== 'restore') return;
+    expect(p.set).toEqual({ toolResultNote: 'error', currentFulfillmentStage: 'print', fulfillmentStages: printWaiting });
+    expect(p.guard).toEqual({
+      toolResultNote: { $in: [null, ''] },
+      currentFulfillmentStage: { $in: [null, ''] },
+      fulfillmentStages: { $in: [{}, null] },
+    });
+    expect(p.changes.map((c) => c.field)).toEqual(['toolResultNote', 'currentFulfillmentStage', 'fulfillmentStages']);
+  });
+
+  it('tool-note: the restore rows carry the snapshot (the history shows what came back)', () => {
+    const p = planUndo('tool-note', wiped, [...reported, ...wipe('error', printWaiting)], W) as Extract<UndoPlan, { status: 'restore' }>;
+    expect(restoreLogRows('tool-note', p, W).find((r) => r.field === 'fulfillmentStages')).toMatchObject({ before: {}, after: printWaiting });
+  });
+
+  it('tool-note, older log without a snapshot: the note only, as before — no stage is guessed', () => {
+    const logs = [...reported, row('toolResultNote', 'error', null, INCIDENT, ACTOR), row('currentFulfillmentStage', 'print', null, INCIDENT, ACTOR)];
+    const p = planUndo('tool-note', wiped, logs, W);
+    expect(p?.status === 'restore' && { set: p.set, guard: p.guard }).toEqual({
+      set: { toolResultNote: 'error' },
+      guard: { toolResultNote: { $in: [null, ''] } },
+    });
+  });
+
+  it('tool-note, a stage that was started (nothing wiped, no snapshot): the note only', () => {
+    const started = { ...wiped, currentFulfillmentStage: 'print', fulfillmentStages: { print: { status: 'in-progress', firstStartedAt: waitingAt } } };
+    const p = planUndo('tool-note', started, [...reported, row('toolResultNote', 'error', null, INCIDENT, ACTOR)], W);
+    expect(p?.status === 'restore' && p.set).toEqual({ toolResultNote: 'error' });
+  });
+
+  it('tool-ok: a print stage that was in REWORK comes back as rework with its real waitingAt and reworkAt', () => {
+    // In reported "missing file" → Support fixed it and set 'ok' (no designer) → print = rework, not started.
+    const logs = [...reported, row('toolResultNote', 'error', 'ok', '2026-10-05T20:00:00Z', 'Support'), ...wipe('ok', printRework)];
+    const p = planUndo('tool-ok', { ...wiped, productionErrorSource: null }, logs, W);
+    expect(restoreSet(p)).toEqual({ toolResultNote: 'ok', readyForFulfill: true, currentFulfillmentStage: 'print', fulfillmentStages: printRework });
+    expect(p?.status === 'restore' && p.guard).toMatchObject({
+      currentFulfillmentStage: { $in: [null, ''] },
+      fulfillmentStages: { $in: [{}, null] },
+    });
+  });
+
+  it('the order entered a stage again since the wipe (current state differs) → skipped, never overwritten', () => {
+    const now = { ...wiped, currentFulfillmentStage: 'print', fulfillmentStages: { print: { status: 'waiting', waitingAt: t(AFTER) } } };
+    expect(planUndo('tool-note', now, [...reported, ...wipe('error', printWaiting)], W)).toMatchObject({ status: 'skip', reason: 'current-differs' });
+  });
+
+  it('someone moved the stages after the window, even if they are empty again now → skipped edited-after', () => {
+    const logs = [
+      ...reported,
+      ...wipe('error', printWaiting),
+      row('currentFulfillmentStage', null, 'print', AFTER, 'Leader'),
+      row('currentFulfillmentStage', 'print', null, AFTER, 'Leader'),
+    ];
+    expect(planUndo('tool-note', wiped, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('a snapshot written by ANOTHER actor (not the incident) is not used', () => {
+    const other = [row('currentFulfillmentStage', 'print', null, INCIDENT, 'Someone else'), row('fulfillmentStages', printWaiting, {}, INCIDENT, 'Someone else')];
+    const p = planUndo('tool-note', wiped, [...reported, row('toolResultNote', 'error', null, INCIDENT, ACTOR), ...other], W);
+    expect(p?.status === 'restore' && p.set).toEqual({ toolResultNote: 'error' });
+  });
+
+  it('the designer undo is unaffected: the wipe rows inside the window are the incident cascade, not production movement', () => {
+    const logs = [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), ...wipe('error', printWaiting)];
+    expect(planUndo('designer', { ...unassigned, toolResultNote: null }, logs, W)?.status).toBe('restore');
   });
 });

@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
+import { summarizeFulfillmentStages } from '@/utils/fulfillmentStagesSummary';
 
 import { usePermission } from '@/hooks/usePermission';
 
@@ -83,6 +84,7 @@ export default function BulkUndoPage() {
   const fmt = (v: unknown, field: string, names: Record<string, string>): string => {
     if (v === null || v === undefined || v === '') return '—';
     if (field === 'assignee' && typeof v === 'string') return names[v] ? `${names[v]} (${v})` : v;
+    if (field === 'fulfillmentStages') return summarizeFulfillmentStages(v, t);
     if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) return dayjs(v).format('DD/MM/YYYY HH:mm:ss');
     if (Array.isArray(v)) return v.join(', ');
     return String(v);

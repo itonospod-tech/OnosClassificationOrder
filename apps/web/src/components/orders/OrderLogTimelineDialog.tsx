@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
+import { summarizeFulfillmentStages } from '@/utils/fulfillmentStagesSummary';
 
 interface Props {
   open: boolean;
@@ -149,6 +150,7 @@ function fieldLabelFor(field: string, t: TFunction<'orderLog'>): string {
     return t('fieldLabel.fulfillmentStage', { stage: getStageLabel(t, stage) });
   }
   if (field === 'currentFulfillmentStage') return t('fieldLabel.currentFulfillmentStage');
+  if (field === 'fulfillmentStages') return t('fieldLabel.fulfillmentStages');
   return buildFieldLabel(t)[field] || field;
 }
 
@@ -258,7 +260,10 @@ export function OrderLogTimelineDialog({ open, onOpenChange, orderId, production
       const parts = value.map((v) => resolveDisplay(field, v).text).filter((s) => s && s !== '—');
       return { text: parts.length ? parts.join(', ') : '—' };
     }
-    if (typeof value === 'object') return { text: JSON.stringify(value) };
+    if (typeof value === 'object') {
+      if (field === 'fulfillmentStages') return { text: summarizeFulfillmentStages(value, t) };
+      return { text: JSON.stringify(value) };
+    }
     const raw = String(value);
     if (!field) return { text: raw };
     if (field === 'designerStatus') {

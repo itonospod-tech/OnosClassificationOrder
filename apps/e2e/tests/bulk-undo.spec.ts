@@ -141,6 +141,7 @@ test('tool-ok group: an order a designer took after the incident is skipped "edi
     expect(res.status).toBeLessThan(300);
   }
   expect(await order(b._id)).toMatchObject({ toolResultNote: 'ok', readyForFulfill: true, currentFulfillmentStage: 'print' });
+  const bStages = (await order(b._id)).fulfillmentStages;
 
   const w = await incidentWindow(async () => {
     await must('culprit', 'PATCH', '/orders/bulk-field', { ids: [a._id, b._id], field: 'toolResultNote', value: null });
@@ -160,10 +161,40 @@ test('tool-ok group: an order a designer took after the incident is skipped "edi
   await expect(toast(page, 'Restored 1 orders, skipped 0.')).toBeVisible();
 
   expect(await order(b._id)).toMatchObject({ toolResultNote: 'ok', readyForFulfill: true, currentFulfillmentStage: 'print' });
+  // The Print stage comes back from the snapshot the wipe logged: its real waitingAt, nothing rebuilt.
+  expect((await order(b._id)).fulfillmentStages).toEqual(bStages);
   const aNow = await order(a._id);
   expect(aNow.toolResultNote ?? null).toBeNull();
   expect(aNow.currentFulfillmentStage ?? null).toBeNull();
   expect(aNow.assignee).toBe(String(designer._id));
+});
+
+test('tool-note group (R5): Print reported a missing file, the note was bulk-cleared, the undo puts the order back exactly', async ({ page }) => {
+  const o = await seedOrder();
+  // Approved, waiting at Print, then the Print worker reports "missing file" (tool-check): back to Support.
+  expect((await call(adminToken, 'PATCH', `/orders/${o._id}/field`, { field: 'toolResultNote', value: 'ok' })).status).toBeLessThan(300);
+  const report = await call(adminToken, 'POST', `/orders/${o._id}/set-production-error`, { code: 'other', source: 'tool-check', note: 'Missing file to print' });
+  expect(report.status).toBeLessThan(300);
+  const reported = await order(o._id);
+  expect(reported).toMatchObject({ toolResultNote: 'error', productionErrorSource: 'tool-check', currentFulfillmentStage: 'print' });
+
+  const w = await incidentWindow(async () => {
+    await must('culprit', 'PATCH', '/orders/bulk-field', { ids: [o._id], field: 'toolResultNote', value: null });
+  });
+  // The wipe: nobody had started Print, so the stage went with the note.
+  expect(await order(o._id)).toMatchObject({ toolResultNote: null, currentFulfillmentStage: null, fulfillmentStages: {} });
+
+  await fillScope(page, w, 'Other tool note removed');
+  await page.getByRole('button', { name: 'Preview' }).click();
+  await expect(page.getByText('1 orders affected · 1 restorable · 0 skipped')).toBeVisible();
+  // The stage state to restore reads as words, not raw JSON.
+  await expect(page.getByRole('row').filter({ hasText: 'fulfillmentStages' }).first()).toContainText('Print: Waiting');
+  await runBatch(page, 1);
+  await expect(toast(page, 'Restored 1 orders, skipped 0.')).toBeVisible();
+
+  const back = await order(o._id);
+  expect(back).toMatchObject({ toolResultNote: 'error', productionErrorSource: 'tool-check', currentFulfillmentStage: 'print' });
+  expect(back.fulfillmentStages).toEqual(reported.fulfillmentStages);
 });
 
 test('invalid window: "from" after "to" cannot be previewed, more than 24 h is refused by the server', async ({ page }) => {
