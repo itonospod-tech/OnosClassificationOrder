@@ -17,7 +17,15 @@ them.
     secrets the API needs: JWT keys, master password, Redis password, ...), `KEEP_CONFIG` (plain numbers /
     flags / names), `KEEP_IF_LOCAL` (`REDIS_HOST`, only while it points at localhost). A new integration key
     stays cut off until someone allowlists it. The start line logs how many keys were neutralised (never values);
-  - then `DB_URI`, `PORT`, CORS/`WEB_URL`, `REDIS_DB=13`, rate limiter off, RabbitMQ → dead address.
+  - then `DB_URI`, `PORT`, CORS/`WEB_URL`, `REDIS_DB=13`, rate limiter off, RabbitMQ → dead address;
+  - **every schedule off**: `CEO_REPORT_CRON_ENABLED=false` (defaults ON — 07:00 / 07:10 Mon / 07:20 on the
+    1st, would call the real Claude Agent SDK), `SCHEDULED_REPORTS_ENABLED` / `TELEGRAM_NOTIFICATION_ENABLED=false`,
+    `ONOSPOD_FACTORY_SYNC_MODE` / `ONOSPOD_ORDER_RESYNC_MODE=off`, the BullMQ repeatable jobs
+    (`BULLMQ_*_CRON_TIME=''`). Crons left running touch only the e2e database (customer-orders legacy sync,
+    customer report).
+  - The child does **not** inherit the shell environment: only an allowlist of OS variables (`SHELL_ALLOW` —
+    PATH, temp/home dirs, Windows system dirs, `NODE_OPTIONS`, …) + the values above. A variable exported in
+    your shell (DB_URI, an API key, a feature flag) never reaches the e2e API.
   Global setup proves the override: the test accounts exist only in the e2e database and must be able to log in.
 - No production host is ever called.
 

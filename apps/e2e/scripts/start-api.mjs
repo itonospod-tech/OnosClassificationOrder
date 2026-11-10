@@ -11,8 +11,21 @@
  * points at this machine (KEEP_IF_LOCAL). A new integration key in the developer env therefore cannot reach its
  * host from the e2e API until someone allowlists it on purpose. The count is logged, never the values.
  *
+ * The child does NOT inherit the shell environment: it gets a small allowlist of OS variables (`SHELL_ALLOW`:
+ * PATH, temp dirs, home, Windows system dirs, NODE_OPTIONS, ...), then the neutralised .env keys, then the
+ * explicit overrides below. A developer's exported DB_URI, API key or feature flag can therefore never leak in.
+ *
  * Then, explicitly:
  *  - DB_URI → the throwaway database E2E_DB on the local replica set.
+ *  - Every in-process schedule that is ON by default (or could be switched on by a kept key) is turned off,
+ *    so a run that crosses 07:00 does not call the real Claude Agent SDK or any other service:
+ *      CEO_REPORT_CRON_ENABLED=false (ceo-report.service.ts — defaults ON, 07:00 / 07:10 Mon / 07:20 on the 1st,
+ *      runs the Agent SDK), SCHEDULED_REPORTS_ENABLED / TELEGRAM_NOTIFICATION_ENABLED=false (Telegram reports),
+ *      ONOSPOD_FACTORY_SYNC_MODE / ONOSPOD_ORDER_RESYNC_MODE=off (default off already; pinned), the BullMQ
+ *      repeatable jobs (BULLMQ_*_CRON_TIME='' → not added, and removed from the e2e Redis DB if present:
+ *      tracking-status refresh, transaction-mail scan, send-mail). The Zalo summary sweep needs the engine
+ *      URL/key (neutralised) and stays idle. Remaining in-process crons only touch the e2e database
+ *      (customer-orders legacy sync every 5 min, customer-report 07:15 / 07:25 on the 1st — no flag, no external call).
  *  - PORT 3107; CORS / WEB_URL → the e2e Vite on 5273.
  *  - Redis: its own logical DB, so sessions and BullMQ queues never mix with the developer API on :3007.
  *  - RabbitMQ: a dead address (the client is `wait: false`), so this process never consumes dev queues.
@@ -61,9 +74,6 @@ const KEEP_CONFIG = new Set([
   'RATE_LIMITER_SESSION_TTL',
   'RATE_LIMITER_USER_MAX',
   'RATE_LIMITER_USER_TTL',
-  'BULLMQ_REFRESH_TRACKING_STATUS_CRON_TIME',
-  'BULLMQ_SCAN_TRANSACTION_EMAIL_CRON_TIME',
-  'BULLMQ_SEND_MAIL_CRON_TIME',
   'DOWNLOAD_IMAGES_MAX_CONCURRENT',
   'DOWNLOAD_IMAGES_MAX_RETRY',
   'UPLOAD_IMAGES_MAX_RETRY',
@@ -109,9 +119,19 @@ function readEnvFile(file) {
   return out;
 }
 
+/**
+ * OS variables the child process needs to run Node and spawn helpers; matched case-insensitively (Windows
+ * spells it `Path`). Everything else from the shell is dropped.
+ */
+const SHELL_ALLOW = new Set([
+  'PATH', 'PATHEXT', 'SYSTEMROOT', 'SYSTEMDRIVE', 'WINDIR', 'COMSPEC', 'PROGRAMDATA', 'PROGRAMFILES', 'PROGRAMFILES(X86)',
+  'HOME', 'HOMEDRIVE', 'HOMEPATH', 'USERPROFILE', 'USERNAME', 'USER', 'LOGNAME', 'APPDATA', 'LOCALAPPDATA',
+  'TEMP', 'TMP', 'TMPDIR', 'LANG', 'LC_ALL', 'TZ', 'NODE_OPTIONS', 'NODE_EXTRA_CA_CERTS', 'NUMBER_OF_PROCESSORS',
+]);
+const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => SHELL_ALLOW.has(k.toUpperCase())));
+
 // Safe by default: every key of the developer env files that is not allowlisted is blanked (URL-looking
 // values → the black hole), so no external host or credential can reach the e2e API.
-const env = { ...process.env };
 const neutralised = new Set();
 for (const file of ['.env', '.env.development']) {
   for (const [key, value] of readEnvFile(path.join(apiDir, file))) {
@@ -134,6 +154,13 @@ Object.assign(env, {
   TELEGRAM_NOTIFICATION_ENABLED: 'false',
   SCHEDULED_REPORTS_ENABLED: 'false',
   TELEGRAM_WEBHOOK_URL: '',
+  // Schedules (see the header): nothing may fire on its own during a run.
+  CEO_REPORT_CRON_ENABLED: 'false',
+  ONOSPOD_FACTORY_SYNC_MODE: 'off',
+  ONOSPOD_ORDER_RESYNC_MODE: 'off',
+  BULLMQ_REFRESH_TRACKING_STATUS_CRON_TIME: '',
+  BULLMQ_SCAN_TRANSACTION_EMAIL_CRON_TIME: '',
+  BULLMQ_SEND_MAIL_CRON_TIME: '',
   ENABLE_ORM_LOGS: 'false',
 });
 
