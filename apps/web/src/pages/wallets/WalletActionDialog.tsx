@@ -3,7 +3,14 @@ import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { BookOpenText, CheckCircle2, Loader2, TriangleAlert } from 'lucide-react';
 import type { AdminWalletRow, CustomerWalletTxn, WalletOperationMode } from 'shared';
-import { normalizeExternalTxnId, previewWalletOperation, requiresStatementCheck, WALLET_BIG_AMOUNT_USD } from 'shared';
+import {
+  nextWalletRequestAttempt,
+  normalizeExternalTxnId,
+  previewWalletOperation,
+  requiresStatementCheck,
+  WALLET_BIG_AMOUNT_USD,
+  type WalletRequestAttempt,
+} from 'shared';
 
 import { RepositoryRemote } from '@/services';
 
@@ -94,7 +101,7 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
   const [wrote, setWrote] = useState(false);
 
   // The idempotency key of THIS dialog. Created once; see the class comment for when it is replaced.
-  const attempt = useRef<{ requestId: string; fingerprint?: string }>({ requestId: crypto.randomUUID() });
+  const attempt = useRef<WalletRequestAttempt>({ requestId: crypto.randomUUID() });
   const submitLock = useRef(false);
 
   const loadWallet = async (): Promise<AdminWalletRow | null> => {
@@ -183,11 +190,12 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
       // no externalTxnId, so the unique index could not catch it either).
       // A genuinely different operation means a different amount here, or a freshly opened dialog (a new mount
       // makes a new key — see the component comment).
-      const fingerprint = `${mode}:${amount}`;
-      if (attempt.current.fingerprint && attempt.current.fingerprint !== fingerprint) {
-        attempt.current = { requestId: crypto.randomUUID() };
-      }
-      attempt.current.fingerprint = fingerprint;
+      // Rule lives in shared (`nextWalletRequestAttempt`, tested in apps/api wallet-request-key.spec.ts).
+      attempt.current = nextWalletRequestAttempt(
+        attempt.current,
+        { mode, amount, note: trimmedNote, externalTxnId: ext, attachmentUrl: link },
+        () => crypto.randomUUID(),
+      );
       const requestId = attempt.current.requestId;
 
       if (mode === 'credit') {

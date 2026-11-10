@@ -14,3 +14,4 @@ export * from './print-area';
 export * from './seller-shipping';
 export * from './shipping';
 export * from './wallet';
+export * from './wallet-request-key';
