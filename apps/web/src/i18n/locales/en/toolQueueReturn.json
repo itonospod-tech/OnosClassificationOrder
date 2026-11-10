@@ -89,6 +89,8 @@
     "waiting": "{{count}} orders waiting in the tool queue",
     "last": "the tool last wrote a result {{ago}} ({{at}})",
     "never": "no tool result write found",
+    "unknown": "could not check the tool's last write (lookup failed or timed out)",
+    "stalledUnknown": "Could not tell whether the automatic tool check is running — reload the page to check again.",
     "stalled": "The automatic tool check looks stopped — returning orders to the queue now will not get them processed."
   }
 }

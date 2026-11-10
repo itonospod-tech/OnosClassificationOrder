@@ -53,10 +53,20 @@ export class OrderLogEntity extends DatabaseEntityAbstract {
 
   @Prop()
   userAgent?: string;
+
+  /** Automated writer that made the change, e.g. `design-review-tool` (`ORDER_LOG_SOURCE_*` in order-log.service). */
+  @Prop()
+  source?: string;
 }
 
 export const OrderLogSchema = SchemaFactory.createForClass(OrderLogEntity);
 OrderLogSchema.index({ orderId: 1, createdAt: -1 });
+// "Last write by the design-review tool" (tool-queue-return): partial, so it only holds labelled rows and
+// the lookup stays instant however long the tool has been silent.
+OrderLogSchema.index(
+  { source: 1, field: 1, createdAt: -1 },
+  { name: 'source_field_createdAt', partialFilterExpression: { source: { $exists: true } } },
+);
 
 OrderLogSchema.virtual('order', {
   ref: 'OrderEntity',

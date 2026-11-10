@@ -1636,10 +1636,15 @@ export const GetToolQueueReturnResZod = ResZod.extend({
   /** State of the queue the returned orders would join (same filter the tool uses). */
   queue: z.object({
     waiting: z.number(),
-    /** Newest `toolResult` log entry with no acting user (= written by the tool); null = none ever. */
+    /** false = the "last tool write" lookup failed or timed out: `lastToolWriteAt` means nothing then. */
+    lastToolWriteKnown: z.boolean(),
+    /** Newest `toolResult` log entry labelled `source: 'design-review-tool'` (the tool's result door); null = none ever (or unknown). */
     lastToolWriteAt: z.coerce.date().nullable(),
-    /** Orders are waiting and the tool has been silent past TOOL_QUEUE_STALE_MINUTES (or never wrote). */
-    stalled: z.boolean(),
+    /**
+     * Orders are waiting and the tool has been silent past TOOL_QUEUE_STALE_MINUTES (or never wrote).
+     * null = unknown (lookup failed): neither an alarm nor an all-clear.
+     */
+    stalled: z.boolean().nullable(),
   }),
   /** Whole candidate set (ignores filters). */
   summary: z.object({

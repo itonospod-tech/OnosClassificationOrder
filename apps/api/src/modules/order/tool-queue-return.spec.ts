@@ -1,4 +1,14 @@
-import { runToolQueueReturn, type ToolQueueDoc,toolQueueReturnEligibility, toolQueueStalled } from './tool-queue-return.logic';
+import { ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL } from '../order-log/order-log.service';
+import {
+  designReviewToolCtx,
+  findLastToolWrite,
+  type LastToolWrite,
+  type OrderLogFinder,
+  runToolQueueReturn,
+  type ToolQueueDoc,
+  toolQueueReturnEligibility,
+  toolQueueStalled,
+} from './tool-queue-return.logic';
 
 const US = 'f-us';
 const SKIP = new Set(['f-dtf']);
@@ -119,7 +129,9 @@ describe('runToolQueueReturn — re-check at write time', () => {
 
 describe('toolQueueStalled — is the automatic checker alive', () => {
   const now = new Date('2026-10-06T01:00:00Z');
-  const ago = (min: number) => new Date(now.getTime() - min * 60_000);
+  const ago = (min: number): LastToolWrite => ({ known: true, at: new Date(now.getTime() - min * 60_000) });
+  const never: LastToolWrite = { known: true, at: null };
+  const unknown: LastToolWrite = { known: false };
 
   it('is stalled when orders wait and the tool has been silent past the threshold', () => {
     expect(toolQueueStalled(1053, ago(61), now)).toBe(true);
@@ -132,11 +144,59 @@ describe('toolQueueStalled — is the automatic checker alive', () => {
   });
 
   it('with orders waiting and no write ever seen, there is no evidence it works → stalled', () => {
-    expect(toolQueueStalled(3, null, now)).toBe(true);
+    expect(toolQueueStalled(3, never, now)).toBe(true);
+  });
+
+  it('R2a: a failed / timed-out lookup is UNKNOWN (null), never "stalled"', () => {
+    expect(toolQueueStalled(1053, unknown, now)).toBeNull();
   });
 
   it('an idle tool with an empty queue is normal, never an alarm', () => {
     expect(toolQueueStalled(0, ago(60 * 24), now)).toBe(false);
-    expect(toolQueueStalled(0, null, now)).toBe(false);
+    expect(toolQueueStalled(0, never, now)).toBe(false);
+    expect(toolQueueStalled(0, unknown, now)).toBe(false);
+  });
+});
+
+describe('findLastToolWrite — failure handling (R2a)', () => {
+  const finder = (toArray: () => Promise<unknown[]>, seen: Array<Record<string, unknown>> = []): OrderLogFinder => ({
+    find: (filter) => {
+      seen.push(filter);
+      return { sort: () => ({ limit: () => ({ maxTimeMS: () => ({ toArray }) }) }) };
+    },
+  });
+
+  it('a query over maxTimeMS (MaxTimeMSExpired) is unknown, not "the tool never wrote"', async () => {
+    const timeout = Object.assign(new Error('operation exceeded time limit'), { code: 50, codeName: 'MaxTimeMSExpired' });
+    const last = await findLastToolWrite(finder(() => Promise.reject(timeout)));
+
+    expect(last).toEqual({ known: false });
+    expect(toolQueueStalled(10, last, new Date())).toBeNull();
+  });
+
+  it('any other error is unknown too', async () => {
+    expect(await findLastToolWrite(finder(() => Promise.reject(new Error('connection reset'))))).toEqual({ known: false });
+  });
+
+  it('an empty answer is a KNOWN "never wrote"', async () => {
+    expect(await findLastToolWrite(finder(() => Promise.resolve([])))).toEqual({ known: true, at: null });
+  });
+
+  it('R2b: asks only for rows labelled as written by the tool, not for "no acting user"', async () => {
+    const seen: Array<Record<string, unknown>> = [];
+    await findLastToolWrite(finder(() => Promise.resolve([]), seen));
+
+    expect(seen).toEqual([{ source: ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL, field: 'toolResult' }]);
+  });
+});
+
+describe('designReviewToolCtx — the tool door labels its writes (R2b)', () => {
+  it('keeps ip/userAgent, adds the tool source label', () => {
+    expect(designReviewToolCtx({ ip: '1.2.3.4', userAgent: 'python-requests/2.31' })).toEqual({
+      ip: '1.2.3.4',
+      userAgent: 'python-requests/2.31',
+      source: ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL,
+    });
+    expect(designReviewToolCtx(undefined).source).toBe(ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL);
   });
 });

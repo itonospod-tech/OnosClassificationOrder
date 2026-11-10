@@ -17,6 +17,7 @@ Audit trail cho mọi thay đổi trên `OrderEntity`. Mỗi log record bao gồ
 - thay đổi gì (field + before/after)
 - nơi xuất phát (ip + userAgent)
   - Thao tác HỆ THỐNG không có user: đồng bộ giữ đơn theo OnosPod ghi `hold`/`unhold` mỗi đơn 1 dòng, `userAgent = 'onospod-hold-sync'`, `before`/`after` = `'Giữ theo OnosPod'` (Orders.md §9d). Cron §9c cũng ghi không user (ip/userAgent của lời gọi cron).
+  - `source` (tuỳ chọn) — nhãn NGƯỜI GHI tự động. Hiện chỉ cửa ghi kết quả của tool soát (`POST /orders/design-review/result`) gắn `source='design-review-tool'` (`designReviewToolCtx`); đây là cách DUY NHẤT phân biệt lượt ghi của tool với cron/job hệ thống (cả hai đều không có user) — cảnh báo "tool dừng" ở ToolCheckWorkflow.md §2.4 chỉ đếm dòng có nhãn này.
 
 Mục tiêu: forensic — không xóa, không TTL (volume xưởng nhỏ, cần dữ liệu lịch sử dài hạn).
 
@@ -40,9 +41,11 @@ Mục tiêu: forensic — không xóa, không TTL (volume xưởng nhỏ, cần 
   after?: unknown;
   ip?: string;
   userAgent?: string;
+  source?: string;          // nhãn người ghi tự động, vd 'design-review-tool'
   // createdAt từ BaseEntity
 }
 // Compound index: { orderId: 1, createdAt: -1 } — phục vụ timeline query
+// Partial index source_field_createdAt: { source: 1, field: 1, createdAt: -1 } (chỉ dòng có source) — "lần ghi cuối của tool"
 ```
 
 > User info được **snapshot** (copy giá trị tại thời điểm thay đổi) thay vì chỉ lưu `userId`, để timeline vẫn đọc được sau khi user bị đổi tên / xóa.
@@ -63,6 +66,7 @@ type AuditContext = {
   user?: UserDocument;     // @AuthUser()
   ip?: string;             // @ClientIp()
   userAgent?: string;      // @UserAgent()
+  source?: string;         // nhãn người ghi tự động (ORDER_LOG_SOURCE_*), ghi vào row khi có
 }
 ```
 

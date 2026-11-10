@@ -89,6 +89,8 @@
     "waiting": "Hàng đợi tool đang chờ {{count}} đơn",
     "last": "tool ghi kết quả lần cuối {{ago}} ({{at}})",
     "never": "chưa thấy tool ghi kết quả nào",
+    "unknown": "chưa kiểm tra được lần ghi cuối của tool (tra cứu lỗi hoặc quá thời gian)",
+    "stalledUnknown": "Chưa xác định được tool soát tự động còn chạy hay không — tải lại trang để kiểm tra lại.",
     "stalled": "Tool soát tự động có vẻ đang dừng — trả đơn về hàng đợi lúc này sẽ không có ai xử lý."
   }
 }

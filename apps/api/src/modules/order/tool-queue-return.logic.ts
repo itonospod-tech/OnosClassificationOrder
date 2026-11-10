@@ -1,5 +1,7 @@
 import { DesignerStatus, TOOL_QUEUE_STALE_MINUTES, type ToolQueueBlockKey } from 'shared';
 
+import { type AuditContext, ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL } from '../order-log/order-log.service';
+
 /**
  * "Return orders to the tool-check queue" (ToolCheckWorkflow.md §2.4): rules shared by the list, the
  * preview and the run. Pure, so the spec covers them without a database.
@@ -117,13 +119,62 @@ export async function runToolQueueReturn(input: {
 }
 
 /**
- * Is the automatic checker alive? Judged only when something is waiting: an idle tool with an empty
- * queue is normal, not a fault. `lastToolWriteAt` = newest `toolResult` order-log entry with no acting
- * user (the tool writes through the public API, so those entries carry no user).
+ * Audit context of the external tool's result door (`setDesignReviewResult`): the caller's ip/userAgent plus
+ * the `source` label that marks the resulting order-log rows as written BY THE TOOL. Any user on the
+ * incoming context is dropped: the door is public and never acts on behalf of a person.
  */
-export function toolQueueStalled(waiting: number, lastToolWriteAt: Date | null, now: Date): boolean {
-  if (waiting <= 0) return false;
-  if (!lastToolWriteAt) return true;
+export function designReviewToolCtx(ctx?: AuditContext): AuditContext {
+  return { ip: ctx?.ip, userAgent: ctx?.userAgent, source: ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL };
+}
 
-  return now.getTime() - lastToolWriteAt.getTime() > TOOL_QUEUE_STALE_MINUTES * 60_000;
+/** Outcome of the "last tool write" lookup. `known: false` = the lookup failed or timed out: NO verdict. */
+export type LastToolWrite = { known: true; at: Date | null } | { known: false };
+
+/** The slice of a MongoDB collection `findLastToolWrite` needs (kept structural so a spec can inject failures). */
+export type OrderLogFinder = {
+  find(
+    filter: Record<string, unknown>,
+    options: { projection: Record<string, 0 | 1> },
+  ): { sort(s: Record<string, 1 | -1>): { limit(n: number): { maxTimeMS(ms: number): { toArray(): Promise<unknown[]> } } } };
+};
+
+export const LAST_TOOL_WRITE_MAX_TIME_MS = 5000;
+
+/**
+ * Newest `toolResult` order-log row written by the tool itself — labelled
+ * `source: ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL` by its result door. Rows with no acting user are NOT enough:
+ * cron jobs, syncs and other system writers log without a user too, and counting them would make a dead
+ * tool look alive. Served by the partial index `source_field_createdAt`. A failure or a timeout returns
+ * `{ known: false }` — "could not tell", never "the tool has not written".
+ */
+export async function findLastToolWrite(
+  orderLogs: OrderLogFinder,
+  maxTimeMS = LAST_TOOL_WRITE_MAX_TIME_MS,
+): Promise<LastToolWrite> {
+  try {
+    const rows = await orderLogs
+      .find({ source: ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL, field: 'toolResult' }, { projection: { createdAt: 1 } })
+      .sort({ createdAt: -1 })
+      .limit(1)
+      .maxTimeMS(maxTimeMS)
+      .toArray();
+    const at = (rows[0] as { createdAt?: unknown } | undefined)?.createdAt;
+
+    return { known: true, at: at instanceof Date ? at : null };
+  } catch {
+    return { known: false };
+  }
+}
+
+/**
+ * Is the automatic checker alive? Judged only when something is waiting: an idle tool with an empty
+ * queue is normal, not a fault. `last` comes from `findLastToolWrite` (writes labelled as the tool's).
+ * Returns `null` = unknown (the lookup failed): no alarm, and no all-clear either.
+ */
+export function toolQueueStalled(waiting: number, last: LastToolWrite, now: Date): boolean | null {
+  if (waiting <= 0) return false;
+  if (!last.known) return null;
+  if (!last.at) return true;
+
+  return now.getTime() - last.at.getTime() > TOOL_QUEUE_STALE_MINUTES * 60_000;
 }

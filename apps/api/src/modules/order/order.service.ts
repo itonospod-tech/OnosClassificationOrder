@@ -215,6 +215,9 @@ import {
   TIMELINE_PATH,
 } from './stale-cleanup.logic';
 import {
+  designReviewToolCtx,
+  findLastToolWrite,
+  type OrderLogFinder,
   runToolQueueReturn,
   type ToolQueueDoc,
   toolQueueReturnEligibility,
@@ -5759,19 +5762,15 @@ export class OrderService implements OnModuleInit {
       this.toolQueueFactoryNames(),
       // Orders the tool could pick up right now: exactly the queue's own filter.
       this.orderModel.countDocuments(this.designReviewQueueFilter()),
-      // The tool writes through the public API, so its log entries carry no acting user. Existing indexes
-      // (createdAt) serve this; maxTimeMS keeps a very old last write from stalling the page.
-      this.orderModel.db
-        .collection('orderLogs')
-        .find({ field: 'toolResult', userId: null }, { projection: { createdAt: 1 } })
-        .sort({ createdAt: -1 })
-        .limit(1)
-        .maxTimeMS(5000)
-        .toArray()
-        .catch(() => [] as Array<{ createdAt?: Date }>),
+      // Only rows the tool's result door labelled as its own; a failed/slow lookup is "unknown", not "silent".
+      findLastToolWrite(this.orderModel.db.collection('orderLogs') as unknown as OrderLogFinder),
     ]);
-    const lastToolWriteAt = (lastToolLog[0] as { createdAt?: Date } | undefined)?.createdAt ?? null;
-    const queue = { waiting, lastToolWriteAt, stalled: toolQueueStalled(waiting, lastToolWriteAt, now) };
+    const queue = {
+      waiting,
+      lastToolWriteKnown: lastToolLog.known,
+      lastToolWriteAt: lastToolLog.known ? lastToolLog.at : null,
+      stalled: toolQueueStalled(waiting, lastToolLog, now),
+    };
     const all = (docs as unknown as Record<string, unknown>[]).map((d) =>
       this.toToolQueueRow(d, shortOf, toolQueueReturnEligibility(d, excludedId, skipIds)),
     );
@@ -8077,19 +8076,21 @@ export class OrderService implements OnModuleInit {
       );
     }
 
-    let result = await this.updateField(id, { field: 'toolResult', value: input.toolResult }, RoleType.SuperAdmin, ctx);
+    // Every log row of this door is labelled as the tool's own write (`findLastToolWrite` counts only those).
+    const toolCtx = designReviewToolCtx(ctx);
+    let result = await this.updateField(id, { field: 'toolResult', value: input.toolResult }, RoleType.SuperAdmin, toolCtx);
 
     if (input.toolResultNote !== undefined) {
       result = await this.updateField(
         id,
         { field: 'toolResultNote', value: input.toolResultNote },
         RoleType.SuperAdmin,
-        ctx,
+        toolCtx,
       );
     }
 
     if (input.errorFile !== undefined) {
-      result = await this.updateField(id, { field: 'errorFile', value: input.errorFile }, RoleType.SuperAdmin, ctx);
+      result = await this.updateField(id, { field: 'errorFile', value: input.errorFile }, RoleType.SuperAdmin, toolCtx);
     }
 
     if (input.errorFileNote !== undefined) {
@@ -8097,7 +8098,7 @@ export class OrderService implements OnModuleInit {
         id,
         { field: 'errorFileNote', value: input.errorFileNote },
         RoleType.SuperAdmin,
-        ctx,
+        toolCtx,
       );
     }
 

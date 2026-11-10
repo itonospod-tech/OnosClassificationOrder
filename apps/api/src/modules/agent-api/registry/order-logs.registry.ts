@@ -41,6 +41,7 @@ export const orderLogsRegistry: AgentTableSpec = {
     roleCode: plain('string', 'Vai trò của người thực hiện'),
     impersonatorId: plain('string', 'Người đăng nhập thay, nếu có'),
     impersonatorName: plain('string', 'Tên người đăng nhập thay, nếu có'),
+    source: plain('string', "Nhãn người ghi tự động, nếu có: 'design-review-tool' = tool soát tự động ghi qua cửa kết quả (không có userId)"),
     updatedAt: plain('date'),
     deletedAt: plain('date', 'Bản ghi bị xoá mềm. Mở ĐỌC KHÔNG đổi bộ lọc mặc định của truy vấn'),
   },
