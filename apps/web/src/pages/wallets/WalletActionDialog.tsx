@@ -90,6 +90,8 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [connectionLost, setConnectionLost] = useState(false);
+  /** 409: the server refused and wrote nothing (e.g. this request was already recorded with other values). */
+  const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState<DoneState | null>(null);
   const [wrote, setWrote] = useState(false);
 
@@ -144,6 +146,7 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
   const goToReview = async () => {
     if (formInvalid) return;
     setError('');
+    setConflict(false);
     setAcknowledged(false);
     // Re-read the wallet: the balance in the list (or at open) may be old, and this step decides money.
     const fresh = await loadWallet();
@@ -157,6 +160,7 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
     setSubmitting(true);
     setError('');
     setConnectionLost(false);
+    setConflict(false);
     try {
       const trimmedNote = note.trim();
       const ext = externalTxnId.trim();
@@ -225,6 +229,10 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
       // No response at all: the write may well have gone through, so say that instead of a vague "unknown error".
       const lost = axios.isAxiosError(err) && !err.response;
       setConnectionLost(lost);
+      // 409 = refused, nothing written. A replay of an operation already recorded with a different bank
+      // reference / note / proof link lands here: the server message names what it kept. Pressing again
+      // would get the same answer, so the "safe to retry" hint is not shown and no new key is minted.
+      setConflict(axios.isAxiosError(err) && err.response?.status === 409);
       setError(lost ? t('dialog.review.networkError') : message);
     } finally {
       submitLock.current = false;
@@ -376,8 +384,13 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
             {preview && !preview.blocked && preview.overLimitAfter && (
               <Notice tone="warning">{t('dialog.review.overLimit')}</Notice>
             )}
-            {error && <Notice tone="danger">{error}</Notice>}
-            {connectionLost && (
+            {error && (
+              <Notice tone="danger">
+                {conflict && <span className="block font-medium">{t('dialog.review.conflictTitle')}</span>}
+                {error}
+              </Notice>
+            )}
+            {(connectionLost || conflict) && (
               <Button variant="outline" size="sm" onClick={onViewLedger} disabled={submitting}>
                 <BookOpenText size={16} className="mr-1.5" />
                 {t('dialog.review.viewLedger')}
@@ -403,7 +416,7 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
               </label>
             )}
 
-            {error && <p className="text-xs text-muted-foreground">{t('dialog.review.retryHint')}</p>}
+            {error && !conflict && <p className="text-xs text-muted-foreground">{t('dialog.review.retryHint')}</p>}
 
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setStep('form')} disabled={submitting}>

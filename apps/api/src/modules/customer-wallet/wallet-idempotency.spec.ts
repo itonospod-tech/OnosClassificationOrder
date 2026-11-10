@@ -79,6 +79,16 @@ describeDb('wallet money safety (real MongoDB)', () => {
     expect(await balanceOf(sellerA)).toBe(100);
   });
 
+  it('a replay with a corrected bank reference or note is a 409 (not saved), never a silent 200', async () => {
+    await topup({ requestId: 'req-fixref1', externalTxnId: 'ABC1' });
+
+    await expect(topup({ requestId: 'req-fixref1', externalTxnId: 'ABC2' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(topup({ requestId: 'req-fixref1', externalTxnId: 'ABC1', note: 'typo fixed' })).rejects.toBeInstanceOf(ConflictException);
+    expect(await rows(sellerA)).toBe(1);
+    expect((await db.txnModel.findOne({ customerId: sellerA }))?.refs?.externalTxnId).toBe('ABC1');
+    expect((await topup({ requestId: 'req-fixref1', externalTxnId: 'ABC1' })).replayed).toBe(true);
+  });
+
   it('a bank reference cannot be credited twice by a different requestId (second tab, second person)', async () => {
     await topup({ requestId: 'req-tab-one1', externalTxnId: 'VCB123456' });
 
