@@ -164,10 +164,12 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
   if (order.heldAt) return { status: 'skip', reason: 'held', changes: preview };
   const later = logs.some((r) => r.createdAt > w.to && LATER_FIELDS[group].includes(r.field ?? ''));
   if (later) return { status: 'skip', reason: 'edited-after', changes: preview };
-  // The other side's fields: the incident's own cascade rows (actor, inside the window) do not count.
+  // The other side: any row from the start of the window on counts (the order is rewound to w.from, so a
+  // change someone else made between w.from and the incident row would be silently undone too), except
+  // the incident's own cascade rows (the actor, inside the window).
   const isCross = CROSS_SIDE[group] ?? (() => false);
   const crossLater = logs.some(
-    (r) => isCross(r) && (r.createdAt > w.to || (r.createdAt >= inc[0].createdAt && !isActorRow(r, w.actor))),
+    (r) => isCross(r) && r.createdAt >= w.from && (r.createdAt > w.to || !isActorRow(r, w.actor)),
   );
   if (crossLater) return { status: 'skip', reason: 'edited-after', changes: preview };
   if (!sameValue(order[field], leftValue)) return { status: 'skip', reason: 'current-differs', changes: preview };

@@ -254,3 +254,27 @@ describe('review — the designer undo sees production progress the way it is re
     expect(planUndo('designer', unassigned, logs, W)?.status).toBe('restore');
   });
 });
+
+describe('review — other-side rows inside the window, before the incident row, count too', () => {
+  const BEFORE_INCIDENT = '2026-10-05T21:33:05Z'; // inside W, ten seconds before the actor's row
+
+  it("designer: user B set 'ok' inside the window before X unassigned → skipped", () => {
+    const logs = [...assignedAndDone, row('toolResultNote', null, 'ok', BEFORE_INCIDENT, 'User B'), ...unassignIncident(DesignerStatus.Done)];
+    expect(planUndo('designer', { ...unassigned, toolResultNote: 'ok' }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('tool-ok: user B assigned a designer inside the window before X cleared the ok → skipped', () => {
+    const logs = [
+      row('toolResultNote', null, 'ok', '2026-10-05T08:00:00Z', 'Hanh'),
+      row('assignee', null, huong, BEFORE_INCIDENT, 'User B'),
+      row('toolResultNote', 'ok', null, INCIDENT, ACTOR),
+    ];
+    const order = { _id: 'O5', toolResultNote: null, readyForFulfill: false, assignee: huong, designerStatus: DesignerStatus.Assigned };
+    expect(planUndo('tool-ok', order, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it("neighbour: the actor's own other-side rows inside the window (the incident's cascade) still do not count", () => {
+    const logs = [...assignedAndDone, row('readyForFulfill', true, false, BEFORE_INCIDENT, ACTOR), ...unassignIncident(DesignerStatus.Done)];
+    expect(planUndo('designer', unassigned, logs, W)?.status).toBe('restore');
+  });
+});
