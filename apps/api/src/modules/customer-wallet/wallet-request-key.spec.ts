@@ -17,8 +17,8 @@ function dialog() {
     return attempt.requestId;
   };
 }
-const adjust = (amount: number, over: Partial<WalletRequestInput> = {}): WalletRequestInput => ({ mode: 'adjust', amount, note: 'refund', ...over });
-const topup = (amount: number, over: Partial<WalletRequestInput> = {}): WalletRequestInput => ({ mode: 'topup', amount, note: 'bank', ...over });
+const adjust = (amount: number): WalletRequestInput => ({ mode: 'adjust', amount });
+const topup = (amount: number): WalletRequestInput => ({ mode: 'topup', amount });
 
 describe('wallet dialog idempotency key', () => {
   it('a retry with the same amount reuses the key (double click / retry after timeout)', () => {
@@ -28,12 +28,20 @@ describe('wallet dialog idempotency key', () => {
     expect(press(adjust(500))).toBe(k);
   });
 
-  it('editing the note, the bank reference or the attachment after a failed attempt reuses the key', () => {
+  it('the key is made from mode + amount only: note / bank reference / attachment are not inputs at all', () => {
+    // A caller that still passes the form (structural typing allows the wider object) gets the same key:
+    // editing metadata after a failed attempt never mints a new one (the server answers 409 if it changed).
     const press = dialog();
-    const k = press(topup(300, { externalTxnId: 'ABC1', attachmentUrl: 'https://x/1.png' }));
-    expect(press(topup(300, { note: 'bank (fixed typo)', externalTxnId: 'ABC1', attachmentUrl: 'https://x/1.png' }))).toBe(k);
-    expect(press(topup(300, { externalTxnId: 'ABC2', attachmentUrl: 'https://x/1.png' }))).toBe(k);
-    expect(press(topup(300, { externalTxnId: 'ABC2', attachmentUrl: 'https://x/2.png' }))).toBe(k);
+    const k = press(topup(300));
+    const form1 = { mode: 'topup' as const, amount: 300, note: 'bank (fixed typo)', externalTxnId: 'ABC1' };
+    const form2 = { mode: 'topup' as const, amount: 300, note: 'bank', externalTxnId: 'ABC2', attachmentUrl: 'https://x/2.png' };
+    expect(press(form1)).toBe(k);
+    expect(press(form2)).toBe(k);
+  });
+
+  it('a different mode with the same amount is a different operation: new key', () => {
+    const press = dialog();
+    expect(press(adjust(300))).not.toBe(press(topup(300)));
   });
 
   it('the first press uses the key made when the dialog opened', () => {

@@ -18,12 +18,10 @@ export interface WalletRequestAttempt {
   fingerprint?: string;
 }
 
+/** Only what decides money. Note / bank reference / attachment are deliberately NOT inputs (see above). */
 export interface WalletRequestInput {
   mode: WalletOperationMode;
   amount: number;
-  note?: string;
-  externalTxnId?: string;
-  attachmentUrl?: string;
 }
 
 /** What identifies one money operation for the idempotency key: mode + amount, nothing else. */

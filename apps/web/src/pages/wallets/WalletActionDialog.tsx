@@ -197,7 +197,7 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
       // Rule lives in shared (`nextWalletRequestAttempt`, tested in apps/api wallet-request-key.spec.ts).
       attempt.current = nextWalletRequestAttempt(
         attempt.current,
-        { mode, amount, note: trimmedNote, externalTxnId: ext, attachmentUrl: link },
+        { mode, amount },
         () => crypto.randomUUID(),
       );
       const requestId = attempt.current.requestId;
