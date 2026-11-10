@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { IDZod } from '..';
 import {
+  nextWalletRequestAttempt,
   normalizeExternalTxnId,
   previewWalletOperation,
   requiresStatementCheck,
@@ -12,7 +13,10 @@ import {
   WALLET_TXN_KINDS,
   type WalletOperationMode,
   type WalletOperationPreview,
+  type WalletRequestAttempt,
+  type WalletRequestInput,
   type WalletTxnKind,
+  walletRequestFingerprint,
 } from '../client';
 
 /**
@@ -29,6 +33,9 @@ import {
 export { WALLET_TXN_KINDS, type WalletTxnKind };
 export { normalizeExternalTxnId, previewWalletOperation, requiresStatementCheck, WALLET_BIG_AMOUNT_USD };
 export type { WalletOperationMode, WalletOperationPreview };
+// Idempotency key of the staff money dialog (pure, tested from apps/api).
+export { nextWalletRequestAttempt, walletRequestFingerprint };
+export type { WalletRequestAttempt, WalletRequestInput };
 export const WalletTxnKindZod = z.enum(WALLET_TXN_KINDS);
 
 export const CustomerWalletTxnZod = z.object({
