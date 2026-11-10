@@ -39,7 +39,8 @@ them.
   `pnpm-lock.yaml` (`git checkout pnpm-lock.yaml`) — the committed lockfile already has `@playwright/test`.
   `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` is fine: the suite runs on the installed Google Chrome
   (`channel: 'chrome'`).
-- API built: `pnpm --filter ./apps/api build:win` (the suite runs `dist-prod`; rebuild after API changes).
+- API built: `pnpm --filter ./apps/api build:win` on Windows, `pnpm --filter ./apps/api build` on Linux/macOS (the
+  suite runs `dist-prod`; rebuild after API changes).
 - Ports 3107 and 5273 free.
 
 ## Run

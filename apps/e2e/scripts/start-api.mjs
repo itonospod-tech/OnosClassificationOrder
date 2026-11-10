@@ -44,7 +44,7 @@ if (!db || !db.startsWith('onos-e2e-')) {
   process.exit(1);
 }
 if (!fs.existsSync(path.join(apiDir, 'dist-prod', 'main.js')) && !fs.existsSync(path.join(apiDir, 'dist', 'main.js'))) {
-  console.error('[e2e api] apps/api is not built. Run `pnpm --filter ./apps/api build:win` first.');
+  console.error('[e2e api] apps/api is not built. Run `pnpm --filter ./apps/api build:win` (Windows) or `pnpm --filter ./apps/api build` (Linux/macOS) first.');
   process.exit(1);
 }
 
