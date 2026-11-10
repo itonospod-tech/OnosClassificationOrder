@@ -7,7 +7,7 @@ import { Logger } from 'winston';
 
 import type { AuditContext } from '../order-log/order-log.service';
 import { OrderLogService } from '../order-log/order-log.service';
-import { planUndo, UNDO_GROUP_FIELD, type UndoLogRow, type UndoWindow } from './bulk-undo.logic';
+import { planUndo, restoreLogRows, UNDO_GROUP_FIELD, type UndoLogRow, type UndoWindow } from './bulk-undo.logic';
 import { OrderEntity } from './order.entity';
 
 /**
@@ -53,7 +53,7 @@ export class BulkUndoService {
       logs
         .find<UndoLogRow & { orderId: string }>(
           { orderId: { $in: ids } },
-          { projection: { orderId: 1, action: 1, field: 1, before: 1, after: 1, createdAt: 1, userId: 1, userName: 1, userEmail: 1 } },
+          { projection: { orderId: 1, action: 1, field: 1, before: 1, after: 1, createdAt: 1, userId: 1, userName: 1, userEmail: 1, undoOf: 1 } },
         )
         .sort({ createdAt: 1 })
         .toArray(),
@@ -90,7 +90,7 @@ export class BulkUndoService {
   /**
    * Restore the given orders (max BULK_UNDO_BATCH_MAX). Every order is re-planned now; the write is
    * conditional on the values the incident left (atomic per order), and each changed field gets an
-   * order-log row (action 'restore') with the actor of the undo.
+   * order-log row (action 'restore') with the actor of the undo and the incident it rewound (`undoOf`).
    */
   async run(
     dto: { actor: string; from: Date; to: Date; group: BulkUndoGroup; ids: string[]; reason: string },
@@ -102,7 +102,8 @@ export class BulkUndoService {
     this.running = true;
     const rows: BulkUndoRow[] = [];
     try {
-      const plans = await this.plan(dto.group, this.window(dto), [...new Set(dto.ids)]);
+      const w = this.window(dto);
+      const plans = await this.plan(dto.group, w, [...new Set(dto.ids)]);
       for (const { id, order, plan } of plans) {
         const productionId = String(order?.productionId ?? '');
         if (!order || !plan) {
@@ -121,9 +122,8 @@ export class BulkUndoService {
           rows.push({ orderId: id, productionId, status: 'skip', reason: 'changed-during-run', changes: plan.changes });
           continue;
         }
-        await this.orderLogService.writeMany(
-          plan.changes.map((c) => ({ orderId: id, action: 'restore' as const, field: c.field, before: c.current ?? null, after: c.restore ?? null, ctx })),
-        );
+        // Tagged with the incident (`undoOf`): the other group's undo of the same incident must not read them as a later edit.
+        await this.orderLogService.writeMany(restoreLogRows(dto.group, plan, w).map((r) => ({ orderId: id, ...r, ctx })));
         rows.push({ orderId: id, productionId, status: 'restored', changes: plan.changes });
       }
     } finally {

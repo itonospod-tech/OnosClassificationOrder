@@ -27,6 +27,16 @@ export interface UndoLogRow {
   userId?: string;
   userName?: string;
   userEmail?: string;
+  /** Only on `restore` rows written by this undo: the incident they rewound. */
+  undoOf?: UndoIncidentRef;
+}
+
+/** The incident a `restore` row belongs to (group + the window the SuperAdmin entered). */
+export interface UndoIncidentRef {
+  group: BulkUndoGroup;
+  actor: string;
+  from: Date;
+  to: Date;
 }
 
 export interface UndoWindow {
@@ -136,6 +146,19 @@ export const sameValue = (a: unknown, b: unknown): boolean => norm(a) === norm(b
 
 export const isActorRow = (r: UndoLogRow, actor: string): boolean => r.userId === actor || r.userName === actor || r.userEmail === actor;
 
+const time = (d: Date | string): number => new Date(d).getTime();
+/**
+ * A `restore` row written by an undo of THIS incident: same actor, overlapping window (the SuperAdmin
+ * may type the window slightly differently for each group). Rows without `undoOf` (none exist outside
+ * dev before the marker) are not recognised and keep counting as a later edit — the safe side.
+ */
+export const isRestoreOf = (r: UndoLogRow, w: UndoWindow): boolean =>
+  r.action === 'restore' &&
+  !!r.undoOf &&
+  r.undoOf.actor === w.actor &&
+  time(r.undoOf.from) <= w.to.getTime() &&
+  time(r.undoOf.to) >= w.from.getTime();
+
 /** The incident's real changes of the group's field (value actually changed), oldest first. */
 export function incidentRows(group: BulkUndoGroup, logs: UndoLogRow[], w: UndoWindow): UndoLogRow[] {
   const field = UNDO_GROUP_FIELD[group];
@@ -166,10 +189,11 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
   if (later) return { status: 'skip', reason: 'edited-after', changes: preview };
   // The other side: any row from the start of the window on counts (the order is rewound to w.from, so a
   // change someone else made between w.from and the incident row would be silently undone too), except
-  // the incident's own cascade rows (the actor, inside the window).
+  // the incident's own cascade rows (the actor, inside the window) and the `restore` rows the OTHER
+  // group's undo of this same incident wrote (a combined incident is undone one group at a time).
   const isCross = CROSS_SIDE[group] ?? (() => false);
   const crossLater = logs.some(
-    (r) => isCross(r) && r.createdAt >= w.from && (r.createdAt > w.to || !isActorRow(r, w.actor)),
+    (r) => isCross(r) && r.createdAt >= w.from && (r.createdAt > w.to || !isActorRow(r, w.actor)) && !isRestoreOf(r, w),
   );
   if (crossLater) return { status: 'skip', reason: 'edited-after', changes: preview };
   if (!sameValue(order[field], leftValue)) return { status: 'skip', reason: 'current-differs', changes: preview };
@@ -178,11 +202,15 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
   if (group === 'designer') return planDesigner(order, before, restoreValue as string, w.from);
   if (group === 'tool-ok') {
     // Never send to print an order a designer holds: its designer state must still be what it was at
-    // the incident (this also catches a change nobody logged).
+    // the incident (this also catches a change nobody logged) — or, when this same incident also
+    // unassigned the designer and that part is not undone yet, exactly what the incident left
+    // (no assignee, unassigned). The designer undo can still run afterwards: it ignores these restore rows.
     const atIncident = designerStateBefore(before);
-    if (!sameValue(order.assignee, atIncident.assignee) || designerStatusOf(order.designerStatus) !== atIncident.status) {
-      return { status: 'skip', reason: 'edited-after', changes: preview };
-    }
+    const current = designerStatusOf(order.designerStatus);
+    const sameAsIncident = sameValue(order.assignee, atIncident.assignee) && current === atIncident.status;
+    const leftByThisIncident =
+      incidentRows('designer', logs, w).length > 0 && isEmptyValue(order.assignee) && current === DesignerStatus.Unassigned;
+    if (!sameAsIncident && !leftByThisIncident) return { status: 'skip', reason: 'edited-after', changes: preview };
     return planToolOk(order, before, w.from);
   }
   const set = { [field]: restoreValue };
@@ -282,4 +310,18 @@ function planToolOk(order: OrderDoc, before: UndoLogRow[], from: Date): UndoPlan
     },
     restoredFrom: from,
   };
+}
+
+/**
+ * The order-log rows a successful restore writes: one `restore` row per changed field, each tagged with
+ * the incident it rewound (`undoOf`) so the OTHER group's undo of the same incident can tell them apart
+ * from somebody's later edit.
+ */
+export function restoreLogRows(
+  group: BulkUndoGroup,
+  plan: Extract<UndoPlan, { status: 'restore' }>,
+  w: UndoWindow,
+): Array<{ action: 'restore'; field: string; before: unknown; after: unknown; undoOf: UndoIncidentRef }> {
+  const undoOf: UndoIncidentRef = { group, actor: w.actor, from: w.from, to: w.to };
+  return plan.changes.map((c) => ({ action: 'restore' as const, field: c.field, before: c.current ?? null, after: c.restore ?? null, undoOf }));
 }

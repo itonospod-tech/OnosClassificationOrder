@@ -16,6 +16,8 @@ type WriteParams = {
   field?: string;
   before?: unknown;
   after?: unknown;
+  /** `restore` rows of the bulk undo only: the incident they rewound (Orders.md §27). */
+  undoOf?: { group: string; actor: string; from: Date; to: Date };
   ctx?: AuditContext;
 };
 
@@ -62,6 +64,7 @@ export class OrderLogService {
           field: p.field,
           before: p.before,
           after: p.after,
+          ...(p.undoOf ? { undoOf: p.undoOf } : {}),
           userId: p.ctx?.user?._id?.toString(),
           userName: p.ctx?.user?.fullName,
           userEmail: p.ctx?.user?.email,

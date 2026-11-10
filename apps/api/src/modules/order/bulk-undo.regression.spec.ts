@@ -1,6 +1,6 @@
 import { DesignerStatus } from 'shared';
 
-import { planUndo, type UndoLogRow, type UndoPlan } from './bulk-undo.logic';
+import { planUndo, restoreLogRows, type UndoLogRow, type UndoPlan } from './bulk-undo.logic';
 
 /**
  * Regression cases from the PR #77 test report (release 07/11), bugs 3 and 4, plus the normal paths
@@ -276,5 +276,89 @@ describe('review — other-side rows inside the window, before the incident row,
   it("neighbour: the actor's own other-side rows inside the window (the incident's cascade) still do not count", () => {
     const logs = [...assignedAndDone, row('readyForFulfill', true, false, BEFORE_INCIDENT, ACTOR), ...unassignIncident(DesignerStatus.Done)];
     expect(planUndo('designer', unassigned, logs, W)?.status).toBe('restore');
+  });
+});
+
+/**
+ * Combined incident: actor X, in ONE window, unassigned the designer AND cleared the tool 'ok' of the same
+ * order. Each undo writes its own `restore` rows after the window; those must not block the other group's
+ * undo of the same incident, and both orders of running the two groups must end in the pre-incident state.
+ * `applyUndo` mimics `BulkUndoService.run` for one order: conditional write on the guard, then the restore rows.
+ */
+describe('review — a combined incident (designer + tool-ok) is fully undoable in either order', () => {
+  const SUPER = 'Super Admin';
+  const preIncidentLogs = rows(
+    ...assignedAndDone,
+    row('readyForFulfill', false, true, '2026-10-05T05:30:00Z'),
+    row('currentFulfillmentStage', null, 'print', '2026-10-05T05:30:00Z'),
+    row('toolResultNote', null, 'ok', '2026-10-05T08:00:00Z', 'Hanh'),
+  );
+  const incident = rows(
+    row('assignee', huong, null, INCIDENT, ACTOR),
+    row('designerStatus', DesignerStatus.Done, DesignerStatus.Unassigned, INCIDENT, ACTOR),
+    row('toolResultNote', 'ok', null, '2026-10-05T21:34:00Z', ACTOR),
+    row('readyForFulfill', true, false, '2026-10-05T21:34:00Z', ACTOR),
+    row('currentFulfillmentStage', 'print', null, '2026-10-05T21:34:00Z', ACTOR),
+  );
+  const leftByIncident = (): Record<string, unknown> => ({
+    _id: 'O9', productionId: 'P9', assignee: null, designerStatus: DesignerStatus.Unassigned, designerAssignedAt: null, designerStartedAt: null,
+    designerCompletedAt: null, designerReworkAt: null, designerReworkCount: 0, toolResultNote: null, readyForFulfill: false, currentFulfillmentStage: null, fulfillmentStages: {},
+  });
+
+  function applyUndo(group: 'designer' | 'tool-ok', order: Record<string, unknown>, logs: UndoLogRow[], at: string) {
+    const p = planUndo(group, order, logs, W);
+    if (p?.status !== 'restore') return { plan: p, order, logs };
+    expect(guardMatches(p.guard, order)).toBe(true);
+    const next = { ...order, ...p.set };
+    const written = restoreLogRows(group, p, W).map((r) => ({ ...r, createdAt: t(at), userName: SUPER }) as UndoLogRow);
+    return { plan: p, order: next, logs: [...logs, ...written] };
+  }
+  const expectPreIncident = (o: Record<string, unknown>) =>
+    expect(o).toMatchObject({ assignee: huong, designerStatus: DesignerStatus.Done, toolResultNote: 'ok', readyForFulfill: true, currentFulfillmentStage: 'print' });
+
+  it('designer first, then tool-ok: both restore', () => {
+    const a = applyUndo('designer', leftByIncident(), [...preIncidentLogs, ...incident], '2026-10-06T03:00:00Z');
+    expect(a.plan?.status).toBe('restore');
+    const b = applyUndo('tool-ok', a.order, a.logs, '2026-10-06T03:05:00Z');
+    expect(b.plan?.status).toBe('restore');
+    expectPreIncident(b.order);
+  });
+
+  it('tool-ok first, then designer: both restore', () => {
+    const a = applyUndo('tool-ok', leftByIncident(), [...preIncidentLogs, ...incident], '2026-10-06T03:00:00Z');
+    expect(a.plan?.status).toBe('restore');
+    const b = applyUndo('designer', a.order, a.logs, '2026-10-06T03:05:00Z');
+    expect(b.plan?.status).toBe('restore');
+    expectPreIncident(b.order);
+  });
+
+  it('restore rows carry the incident they undid', () => {
+    const a = applyUndo('designer', leftByIncident(), [...preIncidentLogs, ...incident], '2026-10-06T03:00:00Z');
+    const restoreRows = a.logs.filter((r) => r.action === 'restore');
+    expect(restoreRows.length).toBeGreaterThan(0);
+    expect(restoreRows.every((r) => r.undoOf?.actor === ACTOR && r.undoOf.group === 'designer')).toBe(true);
+  });
+
+  // ---- what must still block ----
+  it("a restore row of ANOTHER incident (other actor) still counts as someone's later edit", () => {
+    const other = { group: 'tool-ok' as const, actor: 'Someone else', from: W.from, to: W.to };
+    const logs = [...preIncidentLogs, ...incident, { ...row('toolResultNote', null, 'ok', AFTER, SUPER, 'restore'), undoOf: other }];
+    expect(planUndo('designer', { ...leftByIncident(), toolResultNote: 'ok' }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('a restore row without an incident reference (written before the marker existed) still counts', () => {
+    const logs = [...preIncidentLogs, ...incident, row('assignee', null, huong, AFTER, SUPER, 'restore')];
+    expect(planUndo('tool-ok', { ...leftByIncident(), assignee: huong, designerStatus: DesignerStatus.Done }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('tool-ok first, then a designer is assigned by hand: the designer undo skips', () => {
+    const a = applyUndo('tool-ok', leftByIncident(), [...preIncidentLogs, ...incident], '2026-10-06T03:00:00Z');
+    const logs = [...a.logs, row('assignee', null, 'OTHER', '2026-10-06T04:00:00Z', 'Leader')];
+    expect(planUndo('designer', { ...a.order, assignee: 'OTHER', designerStatus: DesignerStatus.Assigned }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('tool-ok alone (designer not undone): still refused when the incident did NOT unassign and the designer state differs', () => {
+    const logs = [...preIncidentLogs, ...incident.slice(2)];
+    expect(planUndo('tool-ok', { ...leftByIncident() }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
   });
 });

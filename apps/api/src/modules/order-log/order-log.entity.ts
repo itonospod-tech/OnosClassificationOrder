@@ -44,6 +44,10 @@ export class OrderLogEntity extends DatabaseEntityAbstract {
   @Prop({ type: Object })
   after?: unknown;
 
+  /** Bulk undo `restore` rows only: the incident they rewound `{ group, actor, from, to }` (Orders.md §27). */
+  @Prop({ type: Object })
+  undoOf?: { group: string; actor: string; from: Date; to: Date };
+
   @Prop()
   ip?: string;
 
