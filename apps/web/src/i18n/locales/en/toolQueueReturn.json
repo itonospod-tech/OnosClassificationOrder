@@ -40,6 +40,7 @@
     "excluded-factory": "Out-of-flow factory (US) — the queue excludes it",
     "skip-tool-check": "Factory has Skip tool check on — the queue excludes it",
     "designer-assigned": "Already with a designer — the tool queue does not take it",
+    "designer-status-missing": "Designer status is empty — the tool queue only takes 'unassigned', fix the status first",
     "in-fulfillment": "In production (already in a stage) — not sent back to tool check"
   },
   "ageDays": "{{count}} days",

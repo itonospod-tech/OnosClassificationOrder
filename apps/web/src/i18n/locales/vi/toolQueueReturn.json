@@ -40,6 +40,7 @@
     "excluded-factory": "Xưởng ngoài luồng (US) — hàng đợi loại xưởng này",
     "skip-tool-check": "Xưởng bật Bỏ qua soát tool — hàng đợi loại xưởng này",
     "designer-assigned": "Đã có designer — hàng đợi tool không nhận đơn này",
+    "designer-status-missing": "Trạng thái designer đang trống — hàng đợi tool chỉ nhận 'unassigned', sửa trạng thái trước",
     "in-fulfillment": "Đang sản xuất (đã vào công đoạn) — không đưa về soát tool"
   },
   "ageDays": "{{count}} ngày",

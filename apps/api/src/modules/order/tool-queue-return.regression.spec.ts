@@ -45,9 +45,8 @@ describe('bug 5 — eligibility knows about the designer and the production stag
   });
 
   // ---- neighbours (pass today, must keep passing) ----
-  it("still eligible: designerStatus 'unassigned' or missing, no stage (empty / null / missing)", () => {
+  it("still eligible: designerStatus 'unassigned', no stage (empty / null / missing)", () => {
     expect(verdict()).toBeNull();
-    expect(verdict({ designerStatus: undefined })).toBeNull();
     expect(verdict({ currentFulfillmentStage: '' })).toBeNull();
     expect(verdict({ currentFulfillmentStage: null })).toBeNull();
     expect(verdict({ currentFulfillmentStage: undefined })).toBeNull();
@@ -63,6 +62,16 @@ describe('bug 5 — eligibility knows about the designer and the production stag
     expect(verdict({ factoryId: SKIP_ID })).toBe('skip-tool-check');
     expect(verdict({ factoryId: undefined })).toBe('unmapped');
     expect(verdict({ heldAt: new Date() })).toBe('held');
+  });
+});
+
+describe("review — designerStatus missing / null / '' is blocked: the queue filter only takes 'unassigned'", () => {
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['empty string', ''],
+  ])("designerStatus %s → 'designer-status-missing'", (_label, designerStatus) => {
+    expect(verdict({ designerStatus })).toBe('designer-status-missing');
   });
 });
 
@@ -104,7 +113,7 @@ describe('bug 5 — runToolQueueReturn re-checks the new reasons right before ea
   });
 
   it('neighbour: eligible orders are still returned and their previous value recorded', async () => {
-    const db = makeDb({ a: doc({ productionId: 'P-A', toolResult: 'no-tool', designerStatus: undefined }), b: doc({ productionId: 'P-B' }) });
+    const db = makeDb({ a: doc({ productionId: 'P-A', toolResult: 'no-tool' }), b: doc({ productionId: 'P-B' }) });
     const res = await runToolQueueReturn({ ids: ['a', 'b'], load: db.load, write: db.write, excludedFactoryId: US, skipToolCheckIds: SKIP });
     expect(res.done).toEqual(['a', 'b']);
     expect(res.skipped).toEqual([]);
@@ -113,17 +122,16 @@ describe('bug 5 — runToolQueueReturn re-checks the new reasons right before ea
 });
 
 /**
- * Minimal evaluator for the operators the queue filter uses ($exists / $in / $nin / equality). A missing
- * `designerStatus` is read as the schema default ('unassigned', `required: true` in order.entity.ts),
- * which is what Mongo actually stores for every order.
+ * Minimal evaluator for the operators the queue filter uses ($exists / $in / $nin / equality). Fields are
+ * read exactly as stored: a missing / null / '' `designerStatus` is NOT 'unassigned' for Mongo (the schema
+ * default only applies to documents written through Mongoose; imports and old data can lack it).
  */
 const queueFilter = (): Record<string, unknown> =>
   (OrderService.prototype as unknown as { designReviewQueueFilter: (this: unknown) => Record<string, unknown> }).designReviewQueueFilter.call({
     orderModel: { db: {} },
   });
 function matches(filter: Record<string, unknown>, raw: Record<string, unknown>): boolean {
-  const d = { designerStatus: DesignerStatus.Unassigned, ...raw };
-  if (d.designerStatus === undefined) d.designerStatus = DesignerStatus.Unassigned;
+  const d = raw;
   return Object.entries(filter).every(([k, cond]) => {
     const v = (d as Record<string, unknown>)[k];
     if (cond && typeof cond === 'object' && !Array.isArray(cond)) {
@@ -141,16 +149,17 @@ describe('bug 5 — consistency: an order the feature returns is an order the to
   it('sanity: the evaluator reads the real queue filter (designer unassigned, US/skip factories out)', () => {
     const f = queueFilter();
     expect(f).toMatchObject({ toolResult: { $in: [null, ''] }, designerStatus: DesignerStatus.Unassigned, factoryId: { $nin: [US, SKIP_ID] } });
-    expect(matches(f, { factoryId: 'f-ml', toolResult: '' })).toBe(true);
+    expect(matches(f, { factoryId: 'f-ml', toolResult: '', designerStatus: DesignerStatus.Unassigned })).toBe(true);
+    expect(matches(f, { factoryId: 'f-ml', toolResult: '' })).toBe(false); // designerStatus missing: the queue never takes it
     expect(matches(f, { factoryId: 'f-ml', toolResult: '', designerStatus: DesignerStatus.Assigned })).toBe(false);
-    expect(matches(f, { factoryId: US, toolResult: '' })).toBe(false);
+    expect(matches(f, { factoryId: US, toolResult: '', designerStatus: DesignerStatus.Unassigned })).toBe(false);
   });
 
   it('for every combination: eligible ⇒ after clearing toolResult it matches the queue filter', () => {
     const f = queueFilter();
     const bad: string[] = [];
     let eligible = 0;
-    for (const designerStatus of [undefined, ...DESIGNER_STATUSES])
+    for (const designerStatus of [undefined, null, '', ...DESIGNER_STATUSES])
       for (const currentFulfillmentStage of [undefined, '', 'print', 'press'])
         for (const factoryId of ['f-ml', US, SKIP_ID, undefined])
           for (const heldAt of [undefined, new Date(0)])

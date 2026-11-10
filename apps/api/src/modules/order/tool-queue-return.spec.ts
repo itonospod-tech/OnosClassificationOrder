@@ -2,7 +2,7 @@ import { runToolQueueReturn, type ToolQueueDoc,toolQueueReturnEligibility, toolQ
 
 const US = 'f-us';
 const SKIP = new Set(['f-dtf']);
-const base = (over: ToolQueueDoc = {}): ToolQueueDoc => ({ factoryId: 'f-ml', toolResult: 'has-tool', toolResultNote: '', ...over });
+const base = (over: ToolQueueDoc = {}): ToolQueueDoc => ({ factoryId: 'f-ml', toolResult: 'has-tool', toolResultNote: '', designerStatus: 'unassigned', ...over });
 const verdict = (over: ToolQueueDoc = {}) => toolQueueReturnEligibility(base(over), US, SKIP);
 
 describe('toolQueueReturnEligibility — who may go back to the queue', () => {

@@ -43,9 +43,11 @@ export function toolQueueReturnEligibility(
   const skip = skipToolCheckIds instanceof Set ? skipToolCheckIds : new Set(skipToolCheckIds);
   if (skip.has(factory)) return 'skip-tool-check';
   if (doc.heldAt) return 'held';
-  // The tool's queue takes only designerStatus 'unassigned' (`designReviewQueueFilter`): an order a
-  // designer holds would lose its result and never be picked up.
-  if (filled(doc.designerStatus) && doc.designerStatus !== DesignerStatus.Unassigned) return 'designer-assigned';
+  // The tool's queue takes only designerStatus === 'unassigned' (`designReviewQueueFilter`, also the
+  // tool's own claim filter — deliberately not widened here): an order a designer holds, or one whose
+  // designerStatus is missing / null / '', would lose its result and never be picked up.
+  if (!filled(doc.designerStatus)) return 'designer-status-missing';
+  if (doc.designerStatus !== DesignerStatus.Unassigned) return 'designer-assigned';
   // Already in production (print, press, ...): never sent back to tool check.
   if (filled(doc.currentFulfillmentStage)) return 'in-fulfillment';
 
