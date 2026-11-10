@@ -235,3 +235,22 @@ describe("review — the write guard accepts every designerStatus the planner re
     expect(p?.status === 'restore' && guardMatches(p.guard, order)).toBe(true);
   });
 });
+
+describe('review — the designer undo sees production progress the way it is really logged', () => {
+  // `FulfillmentTaskService.transition`: a stage step logs `fulfillmentStages.<stage>.status`, a rework-back to a
+  // production stage logs `action: 'rework_back', field: <stage>`.
+  const logsWith = (later: UndoLogRow) => [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), later];
+  it.each([
+    ['print started', row('fulfillmentStages.print.status', 'waiting', 'in-progress', AFTER, 'Print worker')],
+    ['press done', row('fulfillmentStages.press.status', 'in-progress', 'done', AFTER, 'Press worker')],
+    ['sent back to print', row('print', 'press', 'Lem màu', AFTER, 'Press worker', 'rework_back')],
+    ['sent back to sew-in', row('sew-in', 'pack', 'Sai size', AFTER, 'Pack worker', 'rework_back')],
+  ])('skips an order that moved in production after the incident (%s)', (_label, later) => {
+    expect(planUndo('designer', unassigned, logsWith(later), W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('neighbour: production progress BEFORE the window does not block the undo', () => {
+    const logs = [...assignedAndDone, row('fulfillmentStages.print.status', 'waiting', 'in-progress', '2026-10-05T07:00:00Z', 'Print worker'), ...unassignIncident(DesignerStatus.Done)];
+    expect(planUndo('designer', unassigned, logs, W)?.status).toBe('restore');
+  });
+});

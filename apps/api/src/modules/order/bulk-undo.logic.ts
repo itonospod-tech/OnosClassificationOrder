@@ -62,12 +62,22 @@ const LATER_FIELDS: Record<BulkUndoGroup, string[]> = {
 };
 /**
  * The designer and tool-ok undos overlap (one hands the order back to a designer, the other sends it
- * to print), so each also skips an order whose OTHER side changed since the incident. 'designer' /
- * 'tool-check' are the rework-back rows (designer → rework; Support → toolResultNote 'error').
+ * to print), so each also skips an order whose OTHER side changed since the incident. Matched by
+ * pattern, the way the rows are really written:
+ *  - production side: the tool note / ready flag / current stage cascades, every stage step
+ *    (`fulfillmentStages.<stage>.status`, `FulfillmentTaskService.transition`) and every rework-back
+ *    that is NOT to the designer (`action: 'rework_back'`, `field: <stage>` or 'tool-check');
+ *  - designer side: assignee, designer status and the rework-back to the designer (`field: 'designer'`).
  */
-const CROSS_FIELDS: Partial<Record<BulkUndoGroup, string[]>> = {
-  designer: ['toolResultNote', 'readyForFulfill', 'currentFulfillmentStage', 'tool-check'],
-  'tool-ok': ['assignee', 'designerStatus', 'designer'],
+const PRODUCTION_SIDE_FIELDS = new Set(['toolResultNote', 'readyForFulfill', 'currentFulfillmentStage', 'fulfillmentCompletedAt', 'tool-check']);
+const isProductionSideRow = (r: UndoLogRow): boolean => {
+  const f = r.field ?? '';
+  return PRODUCTION_SIDE_FIELDS.has(f) || f.startsWith('fulfillmentStages') || (r.action === 'rework_back' && f !== 'designer');
+};
+const isDesignerSideRow = (r: UndoLogRow): boolean => r.field === 'assignee' || r.field === 'designerStatus' || r.field === 'designer';
+const CROSS_SIDE: Partial<Record<BulkUndoGroup, (r: UndoLogRow) => boolean>> = {
+  designer: isProductionSideRow,
+  'tool-ok': isDesignerSideRow,
 };
 
 /**
@@ -155,9 +165,9 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
   const later = logs.some((r) => r.createdAt > w.to && LATER_FIELDS[group].includes(r.field ?? ''));
   if (later) return { status: 'skip', reason: 'edited-after', changes: preview };
   // The other side's fields: the incident's own cascade rows (actor, inside the window) do not count.
-  const cross = CROSS_FIELDS[group] ?? [];
+  const isCross = CROSS_SIDE[group] ?? (() => false);
   const crossLater = logs.some(
-    (r) => cross.includes(r.field ?? '') && (r.createdAt > w.to || (r.createdAt >= inc[0].createdAt && !isActorRow(r, w.actor))),
+    (r) => isCross(r) && (r.createdAt > w.to || (r.createdAt >= inc[0].createdAt && !isActorRow(r, w.actor))),
   );
   if (crossLater) return { status: 'skip', reason: 'edited-after', changes: preview };
   if (!sameValue(order[field], leftValue)) return { status: 'skip', reason: 'current-differs', changes: preview };
