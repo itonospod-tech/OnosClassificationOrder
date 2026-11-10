@@ -35,7 +35,11 @@ export type WalletTxnKind = (typeof WALLET_TXN_KINDS)[number];
  */
 export const WALLET_BIG_AMOUNT_USD = 1000;
 
-export const requiresStatementCheck = (amount: number): boolean => Math.abs(amount) >= WALLET_BIG_AMOUNT_USD;
+/**
+ * Judged on the amount the ledger will RECORD (the server rounds to cents, `round2` in wallet-guard — same
+ * formula here), not the raw input: 999.995 is booked as 1000.00, so it needs the confirmation too.
+ */
+export const requiresStatementCheck = (amount: number): boolean => Math.abs(Math.round(amount * 100) / 100) >= WALLET_BIG_AMOUNT_USD;
 
 export type WalletOperationMode = 'topup' | 'adjust' | 'credit';
 
