@@ -480,6 +480,8 @@ describe('R5 — stages wiped by a tool note change come back from the logged sn
       toolResultNote: { $in: [null, ''] },
       currentFulfillmentStage: { $in: [null, ''] },
       fulfillmentStages: { $in: [{}, null] },
+      assignee: { $in: [null, ''] },
+      designerStatus: { $in: [null, '', 'unassigned'] },
     });
     expect(p.changes.map((c) => c.field)).toEqual(['toolResultNote', 'currentFulfillmentStage', 'fulfillmentStages']);
   });
@@ -539,5 +541,63 @@ describe('R5 — stages wiped by a tool note change come back from the logged sn
   it('the designer undo is unaffected: the wipe rows inside the window are the incident cascade, not production movement', () => {
     const logs = [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), ...wipe('error', printWaiting)];
     expect(planUndo('designer', { ...unassigned, toolResultNote: null }, logs, W)?.status).toBe('restore');
+  });
+
+  // ---- the same admin edits the same order several times inside the window ----
+  /** One `updateField` call that wipes: note row + its cascade rows, same moment. */
+  const wipeAt = (at: string, before: string, after: string | null, stages: Record<string, unknown>) => [
+    row('toolResultNote', before, after, at, ACTOR),
+    row('currentFulfillmentStage', 'print', null, at, ACTOR),
+    row('fulfillmentStages', stages, {}, at, ACTOR),
+  ];
+  const printWaitingLater = { print: { status: 'waiting', reworkCount: 0, workMs: 0, waitingAt: t('2026-10-05T21:33:40Z') } };
+
+  it('two mistaken clears in the window (ok → cleared, ok again, cleared again): restores the stages from before the FIRST one', () => {
+    const logs = [
+      ...reported,
+      row('toolResultNote', 'error', 'ok', '2026-10-05T20:00:00Z', 'Support'),
+      ...wipeAt('2026-10-05T21:33:10Z', 'ok', null, printRework),
+      row('toolResultNote', null, 'ok', '2026-10-05T21:33:40Z', ACTOR),
+      row('currentFulfillmentStage', null, 'print', '2026-10-05T21:33:40Z', ACTOR),
+      ...wipeAt('2026-10-05T21:34:20Z', 'ok', null, printWaitingLater),
+    ];
+    expect(restoreSet(planUndo('tool-ok', { ...wiped, productionErrorSource: null }, logs, W))).toMatchObject({ fulfillmentStages: printRework });
+  });
+
+  it('a NON-incident edit wiped the stages first (error → no-pdf), the incident (no-pdf → cleared) wiped nothing: the note only', () => {
+    // Just before the incident row the stages were already empty — restoring the earlier snapshot would
+    // undo an edit that is not part of this incident.
+    const logs = [...reported, ...wipeAt('2026-10-05T21:33:10Z', 'error', 'no-pdf', printWaiting), row('toolResultNote', 'no-pdf', null, '2026-10-05T21:34:00Z', ACTOR)];
+    const p = planUndo('tool-note', wiped, logs, W);
+    expect(p?.status === 'restore' && p.set).toEqual({ toolResultNote: 'no-pdf' });
+  });
+
+  it('tool-note restoring stages: a designer assigned after the incident → skipped (never Print + a designer at once)', () => {
+    const logs = [...reported, ...wipe('error', printWaiting), row('assignee', null, huong, AFTER, 'Leader')];
+    const order = { ...wiped, assignee: huong, designerStatus: DesignerStatus.Assigned };
+    expect(planUndo('tool-note', order, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('tool-note restoring stages: the write is also guarded on the designer state seen at plan time', () => {
+    const p = planUndo('tool-note', wiped, [...reported, ...wipe('error', printWaiting)], W);
+    expect(p?.status === 'restore' && p.guard).toMatchObject({ assignee: { $in: [null, ''] }, designerStatus: { $in: [null, '', 'unassigned'] } });
+  });
+
+  it('tool-note without a snapshot keeps the note-only write (no designer check added)', () => {
+    const logs = [...reported, row('toolResultNote', 'error', null, INCIDENT, ACTOR), row('assignee', null, huong, AFTER, 'Leader')];
+    const p = planUndo('tool-note', { ...wiped, assignee: huong, designerStatus: DesignerStatus.Assigned }, logs, W);
+    expect(p?.status === 'restore' && p.set).toEqual({ toolResultNote: 'error' });
+  });
+
+  it('tool-ok: an earlier non-incident wipe (ok → error) then ok again and the incident clear: restores the stages the INCIDENT wiped', () => {
+    const logs = [
+      ...reported,
+      row('toolResultNote', 'error', 'ok', '2026-10-05T20:00:00Z', 'Support'),
+      ...wipeAt('2026-10-05T21:33:10Z', 'ok', 'error', printRework),
+      row('toolResultNote', 'error', 'ok', '2026-10-05T21:33:40Z', ACTOR),
+      row('currentFulfillmentStage', null, 'print', '2026-10-05T21:33:40Z', ACTOR),
+      ...wipeAt('2026-10-05T21:34:20Z', 'ok', null, printWaitingLater),
+    ];
+    expect(restoreSet(planUndo('tool-ok', { ...wiped, productionErrorSource: null }, logs, W))).toMatchObject({ fulfillmentStages: printWaitingLater });
   });
 });

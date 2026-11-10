@@ -138,7 +138,7 @@ function designerTransitions(rows: UndoLogRow[]): UndoLogRow[] {
   return out;
 }
 
-const designerStatusOf = (v: unknown): string => (isEmptyValue(v) ? DesignerStatus.Unassigned : String(v));
+const designerStatusOf = (v: unknown): DesignerStatus => (isEmptyValue(v) ? DesignerStatus.Unassigned : (String(v) as DesignerStatus));
 /**
  * Write guard for "designer status reads as unassigned": exactly what `designerStatusOf` maps to
  * 'unassigned' — missing / null (`null` in `$in` also matches a missing field), '' and 'unassigned'.
@@ -231,12 +231,20 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
 
   // Stages the incident's cascade wiped, from the snapshot it logged (tool-ok / tool-note only). Written
   // back only onto an order still exactly as the wipe left it, and nobody moved its stages since.
-  const wiped = group === 'tool-ok' || group === 'tool-note' ? wipedStagesOf(logs, w) : null;
+  const wiped = group === 'tool-ok' || group === 'tool-note' ? wipedStagesOf(logs, w, inc[0]) : null;
   if (wiped) {
     if (!isEmptyValue(order.currentFulfillmentStage) || !isEmptyStages(order.fulfillmentStages)) {
       return { status: 'skip', reason: 'current-differs', changes: preview };
     }
     if (logs.some((r) => r.createdAt > w.to && isStageRow(r) && !isRestoreOf(r, w))) {
+      return { status: 'skip', reason: 'edited-after', changes: preview };
+    }
+    // Putting a stage back is production state, like tool-ok: never while a designer side moved since the
+    // window opened (tool-ok already checks this above, through CROSS_SIDE).
+    if (
+      group === 'tool-note' &&
+      logs.some((r) => isDesignerSideRow(r) && r.createdAt >= w.from && (r.createdAt > w.to || !isActorRow(r, w.actor)) && !isRestoreOf(r, w))
+    ) {
       return { status: 'skip', reason: 'edited-after', changes: preview };
     }
   }
@@ -261,24 +269,33 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
   // tool-note: no snapshot (older log, or nothing was wiped) → the note only, as before; nothing is guessed.
   if (wiped) {
     Object.assign(set, stagesSet(wiped));
-    Object.assign(guard, WIPED_STAGES_GUARD);
+    Object.assign(guard, WIPED_STAGES_GUARD, designerGuard(order));
     changes.push(...stagesChanges(order, wiped));
   }
   return { status: 'restore', changes, set, guard, restoredFrom: w.from };
 }
 
 /**
- * The stage state the incident's cascade wiped: the `fulfillmentStages` row it logged (before = full
- * snapshot, after = {}) and the `currentFulfillmentStage` row cleared with it, both by the actor inside
- * the window — the earliest pair, i.e. the state at the start of the window. Null when the log has no
- * snapshot (written before it existed, or no wipe happened): the caller then guesses nothing.
+ * The stage state wiped by the FIRST incident row itself (`incident` = the row whose `before` is restored):
+ * the `fulfillmentStages` row the same edit logged (before = full snapshot, after = {}) and the
+ * `currentFulfillmentStage` row cleared with it. The cascade rows of one edit carry no link to its note row,
+ * so a wipe row belongs to the `toolResultNote` row nearest to it in time — one `updateField` call writes
+ * them within milliseconds; two edits of one order are separate requests. A wipe by another edit (an
+ * earlier non-incident note change by the same admin, a later incident row) is never used: the stages
+ * restored are the ones that existed just before the restored note value. Null when that edit wiped
+ * nothing or its log predates the snapshot: the caller then guesses nothing.
  */
-export function wipedStagesOf(logs: UndoLogRow[], w: UndoWindow): WipedStages | null {
-  const inWindow = (r: UndoLogRow) => r.createdAt >= w.from && r.createdAt <= w.to && isActorRow(r, w.actor);
-  const snap = logs.find(
-    (r) => inWindow(r) && r.field === 'fulfillmentStages' && !isEmptyStages(r.before) && isEmptyStages(r.after),
-  );
-  const stage = logs.find((r) => inWindow(r) && r.field === 'currentFulfillmentStage' && !isEmptyValue(r.before) && isEmptyValue(r.after));
+export function wipedStagesOf(logs: UndoLogRow[], w: UndoWindow, incident: UndoLogRow): WipedStages | null {
+  const notes = logs.filter((r) => r.field === 'toolResultNote');
+  const nearestNote = (r: UndoLogRow) =>
+    notes.reduce<UndoLogRow | undefined>(
+      (best, n) => (!best || Math.abs(time(n.createdAt) - time(r.createdAt)) < Math.abs(time(best.createdAt) - time(r.createdAt)) ? n : best),
+      undefined,
+    );
+  const ofIncident = (r: UndoLogRow) =>
+    r.createdAt >= w.from && r.createdAt <= w.to && isActorRow(r, w.actor) && nearestNote(r) === incident;
+  const snap = logs.find((r) => r.field === 'fulfillmentStages' && !isEmptyStages(r.before) && isEmptyStages(r.after) && ofIncident(r));
+  const stage = logs.find((r) => r.field === 'currentFulfillmentStage' && !isEmptyValue(r.before) && isEmptyValue(r.after) && ofIncident(r));
   if (!snap || !stage) return null;
   return { currentFulfillmentStage: stage.before as string, fulfillmentStages: snap.before as Record<string, unknown> };
 }
@@ -295,6 +312,11 @@ const isEmptyStages = (v: unknown): boolean =>
 const isStageRow = (r: UndoLogRow): boolean => r.field === 'currentFulfillmentStage' || (r.field ?? '').startsWith('fulfillmentStages');
 /** Write only onto an order whose stages are still exactly what the wipe left. */
 const WIPED_STAGES_GUARD = { currentFulfillmentStage: { $in: [null, ''] }, fulfillmentStages: { $in: [{}, null] } };
+/** Write guard: no designer took the order between the plan and the write (its designer state is unchanged). */
+const designerGuard = (order: OrderDoc) => ({
+  assignee: isEmptyValue(order.assignee) ? { $in: [null, ''] } : order.assignee,
+  designerStatus: designerStatusOf(order.designerStatus) === DesignerStatus.Unassigned ? UNASSIGNED_DESIGNER_GUARD : order.designerStatus,
+});
 const stagesSet = (s: WipedStages) => ({ currentFulfillmentStage: s.currentFulfillmentStage, fulfillmentStages: s.fulfillmentStages });
 const stagesChanges = (order: OrderDoc, s: WipedStages): UndoChange[] => [
   { field: 'currentFulfillmentStage', current: order.currentFulfillmentStage ?? null, restore: s.currentFulfillmentStage },
@@ -386,9 +408,7 @@ function planToolOk(order: OrderDoc, wiped: WipedStages | null, from: Date): Und
     guard: {
       toolResultNote: { $in: [null, ''] },
       ...(wiped ? WIPED_STAGES_GUARD : emptied ? { currentFulfillmentStage: { $in: [null, ''] } } : {}),
-      // No designer took the order meanwhile.
-      assignee: isEmptyValue(order.assignee) ? { $in: [null, ''] } : order.assignee,
-      designerStatus: designerStatusOf(order.designerStatus) === DesignerStatus.Unassigned ? UNASSIGNED_DESIGNER_GUARD : order.designerStatus,
+      ...designerGuard(order),
     },
     restoredFrom: from,
   };
