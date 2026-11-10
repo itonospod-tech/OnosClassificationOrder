@@ -10,11 +10,15 @@ them.
   (older leftovers > 3 h are dropped at the next start). Never `onos-classifycation`.
 - **Own API** on `:3107` (the built `apps/api/dist-prod`, `node ./start.js`) and **own Vite** on `:5273`.
   The developer servers on `:3007` / `:5173` are left alone; the Vite dep cache is `apps/e2e/.vite-cache`.
-- `scripts/start-api.mjs` overrides, in the process environment (which wins over
-  `apps/api/.env.development` — dotenv and Nest ConfigModule never overwrite a set variable): `DB_URI`,
-  `PORT`, CORS/`WEB_URL`, `REDIS_DB=13`, rate limiter off, RabbitMQ → dead address, every external
-  integration URL → `http://127.0.0.1:9`, every third-party token/password → empty. Global setup proves
-  the override: the test accounts exist only in the e2e database and must be able to log in.
+- `scripts/start-api.mjs` sets, in the process environment (which wins over `apps/api/.env` and
+  `apps/api/.env.development` — dotenv and Nest ConfigModule never overwrite a set variable):
+  - **safe by default**: every key of those two files is neutralised (URL-looking value →
+    `http://127.0.0.1:9`, anything else → empty) unless allowlisted in the script — `KEEP` (local-only
+    secrets the API needs: JWT keys, master password, Redis password, ...), `KEEP_CONFIG` (plain numbers /
+    flags / names), `KEEP_IF_LOCAL` (`REDIS_HOST`, only while it points at localhost). A new integration key
+    stays cut off until someone allowlists it. The start line logs how many keys were neutralised (never values);
+  - then `DB_URI`, `PORT`, CORS/`WEB_URL`, `REDIS_DB=13`, rate limiter off, RabbitMQ → dead address.
+  Global setup proves the override: the test accounts exist only in the e2e database and must be able to log in.
 - No production host is ever called.
 
 ## Prerequisites

@@ -1,15 +1,21 @@
 /**
  * Starts the BUILT API (apps/api/dist-prod, same as `node ./start.js`) for the e2e run, with every setting
- * that could reach something shared or real overridden in the process environment. dotenv and Nest
- * ConfigModule never override a variable that is already set, so these win over apps/api/.env.development
- * (global setup double-checks: it asks the API which database it writes to).
+ * that could reach something shared or real overridden in the process environment. `start.js` loads
+ * apps/api/.env and then .env.${NODE_ENV} with dotenv, and Nest ConfigModule loads .env.${NODE_ENV} again; none
+ * of them overrides a variable that is already set, so what is set here wins (global setup double-checks: it
+ * asks the API which database it writes to).
  *
- * Isolation:
+ * SAFE BY DEFAULT: every key of apps/api/.env and apps/api/.env.development is neutralised — a URL-looking value
+ * becomes the black hole http://127.0.0.1:9, anything else '' — unless it is allowlisted: the local-only secrets
+ * the API needs to boot (KEEP), plain non-network config (KEEP_CONFIG), local infrastructure kept only while it
+ * points at this machine (KEEP_IF_LOCAL). A new integration key in the developer env therefore cannot reach its
+ * host from the e2e API until someone allowlists it on purpose. The count is logged, never the values.
+ *
+ * Then, explicitly:
  *  - DB_URI → the throwaway database E2E_DB on the local replica set.
  *  - PORT 3107; CORS / WEB_URL → the e2e Vite on 5273.
  *  - Redis: its own logical DB, so sessions and BullMQ queues never mix with the developer API on :3007.
  *  - RabbitMQ: a dead address (the client is `wait: false`), so this process never consumes dev queues.
- *  - Every external integration URL → a black hole; every third-party token / password → empty.
  */
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -40,16 +46,79 @@ const KEEP = new Set([
   'RECAPTCHA_SECRET_KEY',
   'VNP_TRACKING_CRON_SECRET',
 ]);
-const env = { ...process.env };
-const devEnvFile = path.join(apiDir, '.env.development');
-if (fs.existsSync(devEnvFile)) {
-  for (const line of fs.readFileSync(devEnvFile, 'utf8').split(/\r?\n/)) {
-    const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+/** Plain configuration with no host and no credential (numbers, flags, names, cron times, local paths). */
+const KEEP_CONFIG = new Set([
+  'APP_NAME',
+  'API_VERSION',
+  'FALLBACK_LANGUAGE',
+  'TRANSPORT_PORT',
+  'ENABLE_DOCUMENTATION',
+  'JWT_EXPIRATION_TIME',
+  'JWT_REMEMBER_EXPIRATION_TIME',
+  'REDIS_CACHE_ENABLED',
+  'REDIS_PORT',
+  'RATE_LIMITER_SESSION_MAX',
+  'RATE_LIMITER_SESSION_TTL',
+  'RATE_LIMITER_USER_MAX',
+  'RATE_LIMITER_USER_TTL',
+  'BULLMQ_REFRESH_TRACKING_STATUS_CRON_TIME',
+  'BULLMQ_SCAN_TRANSACTION_EMAIL_CRON_TIME',
+  'BULLMQ_SEND_MAIL_CRON_TIME',
+  'DOWNLOAD_IMAGES_MAX_CONCURRENT',
+  'DOWNLOAD_IMAGES_MAX_RETRY',
+  'UPLOAD_IMAGES_MAX_RETRY',
+  'AWS_S3_API_VERSION',
+  'AWS_S3_BUCKET_REGION',
+  'AWS_S3_IMAGES_BUCKET_NAME',
+  'R2_BUCKET',
+  'R2_MAX_DOWNLOAD_MB',
+  'R2_PREVIEW_MAX_DIM',
+  'R2_PREVIEW_QUALITY',
+  'R2_THUMB_DIM',
+  'R2_THUMB_QUALITY',
+  'DESIGN_MAX_UPLOAD_MB',
+  'DESIGN_ORIGINAL_TTL_DAYS',
+  'DESIGN_IA_DELETE_MONTHS',
+  'DESIGN_QUEUE_CONCURRENCY',
+  'PARTNER_API_TIMESTAMP_WINDOW',
+  'PARTNER_API_NONCE_TTL',
+  'PARTNER_API_RATE_LIMIT_PER_MIN',
+  'PARTNER_API_RATE_LIMIT_PER_DAY',
+  'AGENT_API_MAX_LIMIT',
+  'AGENT_API_READ_TIMEOUT_MS',
+  'AGENT_API_QUERY_TIMEOUT_MS',
+  'AGENT_DOCS_DIR',
+  'USER_ACTION_INDEX',
+]);
+/** Local infrastructure: kept only while the value points at this machine, neutralised otherwise. */
+const KEEP_IF_LOCAL = new Set(['REDIS_HOST']);
+const isLocal = (v) => /^(?:[a-z+]+:\/\/)?(?:[^@/\s]*@)?(?:localhost|127\.0\.0\.1|\[::1\])(?:[:/]|$)/i.test(v.trim());
+const BLACK_HOLE = 'http://127.0.0.1:9';
+
+/** KEY=value pairs of a dotenv file (`export` prefix, surrounding quotes and trailing comments, like dotenv). */
+function readEnvFile(file) {
+  if (!fs.existsSync(file)) return [];
+  const out = [];
+  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*(.*)$/.exec(line);
     if (!m) continue;
-    const [, key, value] = m;
-    if (KEEP.has(key)) continue;
-    if (/(TOKEN|SECRET|PASSWORD|API_KEY|ACCESS_KEY|CLIENT_ID|USERNAME|_EMAIL$|EMAIL_SCAN_FROM|ACCOUNT_ID)/.test(key)) env[key] = '';
-    else if (/(_URL|_URI|_ENDPOINT)$/.test(key) && /^\s*https?:\/\//.test(value) && !/localhost|127\.0\.0\.1/.test(value)) env[key] = 'http://127.0.0.1:9';
+    const raw = m[2].trim();
+    const quoted = /^(['"`])([\s\S]*)\1$/.exec(raw);
+    out.push([m[1], quoted ? quoted[2] : raw.replace(/\s+#.*$/, '')]);
+  }
+  return out;
+}
+
+// Safe by default: every key of the developer env files that is not allowlisted is blanked (URL-looking
+// values → the black hole), so no external host or credential can reach the e2e API.
+const env = { ...process.env };
+const neutralised = new Set();
+for (const file of ['.env', '.env.development']) {
+  for (const [key, value] of readEnvFile(path.join(apiDir, file))) {
+    if (KEEP.has(key) || KEEP_CONFIG.has(key)) continue;
+    if (KEEP_IF_LOCAL.has(key) && isLocal(value)) continue;
+    env[key] = /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? BLACK_HOLE : '';
+    neutralised.add(key);
   }
 }
 Object.assign(env, {
@@ -68,7 +137,8 @@ Object.assign(env, {
   ENABLE_ORM_LOGS: 'false',
 });
 
-console.log(`[e2e api] starting on :${port} with db=${db} (redis db ${env.REDIS_DB})`);
+// Count only — never the values.
+console.log(`[e2e api] starting on :${port} with db=${db} (redis db ${env.REDIS_DB}); ${neutralised.size} env keys from apps/api/.env* neutralised`);
 const child = spawn(process.execPath, ['./start.js'], { cwd: apiDir, env, stdio: 'inherit' });
 const stop = () => child.kill();
 process.on('SIGINT', stop);
