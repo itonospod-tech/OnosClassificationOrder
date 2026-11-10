@@ -85,7 +85,7 @@ describe('bug 5 — runToolQueueReturn re-checks the new reasons right before ea
       write: (id: string) => {
         written.push(id);
         docs[id] = { ...docs[id], toolResult: '' };
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     };
   };
@@ -122,7 +122,7 @@ describe('bug 5 — runToolQueueReturn re-checks the new reasons right before ea
 });
 
 /**
- * Minimal evaluator for the operators the queue filter uses ($exists / $in / $nin / equality). Fields are
+ * Minimal evaluator for the operators the queue filter and the write filter use ($exists / $in / $nin / equality). Fields are
  * read exactly as stored: a missing / null / '' `designerStatus` is NOT 'unassigned' for Mongo (the schema
  * default only applies to documents written through Mongoose; imports and old data can lack it).
  */
@@ -141,6 +141,7 @@ function matches(filter: Record<string, unknown>, raw: Record<string, unknown>):
       if ('$nin' in c) return !(c.$nin as unknown[]).includes(v ?? null);
       throw new Error(`queue filter uses an operator this test does not know: ${JSON.stringify(c)}`);
     }
+    if (cond === null) return v === null || v === undefined; // Mongo: { f: null } also matches a missing field
     return v === cond;
   });
 }
@@ -171,5 +172,64 @@ describe('bug 5 — consistency: an order the feature returns is an order the to
             }
     expect(eligible).toBeGreaterThan(0);
     expect(bad).toEqual([]);
+  });
+});
+
+describe('review — the clear is conditional: a change between the load and the write is skipped, not overwritten', () => {
+  it("write reports no match (a designer claimed it / production started meanwhile) → skipped 'changed-during-run', not done", async () => {
+    const docs: Record<string, Doc> = { a: doc({ productionId: 'P-A' }), b: doc({ productionId: 'P-B' }) };
+    const res = await runToolQueueReturn({
+      ids: ['a', 'b'],
+      load: (id) => Promise.resolve(docs[id] ?? null),
+      // "b" was claimed by a designer after it was loaded: the conditional update matches nothing.
+      write: (id) => Promise.resolve(id !== 'b'),
+      excludedFactoryId: US,
+      skipToolCheckIds: SKIP,
+    });
+    expect(res.done).toEqual(['a']);
+    expect(res.previous).toEqual([['a', 'has-tool']]);
+    expect(res.skipped).toEqual([{ id: 'b', productionId: 'P-B', reason: 'changed-during-run' }]);
+  });
+});
+
+describe('review — the service write: conditional on the eligibility, logged only when it matched', () => {
+  type Clear = (this: unknown, id: string, d: ToolQueueDoc, ctx?: unknown) => Promise<boolean>;
+  const clear = (OrderService.prototype as unknown as { clearToolResultIfStillEligible: Clear }).clearToolResultIfStillEligible;
+  const fakeService = (current: Record<string, unknown> | null) => {
+    const logs: unknown[] = [];
+    const calls: Array<{ filter: Record<string, unknown>; update: unknown }> = [];
+    const self = {
+      orderModel: {
+        findOneAndUpdate: (filter: Record<string, unknown>, update: unknown) => {
+          calls.push({ filter, update });
+          const { _id: _ignored, ...rest } = filter;
+          return Promise.resolve(current && matches(rest, current) ? { ...current, toolResult: null } : null);
+        },
+      },
+      orderLogService: { write: (row: unknown) => logs.push(row) },
+      invalidateListCache: () => Promise.resolve(),
+    };
+    return { self, logs, calls };
+  };
+  const loaded = doc({ toolResult: 'has-tool' });
+
+  it('still eligible → cleared, one toolResult log row (old value kept)', async () => {
+    const s = fakeService({ ...loaded });
+    await expect(clear.call(s.self, 'a', loaded)).resolves.toBe(true);
+    expect(s.calls[0].update).toEqual({ $set: { toolResult: null } });
+    expect(s.logs).toEqual([expect.objectContaining({ orderId: 'a', field: 'toolResult', before: 'has-tool', after: null })]);
+  });
+
+  it.each([
+    ['a designer claimed it', { designerStatus: DesignerStatus.Assigned, assignee: 'HUONG' }],
+    ['production started', { currentFulfillmentStage: 'print' }],
+    ['the tool recorded a note', { toolResultNote: 'ok' }],
+    ['the tool wrote another result', { toolResult: 'no-tool' }],
+    ['it was put on hold', { heldAt: new Date() }],
+    ['it was cancelled', { cancelledAt: new Date() }],
+  ])('changed after the load (%s) → no write matched, no log row', async (_label, change) => {
+    const s = fakeService({ ...loaded, ...change });
+    await expect(clear.call(s.self, 'a', loaded)).resolves.toBe(false);
+    expect(s.logs).toEqual([]);
   });
 });

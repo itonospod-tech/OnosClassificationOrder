@@ -57,15 +57,37 @@ export function toolQueueReturnEligibility(
 export type ToolQueueRunSkip = { id: string; productionId?: string; reason: string };
 
 /**
+ * Filter of the conditional clear: the order must still be exactly as eligible as when it was loaded —
+ * same `toolResult`, no note, designer 'unassigned', no production stage, open, not held, same factory.
+ * A designer claim or a stage entry between the load and the write makes it match nothing.
+ */
+export function toolQueueReturnWriteFilter(id: string, doc: ToolQueueDoc): Record<string, unknown> {
+  return {
+    _id: id,
+    toolResult: doc.toolResult,
+    toolResultNote: { $in: [null, ''] },
+    designerStatus: DesignerStatus.Unassigned,
+    currentFulfillmentStage: { $in: [null, ''] },
+    cancelledAt: null,
+    deletedAt: null,
+    fulfillmentCompletedAt: null,
+    heldAt: null,
+    factoryId: doc.factoryId,
+  };
+}
+
+/**
  * Run loop with the I/O injected. Each order is loaded FRESH right before its write (not from a list
  * read at the start): between the preview and the click the tool may have recorded a result for some of
- * them, and those must be skipped and reported, never overwritten. `write` is one `updateField` call, so
- * every change keeps its order-log entry (the old value there is the only way back).
+ * them, and those must be skipped and reported, never overwritten. `write` is a CONDITIONAL clear
+ * (`toolQueueReturnWriteFilter`) that returns whether it matched — a change that lands between the load
+ * and the write is reported 'changed-during-run' — and writes the order-log entry only when it matched
+ * (the old value there is the only way back).
  */
 export async function runToolQueueReturn(input: {
   ids: string[];
   load: (id: string) => Promise<(ToolQueueDoc & { productionId?: string }) | null>;
-  write: (id: string, previous: string) => Promise<void>;
+  write: (id: string, doc: ToolQueueDoc) => Promise<boolean>;
   excludedFactoryId: string | null;
   skipToolCheckIds: ReadonlySet<string> | readonly string[];
 }): Promise<{ done: string[]; skipped: ToolQueueRunSkip[]; previous: Array<[string, string]> }> {
@@ -80,7 +102,10 @@ export async function runToolQueueReturn(input: {
       continue;
     }
     try {
-      await input.write(id, String(doc.toolResult));
+      if (!(await input.write(id, doc))) {
+        skipped.push({ id, productionId: doc.productionId, reason: 'changed-during-run' });
+        continue;
+      }
       done.push(id);
       previous.push([id, String(doc.toolResult)]);
     } catch (err) {

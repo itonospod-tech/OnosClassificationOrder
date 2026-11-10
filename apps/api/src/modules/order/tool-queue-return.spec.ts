@@ -59,7 +59,7 @@ describe('runToolQueueReturn — re-check at write time', () => {
       write: (id: string) => {
         written.push(id);
         docs[id] = { ...docs[id], toolResult: '' };
-        return Promise.resolve();
+        return Promise.resolve(true);
       },
     };
   };
@@ -86,8 +86,9 @@ describe('runToolQueueReturn — re-check at write time', () => {
     // The note appears on "b" while "a" is being written.
     const originalWrite = db.write;
     db.write = async (id: string) => {
-      await originalWrite(id);
+      const ok = await originalWrite(id);
       if (id === 'a') db.docs.b = { ...db.docs.b, toolResultNote: 'error' };
+      return ok;
     };
 
     const res = await runToolQueueReturn({ ids: ['a', 'b'], load: db.load, write: db.write, excludedFactoryId: US, skipToolCheckIds: SKIP });
@@ -103,7 +104,7 @@ describe('runToolQueueReturn — re-check at write time', () => {
     });
     const failing = async (id: string) => {
       if (id === 'b') throw new Error('boom');
-      await db.write(id);
+      return db.write(id);
     };
 
     const res = await runToolQueueReturn({ ids: ['a', 'a', 'b', 'gone'], load: db.load, write: failing, excludedFactoryId: US, skipToolCheckIds: SKIP });

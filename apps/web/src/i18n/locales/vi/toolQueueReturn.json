@@ -41,7 +41,8 @@
     "skip-tool-check": "Xưởng bật Bỏ qua soát tool — hàng đợi loại xưởng này",
     "designer-assigned": "Đã có designer — hàng đợi tool không nhận đơn này",
     "designer-status-missing": "Trạng thái designer đang trống — hàng đợi tool chỉ nhận 'unassigned', sửa trạng thái trước",
-    "in-fulfillment": "Đang sản xuất (đã vào công đoạn) — không đưa về soát tool"
+    "in-fulfillment": "Đang sản xuất (đã vào công đoạn) — không đưa về soát tool",
+    "changed-during-run": "Vừa đổi trong lúc chạy (có kết quả / designer / công đoạn) — không đụng"
   },
   "ageDays": "{{count}} ngày",
   "col": {

@@ -1602,6 +1602,7 @@ export const ToolQueueBlockZod = z.enum([
   'designer-assigned', // the queue only takes designerStatus 'unassigned': clearing would lose the result for nothing
   'designer-status-missing', // designerStatus missing / null / '': the queue filter (=== 'unassigned') never takes it either
   'in-fulfillment', // already in a fulfillment stage: must not go back to tool check mid-production
+  'changed-during-run', // run only: the order changed between its load and the conditional clear, nothing written
 ]);
 export type ToolQueueBlockKey = z.infer<typeof ToolQueueBlockZod>;
 

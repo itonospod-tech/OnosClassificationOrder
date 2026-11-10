@@ -217,6 +217,7 @@ import {
   runToolQueueReturn,
   type ToolQueueDoc,
   toolQueueReturnEligibility,
+  toolQueueReturnWriteFilter,
   toolQueueStalled,
 } from './tool-queue-return.logic';
 
@@ -5869,9 +5870,10 @@ export class OrderService implements OnModuleInit {
   }
 
   /**
-   * Clear `toolResult` (and nothing else) on up to TOOL_QUEUE_RETURN_BATCH_MAX orders, one by one through
-   * `updateField` so each keeps its order-log entry. Every order is re-loaded and re-checked right before
-   * its own write; an order that got a result in the meantime is skipped and reported.
+   * Clear `toolResult` (and nothing else) on up to TOOL_QUEUE_RETURN_BATCH_MAX orders, one by one. Every
+   * order is re-loaded and re-checked right before its own write, and the write itself is conditional
+   * (`clearToolResultIfStillEligible`): an order that got a result, a designer or a stage in the meantime
+   * is skipped and reported, never cleared.
    */
   async runToolQueueReturn(ids: string[], reason: string, roleName?: RoleType, ctx?: AuditContext): Promise<ToolQueueReturnRunResult> {
     this.assertSuperAdmin(roleName);
@@ -5888,9 +5890,7 @@ export class OrderService implements OnModuleInit {
           (await this.orderModel.findById(id).select(OrderService.TOOL_QUEUE_PROJECTION).lean()) as unknown as
             | (ToolQueueDoc & { productionId?: string })
             | null,
-        write: async (id) => {
-          await this.updateField(id, { field: 'toolResult', value: null }, RoleType.SuperAdmin, ctx);
-        },
+        write: (id, doc) => this.clearToolResultIfStillEligible(id, doc, ctx),
       });
       // The previous values also sit in each order log; this line is the run-level index back to them.
       this.logger.info({ message: JSON.stringify({ toolQueueReturn: runId, reason, by: ctx?.user?._id, done: done.length, skipped: skipped.length, previous }) });
@@ -5899,6 +5899,21 @@ export class OrderService implements OnModuleInit {
     } finally {
       this.toolQueueReturnRunning = false;
     }
+  }
+
+  /**
+   * The write of the tool-queue return: `toolResult` → null only while the order is still exactly as it was
+   * loaded (`toolQueueReturnWriteFilter`). Same effect and order-log row as `updateField('toolResult', null)`
+   * (that field has no side effects), but atomic with the eligibility; the log row is written only when the
+   * update matched. Returns whether it matched.
+   */
+  private async clearToolResultIfStillEligible(id: string, doc: ToolQueueDoc, ctx?: AuditContext): Promise<boolean> {
+    const updated = await this.orderModel.findOneAndUpdate(toolQueueReturnWriteFilter(id, doc), { $set: { toolResult: null } }, { new: true });
+    if (!updated) return false;
+    void this.orderLogService.write({ orderId: id, action: 'update', field: 'toolResult', before: doc.toolResult ?? null, after: null, ctx });
+    void this.invalidateListCache();
+
+    return true;
   }
 
   /**
