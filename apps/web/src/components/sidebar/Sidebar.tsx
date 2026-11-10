@@ -75,6 +75,7 @@ import { useSidebarBadgeStore } from '../../store/sidebarBadgeStore';
 import { useSidebarResetStore } from '../../store/sidebarResetStore';
 import { handleAxiosError } from '../../utils';
 import { TAB_BAR_ROLES } from './MobileTabBar';
+import { isLinkActive, SCOPE_PARAMS } from './navMatch';
 
 /**
  * Count badge on one sidebar entry: red = urgent, amber = waiting to be assigned/reworked,
@@ -288,15 +289,6 @@ const lineMenuRank = (code: string) => {
 
 /** Roles that own a task board (designer / fulfillment kanban) — same set as the phone tab bar. */
 const TASK_BOARD_ROLES = TAB_BAR_ROLES;
-
-/**
- * URL params matched BOTH WAYS in `isLinkActive` (every other param only needs
- * link ⊆ URL): entries sharing a path differ only by these — "All orders" vs
- * "3D", the shared cluster vs one factory. A one-way check would light the entry
- * WITHOUT the param together with the entry that has it. These are also the params
- * stripped from the "click again to clear filters" signal (`resetPathOf`), since pages register with the bare path.
- */
-const SCOPE_PARAMS = ['factoryId', 'productLine', 'view'];
 
 /**
  * Pages that have NO sidebar entry but still need their route gated. The menu tree is
@@ -817,32 +809,6 @@ function isEntryActive(c: NavChild, currentPath: string, currentSearch: string):
     isLinkActive(c.to, currentPath, currentSearch, c.matchPrefix, c.looseScope) ||
     !!c.alsoActiveOn?.some((p) => isLinkActive(p, currentPath, currentSearch, c.matchPrefix, c.looseScope))
   );
-}
-
-function isLinkActive(
-  linkPath: string,
-  currentPath: string,
-  currentSearch: string,
-  matchPrefix = false,
-  looseScope = false,
-): boolean {
-  // linkPath may include `?...` for children
-  const [pathPart, queryPart] = linkPath.split('?');
-  const pathMatches = matchPrefix
-    ? currentPath === pathPart || currentPath.startsWith(`${pathPart}/`)
-    : pathPart === currentPath;
-  if (!pathMatches) return false;
-  const linkParams = new URLSearchParams(queryPart || '');
-  const currentParams = new URLSearchParams(currentSearch);
-  // Scope params are matched BOTH WAYS — see `SCOPE_PARAMS`.
-  if (!looseScope && SCOPE_PARAMS.some((p) => (linkParams.get(p) || '') !== (currentParams.get(p) || ''))) return false;
-  if (!queryPart) return true;
-  // exact query param subset check
-  for (const [k, v] of linkParams.entries()) {
-    if (looseScope && SCOPE_PARAMS.includes(k)) continue;
-    if (currentParams.get(k) !== v) return false;
-  }
-  return true;
 }
 
 /** Where clicking a menu entry navigates: its path plus the entry's default view, if any. */
