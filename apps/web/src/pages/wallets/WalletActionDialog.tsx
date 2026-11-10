@@ -188,10 +188,11 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
             ? { amount, note: trimmedNote, ...ack }
             : { creditLimit: amount, note: trimmedNote };
       // The key must depend ONLY on what decides money: the mode and the amount. It must NOT depend on
-      // note/externalTxnId/attachmentUrl — those are metadata, and the server compares the amount alone when it
-      // detects a replay. Including them used to mint a NEW key whenever the operator edited a note after a failed
-      // attempt, so fixing a typo in the note after a lost connection wrote the money a SECOND time (`adjust` has
-      // no externalTxnId, so the unique index could not catch it either).
+      // note/externalTxnId/attachmentUrl. Including them used to mint a NEW key whenever the operator edited a note
+      // after a failed attempt, so fixing a typo in the note after a lost connection wrote the money a SECOND time
+      // (`adjust` has no externalTxnId, so the unique index could not catch it either). With the same key, a resend
+      // whose note / bank reference / proof link differs from what was already recorded is refused by the server
+      // (409, nothing written — handled in the catch below); an identical resend is a harmless replay.
       // A genuinely different operation means a different amount here, or a freshly opened dialog (a new mount
       // makes a new key — see the component comment).
       // Rule lives in shared (`nextWalletRequestAttempt`, tested in apps/api wallet-request-key.spec.ts).

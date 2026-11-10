@@ -13,8 +13,10 @@ import { DesignerStatus, FulfillmentStage, FulfillmentStageStatus } from 'shared
  *    the print stage yet, clears `currentFulfillmentStage` + `fulfillmentStages`; the order is put
  *    back in the print queue, waiting since its original 'ok'.
  *
- * Safety: an order is only touched while its CURRENT values are exactly what the incident left and
- * nobody logged a change to the same fields after the window. Anything else is skipped and reported.
+ * Safety: an order is only touched while its CURRENT values are exactly what the incident left, nobody
+ * logged a change to the same fields after the window, and the OTHER side (designer ↔ production) did not
+ * move from the start of the window on (`restore` rows of the same incident excepted, `isRestoreOf`).
+ * Anything else is skipped and reported.
  */
 
 export interface UndoLogRow {
@@ -232,11 +234,12 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
 /**
  * Designer state just before the incident, rebuilt from the logs (real timestamps):
  *  - the counters live since the last UNASSIGN (only unassigning resets them; reassigning does not);
- *  - status = last logged transition after the last assignment, else 'assigned' (assigning sets it
- *    without logging it);
- *  - entering 'rework' is itself unlogged (production-error hook, fulfillment rework-back), but
- *    leaving it is logged with `before: 'rework'`: each such row is one rework; the entry moment is
- *    taken as the first logged event after the previous transition (the event that caused it).
+ *  - status = last logged transition after the last assignment, else 'assigned' (`designerCycle`);
+ *  - entering 'rework' is logged on current data (production-error hook: a `designerStatus` row
+ *    done → rework; fulfillment rework-back: `action: 'rework_back'`, `field: 'designer'`, read as a
+ *    transition by `designerTransitions`): each entry is one rework, `designerReworkAt` = its moment.
+ *    Older data only logged LEAVING rework (`before: 'rework'`): such an episode still counts once, its
+ *    entry moment taken as the first logged event after the previous transition (the event that caused it).
  */
 function planDesigner(order: OrderDoc, before: UndoLogRow[], assignee: string, from: Date): UndoPlan {
   const { status, assignLog, inCycle, transitions } = designerCycle(before, assignee);

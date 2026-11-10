@@ -169,3 +169,11 @@ Rỗng ở phiên thường.
 Đọc từ `params.ctx.user.impersonatedBy` trong `OrderLogService.write()` — **một điểm chạm
 duy nhất**, vì mọi đường ghi log đơn hàng đều đi qua đúng hàm đó. Chi tiết cơ chế:
 [`Auth.md §10`](Auth.md).
+
+## Dòng `restore` của hoàn tác sửa hàng loạt (`undoOf`)
+
+Dòng `action: 'restore'` do `BulkUndoService.run` ghi (qua `OrderLogService.writeMany`) mang thêm
+`undoOf: { group, actor, from, to }` — sự cố mà lượt hoàn tác đã tua lại. Nhờ đó lượt hoàn tác nhóm KIA
+của CÙNG sự cố (cùng `actor`, khung chồng nhau) không đọc các dòng này thành "có người sửa sau" và tự chặn
+nhau. Field chỉ có trên dòng `restore`; dòng `restore` cũ không có field vẫn được coi là sửa sau
+(phía an toàn). Chi tiết: [`Orders.md §27`](Orders.md).
