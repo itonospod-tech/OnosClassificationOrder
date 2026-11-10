@@ -38,6 +38,11 @@ const assignedAndDone = rows(
   row('designerStatus', 'assigned', 'in-progress', '2026-10-05T03:00:00Z'),
   row('designerStatus', 'in-progress', 'done', '2026-10-05T05:30:00Z'),
 );
+/** Assigned and started, not finished: an ACTIVE designer state (production movement after the incident blocks its undo). */
+const assignedAndStarted = rows(
+  row('assignee', null, huong, '2026-10-05T02:00:00Z', 'Leader'),
+  row('designerStatus', 'assigned', 'in-progress', '2026-10-05T03:00:00Z'),
+);
 const REWORK_BACK_AT = '2026-10-05T10:00:00Z';
 const reworkBackToDesigner = (at = REWORK_BACK_AT) => row('designer', 'press', 'Sai màu in', at, 'Press worker', 'rework_back');
 
@@ -155,8 +160,10 @@ describe('bug 4 — undo never crosses into the other flow (designer vs tool-ok/
     ['toolResultNote', row('toolResultNote', null, 'ok', AFTER, 'Tool'), { toolResultNote: 'ok' }],
     ['readyForFulfill', row('readyForFulfill', false, true, AFTER, 'Tool'), { readyForFulfill: true }],
     ['currentFulfillmentStage', row('currentFulfillmentStage', null, 'print', AFTER, 'Tool'), { currentFulfillmentStage: 'print' }],
-  ])('designer group skips an order whose %s changed after the window', (_field, later, state) => {
-    const logs = [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), later];
+  ])('designer group skips an IN-PROGRESS order whose %s changed after the window', (_field, later, state) => {
+    // Active designer state only: a finished (done) designer is restorable whatever production did since
+    // (see "production movement blocks the designer undo only when …" below).
+    const logs = [...assignedAndStarted, ...unassignIncident(DesignerStatus.InProgress), later];
     expect(planUndo('designer', { ...unassigned, ...state }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
   });
 
@@ -239,18 +246,26 @@ describe("review — the write guard accepts every designerStatus the planner re
 describe('review — the designer undo sees production progress the way it is really logged', () => {
   // `FulfillmentTaskService.transition`: a stage step logs `fulfillmentStages.<stage>.status`, a rework-back to a
   // production stage logs `action: 'rework_back', field: <stage>`.
-  const logsWith = (later: UndoLogRow) => [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), later];
-  it.each([
+  const logsWith = (later: UndoLogRow, done = false) =>
+    done
+      ? [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), later]
+      : [...assignedAndStarted, ...unassignIncident(DesignerStatus.InProgress), later];
+  const productionRows: Array<[string, UndoLogRow]> = [
     ['print started', row('fulfillmentStages.print.status', 'waiting', 'in-progress', AFTER, 'Print worker')],
     ['press done', row('fulfillmentStages.press.status', 'in-progress', 'done', AFTER, 'Press worker')],
     ['sent back to print', row('print', 'press', 'Lem màu', AFTER, 'Press worker', 'rework_back')],
     ['sent back to sew-in', row('sew-in', 'pack', 'Sai size', AFTER, 'Pack worker', 'rework_back')],
-  ])('skips an order that moved in production after the incident (%s)', (_label, later) => {
+  ];
+  it.each(productionRows)('skips an IN-PROGRESS order that moved in production after the incident (%s)', (_label, later) => {
     expect(planUndo('designer', unassigned, logsWith(later), W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
   });
 
+  it.each(productionRows)('restores a DONE order that moved in production after the incident (%s)', (_label, later) => {
+    expect(restoreSet(planUndo('designer', unassigned, logsWith(later, true), W))).toMatchObject({ assignee: huong, designerStatus: DesignerStatus.Done });
+  });
+
   it('neighbour: production progress BEFORE the window does not block the undo', () => {
-    const logs = [...assignedAndDone, row('fulfillmentStages.print.status', 'waiting', 'in-progress', '2026-10-05T07:00:00Z', 'Print worker'), ...unassignIncident(DesignerStatus.Done)];
+    const logs = [...assignedAndStarted, row('fulfillmentStages.print.status', 'waiting', 'in-progress', '2026-10-05T07:00:00Z', 'Print worker'), ...unassignIncident(DesignerStatus.InProgress)];
     expect(planUndo('designer', unassigned, logs, W)?.status).toBe('restore');
   });
 });
@@ -258,8 +273,8 @@ describe('review — the designer undo sees production progress the way it is re
 describe('review — other-side rows inside the window, before the incident row, count too', () => {
   const BEFORE_INCIDENT = '2026-10-05T21:33:05Z'; // inside W, ten seconds before the actor's row
 
-  it("designer: user B set 'ok' inside the window before X unassigned → skipped", () => {
-    const logs = [...assignedAndDone, row('toolResultNote', null, 'ok', BEFORE_INCIDENT, 'User B'), ...unassignIncident(DesignerStatus.Done)];
+  it("designer (in progress): user B set 'ok' inside the window before X unassigned → skipped", () => {
+    const logs = [...assignedAndStarted, row('toolResultNote', null, 'ok', BEFORE_INCIDENT, 'User B'), ...unassignIncident(DesignerStatus.InProgress)];
     expect(planUndo('designer', { ...unassigned, toolResultNote: 'ok' }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
   });
 
@@ -274,7 +289,7 @@ describe('review — other-side rows inside the window, before the incident row,
   });
 
   it("neighbour: the actor's own other-side rows inside the window (the incident's cascade) still do not count", () => {
-    const logs = [...assignedAndDone, row('readyForFulfill', true, false, BEFORE_INCIDENT, ACTOR), ...unassignIncident(DesignerStatus.Done)];
+    const logs = [...assignedAndStarted, row('readyForFulfill', true, false, BEFORE_INCIDENT, ACTOR), ...unassignIncident(DesignerStatus.InProgress)];
     expect(planUndo('designer', unassigned, logs, W)?.status).toBe('restore');
   });
 });
@@ -341,9 +356,11 @@ describe('review — a combined incident (designer + tool-ok) is fully undoable 
 
   // ---- what must still block ----
   it("a restore row of ANOTHER incident (other actor) still counts as someone's later edit", () => {
-    const other = { group: 'tool-ok' as const, actor: 'Someone else', from: W.from, to: W.to };
-    const logs = [...preIncidentLogs, ...incident, { ...row('toolResultNote', null, 'ok', AFTER, SUPER, 'restore'), undoOf: other }];
-    expect(planUndo('designer', { ...leftByIncident(), toolResultNote: 'ok' }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+    // Checked on the tool-ok side: the designer undo of a DONE designer ignores production rows altogether,
+    // so the incident scoping of restore rows is only observable where the other side still blocks.
+    const other = { group: 'designer' as const, actor: 'Someone else', from: W.from, to: W.to };
+    const logs = [...preIncidentLogs, ...incident, { ...row('assignee', null, huong, AFTER, SUPER, 'restore'), undoOf: other }];
+    expect(planUndo('tool-ok', { ...leftByIncident(), assignee: huong, designerStatus: DesignerStatus.Done }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
   });
 
   it('a restore row without an incident reference (written before the marker existed) still counts', () => {
@@ -360,5 +377,68 @@ describe('review — a combined incident (designer + tool-ok) is fully undoable 
   it('tool-ok alone (designer not undone): still refused when the incident did NOT unassign and the designer state differs', () => {
     const logs = [...preIncidentLogs, ...incident.slice(2)];
     expect(planUndo('tool-ok', { ...leftByIncident() }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+});
+
+/**
+ * The main real incident: a bulk unassign of orders whose designer had ALREADY FINISHED, while those orders keep
+ * flowing through print / press. Every stage step is logged (`fulfillmentStages.<stage>.status`), so blocking
+ * the designer undo on ANY production movement made exactly these orders un-undoable once workers touched them.
+ * Rule: production movement after the incident blocks the designer undo only when the designer state to restore
+ * is ACTIVE (anything but `done`). Restoring a finished designer onto an order already in production changes
+ * nothing for production (the designer fields are all the undo writes) — it only gives the designer their work back.
+ */
+describe('production movement blocks the designer undo only when the restored designer state is active', () => {
+  const stageSteps = rows(
+    row('fulfillmentStages.print.status', 'waiting', 'in-progress', '2026-10-06T01:00:00Z', 'Print worker'),
+    row('fulfillmentStages.print.status', 'in-progress', 'done', '2026-10-06T01:20:00Z', 'Print worker'),
+    row('currentFulfillmentStage', 'print', 'press', '2026-10-06T01:20:00Z', 'Print worker'),
+    row('fulfillmentStages.press.status', 'waiting', 'in-progress', '2026-10-06T02:00:00Z', 'Press worker'),
+  );
+  const inPrint = { ...unassigned, toolResultNote: 'ok', readyForFulfill: true, currentFulfillmentStage: 'press' };
+
+  it('done designer, unassigned by mistake, then print/press steps by workers → the undo RESTORES done with the real timestamps', () => {
+    const p = planUndo('designer', inPrint, [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), ...stageSteps], W);
+    expect(restoreSet(p)).toEqual({
+      assignee: huong,
+      designerStatus: DesignerStatus.Done,
+      designerAssignedAt: t('2026-10-05T02:00:00Z'),
+      designerStartedAt: t('2026-10-05T03:00:00Z'),
+      designerCompletedAt: t('2026-10-05T05:30:00Z'),
+      designerReworkAt: null,
+      designerReworkCount: 0,
+    });
+    // Designer fields only: production state is never written by the designer undo.
+    expect(Object.keys(restoreSet(p)).some((k) => k.startsWith('fulfillment') || k === 'currentFulfillmentStage' || k === 'toolResultNote')).toBe(false);
+  });
+
+  it('done designer + a production rework-back to a stage after the window → still restores', () => {
+    const logs = [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), row('print', 'press', 'Lem màu', AFTER, 'Press worker', 'rework_back')];
+    expect(restoreSet(planUndo('designer', inPrint, logs, W))).toMatchObject({ designerStatus: DesignerStatus.Done });
+  });
+
+  const inProgress = rows(
+    row('assignee', null, huong, '2026-10-05T02:00:00Z', 'Leader'),
+    row('designerStatus', 'assigned', 'in-progress', '2026-10-05T03:00:00Z'),
+  );
+  it.each([
+    ['in-progress', inProgress, DesignerStatus.InProgress],
+    ['assigned', rows(row('assignee', null, huong, '2026-10-05T02:00:00Z', 'Leader')), DesignerStatus.Assigned],
+    ['rejected', rows(...inProgress.slice(0, 1), row('designerStatus', 'assigned', 'rejected', '2026-10-05T03:00:00Z')), DesignerStatus.Rejected],
+  ])('%s designer, unassigned by mistake, then a production stage row → still SKIPPED edited-after', (_label, history, status) => {
+    const logs = [...history, ...unassignIncident(status), ...stageSteps.slice(0, 1)];
+    expect(planUndo('designer', inPrint, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('rework designer (sent back by production), unassigned by mistake, then a production stage row → SKIPPED edited-after', () => {
+    // Restoring 'rework' would pull an order that production has since moved on back into the designer's
+    // "redo" column: two flows working the same order. Active state → blocked.
+    const logs = [...assignedAndDone, reworkBackToDesigner(), ...unassignIncident(DesignerStatus.Rework), ...stageSteps.slice(0, 1)];
+    expect(planUndo('designer', inPrint, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('done designer, but a DESIGNER-side edit after the window → still skipped', () => {
+    const logs = [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), ...stageSteps, row('designerStatus', 'unassigned', 'assigned', AFTER, 'Leader')];
+    expect(planUndo('designer', inPrint, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
   });
 });

@@ -124,9 +124,16 @@ describe('tool-ok group', () => {
     expect(planUndo('tool-ok', order, okLogs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
   });
 
-  it('designer group skips an order whose tool note changed after the incident', () => {
-    const logs = [...huongLogs, log('toolResultNote', null, 'ok', '2026-10-06T02:00:00Z', 'Hanh')];
+  it('designer group skips an order still IN PROGRESS whose tool note changed after the incident', () => {
+    // Without the 'done' row Huong was still working: restoring her would put the order in two flows.
+    const inProgress = huongLogs.filter((r) => r.after !== 'done');
+    const logs = [...inProgress, log('toolResultNote', null, 'ok', '2026-10-06T02:00:00Z', 'Hanh')];
     expect(planUndo('designer', { ...afterIncident, toolResultNote: 'ok' }, logs, W)).toMatchObject({ status: 'skip', reason: 'edited-after' });
+  });
+
+  it('designer group still restores a FINISHED (done) task whose tool note changed after the incident', () => {
+    const logs = [...huongLogs, log('toolResultNote', null, 'ok', '2026-10-06T02:00:00Z', 'Hanh')];
+    expect(planUndo('designer', { ...afterIncident, toolResultNote: 'ok' }, logs, W)?.status).toBe('restore');
   });
 
   it('skips when someone set a tool note again after the incident', () => {

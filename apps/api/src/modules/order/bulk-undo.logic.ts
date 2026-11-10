@@ -16,6 +16,10 @@ import { DesignerStatus, FulfillmentStage, FulfillmentStageStatus } from 'shared
  * Safety: an order is only touched while its CURRENT values are exactly what the incident left, nobody
  * logged a change to the same fields after the window, and the OTHER side (designer ↔ production) did not
  * move from the start of the window on (`restore` rows of the same incident excepted, `isRestoreOf`).
+ * One exception to the last rule: production movement does NOT block the designer undo when the designer
+ * state it restores is `done` (`crossSideBlocks`) — the designer had finished, the order flows on through
+ * print/press, and the undo writes designer fields only. That is the main real incident (a bulk unassign of
+ * finished orders); every stage step is logged, so the blanket rule made those orders un-undoable.
  * Anything else is skipped and reported.
  */
 
@@ -91,6 +95,20 @@ const CROSS_SIDE: Partial<Record<BulkUndoGroup, (r: UndoLogRow) => boolean>> = {
   designer: isProductionSideRow,
   'tool-ok': isDesignerSideRow,
 };
+
+/**
+ * Whether the OTHER side's movement blocks this undo. Always for tool-ok (never send to print an order a
+ * designer took). For the designer undo only when the designer state to restore is ACTIVE — anything but
+ * `done`:
+ *  - assigned / in-progress / rework: the designer still had work to do on a design production has since
+ *    moved on with; restoring would put one order in two flows at once;
+ *  - rejected: the task was handed back for re-assignment — restoring it would ask the leader to re-assign
+ *    design work on an order already in production; same conflict, so it blocks too;
+ *  - done: the designer had finished; restoring assignee + 'done' + the real timestamps is what production
+ *    already assumes, and no production field is written. Harmless → allowed.
+ */
+const crossSideBlocks = (group: BulkUndoGroup, restoredDesignerStatus: string | undefined): boolean =>
+  group !== 'designer' || restoredDesignerStatus !== DesignerStatus.Done;
 
 /**
  * The fulfillment "send back to designer" (`rework_back`) is logged as `field: 'designer'` (the
@@ -195,18 +213,20 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
   if (order.heldAt) return { status: 'skip', reason: 'held', changes: preview };
   const later = logs.some((r) => r.createdAt > w.to && LATER_FIELDS[group].includes(r.field ?? ''));
   if (later) return { status: 'skip', reason: 'edited-after', changes: preview };
-  // The other side: any row from the start of the window on counts (the order is rewound to w.from, so a
-  // change someone else made between w.from and the incident row would be silently undone too), except
+  // The other side (when it blocks at all — `crossSideBlocks`): any row from the start of the window on
+  // counts (the order is rewound to w.from, so a change someone else made between w.from and the incident
+  // row would be silently undone too), except
   // the incident's own cascade rows (the actor, inside the window) and the `restore` rows the OTHER
   // group's undo of this same incident wrote (a combined incident is undone one group at a time).
-  const isCross = CROSS_SIDE[group] ?? (() => false);
+  const before = logs.filter((r) => r.createdAt < w.from);
+  const restoredDesigner = group === 'designer' ? designerCycle(before, restoreValue).status : undefined;
+  const isCross = (crossSideBlocks(group, restoredDesigner) && CROSS_SIDE[group]) || (() => false);
   const crossLater = logs.some(
     (r) => isCross(r) && r.createdAt >= w.from && (r.createdAt > w.to || !isActorRow(r, w.actor)) && !isRestoreOf(r, w),
   );
   if (crossLater) return { status: 'skip', reason: 'edited-after', changes: preview };
   if (!sameValue(order[field], leftValue)) return { status: 'skip', reason: 'current-differs', changes: preview };
 
-  const before = logs.filter((r) => r.createdAt < w.from);
   if (group === 'designer') return planDesigner(order, before, restoreValue as string, w.from);
   if (group === 'tool-ok') {
     // Never send to print an order a designer holds: its designer state must still be what it was at
