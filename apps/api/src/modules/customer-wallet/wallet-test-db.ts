@@ -26,6 +26,17 @@ import {
  */
 const BASE_URI = process.env.WALLET_TEST_MONGO_URI ?? 'mongodb://localhost:27017/?replicaSet=rs0&directConnection=true';
 
+/**
+ * Under load (the full apps/api run: many workers, Mongo shared with the dev API) connecting, creating the
+ * indexes and the first transaction can take well over Jest's default 5 s hook timeout, and 4 s of server
+ * selection was not enough either — the suites passed alone and timed out in the full run. Both are generous
+ * and overridable; a Mongo that is really down still fails (after WALLET_TEST_SERVER_SELECTION_MS).
+ */
+const SERVER_SELECTION_MS = Number(process.env.WALLET_TEST_SERVER_SELECTION_MS ?? 30_000);
+const DB_TEST_TIMEOUT_MS = Number(process.env.WALLET_TEST_TIMEOUT_MS ?? 60_000);
+// Applies to the test file that imports this helper (tests AND hooks), not to the whole run.
+if (typeof jest !== 'undefined') jest.setTimeout(DB_TEST_TIMEOUT_MS);
+
 /** `describe` for DB-backed suites: skipped only when SKIP_DB_TESTS is set. */
 export const describeDb = process.env.SKIP_DB_TESTS ? describe.skip : describe;
 
@@ -43,7 +54,7 @@ export interface WalletTestDb {
 export async function createWalletTestDb(): Promise<WalletTestDb> {
   const dbName = `onos-wallet-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const connection = await mongoose
-    .createConnection(BASE_URI, { dbName, autoIndex: false, serverSelectionTimeoutMS: 4000 })
+    .createConnection(BASE_URI, { dbName, autoIndex: false, serverSelectionTimeoutMS: SERVER_SELECTION_MS })
     .asPromise();
   const txnModel = connection.model(CustomerWalletTransactionEntity.name, CustomerWalletTransactionSchema);
   const customerModel = connection.model(CustomerEntity.name, CustomerSchema);
