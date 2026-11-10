@@ -10,6 +10,14 @@ import { USERS, type UserKey } from './env';
 export const H = 3600_000;
 export const ago = (ms: number) => new Date(Date.now() - ms);
 
+const VN_OFFSET_MS = 7 * H; // Asia/Ho_Chi_Minh, no DST
+/** 20 minutes ago, but never before 00:00:01 of TODAY in VN time (the app's "today" filters use VN days). */
+export function recentTodayVn(): Date {
+  const now = Date.now();
+  const startOfTodayVn = Math.floor((now + VN_OFFSET_MS) / (24 * H)) * (24 * H) - VN_OFFSET_MS;
+  return new Date(Math.max(now - 20 * 60_000, startOfTodayVn + 1000));
+}
+
 export const E2E_FACTORY = { name: '[E2E] Test factory', shortName: 'E2E' };
 
 let factoryIdCache: string | undefined;
@@ -77,8 +85,9 @@ export async function seedOrder(over: SeedOrderOpts = {}): Promise<{ _id: string
     designerStatus: 'unassigned',
     toolResult: 'has-tool',
     toolResultNote: null,
-    // Recent, so the Workshop default view (today) lists it.
-    inProductionAt: ago(20 * 60_000),
+    // Recent AND today in VN time, so the Workshop default view (today, Asia/Ho_Chi_Minh) lists it. A plain
+    // "20 min ago" fell into yesterday for runs between 00:00 and 00:20 VN.
+    inProductionAt: recentTodayVn(),
     orderAt: ago(8 * H),
     createdAt: ago(8 * H),
     updatedAt: ago(1 * H),
