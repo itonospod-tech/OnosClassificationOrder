@@ -124,19 +124,25 @@ const designerStatusOf = (v: unknown): string => (isEmptyValue(v) ? DesignerStat
  */
 export const UNASSIGNED_DESIGNER_GUARD = { $in: [null, '', DesignerStatus.Unassigned] };
 
-/** Assignee + designer status as the logs leave them (assigning sets 'assigned' without its own row). */
-function designerStateBefore(rows: UndoLogRow[]): { assignee: unknown; status: string } {
-  let assignee: unknown = null;
-  let status: string = DesignerStatus.Unassigned;
-  for (const r of rows) {
-    if (r.field === 'assignee') {
-      assignee = r.after ?? null;
-      if (isEmptyValue(r.after)) status = DesignerStatus.Unassigned;
-      else if (status === DesignerStatus.Unassigned) status = DesignerStatus.Assigned;
-    } else if (r.field === 'designerStatus') status = designerStatusOf(r.after);
-    else if (isReworkBack(r)) status = DesignerStatus.Rework;
-  }
-  return { assignee, status };
+/**
+ * The designer cycle as the logs leave it — ONE walk, used by the designer undo (the state it restores)
+ * and the tool-ok undo (the designer state at the incident):
+ *  - the cycle starts after the last UNASSIGN (only unassigning resets the designer fields);
+ *  - assignee = `assignee` when given, else the last logged assignee value;
+ *  - status = the last transition (`designerTransitions`) since that assignment; none → 'assigned'
+ *    (assigning sets it without logging it), or 'unassigned' when nobody is assigned.
+ */
+function designerCycle(rows: UndoLogRow[], assignee?: unknown) {
+  const lastUnassign = [...rows].reverse().find((r) => r.field === 'assignee' && isEmptyValue(r.after));
+  const inCycle = rows.filter((r) => !lastUnassign || r.createdAt > lastUnassign.createdAt);
+  const who = assignee !== undefined ? assignee : ([...rows].reverse().find((r) => r.field === 'assignee')?.after ?? null);
+  const assigned = !isEmptyValue(who);
+  const assignLog = assigned ? [...inCycle].reverse().find((r) => r.field === 'assignee' && r.after === who) : undefined;
+  const transitions = designerTransitions(inCycle);
+  const sinceAssign = transitions.filter((r) => !assignLog || r.createdAt >= assignLog.createdAt);
+  const last = sinceAssign[sinceAssign.length - 1]?.after;
+  const status = (last as DesignerStatus | null | undefined) ?? (assigned ? DesignerStatus.Assigned : DesignerStatus.Unassigned);
+  return { assignee: assigned ? who : null, status, assignLog, inCycle, transitions };
 }
 
 const READY = 'ok';
@@ -205,9 +211,9 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
     // the incident (this also catches a change nobody logged) — or, when this same incident also
     // unassigned the designer and that part is not undone yet, exactly what the incident left
     // (no assignee, unassigned). The designer undo can still run afterwards: it ignores these restore rows.
-    const atIncident = designerStateBefore(before);
+    const atIncident = designerCycle(before);
     const current = designerStatusOf(order.designerStatus);
-    const sameAsIncident = sameValue(order.assignee, atIncident.assignee) && current === atIncident.status;
+    const sameAsIncident = sameValue(order.assignee, atIncident.assignee) && current === designerStatusOf(atIncident.status);
     const leftByThisIncident =
       incidentRows('designer', logs, w).length > 0 && isEmptyValue(order.assignee) && current === DesignerStatus.Unassigned;
     if (!sameAsIncident && !leftByThisIncident) return { status: 'skip', reason: 'edited-after', changes: preview };
@@ -233,12 +239,7 @@ export function planUndo(group: BulkUndoGroup, order: OrderDoc, logs: UndoLogRow
  *    taken as the first logged event after the previous transition (the event that caused it).
  */
 function planDesigner(order: OrderDoc, before: UndoLogRow[], assignee: string, from: Date): UndoPlan {
-  const lastUnassign = [...before].reverse().find((r) => r.field === 'assignee' && isEmptyValue(r.after));
-  const inCycle = before.filter((r) => !lastUnassign || r.createdAt > lastUnassign.createdAt);
-  const assignLog = [...inCycle].reverse().find((r) => r.field === 'assignee' && r.after === assignee);
-  const transitions = designerTransitions(inCycle);
-  const sinceAssign = transitions.filter((r) => !assignLog || r.createdAt >= assignLog.createdAt);
-  const status = (sinceAssign[sinceAssign.length - 1]?.after as DesignerStatus | undefined) ?? DesignerStatus.Assigned;
+  const { status, assignLog, inCycle, transitions } = designerCycle(before, assignee);
   const lastTo = (s: string) => [...transitions].reverse().find((r) => r.after === s)?.createdAt ?? null;
 
   // One rework per episode. The entry is either logged (a transition into 'rework': rework-back,
