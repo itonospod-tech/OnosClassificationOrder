@@ -36,10 +36,16 @@ export type WalletTxnKind = (typeof WALLET_TXN_KINDS)[number];
 export const WALLET_BIG_AMOUNT_USD = 1000;
 
 /**
- * Judged on the amount the ledger will RECORD (the server rounds to cents, `round2` in wallet-guard — same
- * formula here), not the raw input: 999.995 is booked as 1000.00, so it needs the confirmation too.
+ * USD rounded to cents — THE rounding of the wallet: the ledger stores it (`round2` in the API's wallet-guard is
+ * this function) and the staff dialog judges/previews with it. `Math.round` rounds .5 up, so -999.995 → -999.99.
  */
-export const requiresStatementCheck = (amount: number): boolean => Math.abs(Math.round(amount * 100) / 100) >= WALLET_BIG_AMOUNT_USD;
+export const roundCents = (v: number): number => Math.round(v * 100) / 100;
+
+/**
+ * Judged on the amount the ledger will RECORD (`roundCents`), not the raw input: 999.995 is booked as 1000.00,
+ * so it needs the confirmation too.
+ */
+export const requiresStatementCheck = (amount: number): boolean => Math.abs(roundCents(amount)) >= WALLET_BIG_AMOUNT_USD;
 
 export type WalletOperationMode = 'topup' | 'adjust' | 'credit';
 
@@ -59,8 +65,6 @@ export interface WalletOperationPreview {
   blocked: boolean;
 }
 
-const cents = (v: number): number => Math.round(v * 100) / 100;
-
 /**
  * What a staff operation would do to a wallet — shown on the confirmation step so the person sees
  * "balance before → after" before anything is written. For `credit`, `amount` is the NEW limit.
@@ -70,7 +74,7 @@ export function previewWalletOperation(
   mode: WalletOperationMode,
   amount: number,
 ): WalletOperationPreview {
-  const balanceBefore = cents(wallet.balance);
+  const balanceBefore = roundCents(wallet.balance);
   const creditLimitBefore = wallet.creditLimit;
   if (mode === 'credit') {
     return {
@@ -78,18 +82,18 @@ export function previewWalletOperation(
       balanceAfter: balanceBefore,
       creditLimitBefore,
       creditLimitAfter: amount,
-      availableAfter: cents(balanceBefore + amount),
+      availableAfter: roundCents(balanceBefore + amount),
       overLimitAfter: balanceBefore < -amount,
       blocked: false,
     };
   }
-  const balanceAfter = cents(balanceBefore + amount);
+  const balanceAfter = roundCents(balanceBefore + amount);
   return {
     balanceBefore,
     balanceAfter,
     creditLimitBefore,
     creditLimitAfter: creditLimitBefore,
-    availableAfter: cents(balanceAfter + creditLimitBefore),
+    availableAfter: roundCents(balanceAfter + creditLimitBefore),
     overLimitAfter: balanceAfter < -creditLimitBefore,
     blocked: amount < 0 && balanceAfter < -creditLimitBefore,
   };

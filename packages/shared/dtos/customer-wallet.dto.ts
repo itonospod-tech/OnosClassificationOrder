@@ -9,6 +9,7 @@ import {
   normalizeExternalTxnId,
   previewWalletOperation,
   requiresStatementCheck,
+  roundCents,
   WALLET_BIG_AMOUNT_USD,
   WALLET_TXN_KINDS,
   type WalletOperationMode,
@@ -31,7 +32,7 @@ import {
  */
 // Hằng runtime nest-free — dời sang `client/wallet.ts` (apps/seller cần render badge/filter).
 export { WALLET_TXN_KINDS, type WalletTxnKind };
-export { normalizeExternalTxnId, previewWalletOperation, requiresStatementCheck, WALLET_BIG_AMOUNT_USD };
+export { normalizeExternalTxnId, previewWalletOperation, requiresStatementCheck, roundCents, WALLET_BIG_AMOUNT_USD };
 export type { WalletOperationMode, WalletOperationPreview };
 // Idempotency key of the staff money dialog (pure, tested from apps/api).
 export { nextWalletRequestAttempt, walletRequestFingerprint };

@@ -88,7 +88,7 @@ Shared (`packages/shared`): hàm thuần + hằng ở **`client/seller-shipping.
 
 ## 5. Backend logic
 
-- `customer-wallet/`: entity + `wallet-guard.ts` (hàm thuần `checkWalletGuard`/`round2` + spec) + service (`applyTransaction`/`getWallet`/`listTransactions`/`listWallets`/`updateCreditLimit`) + 2 controller. `walletBalance` TUYỆT ĐỐI không `$set` ngoài `applyTransaction`.
+- `customer-wallet/`: entity + `wallet-guard.ts` (hàm thuần `checkWalletGuard`/`round2` + spec — `round2` CHÍNH LÀ `roundCents` của `packages/shared/client/wallet.ts`, một hàm làm tròn duy nhất dùng chung với `requiresStatementCheck`/`previewWalletOperation` của dialog nhân viên) + service (`applyTransaction`/`getWallet`/`listTransactions`/`listWallets`/`updateCreditLimit`) + 2 controller. `walletBalance` TUYỆT ĐỐI không `$set` ngoài `applyTransaction`.
 - `seller-shipping/`: `seller-label-eligibility.ts` (hàm thuần + spec) + service (`quote`/`buy`/`getPriceTable`/`importPriceTable`/`toggle`) + 2 controller. Module chỉ bind model (không import CustomerPortalModule/OrderModule). Feature bật khi: có bảng giá + `enabled !== false` + có `vnpEglobalConfig`.
 - `shipping-vnp/shipment.entity.ts` thêm `sellerPrice`/`sellerCustomerId` (index)/`sellerWalletTxnId`; `toShipmentRecord()` trả 2 field đầu.
 - Test: `NODE_ENV=test npx jest src/modules/customer-wallet src/modules/seller-shipping` (guard ví, eligibility, mốc giá/biên 10kg, parse CSV, bộ lọc sổ cái mọi seller `wallet-txn-filter.spec.ts`, ánh xạ seller + productionIds `list-all-transactions.spec.ts`).

@@ -1,6 +1,7 @@
-import { AdjustWalletZod, TopupWalletZod, WALLET_BIG_AMOUNT_USD } from 'shared';
+import { AdjustWalletZod, requiresStatementCheck, roundCents, TopupWalletZod, WALLET_BIG_AMOUNT_USD } from 'shared';
 
 import type { CustomerWalletService } from './customer-wallet.service';
+import { round2 } from './wallet-guard';
 import type { WalletTestDb } from './wallet-test-db';
 import { createWalletTestDb, describeDb } from './wallet-test-db';
 
@@ -107,5 +108,22 @@ describeDb('bug 7 — no unacknowledged $1,000 reaches the ledger (real MongoDB)
   it('1000 without the tick is rejected', async () => {
     expect(await submitTopup({ ...base, amount: 1000 })).toBe('rejected');
     expect(await rows()).toBe(0);
+  });
+});
+
+describe('review — one rounding function for the client check and the ledger', () => {
+  it('the API round2 IS the shared roundCents (same function, not a copy)', () => {
+    expect(round2).toBe(roundCents);
+  });
+
+  it.each([
+    [999.995, 1000],
+    [-999.995, -999.99],
+    [-999.996, -1000],
+    [0.1 + 0.2, 0.3],
+    [999.994, 999.99],
+  ])('roundCents(%s) = %s, and requiresStatementCheck reads that rounded amount', (raw, cents) => {
+    expect(roundCents(raw)).toBe(cents);
+    expect(requiresStatementCheck(raw)).toBe(Math.abs(cents) >= WALLET_BIG_AMOUNT_USD);
   });
 });
