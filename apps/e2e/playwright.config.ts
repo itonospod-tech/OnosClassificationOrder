@@ -5,6 +5,12 @@ import { API_PORT, dbName, WEB_BASE } from './support/env';
 // Fixes the throwaway DB name in process.env before the servers and workers inherit it.
 const DB = dbName();
 const reuse = process.env.E2E_REUSE_SERVERS === '1';
+/**
+ * Browser: the installed Google Chrome by default (`channel: 'chrome'`). `E2E_CHROME_CHANNEL=msedge` (or any
+ * Playwright channel) picks another one; `E2E_CHROME_CHANNEL=` (set but EMPTY) uses Playwright's bundled
+ * Chromium instead — install it once with `npx playwright install chromium`. Unset keeps the default.
+ */
+const CHANNEL = (process.env.E2E_CHROME_CHANNEL ?? 'chrome') || undefined;
 
 export default defineConfig({
   testDir: './tests',
@@ -21,7 +27,7 @@ export default defineConfig({
   globalTeardown: './global-teardown.ts',
   use: {
     baseURL: WEB_BASE,
-    channel: 'chrome',
+    channel: CHANNEL,
     locale: 'en-US',
     timezoneId: 'Asia/Ho_Chi_Minh',
     viewport: { width: 1440, height: 900 },
@@ -32,8 +38,8 @@ export default defineConfig({
   },
   projects: [
     { name: 'desktop', testIgnore: /mobile\.spec\.ts/ },
-    // Phone layout. Pixel 7 is a Chromium device, so the installed Chrome can emulate it.
-    { name: 'mobile', testMatch: /mobile\.spec\.ts/, use: { ...devices['Pixel 7'], channel: 'chrome' } },
+    // Phone layout. Pixel 7 is a Chromium device, so the installed Chrome (or bundled Chromium) can emulate it.
+    { name: 'mobile', testMatch: /mobile\.spec\.ts/, use: { ...devices['Pixel 7'], channel: CHANNEL } },
   ],
   webServer: [
     {

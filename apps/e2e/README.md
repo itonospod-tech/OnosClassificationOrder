@@ -37,8 +37,10 @@ them.
 - Dependencies installed. On this machine the private Zalo packages are stubbed:
   `pnpm install --pnpmfile ../zalo-stubs/pnpmfile.cjs --no-frozen-lockfile`, then restore
   `pnpm-lock.yaml` (`git checkout pnpm-lock.yaml`) — the committed lockfile already has `@playwright/test`.
-  `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` is fine: the suite runs on the installed Google Chrome
-  (`channel: 'chrome'`).
+  `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` is fine: by default the suite runs on the installed Google Chrome
+  (`channel: 'chrome'`). No Chrome on the machine (CI, Linux)? Install Playwright's own Chromium once —
+  `pnpm --filter e2e exec playwright install chromium` (= `npx playwright install chromium` in `apps/e2e`) —
+  and run with `E2E_CHROME_CHANNEL=` (set but empty).
 - API built: `pnpm --filter ./apps/api build:win` on Windows, `pnpm --filter ./apps/api build` on Linux/macOS (the
   suite runs `dist-prod`; rebuild after API changes).
 - Ports 3107 and 5273 free.
@@ -58,6 +60,7 @@ Environment switches:
 
 | Variable | Effect |
 | --- | --- |
+| `E2E_CHROME_CHANNEL` | browser channel: unset = installed Google Chrome (default); empty (`E2E_CHROME_CHANNEL=`) = Playwright's bundled Chromium (`npx playwright install chromium`); any other value = that Playwright channel (`msedge`, `chrome-beta`, …) |
 | `E2E_STRICT_KNOWN=1` | run the expected-failure tests as normal tests, to read the exact failure |
 | `E2E_KEEP_DB=1` | keep the e2e database after the run |
 | `E2E_SERVER_LOGS=1` | pipe API / Vite logs to the console |
