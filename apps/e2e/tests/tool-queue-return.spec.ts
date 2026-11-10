@@ -38,27 +38,37 @@ const waitingCount = async (page: Page) => {
   return Number(/(\d+) orders waiting/.exec(text)?.[1]);
 };
 
-async function openGroup(page: Page, type: string) {
+/**
+ * Opens the product group and returns the queue counter as the page shows it once its data has LOADED: the
+ * counter comes with the list response, so wait for the grouped list's response and for the counter to show
+ * that response's number (reading it earlier could pick up a value from before the response, or none).
+ */
+async function openGroup(page: Page, type: string): Promise<number> {
   await page.goto('/adm/tool-queue-return');
   await expect(page.getByRole('heading', { name: 'Return orders to the tool-check queue' })).toBeVisible();
   await page.getByRole('checkbox', { name: 'Returnable only' }).uncheck();
+  const grouped = page.waitForResponse((r) => r.url().includes('/orders/tool-queue-return?') && r.url().includes('groupBy=type') && r.ok());
   await page.getByRole('button', { name: 'Group by product' }).click();
+  const loaded = Number(((await (await grouped).json()) as { queue?: { waiting?: number } }).queue?.waiting);
+  expect(Number.isFinite(loaded), 'queue counter in the list response').toBe(true);
+  await expect(page.getByText(new RegExp(`\\b${loaded} orders waiting in the tool queue`)).first()).toBeVisible();
   const group = page.getByRole('listitem').filter({ hasText: type });
   await expect(group).toContainText('3 orders · 1 returnable');
   await group.getByRole('button', { name: 'View orders' }).click();
+  return loaded;
 }
 
 test('the list explains why two orders cannot go back; returning the free one puts it in the tool queue (bug 5)', async ({ page }) => {
   const type = `E2E TQ ${uniq()}`;
   const { withDesigner, inProduction, free } = await seedTrio(type);
-  await openGroup(page, type);
+  const before = await openGroup(page, type);
 
   const rowOf = (pid: string) => page.getByRole('listitem').filter({ hasText: pid });
   await expect(rowOf(withDesigner.productionId)).toContainText('Already with a designer — the tool queue does not take it');
   await expect(rowOf(inProduction.productionId)).toContainText('In production (already in a stage) — not sent back to tool check');
   await expect(page.getByRole('checkbox', { name: withDesigner.productionId })).toBeDisabled();
   await expect(page.getByRole('checkbox', { name: inProduction.productionId })).toBeDisabled();
-  const before = await waitingCount(page);
+  expect(await waitingCount(page)).toBe(before);
 
   await page.getByRole('checkbox', { name: free.productionId }).check();
   await expect(page.getByText('Selected 1/')).toBeVisible();
