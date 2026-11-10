@@ -54,6 +54,22 @@ describe('designer group', () => {
     expect(planUndo('designer', { ...afterIncident, assignee: 'OTHER' }, huongLogs, W)).toMatchObject({ status: 'skip', reason: 'current-differs' });
   });
 
+  it('keeps a rework-back to the designer (logged as field "designer", not "designerStatus")', () => {
+    const reworkAt = '2026-10-05T10:00:00Z';
+    const logs = [
+      ...huongLogs.slice(0, 3),
+      { action: 'rework_back', field: 'designer', before: 'press', after: 'Lệch hình', createdAt: t(reworkAt), userName: 'Ep' },
+      huongLogs[3],
+    ];
+    const p = planUndo('designer', afterIncident, logs, W);
+    expect(p?.status === 'restore' && p.set).toMatchObject({
+      designerStatus: DesignerStatus.Rework,
+      designerCompletedAt: t('2026-10-05T05:30:00Z'),
+      designerReworkAt: t(reworkAt),
+      designerReworkCount: 1,
+    });
+  });
+
   it('skips held and cancelled orders', () => {
     expect(planUndo('designer', { ...afterIncident, heldAt: t('2026-10-06T00:00:00Z') }, huongLogs, W)).toMatchObject({ reason: 'held' });
     expect(planUndo('designer', { ...afterIncident, cancelledAt: t('2026-10-06T00:00:00Z') }, huongLogs, W)).toMatchObject({ reason: 'cancelled' });

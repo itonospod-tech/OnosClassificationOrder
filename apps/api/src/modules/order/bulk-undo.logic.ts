@@ -18,6 +18,8 @@ import { DesignerStatus, FulfillmentStage, FulfillmentStageStatus } from 'shared
  */
 
 export interface UndoLogRow {
+  /** order-log action ('update', 'rework_back', ...). */
+  action?: string;
   field?: string;
   before?: unknown;
   after?: unknown;
@@ -53,11 +55,37 @@ export const UNDO_GROUP_FIELD: Record<BulkUndoGroup, string> = {
 };
 /** Fields whose later edits (by anyone) mean someone already worked on the order: skip it. */
 const LATER_FIELDS: Record<BulkUndoGroup, string[]> = {
-  designer: ['assignee', 'designerStatus'],
+  designer: ['assignee', 'designerStatus', 'designer'],
   'tool-ok': ['toolResultNote'],
   'tool-note': ['toolResultNote'],
   'tool-result': ['toolResult'],
 };
+
+/**
+ * The fulfillment "send back to designer" (`rework_back`) is logged as `field: 'designer'` (the
+ * rework target; before = reporter stage, after = reason), not as a `designerStatus` row, although
+ * it sets designerStatus='rework', designerReworkAt and bumps designerReworkCount.
+ */
+const isReworkBack = (r: UndoLogRow): boolean => r.field === 'designer' && (!r.action || r.action === 'rework_back');
+
+/**
+ * Designer status transitions in the logs: the `designerStatus` rows plus each rework-back to the
+ * designer, read as a transition into 'rework'.
+ */
+function designerTransitions(rows: UndoLogRow[]): UndoLogRow[] {
+  const out: UndoLogRow[] = [];
+  let cur: unknown = null;
+  for (const r of rows) {
+    if (r.field === 'designerStatus') {
+      out.push(r);
+      cur = r.after;
+    } else if (isReworkBack(r)) {
+      out.push({ ...r, field: 'designerStatus', before: cur, after: DesignerStatus.Rework });
+      cur = DesignerStatus.Rework;
+    }
+  }
+  return out;
+}
 
 const READY = 'ok';
 export const isEmptyValue = (v: unknown): boolean => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
@@ -122,24 +150,32 @@ function planDesigner(order: OrderDoc, before: UndoLogRow[], assignee: string, f
   const lastUnassign = [...before].reverse().find((r) => r.field === 'assignee' && isEmptyValue(r.after));
   const inCycle = before.filter((r) => !lastUnassign || r.createdAt > lastUnassign.createdAt);
   const assignLog = [...inCycle].reverse().find((r) => r.field === 'assignee' && r.after === assignee);
-  const transitions = inCycle.filter((r) => r.field === 'designerStatus');
+  const transitions = designerTransitions(inCycle);
   const sinceAssign = transitions.filter((r) => !assignLog || r.createdAt >= assignLog.createdAt);
   const status = (sinceAssign[sinceAssign.length - 1]?.after as DesignerStatus | undefined) ?? DesignerStatus.Assigned;
   const lastTo = (s: string) => [...transitions].reverse().find((r) => r.after === s)?.createdAt ?? null;
 
-  // Rework entries: one per logged exit from 'rework', plus the current one if still in rework.
-  const exits = transitions.filter((r) => r.before === DesignerStatus.Rework);
-  const reworkCount = exits.length + (status === DesignerStatus.Rework ? 1 : 0);
+  // One rework per episode. The entry is either logged (a transition into 'rework': rework-back,
+  // production-error hook) or, on older data, only visible through its logged exit
+  // (`before: 'rework'`); its moment is then the first other event after the previous transition.
   const entryAfter = (prev: Date | undefined, until?: Date) =>
-    inCycle.find((r) => r.field !== 'designerStatus' && (!prev || r.createdAt > prev) && (!until || r.createdAt < until))?.createdAt ?? null;
+    inCycle.find((r) => r.field !== 'designerStatus' && !isReworkBack(r) && (!prev || r.createdAt > prev) && (!until || r.createdAt < until))
+      ?.createdAt ?? null;
+  let reworkCount = 0;
   let reworkAt: Date | null = null;
-  if (status === DesignerStatus.Rework) {
-    reworkAt = entryAfter(transitions[transitions.length - 1]?.createdAt);
-  } else if (exits.length) {
-    const exit = exits[exits.length - 1];
-    const prev = [...transitions].reverse().find((r) => r.createdAt < exit.createdAt);
-    reworkAt = entryAfter(prev?.createdAt, exit.createdAt);
-  }
+  let cur: unknown = null;
+  transitions.forEach((r, i) => {
+    if (r.after === DesignerStatus.Rework) {
+      if (cur !== DesignerStatus.Rework) {
+        reworkCount++;
+        reworkAt = r.createdAt;
+      }
+    } else if (r.before === DesignerStatus.Rework && cur !== DesignerStatus.Rework) {
+      reworkCount++;
+      reworkAt = entryAfter(transitions[i - 1]?.createdAt, r.createdAt);
+    }
+    cur = r.after;
+  });
 
   const set: Record<string, unknown> = {
     assignee,

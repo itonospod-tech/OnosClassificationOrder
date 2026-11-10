@@ -53,7 +53,7 @@ export class BulkUndoService {
       logs
         .find<UndoLogRow & { orderId: string }>(
           { orderId: { $in: ids } },
-          { projection: { orderId: 1, field: 1, before: 1, after: 1, createdAt: 1, userId: 1, userName: 1, userEmail: 1 } },
+          { projection: { orderId: 1, action: 1, field: 1, before: 1, after: 1, createdAt: 1, userId: 1, userName: 1, userEmail: 1 } },
         )
         .sort({ createdAt: 1 })
         .toArray(),
