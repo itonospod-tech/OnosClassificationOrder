@@ -1002,6 +1002,8 @@ export function OrderTableWorkshop() {
     setPid('');
     setBulkIds([]);
     setFilterHeld(false);
+    // "Đã hủy" lives in the Filters popup and counts in its badge, so "Clear all filters" must turn it off too.
+    setFilterCancelled(false);
     setCreatedFrom(defaultFromFor(productLine));
     setCreatedTo(todayISO());
     setFilterFabricType('');

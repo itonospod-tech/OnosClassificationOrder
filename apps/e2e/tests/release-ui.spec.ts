@@ -69,6 +69,25 @@ test('Workshop page: stage funnel counts the order, product rail and stage filte
   await expect(page.getByText('Waiting: Tool check').first()).toBeVisible();
 });
 
+test('Workshop page: "Clear all filters" also turns off the Cancelled toggle it counts', async ({ page }) => {
+  await page.goto('/ffm/orders/workshop');
+  await expect(page.getByRole('heading', { name: 'Order list', level: 1 })).toBeVisible();
+  const filtersButton = page.getByRole('button', { name: /^Filters(\s*\d+)?$/ });
+  await expect(filtersButton).toHaveText(/^Filters$/);
+
+  await filtersButton.click();
+  const cancelled = page.getByRole('button', { name: /^Cancelled \d+$/ });
+  await cancelled.click();
+  await expect(cancelled).toHaveAttribute('aria-pressed', 'true');
+  await expect(page).toHaveURL(/[?&]wcancel=true/);
+  await expect(filtersButton).toHaveText(/^Filters\s*1$/);
+
+  await page.getByRole('button', { name: 'Clear all filters' }).click();
+  await expect(cancelled).toHaveAttribute('aria-pressed', 'false');
+  await expect(page).not.toHaveURL(/[?&]wcancel=/);
+  await expect(filtersButton).toHaveText(/^Filters$/);
+});
+
 test('flat table: search, variant SKU, detail popover', async ({ page }) => {
   const o = await seedOrder();
   await page.goto('/ffm/orders/workshop');
