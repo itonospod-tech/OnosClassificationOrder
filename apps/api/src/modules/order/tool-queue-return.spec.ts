@@ -36,6 +36,13 @@ describe('toolQueueReturnEligibility — who may go back to the queue', () => {
     expect(verdict({ heldAt: new Date() })).toBe('held');
   });
 
+  it('names orders the queue would not take (designer) or that are already in production', () => {
+    expect(verdict({ designerStatus: 'unassigned' })).toBeNull();
+    for (const s of ['assigned', 'in-progress', 'done', 'rework']) expect(verdict({ designerStatus: s })).toBe('designer-assigned');
+    expect(verdict({ currentFulfillmentStage: 'press' })).toBe('in-fulfillment');
+    expect(verdict({ currentFulfillmentStage: null })).toBeNull();
+  });
+
   it('a missing order is reported as not-found', () => {
     expect(toolQueueReturnEligibility(null, US, SKIP)).toBe('not-found');
   });

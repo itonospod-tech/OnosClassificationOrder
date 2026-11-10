@@ -1,4 +1,4 @@
-import { TOOL_QUEUE_STALE_MINUTES, type ToolQueueBlockKey } from 'shared';
+import { DesignerStatus, TOOL_QUEUE_STALE_MINUTES, type ToolQueueBlockKey } from 'shared';
 
 /**
  * "Return orders to the tool-check queue" (ToolCheckWorkflow.md §2.4): rules shared by the list, the
@@ -16,6 +16,8 @@ export type ToolQueueDoc = {
   factoryId?: unknown;
   toolResult?: unknown;
   toolResultNote?: unknown;
+  designerStatus?: unknown;
+  currentFulfillmentStage?: unknown;
 };
 
 const filled = (v: unknown): boolean => typeof v === 'string' && v.trim() !== '';
@@ -41,6 +43,11 @@ export function toolQueueReturnEligibility(
   const skip = skipToolCheckIds instanceof Set ? skipToolCheckIds : new Set(skipToolCheckIds);
   if (skip.has(factory)) return 'skip-tool-check';
   if (doc.heldAt) return 'held';
+  // The tool's queue takes only designerStatus 'unassigned' (`designReviewQueueFilter`): an order a
+  // designer holds would lose its result and never be picked up.
+  if (filled(doc.designerStatus) && doc.designerStatus !== DesignerStatus.Unassigned) return 'designer-assigned';
+  // Already in production (print, press, ...): never sent back to tool check.
+  if (filled(doc.currentFulfillmentStage)) return 'in-fulfillment';
 
   return null;
 }

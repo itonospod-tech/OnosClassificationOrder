@@ -1599,6 +1599,8 @@ export const ToolQueueBlockZod = z.enum([
   'unmapped',
   'excluded-factory', // US factory: out of the production flow
   'skip-tool-check', // factory flag: the queue excludes it, so returning would be useless
+  'designer-assigned', // the queue only takes designerStatus 'unassigned': clearing would lose the result for nothing
+  'in-fulfillment', // already in a fulfillment stage: must not go back to tool check mid-production
 ]);
 export type ToolQueueBlockKey = z.infer<typeof ToolQueueBlockZod>;
 

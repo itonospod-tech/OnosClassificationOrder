@@ -5699,7 +5699,7 @@ export class OrderService implements OnModuleInit {
 
   private static readonly TOOL_QUEUE_PROJECTION = {
     productionId: 1, type: 1, factoryId: 1, heldAt: 1, toolResult: 1, toolResultNote: 1, inProductionAt: 1,
-    cancelledAt: 1, deletedAt: 1, fulfillmentCompletedAt: 1,
+    cancelledAt: 1, deletedAt: 1, fulfillmentCompletedAt: 1, designerStatus: 1, currentFulfillmentStage: 1,
   };
 
   private toolQueueContext(): { excludedId: string | null; skipIds: Set<string> } {

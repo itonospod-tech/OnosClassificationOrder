@@ -38,7 +38,9 @@
     "held": "Đang giữ — mở giữ trước",
     "unmapped": "Chưa gán xưởng",
     "excluded-factory": "Xưởng ngoài luồng (US) — hàng đợi loại xưởng này",
-    "skip-tool-check": "Xưởng bật Bỏ qua soát tool — hàng đợi loại xưởng này"
+    "skip-tool-check": "Xưởng bật Bỏ qua soát tool — hàng đợi loại xưởng này",
+    "designer-assigned": "Đã có designer — hàng đợi tool không nhận đơn này",
+    "in-fulfillment": "Đang sản xuất (đã vào công đoạn) — không đưa về soát tool"
   },
   "ageDays": "{{count}} ngày",
   "col": {

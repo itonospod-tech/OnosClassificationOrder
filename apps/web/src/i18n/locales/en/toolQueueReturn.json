@@ -38,7 +38,9 @@
     "held": "On hold — release the hold first",
     "unmapped": "No factory assigned",
     "excluded-factory": "Out-of-flow factory (US) — the queue excludes it",
-    "skip-tool-check": "Factory has Skip tool check on — the queue excludes it"
+    "skip-tool-check": "Factory has Skip tool check on — the queue excludes it",
+    "designer-assigned": "Already with a designer — the tool queue does not take it",
+    "in-fulfillment": "In production (already in a stage) — not sent back to tool check"
   },
   "ageDays": "{{count}} days",
   "col": {
