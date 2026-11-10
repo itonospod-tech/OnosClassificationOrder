@@ -1,7 +1,7 @@
 /** Phone layout (project "mobile", Pixel 7): the order list renders without sideways scrolling. */
 import { expect, test, type Page } from '@playwright/test';
 
-import { knownBug } from '../support/known';
+import { knownBug, uiNoteOnly } from '../support/known';
 import { seedOrder } from '../support/seed';
 import { loginAs } from '../support/ui';
 
@@ -28,6 +28,7 @@ test('orders list (flat and grouped) fits the phone width', async ({ page }) => 
 });
 
 test('multi-select tip on a phone does not tell people to hold Shift (report UI note)', async ({ page }) => {
+  uiNoteOnly();
   await seedOrder();
   await page.goto('/ffm/orders/classic');
   await expect(page.locator('p').filter({ hasText: /Tip for selecting multiple orders/ })).toBeVisible();

@@ -61,6 +61,7 @@ Environment switches:
 | Variable | Effect |
 | --- | --- |
 | `E2E_CHROME_CHANNEL` | browser channel: unset = installed Google Chrome (default); empty (`E2E_CHROME_CHANNEL=`) = Playwright's bundled Chromium (`npx playwright install chromium`); any other value = that Playwright channel (`msedge`, `chrome-beta`, …) |
+| `E2E_UI_NOTES=1` | also run the report's UI-note tests (header truncation, duplicate NOTE label, mixed language, mobile Shift tip) — font/machine dependent, so SKIPPED by default to keep the default suite deterministic |
 | `E2E_STRICT_KNOWN=1` | run the expected-failure tests as normal tests, to read the exact failure |
 | `E2E_KEEP_DB=1` | keep the e2e database after the run |
 | `E2E_SERVER_LOGS=1` | pipe API / Vite logs to the console |
@@ -98,6 +99,10 @@ The Jest side uses the same switch: `it.failing` is wrapped as
 `const itKnown = process.env.STRICT_KNOWN ? it : it.failing` (apps/api `price-visibility-logs.spec.ts`,
 `wallet-request-key.spec.ts`, `test/price-visibility.e2e-spec.ts`); `STRICT_KNOWN=1 pnpm test` runs them as
 normal tests.
+
+The UI-note tests (`release-ui.spec.ts` "UI notes from the report", `mobile.spec.ts` Shift tip) depend on fonts,
+screen and machine; they are skipped unless `E2E_UI_NOTES=1` (`uiNoteOnly()` in `support/known.ts`), and then run as
+expected failures like the bugs.
 
 UI notes not asserted (not robust enough): "QC AFTER PRI" and the truncated assignee names (depend on data
 and column widths); the Vietnamese-UI truncation `NGƯỜI THỰC HI…` is covered only through the English header

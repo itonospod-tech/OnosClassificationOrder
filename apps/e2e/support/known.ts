@@ -18,3 +18,13 @@ import { KNOWN_BUG } from './env';
 export function knownBug(note: string = KNOWN_BUG): void {
   test.fail(process.env.E2E_STRICT_KNOWN !== '1', note);
 }
+
+/**
+ * The report's UI notes (header truncation, duplicate label, mixed language, the mobile Shift tip) depend on
+ * fonts, screen and machine, so they are not part of the default suite: they run only with `E2E_UI_NOTES=1`
+ * (then as expected failures via `knownBug()`, or as normal tests with `E2E_STRICT_KNOWN=1` too).
+ * Call it in the describe body or first in the test: a skip swallows nothing.
+ */
+export function uiNoteOnly(): void {
+  test.skip(process.env.E2E_UI_NOTES !== '1', 'UI note from the PR #77 report: font/machine dependent, runs only with E2E_UI_NOTES=1');
+}

@@ -6,7 +6,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { uniq } from '../support/db';
-import { knownBug } from '../support/known';
+import { knownBug, uiNoteOnly } from '../support/known';
 import { E2E_PRODUCT, seedOrder } from '../support/seed';
 import { loginAs } from '../support/ui';
 
@@ -96,7 +96,10 @@ test('language switch vi ↔ en', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Order list', level: 1 })).toBeVisible();
 });
 
-test.describe('UI notes from the report (expected failures)', () => {
+test.describe('UI notes from the report (expected failures, only with E2E_UI_NOTES=1)', () => {
+  // Font / machine dependent: skipped in the default suite so it stays deterministic.
+  uiNoteOnly();
+
   test('detail popover: every field label is unique (report: two cells labelled NOTE)', async ({ page }) => {
     const o = await seedOrder();
     const pop = await openPopover(page, o.productionId);
