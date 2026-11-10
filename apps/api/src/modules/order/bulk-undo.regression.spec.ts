@@ -111,7 +111,7 @@ describe('bug 3 — undo keeps a rework that came from a fulfillment rework-back
       designerReworkAt: null,
       designerReworkCount: 0,
     });
-    expect(p?.status === 'restore' && p.guard).toEqual({ assignee: { $in: [null, ''] }, designerStatus: { $in: [null, DesignerStatus.Unassigned] } });
+    expect(p?.status === 'restore' && p.guard).toEqual({ assignee: { $in: [null, ''] }, designerStatus: { $in: [null, '', DesignerStatus.Unassigned] } });
   });
 
   it('a rework-back AFTER the incident window means someone worked the order: skipped', () => {
@@ -189,5 +189,49 @@ describe('bug 4 — undo never crosses into the other flow (designer vs tool-ok/
   it('designer: an unrelated later edit (another field) does not block the undo', () => {
     const logs = [...assignedAndDone, ...unassignIncident(DesignerStatus.Done), row('size', 'M', 'L', AFTER, 'Support')];
     expect(planUndo('designer', unassigned, logs, W)?.status).toBe('restore');
+  });
+});
+
+/**
+ * Minimal Mongo matcher for the guards the planner returns ($in / equality; `null` in `$in` also matches a
+ * missing field, as in Mongo), so a test can say "the write would match this order".
+ */
+function guardMatches(guard: Record<string, unknown>, doc: Record<string, unknown>): boolean {
+  return Object.entries(guard).every(([k, cond]) => {
+    const v = doc[k];
+    if (cond && typeof cond === 'object' && !Array.isArray(cond) && '$in' in cond) {
+      const list = (cond as { $in: unknown[] }).$in;
+      return list.includes(v) || (v === undefined && list.includes(null));
+    }
+    return v === cond;
+  });
+}
+
+describe("review — the write guard accepts every designerStatus the planner reads as 'unassigned'", () => {
+  const okThenCleared = rows(
+    row('toolResultNote', null, 'ok', '2026-10-05T08:00:00Z', 'Hanh'),
+    row('toolResultNote', 'ok', null, INCIDENT, ACTOR),
+    row('readyForFulfill', true, false, INCIDENT, ACTOR),
+  );
+  it.each([
+    ['empty string', ''],
+    ['null', null],
+    ['missing', undefined],
+    ["'unassigned'", DesignerStatus.Unassigned],
+  ])('tool-ok: designerStatus %s → planned AND the guard matches the order', (_label, designerStatus) => {
+    const order: Record<string, unknown> = { _id: 'O4', toolResultNote: null, readyForFulfill: false, assignee: null, designerStatus, currentFulfillmentStage: 'print' };
+    const p = planUndo('tool-ok', order, okThenCleared, W);
+    expect(p?.status).toBe('restore');
+    expect(p?.status === 'restore' && guardMatches(p.guard, order)).toBe(true);
+  });
+
+  it.each([
+    ['empty string', ''],
+    ['null', null],
+    ['missing', undefined],
+  ])('designer: designerStatus %s left by the incident → the guard matches the order', (_label, designerStatus) => {
+    const order: Record<string, unknown> = { ...unassigned, designerStatus };
+    const p = planUndo('designer', order, [...assignedAndDone, ...unassignIncident(DesignerStatus.Done)], W);
+    expect(p?.status === 'restore' && guardMatches(p.guard, order)).toBe(true);
   });
 });

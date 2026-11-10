@@ -36,7 +36,7 @@ describe('designer group', () => {
       designerReworkAt: null,
       designerReworkCount: 0,
     });
-    expect(p.guard).toEqual({ assignee: { $in: [null, ''] }, designerStatus: { $in: [null, DesignerStatus.Unassigned] } });
+    expect(p.guard).toEqual({ assignee: { $in: [null, ''] }, designerStatus: { $in: [null, '', DesignerStatus.Unassigned] } });
   });
 
   it('only the cycle after the last assignment counts (an older done cycle of another designer is ignored)', () => {

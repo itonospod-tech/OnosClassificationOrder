@@ -97,6 +97,12 @@ function designerTransitions(rows: UndoLogRow[]): UndoLogRow[] {
 }
 
 const designerStatusOf = (v: unknown): string => (isEmptyValue(v) ? DesignerStatus.Unassigned : String(v));
+/**
+ * Write guard for "designer status reads as unassigned": exactly what `designerStatusOf` maps to
+ * 'unassigned' — missing / null (`null` in `$in` also matches a missing field), '' and 'unassigned'.
+ * Planner and guard must agree, or such an order is always reported 'changed-during-run'.
+ */
+export const UNASSIGNED_DESIGNER_GUARD = { $in: [null, '', DesignerStatus.Unassigned] };
 
 /** Assignee + designer status as the logs leave them (assigning sets 'assigned' without its own row). */
 function designerStateBefore(rows: UndoLogRow[]): { assignee: unknown; status: string } {
@@ -231,7 +237,7 @@ function planDesigner(order: OrderDoc, before: UndoLogRow[], assignee: string, f
     status: 'restore',
     changes,
     set,
-    guard: { assignee: { $in: [null, ''] }, designerStatus: { $in: [null, DesignerStatus.Unassigned] } },
+    guard: { assignee: { $in: [null, ''] }, designerStatus: UNASSIGNED_DESIGNER_GUARD },
     restoredFrom: from,
   };
 }
@@ -260,8 +266,7 @@ function planToolOk(order: OrderDoc, before: UndoLogRow[], from: Date): UndoPlan
       ...(emptied ? { currentFulfillmentStage: { $in: [null, ''] } } : {}),
       // No designer took the order meanwhile.
       assignee: isEmptyValue(order.assignee) ? { $in: [null, ''] } : order.assignee,
-      designerStatus:
-        designerStatusOf(order.designerStatus) === DesignerStatus.Unassigned ? { $in: [null, DesignerStatus.Unassigned] } : order.designerStatus,
+      designerStatus: designerStatusOf(order.designerStatus) === DesignerStatus.Unassigned ? UNASSIGNED_DESIGNER_GUARD : order.designerStatus,
     },
     restoredFrom: from,
   };
