@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": [
+      "node"
+    ],
+    "typeRoots": [
+      "../api/node_modules/@types"
+    ]
+  },
+  "include": [
+    "*.ts",
+    "support/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}
