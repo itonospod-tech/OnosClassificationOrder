@@ -259,8 +259,6 @@ test.describe('wallet top-up / adjust', () => {
   });
 
   test('bug 1: lost on A, B blocked, back to A — credited ONCE', async ({ page }) => {
-    // known bug present on main, not fixed in release 07/11
-    knownBug();
     const seller = await seedSeller(1000);
     const sheet = await openLedger(page, seller);
     const dialog = await openAction(page, sheet, 'Adjust', seller.name);
@@ -286,6 +284,8 @@ test.describe('wallet top-up / adjust', () => {
     await expect(dialog.getByText(/Written successfully|An earlier attempt/)).toBeVisible();
 
     // Expected once: 1000 + 500. The bug credits it twice (2000) under two request ids.
+    // known bug present on main, not fixed in release 07/11 — everything above must still work.
+    knownBug();
     expect(await balanceOf(seller._id)).toBe(1500);
   });
 

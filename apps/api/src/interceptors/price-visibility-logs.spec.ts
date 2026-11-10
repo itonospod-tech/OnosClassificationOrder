@@ -4,6 +4,12 @@ import { PRICE_FIELD_KEYS, RoleType } from 'shared';
 import { PriceVisibilityInterceptor, stripPriceFields } from './price-visibility.interceptor';
 
 /**
+ * Known bug (expected to fail). `STRICT_KNOWN=1` runs it as a normal test, to read the exact failure it hits
+ * and check it fails for the right reason. Flip to `it` once the bug is fixed.
+ */
+const itKnown = process.env.STRICT_KNOWN ? it : it.failing;
+
+/**
  * PR #77 report, bug 6 (present before the PR): a Designer no longer sees `baseCost` on the order list and
  * detail, but `GET /orders/:id/logs` still answers `{ field: 'baseCost', before: 5.09, after: 6 }` — the
  * interceptor drops price KEYS, and in a log row the price is a VALUE under `before`/`after`.
@@ -25,12 +31,12 @@ const run = async (role: string, body: unknown) => {
 
 describe('bug 6 — price in order-log rows (pre-existing)', () => {
   // known bug present on main, not fixed in release 07/11 — flip to it() when fixed
-  it.failing.each(PRICE_FIELD_KEYS)("stripPriceFields hides before/after of a '%s' log row", (field) => {
+  itKnown.each(PRICE_FIELD_KEYS)("stripPriceFields hides before/after of a '%s' log row", (field) => {
     expect(leakedPriceValues(stripPriceFields(logsBody([priceRow(field)])))).toEqual([]);
   });
 
   // known bug present on main, not fixed in release 07/11 — flip to it() when fixed
-  it.failing('Designer through the interceptor: no price value in the logs response', async () => {
+  itKnown('Designer through the interceptor: no price value in the logs response', async () => {
     const out = await run(RoleType.Designer, logsBody([priceRow('baseCost'), priceRow('shipCost')]));
     expect(leakedPriceValues(out)).toEqual([]);
   });

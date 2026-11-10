@@ -74,21 +74,20 @@ test('designer: order detail carries no price (screen and response)', async ({ p
 });
 
 test('designer: the order history tab shows no baseCost values (bug 6)', async ({ page }) => {
-  // known bug present on main, not fixed in release 07/11
-  knownBug();
   const mine = await seedAssigned('designer');
   await loginAs(page, 'designer');
   const row = await openClassicRow(page, mine.productionId);
   await row.getByRole('button', { name: 'History' }).click();
   const dialog = page.getByRole('dialog', { name: `Change history — ${mine.productionId}` });
   await expect(dialog.getByText(/\d+ entries/)).toBeVisible();
+  // known bug present on main, not fixed in release 07/11 — the history must open first.
+  knownBug();
   await expect(dialog).not.toContainText('baseCost');
   await expect(dialog).not.toContainText('5.09');
 });
 
-test("designer: another designer's order — detail is blocked, its history must be too", async ({ page }) => {
-  // known bug present on main, not fixed in release 07/11
-  knownBug();
+test("designer: another designer's order — not listed, detail blocked (screen and API)", async ({ page }) => {
+  // NOT a known bug: this must keep passing. A regression here is a real security failure.
   const others = await seedAssigned('designer2');
   const token = await loginAs(page, 'designer');
 
@@ -100,6 +99,13 @@ test("designer: another designer's order — detail is blocked, its history must
   // The same session asking the server directly (as a bookmarked / shared link would).
   expect((await call(token, 'GET', `/orders/by-production-id/${others.productionId}`)).status).toBe(404);
   expect((await call(token, 'GET', `/orders/${others._id}`)).status).toBe(403);
+});
+
+test("designer: another designer's order — its history must be blocked too (bug 6, ownership on logs)", async ({ page }) => {
+  const others = await seedAssigned('designer2');
+  const token = await loginAs(page, 'designer');
   const logs = await call(token, 'GET', `/orders/${others._id}/logs`);
+  // known bug present on main, not fixed in release 07/11
+  knownBug();
   expect(logs.status, 'history of an order that is not yours').toBe(403);
 });

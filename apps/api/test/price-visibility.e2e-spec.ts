@@ -28,6 +28,12 @@ import { RateLimiterService } from '../src/shared/services/rate-limiter.service'
  * exists only in this file and checked by a test `jwt` strategy; no real account, no password.
  */
 const SECRET = 'price-visibility-e2e-only';
+
+/**
+ * Known bug (expected to fail). `STRICT_KNOWN=1` runs it as a normal test, to read the exact failure it hits
+ * and check it fails for the right reason. Flip to `it` once the bug is fixed.
+ */
+const itKnown = process.env.STRICT_KNOWN ? it : it.failing;
 const SESSION = 's1';
 
 @Injectable()
@@ -148,7 +154,7 @@ describe('price visibility over HTTP (e2e)', () => {
 
   describe('/api/v1/orders/O1/logs (PR #77 report, bug 6 — pre-existing)', () => {
     // known bug present on main, not fixed in release 07/11 — flip to it() when fixed
-    it.failing.each([RoleType.Designer, RoleType.DesignerLeader, RoleType.Fulfillment])('%s: no before/after of a price field', async (role) => {
+    itKnown.each([RoleType.Designer, RoleType.DesignerLeader, RoleType.Fulfillment])('%s: no before/after of a price field', async (role) => {
       const res = await get('/api/v1/orders/O1/logs', role).expect(200);
       expect(priceLogValues(res.body)).toEqual([]);
     });

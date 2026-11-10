@@ -1,6 +1,12 @@
 import { nextWalletRequestAttempt, type WalletRequestAttempt, type WalletRequestInput } from 'shared';
 
 /**
+ * Known bug (expected to fail). `STRICT_KNOWN=1` runs it as a normal test, to read the exact failure it hits
+ * and check it fails for the right reason. Flip to `it` once the bug is fixed.
+ */
+const itKnown = process.env.STRICT_KNOWN ? it : it.failing;
+
+/**
  * Idempotency key of the staff money dialog (`apps/web/.../WalletActionDialog.tsx`, rule extracted to
  * `packages/shared/client/wallet-request-key.ts`). apps/web has no test runner, so it is pinned here.
  *
@@ -56,7 +62,7 @@ describe('wallet dialog idempotency key', () => {
   });
 
   // known bug present on main, not fixed in release 07/11 — flip to it() when fixed
-  it.failing('A → B → A: going back to the first amount reuses the FIRST key (bug 1: it minted a third key)', () => {
+  itKnown('A → B → A: going back to the first amount reuses the FIRST key (bug 1: it minted a third key)', () => {
     const press = dialog();
     const a = press(adjust(500)); // written, response lost
     press(adjust(600)); // never reached the server

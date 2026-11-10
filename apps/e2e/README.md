@@ -76,6 +76,17 @@ Tests marked with `knownBug()` reproduce bugs that are known and not fixed in re
 designer reading another designer's order history, UI notes). They count as passed while the bug is there;
 when one is fixed, Playwright reports "expected to fail but passed" — then delete the `knownBug()` line.
 
+`knownBug()` is called **right before the bug's own assertion**, never at the top of the test: anything that
+fails before the call (setup, navigation, a neighbouring assertion) stays a real failure instead of being
+swallowed as "expected to fail". Assertions that guard something else live in normal tests — e.g. "another
+designer's order is not listed and its detail is 403/404" is a normal test; only "its history is 403 too"
+is the known bug. `E2E_STRICT_KNOWN=1` shows the exact failure each one hits.
+
+The Jest side uses the same switch: `it.failing` is wrapped as
+`const itKnown = process.env.STRICT_KNOWN ? it : it.failing` (apps/api `price-visibility-logs.spec.ts`,
+`wallet-request-key.spec.ts`, `test/price-visibility.e2e-spec.ts`); `STRICT_KNOWN=1 pnpm test` runs them as
+normal tests.
+
 UI notes not asserted (not robust enough): "QC AFTER PRI" and the truncated assignee names (depend on data
 and column widths); the Vietnamese-UI truncation `NGƯỜI THỰC HI…` is covered only through the English header
 check.

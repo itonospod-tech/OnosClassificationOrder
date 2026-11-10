@@ -28,9 +28,9 @@ test('orders list (flat and grouped) fits the phone width', async ({ page }) => 
 });
 
 test('multi-select tip on a phone does not tell people to hold Shift (report UI note)', async ({ page }) => {
-  knownBug('UI note from the PR #77 report (Shift tip on mobile), not fixed in release 07/11');
   await seedOrder();
   await page.goto('/ffm/orders/classic');
   await expect(page.locator('p').filter({ hasText: /Tip for selecting multiple orders/ })).toBeVisible();
+  knownBug('UI note from the PR #77 report (Shift tip on mobile), not fixed in release 07/11');
   await expect(page.locator('p').filter({ hasText: /Tip for selecting multiple orders/ })).not.toContainText('Shift');
 });

@@ -98,24 +98,23 @@ test('language switch vi ↔ en', async ({ page }) => {
 
 test.describe('UI notes from the report (expected failures)', () => {
   test('detail popover: every field label is unique (report: two cells labelled NOTE)', async ({ page }) => {
-    knownBug('UI note from the PR #77 report (duplicate NOTE label), not fixed in release 07/11');
     const o = await seedOrder();
     const pop = await openPopover(page, o.productionId);
     const labels = await pop.getByText('Note', { exact: true }).count();
+    knownBug('UI note from the PR #77 report (duplicate NOTE label), not fixed in release 07/11');
     expect(labels, 'cells labelled "Note" in the popover').toBeLessThanOrEqual(1);
   });
 
   test('English UI has no Vietnamese leftovers (report: TRẠNG THÁI, Có Tool, NHÀ MÁY / PHÒNG)', async ({ page }) => {
-    knownBug('UI note from the PR #77 report (mixed Vietnamese in the English UI), not fixed in release 07/11');
     const o = await seedOrder();
     const pop = await openPopover(page, o.productionId);
     const text = (await page.locator('main').innerText()) + '\n' + (await pop.innerText());
     const leftovers = ['Trạng thái', 'Có Tool', 'Nhà máy / Phòng'].filter((s) => text.toLowerCase().includes(s.toLowerCase()));
+    knownBug('UI note from the PR #77 report (mixed Vietnamese in the English UI), not fixed in release 07/11');
     expect(leftovers).toEqual([]);
   });
 
   test('order table headers are not cut off (report: TOOL RESULT / ERROR …, NGƯỜI THỰC HI…)', async ({ page }) => {
-    knownBug('UI note from the PR #77 report (truncated headers), not fixed in release 07/11');
     const o = await seedOrder();
     await page.goto('/ffm/orders/classic');
     // Column widths settle only after the data rows and web fonts are in, so wait for both before measuring.
@@ -130,6 +129,7 @@ test.describe('UI notes from the report (expected failures)', () => {
         .filter((el) => (el as HTMLElement).scrollWidth > (el as HTMLElement).clientWidth + 1 && (el as HTMLElement).innerText.trim())
         .map((el) => (el as HTMLElement).innerText.trim()),
     );
+    knownBug('UI note from the PR #77 report (truncated headers), not fixed in release 07/11');
     expect(cut).toEqual([]);
   });
 });
