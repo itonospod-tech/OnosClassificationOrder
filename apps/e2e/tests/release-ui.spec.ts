@@ -116,8 +116,11 @@ test.describe('UI notes from the report (expected failures)', () => {
 
   test('order table headers are not cut off (report: TOOL RESULT / ERROR …, NGƯỜI THỰC HI…)', async ({ page }) => {
     knownBug('UI note from the PR #77 report (truncated headers), not fixed in release 07/11');
-    await seedOrder();
+    const o = await seedOrder();
     await page.goto('/ffm/orders/classic');
+    // Column widths settle only after the data rows and web fonts are in, so wait for both before measuring.
+    await searchClassic(page, o.productionId);
+    await page.evaluate(() => document.fonts.ready);
     const header = page.getByRole('row').first();
     await expect(header).toContainText('Order ID');
     // A header whose text is wider than its box is being cut with an ellipsis.
