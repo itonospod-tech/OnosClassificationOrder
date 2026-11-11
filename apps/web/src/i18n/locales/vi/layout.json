@@ -94,11 +94,11 @@
       },
       "lines": {
         "3d": "3D",
-        "2d": "2D (DTG/DTF)",
+        "2d": "2D",
         "embroidery": "Thêu",
         "led": "LED",
         "canvas": "Canvas",
-        "wood": "Gỗ & cắt khắc",
+        "wood": "Gỗ",
         "dropship": "Dropship"
       },
       "tool": {
@@ -140,7 +140,9 @@
     "toolCheck": "{{count}} đơn chưa soát tool",
     "unassigned": "{{count}} đơn chưa gán designer",
     "backlog": "{{count}} đơn thiết kế chưa xong",
-    "callToAction": "— mọi người chủ động xử lý ngay nhé!"
+    "callToAction": "— mọi người chủ động xử lý ngay nhé!",
+    "moreDesigners": "+{{count}} người",
+    "chip": "quá hạn"
   },
   "factoryScopeChip": {
     "label": "Đang lọc xưởng: {{name}}",

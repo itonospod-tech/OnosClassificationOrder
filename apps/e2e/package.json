@@ -1,0 +1,14 @@
+{
+  "name": "e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "User-level browser e2e suite (Playwright) — own API on :3107 + own Vite on :5273 + throwaway Mongo DB",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}

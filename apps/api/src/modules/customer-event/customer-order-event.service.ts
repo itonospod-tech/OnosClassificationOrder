@@ -5,6 +5,9 @@ import type { CustomerHoldKind, CustomerWebhookEvent } from 'shared';
 import { HOLD_REASON_WAITING_ADDRESS, HOLD_REASON_WAITING_DESIGN } from 'shared';
 
 import { CustomerNotificationService } from '@/modules/customer-notification/customer-notification.service';
+// A plain function import, NOT a provider: the module comment explains why this service only imports leaf
+// modules, and the cache file explains why it is file-scoped.
+import { invalidateAdminOrderCache } from '@/modules/customer-portal/admin-order-cache';
 import { CustomerOrderEntity } from '@/modules/customer-portal/customer-order.entity';
 import type { WebhookOrderRef } from '@/modules/customer-webhook/customer-webhook.service';
 import { CustomerWebhookService } from '@/modules/customer-webhook/customer-webhook.service';
@@ -46,6 +49,15 @@ export class CustomerOrderEventService {
   emit(event: CustomerWebhookEvent, orders: CustomerOrderEventRef[]): void {
     const valid = orders.filter((o) => o.productionId);
     if (valid.length === 0) return;
+
+    // Every event that reaches here moves at least one order between the staff tabs (pushed → In Production,
+    // production_completed → Fulfilled, held/unheld → the Held filter, cancelled → Cancelled). Those numbers are
+    // cached 60 s, and before 10/10/2026 nothing cleared the cache on these writes, so the tab counts could
+    // disagree with the list the operator was looking at for up to a minute. This is the one place all of them
+    // pass through. SOFT on purpose: these events fire all day long, so the cached numbers are only marked stale
+    // (served at once, refreshed in the background) instead of dropped — dropping them made nearly every hub load
+    // wait for a full scan (PR #77 review, F9). Cheap (a counter bump) and safe to call more than once.
+    invalidateAdminOrderCache();
 
     // Kênh 1 — webhook cho khách API (service tự nuốt lỗi + chạy nền).
     this.customerWebhookService.emitForOrders(event, valid);

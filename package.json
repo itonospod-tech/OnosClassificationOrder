@@ -41,7 +41,8 @@
     "reset": "pnpm clean-dist && pnpm --filter ./apps/api i",
     "dev:seller": "turbo run dev --filter ./apps/seller",
     "build:seller": "turbo run build --filter ./apps/seller",
-    "start:seller": "pnpm --filter ./apps/seller start"
+    "start:seller": "pnpm --filter ./apps/seller start",
+    "e2e": "pnpm --filter e2e test"
   },
   "engines": {
     "node": "20.20.2"

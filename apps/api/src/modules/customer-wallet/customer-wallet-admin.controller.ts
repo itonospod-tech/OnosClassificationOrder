@@ -175,6 +175,7 @@ export class CustomerWalletAdminController {
       dto.creditLimit,
       { userId: String(user._id), userName: user.fullName },
       dto.note,
+      dto.largeIncreaseAck,
     );
     return { success: true, data };
   }

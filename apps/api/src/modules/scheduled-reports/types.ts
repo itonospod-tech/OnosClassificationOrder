@@ -1,5 +1,7 @@
 import type { OrderPriority } from 'shared';
 
+import type { SupportHold } from './support-hold';
+
 /**
  * Loại view báo cáo — mỗi nút Telegram/web trigger 1 view. `daily` kèm
  * `factoryId` = phễu tổng quan LỌC theo 1 xưởng (nút "🏭 <tên xưởng>").
@@ -119,5 +121,7 @@ export type DailyOrdersReportData = {
   // Tồn sau hạn N2 theo xưởng (view tổng; rỗng khi đang lọc 1 xưởng) — sort `total` giảm
   // dần; `byDay[i]` = tồn của xưởng trong lô `slaDays[i]` (chỉ các lô đã đến hạn = bỏ 2 lô cuối).
   slaFactories: { name: string; total: number; byDay: number[] }[];
+  /** Orders sitting in the Support hold, any age (scoped like the main funnel). Null/0 = nothing to show. */
+  supportHold: SupportHold;
   factories: ReportFactory[]; // để dựng nút xưởng (KHÔNG phụ thuộc factoryId đang lọc)
 };

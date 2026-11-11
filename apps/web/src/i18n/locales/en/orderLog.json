@@ -11,6 +11,7 @@
     "hold": "Hold order",
     "unhold": "Release",
     "forceComplete": "Marked completed",
+    "restore": "Undo",
     "reworkBack": "Sent back"
   },
   "importSubaction": {
@@ -45,7 +46,8 @@
     "quantity": "Quantity",
     "status": "Order status (OnosPod)",
     "fulfillmentStage": "{{stage}} stage",
-    "currentFulfillmentStage": "Current stage"
+    "currentFulfillmentStage": "Current stage",
+    "fulfillmentStages": "Stage states"
   },
   "designerStatusLabels": {
     "unassigned": "Unassigned",

@@ -110,6 +110,10 @@ Toggle **ĐỘC LẬP với `flowType`** (bật được cho mọi loại luồn
 - Cache sync: `merged-flow-factory.ts` mở rộng — cùng query/TTL 60s load thêm `autoCompletePack` (`getFactoryAutoPackSync`); admin bật/tắt áp dụng chậm nhất sau 60s.
 - Rework/báo lỗi nhắm về Đóng hàng khi toggle ON → redirect lùi về công đoạn thường gần nhất (standard: May ra; no-sew: QC sau ép) — cả `resolveTransition` lẫn `buildFulfillmentReworkBack`; "Chuyển hoàn thành" (`force-complete-plan.ts`) cũng coi pack là khâu auto (không chiếm lát thời gian). Unit tests: describe "Toggle autoCompletePack" trong `fulfillment-transition-merged.spec.ts`.
 
+### 2.2e Cờ "Cho In đẩy về Soát tool" theo xưởng (`FactoryEntity.allowToolCheckRework` — 2026-10-05, MẶC ĐỊNH TẮT)
+
+Switch trong dialog sửa xưởng `FactoryTab.tsx`, ĐỘC LẬP với `flowType`/`skipToolCheck`. Bật → kanban của công nhân **In** xưởng đó có thêm đích "Soát tool" ở `ReworkBackDialog` (đơn về Support, marker support-hold — xem `ToolCheckWorkflow.md §2.1`). BE `resolveTransition` chặn 400 khi cờ tắt hoặc công đoạn ≠ In (không tin FE). Cache `getFactoryToolCheckReworkSync` cùng TTL 60s; FE đọc cờ qua `GET /factories/options` (`allowToolCheckRework`, mở cho mọi nhân viên) trong `factoryOptionsStore`. Thí nghiệm một xưởng (In Mê Linh) — `documents/Plans/ToolCheck-Redesign.md`.
+
 ### 2.2d Cờ "Bỏ qua soát tool" theo xưởng (`FactoryEntity.skipToolCheck` — 2026-09-18)
 
 Toggle **ĐỘC LẬP với `flowType`** (switch "Bỏ qua soát tool" trong dialog sửa xưởng `FactoryTab.tsx`, badge xanh dương "Bỏ soát tool" ở bảng): đơn **MỚI** import/push vào xưởng này được coi là đã soát xong ngay lúc tạo — mở thêm **Entry C** vào fulfillment bên cạnh Entry A (designer complete) và Entry B (`toolResultNote='ok'` tay):

@@ -1,3 +1,4 @@
+import { TopupWalletZod } from 'shared';
 import { previewWalletOperation, requiresStatementCheck, WALLET_BIG_AMOUNT_USD } from 'shared/client';
 
 import { checkWalletGuard } from './wallet-guard';
@@ -64,5 +65,11 @@ describe('big amount check', () => {
     expect(requiresStatementCheck(-WALLET_BIG_AMOUNT_USD)).toBe(true);
     expect(requiresStatementCheck(WALLET_BIG_AMOUNT_USD - 0.01)).toBe(false);
     expect(requiresStatementCheck(-999.99)).toBe(false);
+  });
+
+  it('judges the amount as the ledger records it (rounded to cents)', () => {
+    expect(requiresStatementCheck(999.995)).toBe(true);
+    expect(TopupWalletZod.safeParse({ requestId: 'req-12345678', amount: 999.995, note: 'n' }).success).toBe(false);
+    expect(TopupWalletZod.safeParse({ requestId: 'req-12345678', amount: 999.995, note: 'n', largeAmountAck: true }).success).toBe(true);
   });
 });

@@ -3,7 +3,14 @@ import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { BookOpenText, CheckCircle2, Loader2, TriangleAlert } from 'lucide-react';
 import type { AdminWalletRow, CustomerWalletTxn, WalletOperationMode } from 'shared';
-import { normalizeExternalTxnId, previewWalletOperation, requiresStatementCheck, WALLET_BIG_AMOUNT_USD } from 'shared';
+import {
+  nextWalletRequestAttempt,
+  normalizeExternalTxnId,
+  previewWalletOperation,
+  requiresStatementCheck,
+  WALLET_BIG_AMOUNT_USD,
+  type WalletRequestAttempt,
+} from 'shared';
 
 import { RepositoryRemote } from '@/services';
 
@@ -40,6 +47,7 @@ interface WalletActionDialogProps {
    * After a lost connection nobody knows whether the write landed. The dialog offers a shortcut to the
    * ledger (parent closes the dialog and reloads it) so the operator can LOOK before pressing again or
    * editing the amount — the one place where a changed amount would be a genuinely new operation.
+   * The same shortcut is the primary action after a 409, where an earlier attempt may already be recorded.
    */
   onViewLedger: () => void;
 }
@@ -69,8 +77,10 @@ const isWebLink = (value: string) => {
  *     amounts asks for a tick) → 3. Result (what the server actually wrote).
  *  - One idempotency key (`requestId`) is made when the dialog opens and re-sent on every retry, so a double
  *    click or a retry after a timeout cannot write twice; the server answers `replayed` instead. The key is
- *    replaced only if the payload CHANGED after an attempt (otherwise the server would rightly refuse a
- *    different amount under the old key).
+ *    replaced only if the MODE or the AMOUNT changed after an attempt (otherwise the server would rightly refuse a
+ *    different amount under the old key). Editing the note or the reference does NOT mint a new key — doing so
+ *    was a double-spend hole, because a retry after a lost connection with a corrected note looked like a new
+ *    operation to the server.
  *  - The submit button is locked from the click until the answer, and the dialog cannot be dismissed meanwhile.
  *  - It is mounted fresh for each operation (the parent renders it conditionally), so state never leaks
  *    from one seller or operation to the next.
@@ -88,11 +98,19 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [connectionLost, setConnectionLost] = useState(false);
+  /**
+   * 409: THIS attempt wrote nothing more — which does NOT mean nothing was ever recorded. Three server cases
+   * share the status and the web only gets `message` (the global filter): a key reused with another amount,
+   * a replay of an operation ALREADY recorded whose note / bank reference / proof changed, and a bank
+   * reference already credited. In the second case the money is in the ledger, so the notice always says
+   * "may already have been recorded" and the ledger button becomes the primary action.
+   */
+  const [conflict, setConflict] = useState(false);
   const [done, setDone] = useState<DoneState | null>(null);
   const [wrote, setWrote] = useState(false);
 
   // The idempotency key of THIS dialog. Created once; see the class comment for when it is replaced.
-  const attempt = useRef<{ requestId: string; fingerprint?: string }>({ requestId: crypto.randomUUID() });
+  const attempt = useRef<WalletRequestAttempt>({ requestId: crypto.randomUUID() });
   const submitLock = useRef(false);
 
   const loadWallet = async (): Promise<AdminWalletRow | null> => {
@@ -142,6 +160,7 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
   const goToReview = async () => {
     if (formInvalid) return;
     setError('');
+    setConflict(false);
     setAcknowledged(false);
     // Re-read the wallet: the balance in the list (or at open) may be old, and this step decides money.
     const fresh = await loadWallet();
@@ -155,28 +174,49 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
     setSubmitting(true);
     setError('');
     setConnectionLost(false);
+    setConflict(false);
     try {
       const trimmedNote = note.trim();
       const ext = externalTxnId.trim();
       const link = attachmentUrl.trim();
+      // `bigAmount` is the same threshold the server now enforces (`requiresStatementCheck`), so the tick the
+      // operator gave above has to travel with the request — otherwise the API rejects it.
+      const ack = bigAmount ? { largeAmountAck: acknowledged } : {};
       const payload =
         mode === 'topup'
-          ? { amount, note: trimmedNote, ...(ext ? { externalTxnId: ext } : {}), ...(link ? { attachmentUrl: link } : {}) }
+          ? {
+              amount,
+              note: trimmedNote,
+              ...(ext ? { externalTxnId: ext } : {}),
+              ...(link ? { attachmentUrl: link } : {}),
+              ...ack,
+            }
           : mode === 'adjust'
-            ? { amount, note: trimmedNote }
+            ? { amount, note: trimmedNote, ...ack }
             : { creditLimit: amount, note: trimmedNote };
-      const fingerprint = JSON.stringify(payload);
-      // Same payload as the last attempt → keep the key (this is a retry). Changed payload → new operation.
-      if (attempt.current.fingerprint && attempt.current.fingerprint !== fingerprint) {
-        attempt.current = { requestId: crypto.randomUUID() };
-      }
-      attempt.current.fingerprint = fingerprint;
+      // The key must depend ONLY on what decides money: the mode and the amount. It must NOT depend on
+      // note/externalTxnId/attachmentUrl. Including them used to mint a NEW key whenever the operator edited a note
+      // after a failed attempt, so fixing a typo in the note after a lost connection wrote the money a SECOND time
+      // (`adjust` has no externalTxnId, so the unique index could not catch it either). With the same key, a resend
+      // whose note / bank reference / proof link differs from what was already recorded is refused by the server
+      // (409: this resend writes nothing more, but the earlier attempt DID record the money — handled in the
+      // catch below); an identical resend is a harmless replay.
+      // A genuinely different operation means a different amount here, or a freshly opened dialog (a new mount
+      // makes a new key — see the component comment).
+      // Rule lives in shared (`nextWalletRequestAttempt`, tested in apps/api wallet-request-key.spec.ts).
+      attempt.current = nextWalletRequestAttempt(
+        attempt.current,
+        { mode, amount },
+        () => crypto.randomUUID(),
+      );
       const requestId = attempt.current.requestId;
 
       if (mode === 'credit') {
         const res = await RepositoryRemote.customerWallet.setCreditLimit(seller.customerId, {
           creditLimit: amount,
           note: trimmedNote,
+          // Only an INCREASE is slowed down; `bigAmount` already encodes that (see where it is computed).
+          ...(bigAmount ? { largeIncreaseAck: acknowledged } : {}),
         });
         const data = res.data?.data as { balance: number; creditLimit: number };
         setDone({ replayed: false, unchanged: false, balance: data.balance, creditLimit: data.creditLimit });
@@ -206,6 +246,12 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
       // No response at all: the write may well have gone through, so say that instead of a vague "unknown error".
       const lost = axios.isAxiosError(err) && !err.response;
       setConnectionLost(lost);
+      // 409 = this attempt wrote nothing MORE, but an earlier one may already have recorded the money: a
+      // replay of an operation already recorded with a different bank reference / note / proof link lands
+      // here (the server message names what it kept). The 409 kinds cannot be told apart here, so the notice
+      // is worded to be true for all of them and sends the operator to the ledger. Pressing again would get
+      // the same answer, so the "safe to retry" hint is not shown and no new key is minted.
+      setConflict(axios.isAxiosError(err) && err.response?.status === 409);
       setError(lost ? t('dialog.review.networkError') : message);
     } finally {
       submitLock.current = false;
@@ -357,9 +403,21 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
             {preview && !preview.blocked && preview.overLimitAfter && (
               <Notice tone="warning">{t('dialog.review.overLimit')}</Notice>
             )}
-            {error && <Notice tone="danger">{error}</Notice>}
-            {connectionLost && (
-              <Button variant="outline" size="sm" onClick={onViewLedger} disabled={submitting}>
+            {error && (
+              <Notice tone="danger">
+                {conflict && <span className="block font-medium">{t('dialog.review.conflictTitle')}</span>}
+                {error}
+              </Notice>
+            )}
+            {(connectionLost || conflict) && (
+              <Button
+                // On a 409 the ledger is THE next step (the money may already be there), so it is the primary
+                // button, not an outline aside.
+                variant={conflict ? 'default' : 'outline'}
+                size="sm"
+                onClick={onViewLedger}
+                disabled={submitting}
+              >
                 <BookOpenText size={16} className="mr-1.5" />
                 {t('dialog.review.viewLedger')}
               </Button>
@@ -384,7 +442,7 @@ export default function WalletActionDialog({ mode, seller, onClose, onChanged, o
               </label>
             )}
 
-            {error && <p className="text-xs text-muted-foreground">{t('dialog.review.retryHint')}</p>}
+            {error && !conflict && <p className="text-xs text-muted-foreground">{t('dialog.review.retryHint')}</p>}
 
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setStep('form')} disabled={submitting}>

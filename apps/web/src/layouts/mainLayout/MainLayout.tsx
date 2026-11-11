@@ -9,7 +9,6 @@ import { useAuthStore } from '@/store/authStore';
 import { RepositoryRemote } from '@/services';
 
 import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
-import OverdueAlertBanner from '@/components/common/OverdueAlertBanner';
 
 import { cn } from '@/utils/cn';
 
@@ -19,6 +18,8 @@ import Header from '../../components/header';
 import { MobileTabBar, TAB_BAR_ROLES } from '../../components/sidebar/MobileTabBar';
 import Sidebar from '../../components/sidebar/Sidebar';
 
+const SIDEBAR_KEY = 'onosfactory-sidebar-collapsed';
+
 function MainLayout() {
   const location = useLocation();
   const outlet = useOutlet();
@@ -27,7 +28,29 @@ function MainLayout() {
   const roleName = useAuthStore((s) => s.profile?.role?.name);
   const mustChangePassword = useAuthStore((s) => !!s.profile?.forcePassChange);
   const showTabBar = isMobile && !!roleName && TAB_BAR_ROLES.includes(roleName);
-  const [collapsed, setCollapsed] = useState(false);
+  // Desktop sidebar: remembered per browser. A person who never chose gets it collapsed (icons only) below
+  // 1600px, where the width is better spent on the order table; once they expand or collapse it themselves that
+  // choice wins on every later visit.
+  const [collapsed, setCollapsedState] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(SIDEBAR_KEY);
+      if (saved === '1' || saved === '0') return saved === '1';
+    } catch {
+      /* storage blocked: fall through to the width default */
+    }
+    return window.innerWidth < 1600;
+  });
+  const setCollapsed = (value: boolean | ((v: boolean) => boolean)) => {
+    setCollapsedState((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      try {
+        localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0');
+      } catch {
+        /* not persisted */
+      }
+      return next;
+    });
+  };
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -84,9 +107,9 @@ function MainLayout() {
           collapsed={collapsed}
           isMobile={isMobile}
         />
-        {/* Banner đỏ quá hạn 2 ngày — từng bị gỡ 07/09/2026 khi redesign workshop board,
-            gắn lại 10/09/2026 theo yêu cầu user (OverdueAlertBanner.md). */}
-        <OverdueAlertBanner />
+        {/* The overdue alert (once a red strip here) is now a chip in the Header — see OverdueAlertBanner.md.
+            It was removed by mistake on 07/09/2026 and put back on 10/09/2026: it must stay mounted somewhere
+            on every page, it only changed shape. */}
         {/* `flex flex-col`: trang nào muốn CHIẾM ĐỦ chiều cao (bảng tự cuộn, chân bảng đứng yên) chỉ cần
             `flex-1 min-h-0` trên root của nó; trang thường vẫn cao theo nội dung và <main> cuộn như cũ. */}
         <main className="app-page flex flex-1 flex-col overflow-auto bg-page p-4 md:p-6">

@@ -13,6 +13,7 @@ import type {
   GetCustomerWalletTxnsDto,
   WalletTxnKind,
 } from 'shared';
+import { requiresStatementCheck, WALLET_BIG_AMOUNT_USD } from 'shared';
 
 import { CustomerEntity } from '@/modules/customer/customer.entity';
 
@@ -132,10 +133,31 @@ export class CustomerWalletService implements OnModuleInit {
     );
   }
 
-  private assertSameAmount(existing: CustomerWalletTransactionDocument, amount: number, strict?: boolean): void {
-    if (strict && round2(existing.amount) !== amount) {
+  /**
+   * A strict replay must be the SAME operation. A different amount means a reused key (409, as before).
+   * A different bank reference / note / proof link is the operator correcting the form after a lost
+   * response: the money was already recorded with the ORIGINAL values, and returning 200 would let them
+   * believe the correction was saved (a corrected bank reference would then not block a later top-up of
+   * that same bank line). Nothing is written; the 409 says which values the ledger kept.
+   */
+  private assertSameRequest(existing: CustomerWalletTransactionDocument, input: ApplyTransactionInput, amount: number): void {
+    if (!input.strictReplay) return;
+    if (round2(existing.amount) !== amount) {
       throw new ConflictException(
         'requestId đã được dùng cho một giao dịch khác (số tiền khác). Mở lại hộp thoại để tạo yêu cầu mới.',
+      );
+    }
+    const norm = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+    const changed: string[] = [];
+    if (norm(existing.refs?.externalTxnId) !== norm(input.refs?.externalTxnId)) {
+      changed.push(`mã giao dịch ngân hàng (đã ghi: "${norm(existing.refs?.externalTxnId) || 'trống'}")`);
+    }
+    if (norm(existing.note) !== norm(input.note)) changed.push('ghi chú');
+    if (norm(existing.refs?.attachmentUrl) !== norm(input.refs?.attachmentUrl)) changed.push('link chứng từ');
+    if (changed.length) {
+      throw new ConflictException(
+        `Giao dịch này ĐÃ được ghi trước đó (${round2(existing.amount)} USD) với giá trị ban đầu. ` +
+          `Thay đổi ${changed.join(', ')} KHÔNG được lưu. Kiểm tra sổ giao dịch của seller; nếu cần sửa thì liên hệ quản trị.`,
       );
     }
   }
@@ -162,7 +184,7 @@ export class CustomerWalletService implements OnModuleInit {
             .session(session);
           if (existing) {
             // Retry cùng requestId → trả record cũ, KHÔNG động tiền lần 2.
-            this.assertSameAmount(existing, amount, input.strictReplay);
+            this.assertSameRequest(existing, input, amount);
             result = existing;
             replayed = true;
             return;
@@ -212,7 +234,7 @@ export class CustomerWalletService implements OnModuleInit {
             'refs.requestId': input.refs.requestId,
           });
           if (existing) {
-            this.assertSameAmount(existing, amount, input.strictReplay);
+            this.assertSameRequest(existing, input, amount);
             return { ...this.toTxn(existing), replayed: true };
           }
         }
@@ -377,6 +399,7 @@ export class CustomerWalletService implements OnModuleInit {
     creditLimit: number,
     by?: { userId?: string; userName?: string },
     note?: string,
+    largeIncreaseAck?: boolean,
   ): Promise<{ balance: number; creditLimit: number }> {
     const session = await this.connection.startSession();
     try {
@@ -389,6 +412,14 @@ export class CustomerWalletService implements OnModuleInit {
         balance = round2(customer.walletBalance ?? 0);
         current = creditLimit;
         if (from === creditLimit) return;
+        // Big-amount tick, server side. Only the INCREASE counts: lowering a limit is the safe direction and
+        // must never be slowed down. The browser asks for this tick already; before 2026-10-10 nothing checked
+        // it here, so a direct API call could raise a limit to a million dollars unconfirmed.
+        if (requiresStatementCheck(creditLimit - from) && creditLimit > from && largeIncreaseAck !== true) {
+          throw new BadRequestException(
+            `Raising the credit limit by ${WALLET_BIG_AMOUNT_USD} USD or more must be confirmed explicitly: send largeIncreaseAck=true.`,
+          );
+        }
         await this.customerModel.updateOne({ _id: customerId }, { $set: { creditLimit } }, { session });
         await this.creditLimitChangeModel.create(
           [{ customerId, from, to: creditLimit, note: note?.trim() || undefined, byUserId: by?.userId, byUserName: by?.userName }],

@@ -383,7 +383,17 @@ export const VnpShipmentRecordZod = z.object({
   package: VnpShippingPackageZod.optional(),
   /** List view only: the parcel's items (from its production orders). */
   items: z
-    .array(z.object({ productionId: z.string(), type: z.string().optional(), size: z.string().optional(), color: z.string().optional(), mockupUrl: z.string().optional() }))
+    .array(
+      z.object({
+        productionId: z.string(),
+        type: z.string().optional(),
+        size: z.string().optional(),
+        color: z.string().optional(),
+        mockupUrl: z.string().optional(),
+        /** Variation SKU matched by size: the SKU printed on the shipping label (Orders.md §23a). Absent when no match. */
+        variantSku: z.string().optional(),
+      }),
+    )
     .optional(),
   /** List view only: recipient address of the parcel (first production order's snapshot). */
   shipTo: ProductionOrderShippingAddressZod.optional(),

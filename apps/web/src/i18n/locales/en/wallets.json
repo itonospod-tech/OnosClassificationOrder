@@ -138,6 +138,7 @@
       "bigAmount": "Amounts of {{threshold}} or more must be checked before writing.",
       "bigLimit": "Raising the limit by {{threshold}} or more needs confirmation that it was approved.",
       "retryHint": "If the connection drops, just press again: the system recognises the same request and will not write twice.",
+      "conflictTitle": "Nothing more was written this time. An earlier attempt may ALREADY have been recorded — check the ledger before trying again; do not open a new dialog to top up again.",
       "networkError": "The connection dropped before an answer arrived, so it is not known whether the write went through. Press again to be sure — the system will not write twice.",
       "viewLedger": "View ledger"
     },

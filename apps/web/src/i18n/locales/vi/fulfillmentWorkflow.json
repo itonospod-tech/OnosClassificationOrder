@@ -161,6 +161,7 @@
     "description": "Chọn nơi nhận xử lý (Designer hoặc 1 stage trước) + mô tả lỗi.",
     "pushTo": "Đẩy về",
     "designer": "Designer",
+    "toolCheck": "Soát tool (Support)",
     "reasonLabel": "Lý do lỗi",
     "reasonPlaceholder": "Mô tả ngắn gọn lỗi gặp phải...",
     "submit": "Đẩy về xử lý"

@@ -8,7 +8,17 @@ export type AuditContext = {
   user?: Pick<UserDocument, '_id' | 'fullName' | 'email' | 'impersonatedBy'> & { role?: { name?: RoleType } };
   ip?: string;
   userAgent?: string;
+  /** Which automated writer made the change (see `ORDER_LOG_SOURCE_*`); absent = a person or an unlabelled job. */
+  source?: string;
 };
+
+/**
+ * `source` of every log row written through the external design-review tool's result door
+ * (`POST /orders/design-review/result` -> `OrderService.setDesignReviewResult`). The tool has no user account
+ * and its rows carry no `userId`, but neither do cron jobs, syncs and other system writes: this label is
+ * the only thing that tells the tool's own writes apart (the "tool looks stopped" check relies on it).
+ */
+export const ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL = 'design-review-tool';
 
 type WriteParams = {
   orderId: string;
@@ -16,6 +26,8 @@ type WriteParams = {
   field?: string;
   before?: unknown;
   after?: unknown;
+  /** `restore` rows of the bulk undo only: the incident they rewound (Orders.md §27). */
+  undoOf?: { group: string; actor: string; from: Date; to: Date };
   ctx?: AuditContext;
 };
 
@@ -46,6 +58,7 @@ export class OrderLogService {
         impersonatorName: params.ctx?.user?.impersonatedBy?.fullName,
         ip: params.ctx?.ip,
         userAgent: params.ctx?.userAgent,
+        ...(params.ctx?.source ? { source: params.ctx.source } : {}),
       });
     } catch (err) {
       console.warn('[order-log] write failed', err);
@@ -62,12 +75,14 @@ export class OrderLogService {
           field: p.field,
           before: p.before,
           after: p.after,
+          ...(p.undoOf ? { undoOf: p.undoOf } : {}),
           userId: p.ctx?.user?._id?.toString(),
           userName: p.ctx?.user?.fullName,
           userEmail: p.ctx?.user?.email,
           roleCode: p.ctx?.user?.role?.name,
           ip: p.ctx?.ip,
           userAgent: p.ctx?.userAgent,
+          ...(p.ctx?.source ? { source: p.ctx.source } : {}),
         })),
       );
     } catch (err) {

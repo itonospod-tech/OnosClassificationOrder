@@ -31,6 +31,7 @@ export const orderLogsRegistry: AgentTableSpec = {
     field: plain('string', 'Tên trường bị đổi trong thao tác này'),
     before: plain('object', 'Giá trị TRƯỚC khi đổi — nguyên văn, kiểu tuỳ trường (`API-19`)'),
     after: plain('object', 'Giá trị SAU khi đổi — nguyên văn, kiểu tuỳ trường (`API-19`)'),
+    undoOf: plain('object', "Chỉ trên dòng action 'restore' của hoàn tác sửa hàng loạt: sự cố đã tua { group, actor, from, to } (Orders.md §27)"),
 
     // ── `API-17` mở đọc danh tính người thao tác; `API-19` mở nốt lọc/nhóm —
     // nhóm theo `userId` là ra sản lượng theo từng người.
@@ -40,6 +41,7 @@ export const orderLogsRegistry: AgentTableSpec = {
     roleCode: plain('string', 'Vai trò của người thực hiện'),
     impersonatorId: plain('string', 'Người đăng nhập thay, nếu có'),
     impersonatorName: plain('string', 'Tên người đăng nhập thay, nếu có'),
+    source: plain('string', "Nhãn người ghi tự động, nếu có: 'design-review-tool' = tool soát tự động ghi qua cửa kết quả (không có userId)"),
     updatedAt: plain('date'),
     deletedAt: plain('date', 'Bản ghi bị xoá mềm. Mở ĐỌC KHÔNG đổi bộ lọc mặc định của truy vấn'),
   },

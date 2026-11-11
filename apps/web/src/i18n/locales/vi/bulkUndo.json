@@ -1,0 +1,63 @@
+{
+  "title": "Hoàn tác sửa hàng loạt",
+  "description": "Tua lại các đơn về trạng thái ngay trước một lệnh sửa hàng loạt bấm nhầm.",
+  "noPermission": "Chỉ SuperAdmin dùng được trang này.",
+  "warning": "Xem trước và chạy đều đọc dữ liệu NGAY LÚC BẤM. Đơn nào đã có người sửa tiếp sau sự cố sẽ bị BỎ QUA, không bao giờ bị đè. Mỗi lượt tối đa {{max}} đơn; mỗi trường đổi đều ghi nhật ký.",
+  "form": {
+    "actor": "Tài khoản gây ra",
+    "actorPlaceholder": "Tên, email hoặc id (vd Admin User)",
+    "from": "Từ (giờ máy)",
+    "to": "Đến (giờ máy)",
+    "group": "Loại thay đổi",
+    "preview": "Xem trước"
+  },
+  "group": {
+    "designer": "Gỡ designer (assignee)",
+    "tool-ok": "Gỡ duyệt tool 'ok'",
+    "tool-note": "Gỡ ghi chú tool khác",
+    "tool-result": "Đổi kết quả tool"
+  },
+  "groupHelp": {
+    "designer": "Trả assignee + dựng lại trạng thái và mốc designer từ chính nhật ký của designer (lệnh bỏ gán từng xóa chúng mà không ghi log).",
+    "tool-ok": "Trả 'ok' + sẵn sàng sản xuất; đơn đã bị đẩy khỏi hàng chờ In thì đưa lại hàng chờ In, mốc chờ = lúc duyệt 'ok' ban đầu.",
+    "tool-note": "Trả ghi chú tool đã bị xóa (không phải 'ok').",
+    "tool-result": "Trả kết quả tool về giá trị trước sự cố."
+  },
+  "summary": {
+    "preview": "{{affected}} đơn bị ảnh hưởng · {{restorable}} khôi phục được · {{skipped}} bỏ qua",
+    "result": "Đã khôi phục {{restorable}} đơn · bỏ qua {{skipped}}"
+  },
+  "status": {
+    "restore": "Sẽ khôi phục",
+    "restored": "Đã khôi phục",
+    "skip": "Bỏ qua"
+  },
+  "skip": {
+    "title": "Bỏ qua",
+    "cancelled": "Đơn đã hủy",
+    "held": "Đơn đang giữ",
+    "edited-after": "Có người sửa tiếp sau sự cố",
+    "current-differs": "Giá trị hiện tại khác giá trị sự cố để lại",
+    "changed-during-run": "Vừa bị sửa trong lúc chạy",
+    "not-found": "Không tìm thấy đơn"
+  },
+  "file": {
+    "export": "Xuất file trước/sau",
+    "productionId": "Mã sản xuất",
+    "field": "Trường",
+    "current": "Giá trị hiện tại",
+    "restore": "Giá trị khôi phục",
+    "status": "Trạng thái",
+    "reason": "Lý do bỏ qua"
+  },
+  "run": {
+    "title": "Lô này: {{count}} / {{total}} đơn khôi phục được",
+    "reasonPlaceholder": "Lý do (bắt buộc, ≥10 ký tự) — vd: hoàn tác lệnh bấm nhầm tối 05/10 của tài khoản Admin User",
+    "confirm": "Gõ {{count}} để xác nhận",
+    "button": "Hoàn tác {{count}} đơn",
+    "next": "Xem trước lô tiếp theo"
+  },
+  "result": {
+    "done": "Đã khôi phục {{restored}} đơn, bỏ qua {{skipped}}."
+  }
+}

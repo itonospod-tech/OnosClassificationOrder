@@ -788,5 +788,16 @@
         "description": "Paste a production ID to see which stage an order is at."
       }
     }
+  },
+  "dailyBySeller": {
+    "title": "Daily report by seller",
+    "subtitle": "Items finished + packages handed over per day, by seller",
+    "seller": "Seller",
+    "total": "Total items",
+    "packages": "Packages handed over",
+    "allSellers": "All sellers",
+    "export": "Export Excel",
+    "empty": "No items finished in this range.",
+    "tooLong": "Pick at most {{max}} days."
   }
 }

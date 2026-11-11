@@ -17,6 +17,7 @@ Audit trail cho mọi thay đổi trên `OrderEntity`. Mỗi log record bao gồ
 - thay đổi gì (field + before/after)
 - nơi xuất phát (ip + userAgent)
   - Thao tác HỆ THỐNG không có user: đồng bộ giữ đơn theo OnosPod ghi `hold`/`unhold` mỗi đơn 1 dòng, `userAgent = 'onospod-hold-sync'`, `before`/`after` = `'Giữ theo OnosPod'` (Orders.md §9d). Cron §9c cũng ghi không user (ip/userAgent của lời gọi cron).
+  - `source` (tuỳ chọn) — nhãn NGƯỜI GHI tự động. Hiện chỉ cửa ghi kết quả của tool soát (`POST /orders/design-review/result`) gắn `source='design-review-tool'` (`designReviewToolCtx`); đây là cách DUY NHẤT phân biệt lượt ghi của tool với cron/job hệ thống (cả hai đều không có user) — cảnh báo "tool dừng" ở ToolCheckWorkflow.md §2.4 chỉ đếm dòng có nhãn này.
 
 Mục tiêu: forensic — không xóa, không TTL (volume xưởng nhỏ, cần dữ liệu lịch sử dài hạn).
 
@@ -40,9 +41,11 @@ Mục tiêu: forensic — không xóa, không TTL (volume xưởng nhỏ, cần 
   after?: unknown;
   ip?: string;
   userAgent?: string;
+  source?: string;          // nhãn người ghi tự động, vd 'design-review-tool'
   // createdAt từ BaseEntity
 }
 // Compound index: { orderId: 1, createdAt: -1 } — phục vụ timeline query
+// Partial index source_field_createdAt: { source: 1, field: 1, createdAt: -1 } (chỉ dòng có source) — "lần ghi cuối của tool"
 ```
 
 > User info được **snapshot** (copy giá trị tại thời điểm thay đổi) thay vì chỉ lưu `userId`, để timeline vẫn đọc được sau khi user bị đổi tên / xóa.
@@ -63,6 +66,7 @@ type AuditContext = {
   user?: UserDocument;     // @AuthUser()
   ip?: string;             // @ClientIp()
   userAgent?: string;      // @UserAgent()
+  source?: string;         // nhãn người ghi tự động (ORDER_LOG_SOURCE_*), ghi vào row khi có
 }
 ```
 
@@ -113,7 +117,7 @@ Response: `{ success, data: ProductionOrderLog[], total }`
 - Body: **danh sách card** (`space-y-2`, mỗi entry 1 card border) — thay timeline trục dọc cũ cho gọn/dễ nhìn.
 - Mỗi entry:
   - Badge action (`Tạo` / `Cập nhật` / `Bulk` / `Import` / `Xóa` / `Hủy đơn` / `Đổi design`).
-  - Tên field (label tiếng Việt qua helper `fieldLabelFor(field)`): tra map `FIELD_LABEL` (`designerStatus`→"TT Designer", `productionError`→"Lỗi xưởng", `machineNumber`→"Máy", `fabricType`, `productionErrorSource`…) **+ key động của Task Fulfillment**: `fulfillmentStages.<stage>.status` → **"Công đoạn {tên stage VI}"** (`FULFILLMENT_STAGE_LABELS`, vd `qc-post-press`→"QC sau ép"), `currentFulfillmentStage` → "Công đoạn hiện tại". Fallback = raw key.
+  - Tên field (label tiếng Việt qua helper `fieldLabelFor(field)`): tra map `FIELD_LABEL` (`designerStatus`→"TT Designer", `productionError`→"Lỗi xưởng", `machineNumber`→"Máy", `fabricType`, `productionErrorSource`…) **+ key động của Task Fulfillment**: `fulfillmentStages.<stage>.status` → **"Công đoạn {tên stage VI}"** (`FULFILLMENT_STAGE_LABELS`, vd `qc-post-press`→"QC sau ép"), `currentFulfillmentStage` → "Công đoạn hiện tại", `fulfillmentStages` → "Trạng thái các công đoạn" (dòng bản chụp khi đổi Note kq Tool xoá công đoạn — Orders.md §27; giá trị là object, hiện gọn qua `summarizeFulfillmentStages`). Fallback = raw key.
   - Diff `before → after` render qua `<DiffRow>` + `<StatusPill>`: pill cũ xám gạch ngang + icon `ArrowRight` + pill mới **tô màu theo trạng thái**.
   - **Value hiển thị NAME + MÀU, không phải code** (`resolveDisplay(field, value) → { text, color }`):
     - `designerStatus` → nhãn VI (`DESIGNER_STATUS_LABELS`) + màu (`DESIGNER_STATUS_COLOR`: done=emerald, rework=amber, in-progress=indigo, rejected=rose…).
@@ -169,3 +173,11 @@ Rỗng ở phiên thường.
 Đọc từ `params.ctx.user.impersonatedBy` trong `OrderLogService.write()` — **một điểm chạm
 duy nhất**, vì mọi đường ghi log đơn hàng đều đi qua đúng hàm đó. Chi tiết cơ chế:
 [`Auth.md §10`](Auth.md).
+
+## Dòng `restore` của hoàn tác sửa hàng loạt (`undoOf`)
+
+Dòng `action: 'restore'` do `BulkUndoService.run` ghi (qua `OrderLogService.writeMany`) mang thêm
+`undoOf: { group, actor, from, to }` — sự cố mà lượt hoàn tác đã tua lại. Nhờ đó lượt hoàn tác nhóm KIA
+của CÙNG sự cố (cùng `actor`, khung chồng nhau) không đọc các dòng này thành "có người sửa sau" và tự chặn
+nhau. Field chỉ có trên dòng `restore`; dòng `restore` cũ không có field vẫn được coi là sửa sau
+(phía an toàn). Chi tiết: [`Orders.md §27`](Orders.md).

@@ -1,3 +1,5 @@
+import { roundCents } from 'shared';
+
 /**
  * Luật kiểm số dư ví — hàm THUẦN tách khỏi service để test không cần DB.
  * Số dư được xuống tới `-creditLimit` (hạn mức nợ admin cấp, mặc định 0).
@@ -16,7 +18,8 @@ export function checkWalletGuard(balance: number | undefined, creditLimit: numbe
   return { ok, balanceBefore, balanceAfter };
 }
 
-/** Tiền USD làm tròn 2 chữ số — tránh rác floating point tích lũy trong sổ. */
-export function round2(v: number): number {
-  return Math.round(v * 100) / 100;
-}
+/**
+ * Tiền USD làm tròn 2 chữ số — tránh rác floating point tích lũy trong sổ. CHÍNH LÀ `roundCents` của shared
+ * (một nguồn duy nhất, dialog nhân viên dùng cùng hàm để so ngưỡng xác nhận sao kê).
+ */
+export const round2 = roundCents;

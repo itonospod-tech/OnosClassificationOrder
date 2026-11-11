@@ -39,7 +39,7 @@
   "list": {
     "reworkTab": "Needs rework ({{count}})",
     "unreviewedTab": "Unreviewed ({{count}})",
-    "reworkHint": "⚠ Priority — sent back by Print due to a missing file. Tool result note → \"ok\" = file is fine, resume from Print · \"Checked\" = needs design, sent back to the designer / auto-assigned.",
+    "reworkHint": "⚠ Priority — sent back by Print due to a missing file. Tool result note → \"ok\" = file is fine: Print redoes it right away, EXCEPT an order whose designer already finished goes back to that designer as \"Rework\" first · \"Checked\" = the file is really bad (recorded in the error history): back to the previous designer, or auto-assigned / backlog if it never had one.",
     "unreviewedHint": "Backlog of orders with no Tool result note yet.",
     "noReworkOrders": "No orders sent back by Print.",
     "noUnreviewedOrders": "No unreviewed orders.",
