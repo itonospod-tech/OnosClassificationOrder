@@ -1,5 +1,5 @@
 import {
-  adminOrderCacheSizeForTests,
+  adminOrderCacheStateForTests,
   cachedAdminOrderNumbers,
   clearAdminOrderCache,
 } from '@/modules/customer-portal/admin-order-cache';
@@ -14,6 +14,9 @@ import { CustomerOrderEventService } from './customer-order-event.service';
  * `CustomerOrderEventService.emit` is the single point every order-level customer event passes through, which is
  * why the invalidation hangs there. This suite pins that, and pins that it happens for EVERY event — a new event
  * added later inherits the behaviour instead of quietly reintroducing the staleness.
+ *
+ * The invalidation is SOFT (PR #77 review, F9): the cached value is kept and still served at once, only marked
+ * stale so the next read refreshes it in the background. Dropping it made nearly every hub load wait for a scan.
  */
 type Surface = {
   customerWebhookService: { emitForOrders: (...a: unknown[]) => void };
@@ -33,31 +36,31 @@ const makeService = () => {
 const primeCache = async () => {
   clearAdminOrderCache();
   await cachedAdminOrderNumbers('counts:{}', () => Promise.resolve({ all: 1 }));
-  expect(adminOrderCacheSizeForTests()).toBe(1);
+  expect(adminOrderCacheStateForTests('counts:{}')).toEqual({ present: true, fresh: true });
 };
 
 describe('admin order cache invalidation on customer order events', () => {
   it.each(['order.pushed', 'order.production_completed', 'order.held', 'order.unheld', 'order.cancelled'] as const)(
-    'clears the cached staff counts on %s',
+    'marks the cached staff counts stale on %s, keeping the value',
     async (event) => {
       await primeCache();
       const { svc, emitted } = makeService();
 
       svc.emit(event, [{ productionId: 'AB-10000-20000' }]);
 
-      expect(adminOrderCacheSizeForTests()).toBe(0);
+      expect(adminOrderCacheStateForTests('counts:{}')).toEqual({ present: true, fresh: false });
       expect(emitted).toHaveLength(1); // the event still fans out; invalidation is additive
     },
   );
 
-  it('does not clear the cache when there is nothing to report', async () => {
+  it('does not invalidate the cache when there is nothing to report', async () => {
     await primeCache();
     const { svc, emitted } = makeService();
 
     // No productionId → `emit` returns early, nothing happened, so the cached numbers are still correct.
     svc.emit('order.pushed' as Parameters<CustomerOrderEventService['emit']>[0], [{} as { productionId: string }]);
 
-    expect(adminOrderCacheSizeForTests()).toBe(1);
+    expect(adminOrderCacheStateForTests('counts:{}')).toEqual({ present: true, fresh: true });
     expect(emitted).toHaveLength(0);
   });
 });
