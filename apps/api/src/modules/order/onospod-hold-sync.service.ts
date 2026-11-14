@@ -178,7 +178,13 @@ export class OnospodHoldSyncService {
         onospodHoldDismissedAt: d.onospodHoldDismissedAt,
       }));
 
-      const plan = planOnospodHoldSync({ items, orders, now, windowStart });
+      const plan = planOnospodHoldSync({
+        items,
+        orders,
+        now,
+        windowStart,
+        limits: this.apiConfigService.onospodHoldSyncLimits,
+      });
       result.notFound = plan.notFound.length;
       result.unchanged = plan.unchanged;
       result.dismissedSkipped = plan.dismissedSkip.map((a) => a.productionId);
@@ -190,6 +196,19 @@ export class OnospodHoldSyncService {
             `On Hold nhận: ${items.length} · Đơn đang giữ theo OnosPod: ${plan.syncedHeldCount} · Cần nhả: ${plan.toUnhold.length}`,
         );
         return aborted(plan.reason ?? 'Kế hoạch đồng bộ bị dừng');
+      }
+
+      // Vượt trần nhả: `plan.toUnhold` đã rỗng nên vòng ghi bên dưới tự bỏ qua
+      // phần nhả; phần giữ/cờ vẫn ghi để đơn OnosPod mới giữ không bị kẹt theo.
+      if (plan.unholdBlocked) {
+        result.status = 'partial';
+        result.reason = plan.unholdBlocked.reason;
+        result.unholdBlocked = plan.unholdBlocked.count;
+        void this.alert(
+          `⚠️ Đồng bộ giữ đơn OnosPod: phần NHẢ bị chặn, phần giữ vẫn chạy.\nLý do: ${plan.unholdBlocked.reason}\n` +
+            `On Hold nhận: ${items.length} · Đơn đang giữ theo OnosPod: ${plan.syncedHeldCount} · Cần nhả: ${plan.unholdBlocked.count}\n` +
+            `Nhả tay các đơn này ở trang đơn đang giữ, hoặc nới env ONOSPOD_HOLD_SYNC_MAX_UNHOLD_RATIO rồi restart API.`,
+        );
       }
 
       const ctx: AuditContext = { ip: opts.ip, userAgent: ONOSPOD_HOLD_SYNC_USER_AGENT };
@@ -279,6 +298,8 @@ export class OnospodHoldSyncService {
           dismissedSkipped: result.dismissedSkipped.length,
           outOfWindowKept: result.outOfWindowKept.length,
           notFound: result.notFound,
+          status: result.status,
+          unholdBlocked: result.unholdBlocked,
         }),
       });
       return result;

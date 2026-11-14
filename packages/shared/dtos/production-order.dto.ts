@@ -852,10 +852,14 @@ export class BackfillOnospodShippingResDto extends createZodDto(extendApi(Backfi
 
 // ─── Đồng bộ giữ đơn theo OnosPod (Orders.md §9d) ──────────────────────────
 // Kết quả 1 lượt đồng bộ. `status='aborted'` = KHÔNG ghi gì cả (lỗi fetch,
-// thiếu config, nghi ngờ dữ liệu, vượt trần nhả) — `reason` nói lý do.
+// thiếu config, nghi ngờ dữ liệu); `status='partial'` = đã ghi phần giữ/cờ
+// nhưng phần NHẢ bị trần chặn (Orders.md §9d.6b) — `reason` nói lý do.
 export const OnospodHoldSyncResultZod = z.object({
-  status: z.enum(['ok', 'aborted']),
+  /** `partial` = đã ghi phần giữ/cờ nhưng phần NHẢ bị chặn vì vượt trần. */
+  status: z.enum(['ok', 'aborted', 'partial']),
   reason: z.string().optional(),
+  /** Số đơn lẽ ra phải nhả nhưng bị trần chặn (đi kèm `status='partial'`). */
+  unholdBlocked: z.number().int().nonnegative().optional(),
   window: z.object({ start: z.string(), end: z.string() }),
   /** Số item `On Hold` nhận từ OnosPod trong cửa sổ quét. */
   fetched: z.number().int().nonnegative(),
