@@ -35,8 +35,9 @@ type Summary = {
 type Queue = { waiting: number; lastToolWriteKnown?: boolean; lastToolWriteAt: string | null; stalled: boolean | null };
 type Group = { key: string; count: number; returnable: number };
 type View = 'orders' | 'type';
-type Filters = { factoryId: string; toolResult: string; type: string; returnable: boolean };
-const NO_FILTERS: Filters = { factoryId: '', toolResult: '', type: '', returnable: true };
+/** `includeAwaitingReview`: also offer "has tool" orders still waiting for the reviewer (blocked by default). */
+type Filters = { factoryId: string; toolResult: string; type: string; returnable: boolean; includeAwaitingReview: boolean };
+const NO_FILTERS: Filters = { factoryId: '', toolResult: '', type: '', returnable: true, includeAwaitingReview: false };
 const PAGE_SIZE = 50;
 const fmt = (d?: Date | string | null) => (d ? dayjs(d).format('DD/MM/YYYY') : '');
 
@@ -71,6 +72,7 @@ export default function ToolQueueReturnPage() {
       if (filters.toolResult) p.set('toolResult', filters.toolResult);
       if (filters.type) p.set('type', filters.type);
       if (filters.returnable) p.set('returnable', 'true');
+      if (filters.includeAwaitingReview) p.set('includeAwaitingReview', 'true');
       for (const [k, v] of Object.entries(extra)) if (v !== undefined) p.set(k, String(v));
 
       return '?' + p.toString();
@@ -137,7 +139,7 @@ export default function ToolQueueReturnPage() {
     return <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">{t('noPermission')}</div>;
   }
 
-  const hasFilters = filters.factoryId || filters.toolResult || filters.type || !filters.returnable;
+  const hasFilters = filters.factoryId || filters.toolResult || filters.type || !filters.returnable || filters.includeAwaitingReview;
   const blockedTotal = (summary?.blocked ?? []).reduce((n, b) => n + b.count, 0);
 
   return (
@@ -226,6 +228,15 @@ export default function ToolQueueReturnPage() {
           <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" checked={filters.returnable} onChange={(e) => setFilter('returnable', e.target.checked)} />
           {t('filters.onlyReturnable')}
         </label>
+        <label className="flex items-center gap-1.5 text-sm touch:min-h-11">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-[hsl(var(--primary))]"
+            checked={filters.includeAwaitingReview}
+            onChange={(e) => setFilter('includeAwaitingReview', e.target.checked)}
+          />
+          {t('filters.includeAwaitingReview')}
+        </label>
         {filters.type && (
           <Button variant="outline" size="sm" onClick={() => setFilter('type', '')} className="max-w-full">
             <span className="truncate">{filters.type}</span> ×
@@ -235,6 +246,11 @@ export default function ToolQueueReturnPage() {
           <Button variant="ghost" size="sm" onClick={() => setFilters(NO_FILTERS)}>
             {t('filters.clear')}
           </Button>
+        )}
+        {filters.includeAwaitingReview && (
+          <p role="alert" className="w-full text-xs font-medium text-tone-warning">
+            {t('awaitingReviewWarning')}
+          </p>
         )}
         <div className="ml-auto flex gap-1 max-md:ml-0 max-md:w-full">
           {(['orders', 'type'] as View[]).map((v) => (
@@ -319,6 +335,7 @@ export default function ToolQueueReturnPage() {
       {previewOpen && (
         <PreviewDialog
           ids={[...selected.keys()]}
+          includeAwaitingReview={filters.includeAwaitingReview}
           onClose={() => setPreviewOpen(false)}
           onDone={(res) => {
             setPreviewOpen(false);
@@ -365,7 +382,15 @@ function ReturnRow({ row: r, checked, onToggle }: { row: ToolQueueReturnRow; che
   );
 }
 
-function PreviewDialog({ ids, onClose, onDone }: { ids: string[]; onClose: () => void; onDone: (res: ToolQueueReturnRunResult) => void }) {
+interface PreviewDialogProps {
+  ids: string[];
+  /** Sent with BOTH the preview and the run, so the server re-checks with the same gate it will write with. */
+  includeAwaitingReview: boolean;
+  onClose: () => void;
+  onDone: (res: ToolQueueReturnRunResult) => void;
+}
+
+function PreviewDialog({ ids, includeAwaitingReview, onClose, onDone }: PreviewDialogProps) {
   const { t } = useTranslation('toolQueueReturn');
   const [preview, setPreview] = useState<ToolQueueReturnPreview | null>(null);
   const [reason, setReason] = useState('');
@@ -374,7 +399,7 @@ function PreviewDialog({ ids, onClose, onDone }: { ids: string[]; onClose: () =>
 
   useEffect(() => {
     RepositoryRemote.order
-      .previewToolQueueReturn(ids)
+      .previewToolQueueReturn(ids, includeAwaitingReview)
       .then((res) => setPreview((res.data as { data: ToolQueueReturnPreview }).data))
       .catch((err) => {
         handleAxiosError(err);
@@ -391,7 +416,7 @@ function PreviewDialog({ ids, onClose, onDone }: { ids: string[]; onClose: () =>
     if (!canRun) return;
     setRunning(true);
     try {
-      const res = await RepositoryRemote.order.runToolQueueReturn(eligibleIds, reason.trim());
+      const res = await RepositoryRemote.order.runToolQueueReturn(eligibleIds, reason.trim(), includeAwaitingReview);
       onDone((res.data as { data: ToolQueueReturnRunResult }).data);
     } catch (err) {
       handleAxiosError(err);
@@ -412,6 +437,9 @@ function PreviewDialog({ ids, onClose, onDone }: { ids: string[]; onClose: () =>
         ) : (
           <div className="space-y-3 text-sm">
             <p className="rounded-md border border-tone-warning/40 bg-tone-warning/10 p-2 font-medium text-tone-warning">{t('warning')}</p>
+            {includeAwaitingReview && (
+              <p className="rounded-md border-2 border-tone-danger bg-tone-danger/10 p-2 font-medium text-tone-danger">{t('awaitingReviewWarning')}</p>
+            )}
             <div className="grid gap-3 sm:grid-cols-2">
               <Breakdown title={t('preview.byFactory')} items={preview.byFactory.map((x) => [x.shortName || '—', x.count])} />
               <Breakdown title={t('preview.byToolResult')} items={preview.byToolResult.map((x) => [x.toolResult, x.count])} />

@@ -1606,6 +1606,7 @@ export const ToolQueueBlockZod = z.enum([
   'designer-assigned', // the queue only takes designerStatus 'unassigned': clearing would lose the result for nothing
   'designer-status-missing', // designerStatus missing / null / '': the queue filter (=== 'unassigned') never takes it either
   'in-fulfillment', // already in a fulfillment stage: must not go back to tool check mid-production
+  'awaiting-review', // "has tool", no note: files exported, waiting for the person who reviews them — only with includeAwaitingReview
   'changed-during-run', // run only: the order changed between its load and the conditional clear, nothing written
 ]);
 export type ToolQueueBlockKey = z.infer<typeof ToolQueueBlockZod>;
@@ -1617,6 +1618,8 @@ export const GetToolQueueReturnZod = PageQueryZod.extend({
   /** `true` = only orders a run would take; omitted = candidates AND the blocked ones with their reason. */
   returnable: z.enum(['true']).optional(),
   groupBy: z.enum(['type']).optional(),
+  /** `true` = 'awaiting-review' orders count as returnable (see ToolQueueBlockZod); omitted = they stay blocked. */
+  includeAwaitingReview: z.enum(['true']).optional(),
 });
 export class GetToolQueueReturnDto extends createZodDto(extendApi(GetToolQueueReturnZod)) {}
 
@@ -1661,7 +1664,11 @@ export const GetToolQueueReturnResZod = ResZod.extend({
 });
 export class GetToolQueueReturnResDto extends createZodDto(extendApi(GetToolQueueReturnResZod)) {}
 
-export const ToolQueueReturnIdsZod = z.object({ ids: z.array(IDZod).min(1).max(TOOL_QUEUE_RETURN_BATCH_MAX) });
+export const ToolQueueReturnIdsZod = z.object({
+  ids: z.array(IDZod).min(1).max(TOOL_QUEUE_RETURN_BATCH_MAX),
+  /** Lift the 'awaiting-review' block for this preview/run only (e.g. the template was replaced, the export must be redone). */
+  includeAwaitingReview: z.boolean().optional(),
+});
 export class ToolQueueReturnPreviewDto extends createZodDto(extendApi(ToolQueueReturnIdsZod)) {}
 export const ToolQueueReturnRunZod = ToolQueueReturnIdsZod.extend({ reason: z.string().trim().min(10).max(500) });
 export class ToolQueueReturnRunDto extends createZodDto(extendApi(ToolQueueReturnRunZod)) {}

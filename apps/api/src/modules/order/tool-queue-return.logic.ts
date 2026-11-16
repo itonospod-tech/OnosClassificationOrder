@@ -25,6 +25,18 @@ export type ToolQueueDoc = {
 const filled = (v: unknown): boolean => typeof v === 'string' && v.trim() !== '';
 
 /**
+ * The "awaiting human review" gate. A "has tool" result with no note means the tool already exported the
+ * files and the order now waits for the PERSON who reviews them (ToolCheckWorkflow.md §2.4): returning it
+ * throws that export away and drops it out of the reviewer's list. Blocked unless the run says so
+ * explicitly (`includeAwaitingReview`, e.g. the product's template was just replaced).
+ * `hasToolCodes` = toolResult codes named "Có ..." (`resolveToolHasCodes`); omitted = gate off.
+ */
+export type ToolQueueReviewGate = {
+  hasToolCodes?: ReadonlySet<string> | readonly string[];
+  includeAwaitingReview?: boolean;
+};
+
+/**
  * Can this order be returned? Re-checked on every list, preview and run — never trusted from the client.
  * `excludedFactoryId` = the US factory; `skipToolCheckIds` = factories whose flag keeps them out of the queue.
  * `toolResultNote` with ANY value means somebody is working the order by hand: it is never touched.
@@ -33,6 +45,7 @@ export function toolQueueReturnEligibility(
   doc: ToolQueueDoc | null | undefined,
   excludedFactoryId: string | null,
   skipToolCheckIds: ReadonlySet<string> | readonly string[],
+  gate: ToolQueueReviewGate = {},
 ): ToolQueueBlockKey | null {
   if (!doc) return 'not-found';
   if (doc.cancelledAt || doc.deletedAt) return 'cancelled';
@@ -52,6 +65,11 @@ export function toolQueueReturnEligibility(
   if (doc.designerStatus !== DesignerStatus.Unassigned) return 'designer-assigned';
   // Already in production (print, press, ...): never sent back to tool check.
   if (filled(doc.currentFulfillmentStage)) return 'in-fulfillment';
+  // Last on purpose: it is the one block a run can lift, so it must only show when nothing else blocks.
+  if (!gate.includeAwaitingReview && gate.hasToolCodes) {
+    const hasTool = gate.hasToolCodes instanceof Set ? gate.hasToolCodes : new Set(gate.hasToolCodes);
+    if (hasTool.has(String(doc.toolResult))) return 'awaiting-review';
+  }
 
   return null;
 }
@@ -92,13 +110,14 @@ export async function runToolQueueReturn(input: {
   write: (id: string, doc: ToolQueueDoc) => Promise<boolean>;
   excludedFactoryId: string | null;
   skipToolCheckIds: ReadonlySet<string> | readonly string[];
+  gate?: ToolQueueReviewGate;
 }): Promise<{ done: string[]; skipped: ToolQueueRunSkip[]; previous: Array<[string, string]> }> {
   const done: string[] = [];
   const previous: Array<[string, string]> = [];
   const skipped: ToolQueueRunSkip[] = [];
   for (const id of [...new Set(input.ids)]) {
     const doc = await input.load(id);
-    const block = toolQueueReturnEligibility(doc, input.excludedFactoryId, input.skipToolCheckIds);
+    const block = toolQueueReturnEligibility(doc, input.excludedFactoryId, input.skipToolCheckIds, input.gate);
     if (block || !doc) {
       skipped.push({ id, productionId: doc?.productionId, reason: block ?? 'not-found' });
       continue;

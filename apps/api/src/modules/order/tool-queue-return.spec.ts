@@ -200,3 +200,47 @@ describe('designReviewToolCtx — the tool door labels its writes (R2b)', () => 
     expect(designReviewToolCtx(undefined).source).toBe(ORDER_LOG_SOURCE_DESIGN_REVIEW_TOOL);
   });
 });
+
+describe('awaiting-review gate (D6) — "has tool" with no note is waiting for the reviewer', () => {
+  const gate = { hasToolCodes: new Set(['has-tool']) };
+  const withGate = (over: ToolQueueDoc = {}, g: Parameters<typeof toolQueueReturnEligibility>[3] = gate) =>
+    toolQueueReturnEligibility(base(over), US, SKIP, g);
+
+  it('blocks a "has tool" order with no note by default', () => {
+    expect(withGate()).toBe('awaiting-review');
+    expect(withGate({ toolResultNote: null })).toBe('awaiting-review');
+  });
+
+  it('lets it through only when the run lifts the gate explicitly', () => {
+    expect(withGate({}, { ...gate, includeAwaitingReview: true })).toBeNull();
+  });
+
+  it('does not touch other tool results (e.g. "no-tool" set by hand is the normal reason to return)', () => {
+    expect(withGate({ toolResult: 'no-tool' })).toBeNull();
+  });
+
+  it('every other block still wins over it, so lifting the gate never unlocks them', () => {
+    const lifted = { ...gate, includeAwaitingReview: true };
+    expect(withGate({ toolResultNote: 'ok' }, lifted)).toBe('has-note');
+    expect(withGate({ designerStatus: 'assigned' })).toBe('designer-assigned');
+    expect(withGate({ currentFulfillmentStage: 'print' })).toBe('in-fulfillment');
+    expect(withGate({ heldAt: new Date() })).toBe('held');
+  });
+
+  it('the run skips awaiting-review orders unless the gate is lifted, and writes only the others', async () => {
+    const docs: Record<string, ToolQueueDoc & { productionId: string }> = {
+      a: { ...base(), productionId: 'P-A' },
+      b: { ...base({ toolResult: 'no-tool' }), productionId: 'P-B' },
+    };
+    const written: string[] = [];
+    const io = { load: (id: string) => Promise.resolve(docs[id] ?? null), write: (id: string) => (written.push(id), Promise.resolve(true)) };
+
+    const res = await runToolQueueReturn({ ids: ['a', 'b'], ...io, excludedFactoryId: US, skipToolCheckIds: SKIP, gate });
+    expect(written).toEqual(['b']);
+    expect(res.skipped).toEqual([{ id: 'a', productionId: 'P-A', reason: 'awaiting-review' }]);
+
+    written.length = 0;
+    await runToolQueueReturn({ ids: ['a'], ...io, excludedFactoryId: US, skipToolCheckIds: SKIP, gate: { ...gate, includeAwaitingReview: true } });
+    expect(written).toEqual(['a']);
+  });
+});

@@ -227,6 +227,7 @@ import {
   type OrderLogFinder,
   runToolQueueReturn,
   type ToolQueueDoc,
+  type ToolQueueReviewGate,
   toolQueueReturnEligibility,
   toolQueueReturnWriteFilter,
   toolQueueStalled,
@@ -5727,10 +5728,17 @@ export class OrderService implements OnModuleInit {
     cancelledAt: 1, deletedAt: 1, fulfillmentCompletedAt: 1, designerStatus: 1, currentFulfillmentStage: 1,
   };
 
-  private toolQueueContext(): { excludedId: string | null; skipIds: Set<string> } {
+  /**
+   * `gate` = the "awaiting human review" block (`ToolQueueReviewGate`): "has tool" orders with no note are
+   * waiting for the person who reviews the export, and stay blocked unless the caller lifts it explicitly.
+   */
+  private async toolQueueContext(
+    includeAwaitingReview = false,
+  ): Promise<{ excludedId: string | null; skipIds: Set<string>; gate: ToolQueueReviewGate }> {
     return {
       excludedId: getExcludedFactoryIdSync(this.orderModel.db),
       skipIds: new Set(listSkipToolCheckFactoryIdsSync(this.orderModel.db)),
+      gate: { hasToolCodes: new Set(await this.resolveToolHasCodes()), includeAwaitingReview },
     };
   }
 
@@ -5765,7 +5773,7 @@ export class OrderService implements OnModuleInit {
    */
   async getToolQueueReturn(dto: GetToolQueueReturnDto, roleName?: RoleType): Promise<GetToolQueueReturnResDto> {
     this.assertSuperAdmin(roleName);
-    const { excludedId, skipIds } = this.toolQueueContext();
+    const { excludedId, skipIds, gate } = await this.toolQueueContext(dto.includeAwaitingReview === 'true');
     const now = new Date();
     const [docs, shortOf, waiting, lastToolLog] = await Promise.all([
       this.orderModel
@@ -5792,7 +5800,7 @@ export class OrderService implements OnModuleInit {
       stalled: toolQueueStalled(waiting, lastToolLog, now),
     };
     const all = (docs as unknown as Record<string, unknown>[]).map((d) =>
-      this.toToolQueueRow(d, shortOf, toolQueueReturnEligibility(d, excludedId, skipIds)),
+      this.toToolQueueRow(d, shortOf, toolQueueReturnEligibility(d, excludedId, skipIds, gate)),
     );
 
     const blocked = new Map<ToolQueueBlockKey, number>();
@@ -5849,10 +5857,10 @@ export class OrderService implements OnModuleInit {
   }
 
   /** Read-only: what a run on `ids` would do. Re-checks every order; the export is built from these rows. */
-  async previewToolQueueReturn(ids: string[], roleName?: RoleType): Promise<ToolQueueReturnPreview> {
+  async previewToolQueueReturn(ids: string[], roleName?: RoleType, includeAwaitingReview = false): Promise<ToolQueueReturnPreview> {
     this.assertSuperAdmin(roleName);
     const unique = [...new Set(ids)];
-    const { excludedId, skipIds } = this.toolQueueContext();
+    const { excludedId, skipIds, gate } = await this.toolQueueContext(includeAwaitingReview);
     const [docs, shortOf] = await Promise.all([
       this.orderModel.find({ _id: { $in: unique } }).select(OrderService.TOOL_QUEUE_PROJECTION).lean(),
       this.toolQueueFactoryNames(),
@@ -5864,7 +5872,7 @@ export class OrderService implements OnModuleInit {
     const byToolResult = new Map<string, number>();
     for (const id of unique) {
       const d = byId.get(id);
-      const block = toolQueueReturnEligibility(d, excludedId, skipIds);
+      const block = toolQueueReturnEligibility(d, excludedId, skipIds, gate);
       if (!d) {
         skipped.push({ id, reason: 'not-found' });
         continue;
@@ -5895,17 +5903,24 @@ export class OrderService implements OnModuleInit {
    * (`clearToolResultIfStillEligible`): an order that got a result, a designer or a stage in the meantime
    * is skipped and reported, never cleared.
    */
-  async runToolQueueReturn(ids: string[], reason: string, roleName?: RoleType, ctx?: AuditContext): Promise<ToolQueueReturnRunResult> {
+  async runToolQueueReturn(
+    ids: string[],
+    reason: string,
+    roleName?: RoleType,
+    ctx?: AuditContext,
+    includeAwaitingReview = false,
+  ): Promise<ToolQueueReturnRunResult> {
     this.assertSuperAdmin(roleName);
     if (this.toolQueueReturnRunning) throw new BadRequestException('Đang có một lượt trả đơn khác chạy — đợi lượt đó xong.');
     this.toolQueueReturnRunning = true;
     const runId = `toolq-${Date.now().toString(36)}`;
     try {
-      const { excludedId, skipIds } = this.toolQueueContext();
+      const { excludedId, skipIds, gate } = await this.toolQueueContext(includeAwaitingReview);
       const { done, skipped, previous } = await runToolQueueReturn({
         ids,
         excludedFactoryId: excludedId,
         skipToolCheckIds: skipIds,
+        gate,
         load: async (id) =>
           (await this.orderModel.findById(id).select(OrderService.TOOL_QUEUE_PROJECTION).lean()) as unknown as
             | (ToolQueueDoc & { productionId?: string })
@@ -5913,7 +5928,7 @@ export class OrderService implements OnModuleInit {
         write: (id, doc) => this.clearToolResultIfStillEligible(id, doc, ctx),
       });
       // The previous values also sit in each order log; this line is the run-level index back to them.
-      this.logger.info({ message: JSON.stringify({ toolQueueReturn: runId, reason, by: ctx?.user?._id, done: done.length, skipped: skipped.length, previous }) });
+      this.logger.info({ message: JSON.stringify({ toolQueueReturn: runId, reason, by: ctx?.user?._id, includeAwaitingReview, done: done.length, skipped: skipped.length, previous }) });
 
       return { runId, done: done.length, skipped };
     } finally {
