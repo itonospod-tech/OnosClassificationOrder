@@ -253,6 +253,33 @@ export class ApiConfigService {
   }
 
   /**
+   * Trần an toàn của đồng bộ GIỮ đơn theo OnosPod (Orders.md §9d). Vượt trần →
+   * chặn riêng phần NHẢ, phần giữ vẫn ghi. Trống → mặc định trong
+   * `onospod-hold-sync.plan.ts` (20 đơn / 50% / từ 5 đơn trở lên mới xét tỉ lệ).
+   * - `ONOSPOD_HOLD_SYNC_MAX_UNHOLD`: số đơn nhả tối đa mỗi lượt
+   * - `ONOSPOD_HOLD_SYNC_MAX_UNHOLD_RATIO`: tỉ lệ 0..1 so với số đơn đang giữ
+   *   theo OnosPod (`1` = tắt trần tỉ lệ, dùng khi cả lô đơn kết thúc cùng lúc)
+   * - `ONOSPOD_HOLD_SYNC_RATIO_MIN_COUNT`: dưới số này thì không xét tỉ lệ
+   * Đọc mỗi lần gọi (không cache) để đổi env + restart là ăn ngay.
+   */
+  get onospodHoldSyncLimits(): { maxUnhold?: number; maxUnholdRatio?: number; ratioMinCount?: number } {
+    const num = (key: string, max: number): number | undefined => {
+      const raw = (this.configService.get<string>(key) || '').trim();
+      if (!raw) return undefined;
+      const value = Number(raw);
+      // Giá trị rác / ngoài khoảng → bỏ qua, dùng mặc định trong plan. Service
+      // này không có logger; trần sai mà im lặng vẫn an toàn hơn trần vô nghĩa.
+      if (!Number.isFinite(value) || value < 0 || value > max) return undefined;
+      return value;
+    };
+    return {
+      maxUnhold: num('ONOSPOD_HOLD_SYNC_MAX_UNHOLD', 10_000),
+      maxUnholdRatio: num('ONOSPOD_HOLD_SYNC_MAX_UNHOLD_RATIO', 1),
+      ratioMinCount: num('ONOSPOD_HOLD_SYNC_RATIO_MIN_COUNT', 10_000),
+    };
+  }
+
+  /**
    * Đồng bộ XƯỞNG sản phẩm theo app OnosPod (Products.md §2.7a). Mặc định TẮT.
    * - `ONOSPOD_FACTORY_SYNC_MODE`: `off` | `dry-run` (chỉ báo cáo + Telegram) | `on` (ghi thật)
    * - `ONOSPOD_FACTORY_MAP`: mã manufacture app → shortName xưởng fac, vd `ML=ML,TN=TN,TN-DECOR=TNW`

@@ -1021,9 +1021,23 @@ thuần `shouldNotifyCustomerOnManualUnhold()` (`onospod-hold-sync.plan.ts`, spe
 - Thiếu config `ONOSPOD_QC_API_URL`/`ONOSPOD_QC_BEARER_TOKEN`.
 - Lỗi HTTP/GraphQL, thiếu `paginate.total_items`, số trang > 10, tổng item nhận ≠ `total_items`, item sai trạng thái (bộ lọc không áp), item thiếu `increment_id` hoặc mốc thời gian.
 - Tập On Hold RỖNG trong khi đang có đơn giữ-do-đồng-bộ (nghi ngờ).
-- Số đơn cần nhả > 20 (`ONOSPOD_HOLD_SYNC_MAX_UNHOLD`), hoặc ≥ 5 đơn VÀ > 50% số đơn đang giữ-do-đồng-bộ. Ngưỡng dưới 5 để 1–2 đơn giữ theo OnosPod vẫn nhả được.
 
-Hai trường hợp nghi ngờ/vượt trần gửi cảnh báo Telegram (`TelegramService`, kênh
+### 9d.6b Vượt trần nhả — `status='partial'`, CHẶN RIÊNG phần nhả
+Số đơn cần nhả > 20 (`ONOSPOD_HOLD_SYNC_MAX_UNHOLD`), hoặc ≥ 5 đơn
+(`ONOSPOD_HOLD_SYNC_RATIO_MIN_COUNT`) VÀ > 50%
+(`ONOSPOD_HOLD_SYNC_MAX_UNHOLD_RATIO`) số đơn đang giữ-do-đồng-bộ → `plan.toUnhold`
+bị dọn rỗng, **phần giữ/cờ vẫn ghi**, kết quả `status='partial'` + `reason` +
+`unholdBlocked` (số đơn lẽ ra phải nhả) + cảnh báo Telegram.
+
+Trước 14/11/2026 hai trần này bỏ CẢ lượt. Đổi vì **trần tỉ lệ không tự mở**: nhả
+bị chặn → mẫu số (số đơn đang giữ-do-đồng-bộ) không giảm → lượt sau vẫn vượt, và
+suốt thời gian đó đơn OnosPod MỚI giữ cũng không được áp. Giữ là chiều an toàn,
+nhả là chiều nguy hiểm, nên chỉ chặn chiều nhả. Cả lô đơn kết thúc cùng lúc là
+việc BÌNH THƯỜNG — gặp `partial` thì nhả tay các đơn đó ở danh sách đơn đang giữ,
+hoặc đặt `ONOSPOD_HOLD_SYNC_MAX_UNHOLD_RATIO=1` + restart API cho lượt sau nhả hết.
+Ba trần đọc từ env mỗi lượt (trống = mặc định), giá trị rác/ngoài khoảng → dùng mặc định.
+
+Các trường hợp nghi ngờ/vượt trần gửi cảnh báo Telegram (`TelegramService`, kênh
 `TELEGRAM_NOTIFICATION_CHANNEL_ID` → fallback `TELEGRAM_CHANNEL_ID`, chỉ khi
 `TELEGRAM_NOTIFICATION_ENABLED=true`; cùng nội dung không gửi lại trong 6 giờ);
 không có kênh → chỉ log error. Lỗi fetch chỉ log error (tránh spam 10 phút/lần khi token hết hạn).
@@ -1031,7 +1045,7 @@ không có kênh → chỉ log error. Lỗi fetch chỉ log error (tránh spam 1
 ### 9d.7 Kích hoạt
 | Đường | Chi tiết |
 |---|---|
-| `GET /v1/orders/onospod-hold-sync/cron` | Public (`@Auth([], [], { public: true })`), log ip/userAgent. Trả `SyncOnospodHoldResDto` `{ status, reason?, window, fetched, held[], unheld[], flagged[], flagCleared[], dismissedSkipped[], outOfWindowKept[], notFound, unchanged }` (mảng = `productionId`). |
+| `GET /v1/orders/onospod-hold-sync/cron` | Public (`@Auth([], [], { public: true })`), log ip/userAgent. Trả `SyncOnospodHoldResDto` `{ status: 'ok' \| 'aborted' \| 'partial', reason?, unholdBlocked?, window, fetched, held[], unheld[], flagged[], flagCleared[], dismissedSkipped[], outOfWindowKept[], notFound, unchanged }` (mảng = `productionId`). |
 | Cuối `importFromOnosPod` | Nút "Lấy đơn từ OnosPod" + `import-from-onospod/cron` chạy thêm 1 lượt sau import, kết quả ở `data.holdSync`. Bọc try/catch — lỗi đồng bộ không làm hỏng kết quả import. |
 
 KHÔNG dùng `@Cron` nội bộ. **Lịch khuyến nghị: 10 phút/lần**, người vận hành tự đặt

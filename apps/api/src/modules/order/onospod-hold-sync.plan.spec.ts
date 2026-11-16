@@ -194,7 +194,7 @@ describe('đồng bộ giữ đơn theo OnosPod — an toàn', () => {
     expect(plan.reason).toMatch(/0 item On Hold/);
   });
 
-  it('vượt trần số đơn nhả tuyệt đối → bỏ cả lượt', () => {
+  it('vượt trần số đơn nhả tuyệt đối → chặn RIÊNG phần nhả, không bỏ cả lượt', () => {
     const held = Array.from({ length: 30 }, syncedHeld);
     const stillHeld = Array.from({ length: 70 }, syncedHeld);
     const plan = run(
@@ -202,20 +202,48 @@ describe('đồng bộ giữ đơn theo OnosPod — an toàn', () => {
       [...held, ...stillHeld],
       { maxUnhold: 20 },
     );
-    expect(plan.toUnhold).toHaveLength(30);
-    expect(plan.aborted).toBe(true);
-    expect(plan.reason).toMatch(/vượt trần 20/);
+    expect(plan.aborted).toBe(false);
+    expect(plan.toUnhold).toHaveLength(0);
+    expect(plan.unholdBlocked?.count).toBe(30);
+    expect(plan.unholdBlocked?.reason).toMatch(/vượt trần 20/);
   });
 
-  it('vượt 50% số đơn giữ-do-đồng-bộ (≥ ngưỡng dưới) → bỏ cả lượt', () => {
+  it('vượt 50% số đơn giữ-do-đồng-bộ (≥ ngưỡng dưới) → chặn RIÊNG phần nhả', () => {
     const released = Array.from({ length: 6 }, syncedHeld);
     const still = Array.from({ length: 4 }, syncedHeld);
     const plan = run(
       still.map((o) => item(o.productionId)),
       [...released, ...still],
     );
-    expect(plan.aborted).toBe(true);
-    expect(plan.reason).toMatch(/6\/10/);
+    expect(plan.aborted).toBe(false);
+    expect(plan.toUnhold).toHaveLength(0);
+    expect(plan.unholdBlocked?.count).toBe(6);
+    expect(plan.unholdBlocked?.reason).toMatch(/6\/10/);
+  });
+
+  it('nhả bị chặn vẫn GIỮ đơn OnosPod mới giữ (không khoá luôn chiều giữ)', () => {
+    const released = Array.from({ length: 6 }, syncedHeld);
+    const still = Array.from({ length: 4 }, syncedHeld);
+    const fresh = order(); // chưa giữ, OnosPod vừa giữ
+    const plan = run(
+      [...still, fresh].map((o) => item(o.productionId)),
+      [...released, ...still, fresh],
+    );
+    expect(plan.unholdBlocked?.count).toBe(6);
+    expect(pids(plan.toHold)).toEqual([fresh.productionId]);
+  });
+
+  it('trần tỉ lệ đặt 1 (tắt theo env) → cả lô kết thúc cùng lúc vẫn nhả được', () => {
+    const released = Array.from({ length: 6 }, syncedHeld);
+    const still = Array.from({ length: 4 }, syncedHeld);
+    const plan = run(
+      still.map((o) => item(o.productionId)),
+      [...released, ...still],
+      { maxUnholdRatio: 1 },
+    );
+    expect(plan.aborted).toBe(false);
+    expect(plan.unholdBlocked).toBeUndefined();
+    expect(pids(plan.toUnhold)).toEqual(pids(released));
   });
 
   it('nhả ít (dưới ngưỡng dưới) dù >50% → vẫn nhả (tránh kẹt khi chỉ có 1–2 đơn)', () => {

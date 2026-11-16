@@ -10,7 +10,10 @@
  *     (kể cả đơn giữ cũ thiếu `holdSource`) giữ nguyên, chỉ gắn/gỡ cờ.
  *  3. Nhân viên đã mở giữ một đợt (`onospodHoldDismissedAt`) → không giữ lại
  *     tới khi OnosPod có đợt giữ MỚI HƠN mốc đó.
- *  4. An toàn: nghi ngờ dữ liệu hoặc vượt trần nhả → bỏ CẢ lượt (không ghi gì).
+ *  4. An toàn: nghi ngờ dữ liệu (OnosPod trả 0 item On Hold trong khi mình đang
+ *     giữ) → bỏ CẢ lượt, không ghi gì. Vượt TRẦN NHẢ (tuyệt đối hoặc tỉ lệ) →
+ *     chỉ CHẶN PHẦN NHẢ, phần giữ/cờ vẫn ghi: giữ là chiều an toàn, còn bỏ cả
+ *     lượt khiến đơn OnosPod mới giữ cũng không được áp suốt thời gian bị chặn.
  */
 
 export const HOLD_SOURCE_ONOSPOD = 'onospod';
@@ -27,10 +30,17 @@ export const ONOSPOD_HOLD_SYNC_WINDOW_DAYS = 60;
  */
 export const ONOSPOD_HOLD_SYNC_WINDOW_MARGIN_MS = 24 * 60 * 60 * 1000;
 
-/** Trần nhả mỗi lượt: vượt → bỏ cả lượt + cảnh báo. */
+/**
+ * Trần nhả mỗi lượt: vượt → chặn phần nhả + cảnh báo (phần giữ vẫn ghi).
+ * Ghi đè bằng env `ONOSPOD_HOLD_SYNC_MAX_UNHOLD` (xem `ApiConfigService`).
+ */
 export const ONOSPOD_HOLD_SYNC_MAX_UNHOLD = 20;
-/** Trần tỉ lệ nhả so với số đơn đang giữ-do-đồng-bộ (chỉ xét khi số nhả ≥ ngưỡng dưới). */
+/**
+ * Trần tỉ lệ nhả so với số đơn đang giữ-do-đồng-bộ (chỉ xét khi số nhả ≥ ngưỡng
+ * dưới). Env `ONOSPOD_HOLD_SYNC_MAX_UNHOLD_RATIO`; đặt `1` = tắt trần tỉ lệ.
+ */
 export const ONOSPOD_HOLD_SYNC_MAX_UNHOLD_RATIO = 0.5;
+/** Env `ONOSPOD_HOLD_SYNC_RATIO_MIN_COUNT`. */
 export const ONOSPOD_HOLD_SYNC_RATIO_MIN_COUNT = 5;
 
 export type OnospodHoldItem = {
@@ -64,8 +74,14 @@ export type HoldSyncFlagAction = HoldSyncAction & {
 };
 
 export type HoldSyncPlan = {
+  /** Bỏ CẢ lượt — service không được ghi gì. */
   aborted: boolean;
   reason?: string;
+  /**
+   * Vượt trần nhả: `toUnhold` đã được dọn rỗng, phần giữ/cờ vẫn ghi bình thường.
+   * `count` là số đơn LẼ RA phải nhả, để báo cáo + cảnh báo.
+   */
+  unholdBlocked?: { count: number; reason: string };
   /** Giữ: set heldAt + holdReason + holdSource='onospod' + cờ. */
   toHold: Array<HoldSyncAction & { flag: HoldSyncFlag }>;
   /** Nhả: unset heldAt/holdReason/holdSource + cờ. */
@@ -204,10 +220,10 @@ export function planOnospodHoldSync(input: HoldSyncPlanInput): HoldSyncPlan {
     );
   }
   if (plan.toUnhold.length > maxUnhold) {
-    return abort(plan, `Số đơn cần nhả (${plan.toUnhold.length}) vượt trần ${maxUnhold} — không nhả`);
+    return blockUnhold(plan, `Số đơn cần nhả (${plan.toUnhold.length}) vượt trần ${maxUnhold} — không nhả`);
   }
   if (plan.toUnhold.length >= ratioMin && plan.toUnhold.length > plan.syncedHeldCount * maxRatio) {
-    return abort(
+    return blockUnhold(
       plan,
       `Số đơn cần nhả (${plan.toUnhold.length}/${plan.syncedHeldCount}) vượt ${Math.round(maxRatio * 100)}% số đơn giữ theo OnosPod — không nhả`,
     );
@@ -218,6 +234,16 @@ export function planOnospodHoldSync(input: HoldSyncPlanInput): HoldSyncPlan {
 
 function abort(plan: HoldSyncPlan, reason: string): HoldSyncPlan {
   return { ...plan, aborted: true, reason };
+}
+
+/**
+ * Chặn RIÊNG phần nhả, giữ lại phần giữ/cờ. Trần nhả là lưới chống nhả nhầm
+ * hàng loạt khi danh sách On Hold của OnosPod bất thường; nó KHÔNG phải lý do
+ * để ngưng giữ đơn, mà trần tỉ lệ thì không tự mở (nhả bị chặn → mẫu số không
+ * giảm → lượt sau vẫn vượt), nên bỏ cả lượt sẽ khoá luôn phần giữ vô thời hạn.
+ */
+function blockUnhold(plan: HoldSyncPlan, reason: string): HoldSyncPlan {
+  return { ...plan, toUnhold: [], unholdBlocked: { count: plan.toUnhold.length, reason } };
 }
 
 /**
