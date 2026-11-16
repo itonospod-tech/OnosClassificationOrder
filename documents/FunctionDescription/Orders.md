@@ -2048,6 +2048,12 @@ Sản phẩm chưa cấu hình vị trí in nào và đơn cũng không có desi
 | `AOP-POLO-EMLOGO` (polo thêu) | `placket` (thêu trụ) | `PLTRU` |
 | `EMB-YOUTH-PPOLO` (polo thêu Youth) | `chestLeft` (thêu ngực) | `POLOKIDTHEU` |
 | `EMB-YOUTH-PPOLO` (polo thêu Youth) | `placket` (thêu trụ) | `POLOKIDTRU` |
+| `AOPHOODIE` (Hoodie 230) | `back` (túi custom) | `HD230T` |
+| `AOPZIPHOODIE` (Zip Hoodie 230) | `back` (túi custom) | `HDZIP230T` |
+| `PRE-HOODIE270` (Premium Hoodie 270) | `back` (túi custom) | `HD270T` |
+| `PRE-ZHOODIE270` (Premium Zip Hoodie 270) | `back` (túi custom) | `HDZIP270T` |
+
+Hoodie AOP túi custom (11/2026): 4 sản phẩm này chỉ in `front` (đơn 30 ngày tới 16/11/2026 đều chỉ có `front`), quy ước ảnh túi custom đến ở ô `back` → template `...T` trên máy tool. Đơn chỉ có `front` vẫn khớp 0 key → `designReviewCode` thường (`HD230`/`HDZIP230`/`HD270`/`HDZIP270`). Cần bật vị trí in `back` cho 4 sản phẩm bên OnosPod thì mới có đơn đi nhánh này; nếu sau này `back` được dùng cho in mặt sau thật thì phải bỏ rule.
 
 Bản Youth: SKU lấy theo sản phẩm thật import từ OnosPod (07/10/2026), mã = tên thư mục template trên máy tool. `ProductConfig.designReviewCode` của sản phẩm này nên đặt `POLOKIDTHEU` để đơn không có option đặc biệt (thêu chỗ khác) rơi về template thêu ngực.
 
