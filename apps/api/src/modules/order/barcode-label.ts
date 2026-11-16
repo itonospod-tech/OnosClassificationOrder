@@ -10,14 +10,11 @@
  * Hàm thuần, tách file riêng để test được không cần Nest context.
  */
 
-/** Bỏ ký tự phân tách để so khớp size lỏng tay: `10.6x62.2` == `10.6X62.2`. */
-function norm(s: string): string {
-  return s.replace(/[\s_-]+/g, '').toUpperCase();
-}
+import { matchVariationBySize, normSize, sizeTailStart } from './variation-size-match';
 
 /**
  * Trả SKU gốc của sản phẩm:
- * 1. Có variation mà SKU kết thúc đúng bằng size của đơn → cắt đuôi đó (kèm
+ * 1. Có variation khớp size của đơn (`matchVariationBySize`) → cắt đuôi đó (kèm
  *    dấu `-`/`_` nối) và trả phần còn lại — ca chuẩn, đúng như ảnh mẫu.
  * 2. Không khớp size (đơn thiếu size / variation đặt tên tự do) → lấy TIỀN TỐ
  *    CHUNG dài nhất của mọi variation SKU, gọt dấu nối thừa. Tiền tố quá ngắn
@@ -29,21 +26,11 @@ export function resolveBarcodeSkuBase(variationSkus: string[], size?: string): s
   const skus = variationSkus.map((s) => s?.trim()).filter(Boolean);
   if (skus.length === 0) return undefined;
 
-  if (size?.trim()) {
-    const target = norm(size);
-    for (const sku of skus) {
-      if (!norm(sku).endsWith(target)) continue;
-      // Cắt từ CUỐI về: đi lùi đủ số ký tự "có nghĩa" của size (bỏ qua các dấu
-      // nối lẫn trong đuôi), rồi gọt tiếp dấu nối sát mép cắt.
-      let need = target.length;
-      let cut = sku.length;
-      while (cut > 0 && need > 0) {
-        cut -= 1;
-        if (!/[\s_-]/.test(sku[cut])) need -= 1;
-      }
-      const base = sku.slice(0, cut).replace(/[\s_-]+$/, '');
-      if (base) return base;
-    }
+  const matched = matchVariationBySize(skus, size, (s) => s);
+  if (matched && size) {
+    // Cắt phần đuôi size (bỏ qua dấu nối lẫn trong đuôi), rồi gọt tiếp dấu nối sát mép cắt.
+    const base = matched.slice(0, sizeTailStart(matched, normSize(size))).replace(/[\s_-]+$/, '');
+    if (base) return base;
   }
 
   if (skus.length === 1) return skus[0];

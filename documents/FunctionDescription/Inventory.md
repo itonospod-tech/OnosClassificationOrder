@@ -23,7 +23,7 @@ Kiến trúc xương sống: **sổ cái append-only** mirror nguyên khuôn ví
 
 ### 2.1 Suy SKU kho từ đơn (`resolveInventorySku` — `inventory.logic.ts`)
 
-1. `ProductConfig.variations[].sku` có SKU norm-kết-thúc bằng `size` của đơn → dùng **nguyên variation SKU** (`CAMOSHIRT-XL`) — KHÁC tem barcode (tem gọt đuôi size, kho phải giữ vì phôi phân biệt theo size). `resolvedBy='variation'`.
+1. `ProductConfig.variations[].sku` khớp `size` của đơn theo luật dùng chung `matchVariationBySize()` (Orders.md §16.8a — đuôi đúng ranh giới, `-L` không khớp `-XL`) → dùng **nguyên variation SKU** (`CAMOSHIRT-XL`) — KHÁC tem barcode (tem gọt đuôi size, kho phải giữ vì phôi phân biệt theo size). `resolvedBy='variation'`.
 2. Không khớp size → `resolveBarcodeSkuBase() + '-' + size` — `resolvedBy='base-size'`.
 3. Không có config/variations → `type + '-' + size` — `resolvedBy='fallback'` (thủ kho nên soát).
 4. Quét gặp SKU chưa có trong kho → **tự tạo item** `autoCreated=true` (badge vàng ở trang kho, tồn đi từ 0 xuống âm), không chặn.

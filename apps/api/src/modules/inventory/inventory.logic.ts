@@ -1,4 +1,5 @@
 import { resolveBarcodeSkuBase } from '../order/barcode-label';
+import { matchVariationBySize } from '../order/variation-size-match';
 
 /**
  * Hàm thuần cho module tồn kho — tách khỏi service để test không cần Nest.
@@ -15,7 +16,8 @@ export type InventorySkuResolvedBy = 'variation' | 'base-size' | 'fallback';
 /**
  * Suy SKU KHO từ đơn — KHÁC tem barcode (tem gọt đuôi size để công nhân đối
  * chiếu kệ; kho thì phôi phân biệt theo size nên phải GIỮ đuôi):
- * 1. Có variation SKU mà norm kết thúc đúng size đơn → dùng NGUYÊN variation
+ * 1. Có variation SKU khớp size đơn (`matchVariationBySize` — `-L` không khớp
+ *    `-XL`) → dùng NGUYÊN variation
  *    đó (`CAMOSHIRT-XL`) — ca chuẩn.
  * 2. Có variations nhưng không khớp size → SKU gốc (resolveBarcodeSkuBase)
  *    + `-<size>` nếu đơn có size.
@@ -30,11 +32,8 @@ export function resolveInventorySku(
   const skus = variationSkus.map((s) => s?.trim()).filter(Boolean);
   const size = order.size?.trim();
 
-  if (size && skus.length > 0) {
-    const target = norm(size);
-    const matched = skus.find((sku) => norm(sku).endsWith(target));
-    if (matched) return { sku: matched.toUpperCase(), resolvedBy: 'variation' };
-  }
+  const matched = matchVariationBySize(skus, size, (s) => s);
+  if (matched) return { sku: matched.toUpperCase(), resolvedBy: 'variation' };
 
   if (skus.length > 0) {
     const base = resolveBarcodeSkuBase(skus);
