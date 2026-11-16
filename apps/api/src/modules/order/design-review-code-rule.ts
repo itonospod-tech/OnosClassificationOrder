@@ -27,6 +27,13 @@ const DESIGN_REVIEW_CODE_BY_DESIGN_KEY: Record<string, Partial<Record<keyof Desi
     chestLeft: 'POLOKIDTHEU', // thêu ngực
     placket: 'POLOKIDTRU', // thêu trụ
   },
+  // Hoodie AOP túi custom (11/2026): ảnh túi đến ở ô `back` (4 sp này chỉ in
+  // `front`, quy ước ô back = túi) → tool template `...T`. Không có back → mã
+  // thường (`designReviewCode`: HD230/HDZIP230/HD270/HDZIP270).
+  AOPHOODIE: { back: 'HD230T' },
+  AOPZIPHOODIE: { back: 'HDZIP230T' },
+  'PRE-HOODIE270': { back: 'HD270T' },
+  'PRE-ZHOODIE270': { back: 'HDZIP270T' },
 };
 
 /**

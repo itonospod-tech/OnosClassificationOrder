@@ -45,6 +45,23 @@ describe('resolveDesignReviewCodeByDesigns — mã tool theo option', () => {
     expect(resolveDesignReviewCodeByDesigns('AOP-YOUTH-POLO-EMLOGO', { front: url, placket: url })).toBeNull();
   });
 
+  it('hoodie AOP có ảnh back (túi custom) → mã ...T; chỉ front → null (mã thường)', () => {
+    const cases: Array<[string, string]> = [
+      ['AOPHOODIE', 'HD230T'],
+      ['AOPZIPHOODIE', 'HDZIP230T'],
+      ['PRE-HOODIE270', 'HD270T'],
+      ['PRE-ZHOODIE270', 'HDZIP270T'],
+    ];
+    for (const [sku, code] of cases) {
+      expect(resolveDesignReviewCodeByDesigns(sku, { front: url, back: url })).toBe(code);
+      expect(resolveDesignReviewCodeByDesigns(sku, { front: url })).toBeNull();
+      expect(resolveDesignReviewCodeByDesigns(sku, { front: url, back: '' })).toBeNull();
+    }
+    // Hoodie khác (Women's, Kids) không có rule túi.
+    expect(resolveDesignReviewCodeByDesigns('AOP-WOHOODIE', { front: url, back: url })).toBeNull();
+    expect(resolveDesignReviewCodeByDesigns('AOPKIDHOODIE', { front: url, back: url })).toBeNull();
+  });
+
   it('sản phẩm khác / không có SKU → null, hành vi không đổi', () => {
     expect(resolveDesignReviewCodeByDesigns('AOP-EMLOGOPOLO', { front: url, placket: url })).toBeNull();
     expect(resolveDesignReviewCodeByDesigns('PAOPPOLO', { front: url, chestLeft: url })).toBeNull();
