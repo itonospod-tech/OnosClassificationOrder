@@ -7,6 +7,7 @@ import {
   Clock,
   ExternalLink,
   FileWarning,
+  MessageSquareWarning,
   Package,
   RotateCcw,
   ShieldAlert,
@@ -20,12 +21,16 @@ import { RepositoryRemote } from '@/services';
 
 import { CopyButton } from '@/components/common/CopyButton';
 import { Spinner } from '@/components/common/Spinner';
+import { ReportIssueDialog } from '@/components/orders/ReportIssueDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import { handleAxiosError } from '@/utils';
 import { driveThumbUrl, driveViewUrl } from '@/utils/driveThumb';
+import { canReportIssue } from '@/utils/orderActions';
+
+import { usePermission } from '@/hooks/usePermission';
 
 interface Props {
   orderId: string | null;
@@ -85,10 +90,12 @@ function fmt(d?: string): string {
 }
 
 export function TaskDetailDialog({ orderId, onClose }: Props) {
-  const { t } = useTranslation(['designerTaskWorkflow', 'common']);
+  const { t } = useTranslation(['designerTaskWorkflow', 'common', 'orders']);
   const statusMeta = useMemo(() => buildStatusMeta(t), [t]);
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const { roleName } = usePermission();
 
   // Click ảnh → mở tab mới (Drive viewer) thay vì preview trong app → không tải
   // full file (mấy chục MB) qua server mình.
@@ -335,13 +342,20 @@ export function TaskDetailDialog({ orderId, onClose }: Props) {
             </div>
           )}
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end gap-2 pt-2">
+            {/* Báo khách lỗi file qua OnosPod (Orders.md §9f) — BE chặn cùng role. */}
+            {detail && canReportIssue(roleName) && (
+              <Button variant="outline" onClick={() => setReportOpen(true)}>
+                <MessageSquareWarning size={14} className="mr-2" /> {t('orders:rowActionsMenu.reportIssue')}
+              </Button>
+            )}
             <Button variant="outline" onClick={onClose}>
               {t('common:actions.close')}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+      <ReportIssueDialog order={detail} open={reportOpen} onOpenChange={setReportOpen} />
     </>
   );
 }

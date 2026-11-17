@@ -32,6 +32,7 @@ import {
   canCancelOrder,
   canForceComplete,
   canForceCompleteOrder,
+  canReportIssue,
   canUserHold,
   isCancelled,
   isHeld,
@@ -101,6 +102,7 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
 
   const canHold = canUserHold(roleName);
   const canComplete = canForceComplete(roleName);
+  const canReport = canReportIssue(roleName);
   // KHÔNG return null cho role thường nữa (từng chỉ hiện cho Admin/hold/
   // force-complete): 2 mục in nhãn theo chốt nghiệp vụ là của MỌI role —
   // role thường thấy menu chỉ gồm 2 mục in, các mục còn lại vẫn gate như cũ.
@@ -256,8 +258,8 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
               <CheckCircle2 size={14} className="mr-2" /> {t('rowActionsMenu.forceComplete')}
             </DropdownMenuItem>
           )}
-          {/* Báo khách lỗi file qua OnosPod (Orders.md §9f) — CHỈ Admin, BE chặn cùng role. */}
-          {isAdmin && (
+          {/* Báo khách lỗi file qua OnosPod (Orders.md §9f) — Admin + designer, BE chặn cùng role. */}
+          {canReport && (
             <DropdownMenuItem
               disabled={cancelled}
               title={cancelled ? t('rowActionsMenu.alreadyCancelled') : undefined}

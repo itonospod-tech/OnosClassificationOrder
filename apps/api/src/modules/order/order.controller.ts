@@ -145,6 +145,9 @@ export const ORDER_VIEW_ROLES = [
   RoleType.Fulfillment,
 ];
 
+/** "Báo khách" (Orders.md §9f) — MIRROR `REPORT_ISSUE_ROLES` ở `apps/web/src/utils/orderActions.ts`. */
+const REPORT_ISSUE_ROLES = [RoleType.SuperAdmin, RoleType.Admin, RoleType.DesignerLeader, RoleType.Designer];
+
 const ORDER_WRITE_ROLES = [
   RoleType.SuperAdmin,
   RoleType.Admin,
@@ -811,10 +814,10 @@ export class OrderController {
     return this.orderService.syncDesignByCustomer(dto.userSku, { user, ip, userAgent });
   }
 
-  // Nút "Báo khách" (Orders.md §9f, CHỈ Admin) — gửi issue lỗi file sang
+  // Nút "Báo khách" (Orders.md §9f, Admin + designer) — gửi issue lỗi file sang
   // OnosPod bằng tài khoản hệ thống, y như "Send Issue" ở qc.onospod.com.
   @Get(':id/onospod-issues')
-  @Auth([RoleType.SuperAdmin, RoleType.Admin])
+  @Auth(REPORT_ISSUE_ROLES)
   @ApiOperation({ summary: 'Danh sách báo lỗi (issue) OnosPod của 1 đơn' })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: GetOnospodIssuesResDto })
@@ -826,7 +829,7 @@ export class OrderController {
   }
 
   @Post(':id/onospod-issue')
-  @Auth([RoleType.SuperAdmin, RoleType.Admin])
+  @Auth(REPORT_ISSUE_ROLES)
   @ApiOperation({ summary: 'Báo khách lỗi file: tạo issue DESIGN trên OnosPod (ghi chú + 1 ảnh tuỳ chọn)' })
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: CreateOnospodIssueResDto })

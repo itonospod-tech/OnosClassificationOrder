@@ -23,7 +23,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { handleAxiosError } from '@/utils';
 
 interface Props {
-  order: WorkshopOrderRow | null;
+  /** Chỉ cần mấy field này — mở được từ bảng đơn lẫn chi tiết task designer. */
+  order: Pick<WorkshopOrderRow, '_id' | 'productionId' | 'type' | 'size'> | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -38,7 +39,7 @@ const STATUS_VARIANT: Record<string, 'warning' | 'success' | 'secondary'> = {
 };
 
 /**
- * "Báo khách" (Orders.md §9f, CHỈ Admin) — gửi issue lỗi file sang OnosPod
+ * "Báo khách" (Orders.md §9f, Admin + designer) — gửi issue lỗi file sang OnosPod
  * y như nút "Send Issue" ở qc.onospod.com: ghi chú + 1 ảnh khoanh lỗi (dán
  * Ctrl+V hoặc chọn file). Hiện kèm các issue đã gửi cho đơn để tránh báo trùng;
  * gửi lỗi mạng thì nạp lại danh sách để người bấm tự xem trước khi gửi lại.

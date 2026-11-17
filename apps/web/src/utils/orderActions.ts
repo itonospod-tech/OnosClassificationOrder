@@ -46,6 +46,15 @@ export const canUserHold = (roleName?: string): boolean =>
  */
 export const canForceComplete = (roleName?: string): boolean => roleName === 'SuperAdmin';
 
+/**
+ * "Báo khách" — gửi issue lỗi file sang OnosPod (Orders.md §9f): Admin + designer.
+ * MIRROR `REPORT_ISSUE_ROLES` ở `apps/api/src/modules/order/order.controller.ts`.
+ */
+export const REPORT_ISSUE_ROLES = ['SuperAdmin', 'Admin', 'DesignerLeader', 'Designer'];
+
+export const canReportIssue = (roleName?: string): boolean =>
+  !!roleName && REPORT_ISSUE_ROLES.includes(roleName);
+
 /** Đơn có chuyển hoàn thành được không — MIRROR guard ở `OrderService.forceCompleteOrder`. */
 export function canForceCompleteOrder(
   o: { cancelledAt?: string | Date | null; heldAt?: string | Date | null; fulfillmentCompletedAt?: string | Date | null },
