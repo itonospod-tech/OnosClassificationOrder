@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { TFunction } from 'i18next';
@@ -28,6 +28,7 @@ import type {   FulfillmentStage,ProductionOrderRow, WorkshopConfig } from 'shar
 import {
   FulfillmentStageStatus,
   FulfillmentTransitionAction,
+  isSystemOnlyPriority,
   WorkshopConfigCategory,
 } from 'shared';
 import { toast } from 'sonner';
@@ -51,6 +52,7 @@ import { GuideStep, GuideZone } from './ScanGuide';
 import { ScanHeldBanner } from './ScanHeldBanner';
 import { useScanPrint } from './useScanPrint';
 import { useScanStockOut } from './useScanStockOut';
+import { useUrgentWaiting } from './useUrgentWaiting';
 
 /** Link sang trang danh mục lỗi công đoạn — đặt ở góc vùng "Báo lỗi". */
 function AddErrorLink() {
@@ -189,6 +191,21 @@ export function FulfillmentScanActionDialog({
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
+  // Hoàn thành 1 đơn thường khi công đoạn còn đơn "Làm ngay" chờ → lần quét OK đầu chỉ nhắc,
+  // lần sau mới hoàn thành (Orders.md §17.5). Đơn đang mở là "Làm ngay" thì không nhắc.
+  const {
+    list: urgentList,
+    resolve: resolveUrgent,
+    mayHaveMore: urgentMayHaveMore,
+  } = useUrgentWaiting(isMyTask && !isSystemOnlyPriority(order.priority), order._id);
+  const [urgentAck, setUrgentAck] = useState(false);
+  const urgentAckRef = useRef(false);
+  // Quét sang đơn khác ngay trong popup → nhắc lại từ đầu cho đơn mới.
+  useEffect(() => {
+    urgentAckRef.current = false;
+    setUrgentAck(false);
+  }, [order._id]);
+
   // Trừ tồn kho theo đơn (`ACT-STOCK-OUT` + OK chốt; auto sau in label nếu xưởng bật).
   const {
     stockOutOpen,
@@ -222,6 +239,16 @@ export function FulfillmentScanActionDialog({
     savingRef.current = true;
     setSaving(true);
     try {
+      if (!urgentAckRef.current) {
+        const urgent = await resolveUrgent();
+        if (urgent.length > 0) {
+          urgentAckRef.current = true;
+          setUrgentAck(true);
+          beepError();
+          toast.warning(t('fulfillmentDialog.urgent.confirmToast', { count: urgent.length }));
+          return;
+        }
+      }
       // Đang chờ/làm lại → start trước, rồi complete (1 lần quét = xong).
       if (stageStatus === FulfillmentStageStatus.Waiting || stageStatus === FulfillmentStageStatus.Rework) {
         await RepositoryRemote.fulfillment.transition(order._id, {
@@ -408,6 +435,30 @@ export function FulfillmentScanActionDialog({
           </DialogTitle>
         </DialogHeader>
         {held && <ScanHeldBanner holdReason={order.holdReason} />}
+        {urgentList.length > 0 && (
+          <div className="rounded-md border-2 border-red-600 bg-red-50 px-4 py-3 text-red-800 dark:bg-red-950/40 dark:text-red-200">
+            <p className="flex items-center gap-2 text-lg font-bold max-md:text-base">
+              <ShieldAlert size={22} className="shrink-0" />
+              {t('fulfillmentDialog.urgent.title', {
+                count: urgentList.length,
+                more: urgentMayHaveMore ? '+' : '',
+                stage: myStageLabel,
+              })}
+            </p>
+            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-base">
+              {urgentList.slice(0, 12).map((u) => (
+                <span key={u._id}>
+                  {u.productionId}
+                  {u.size ? <span className="font-sans text-sm opacity-75"> · {u.size}</span> : null}
+                </span>
+              ))}
+              {urgentList.length > 12 && <span>…</span>}
+            </p>
+            <p className="mt-1 text-sm font-semibold">
+              {urgentAck ? t('fulfillmentDialog.urgent.ackHint') : t('fulfillmentDialog.urgent.hint')}
+            </p>
+          </div>
+        )}
 
         <div className="flex-1 min-h-0 grid gap-6 md:grid-cols-2 max-md:gap-4">
           {/* Mockup — chiếm 1 nửa, cao hết modal + nút mở ảnh gốc to */}

@@ -39,6 +39,7 @@ import {
   getFactoryToolCheckReworkSync,
   loadFactoryFlowTypes,
 } from '../../utils/merged-flow-factory';
+import { withUrgentDateBypass } from '../../utils/urgent-date-bypass';
 import { CustomerOrderEventService } from '../customer-event/customer-order-event.service';
 import { OrderDocument, OrderEntity } from '../order/order.entity';
 import { OrderService } from '../order/order.service';
@@ -891,7 +892,7 @@ export class FulfillmentTaskService {
         // `readyForFulfill: true` đảm bảo không lộ orphan ngược (đơn từng vào
         // pipeline rồi toolResultNote toggle khỏi 'ok' → readyForFulfill=false
         // nhưng stage chưa clear). Match scope với FactoryOverview.
-        return {
+        return withUrgentDateBypass({
           ...base,
           readyForFulfill: true,
           currentFulfillmentStage: stage,
@@ -899,31 +900,31 @@ export class FulfillmentTaskService {
           designerStatus: { $ne: 'rework' },
           // Held orders are not work to pick up; they live in the `held` tab (Orders.md §9b).
           heldAt: { $exists: false },
-        };
+        });
       case 'held':
         // Exact complement of the held cut above: same waiting conditions, held.
-        return {
+        return withUrgentDateBypass({
           ...base,
           readyForFulfill: true,
           currentFulfillmentStage: stage,
           [`fulfillmentStages.${stage}.status`]: FulfillmentStageStatus.Waiting,
           designerStatus: { $ne: 'rework' },
           heldAt: { $exists: true },
-        };
+        });
       case 'in-progress':
-        return {
+        return withUrgentDateBypass({
           ...base,
           readyForFulfill: true,
           currentFulfillmentStage: stage,
           [`fulfillmentStages.${stage}.status`]: FulfillmentStageStatus.InProgress,
-        };
+        });
       case 'rework':
-        return {
+        return withUrgentDateBypass({
           ...base,
           readyForFulfill: true,
           currentFulfillmentStage: stage,
           [`fulfillmentStages.${stage}.status`]: FulfillmentStageStatus.Rework,
-        };
+        });
       case 'done':
         // "Đã xong" (positional) = đã hoàn thành stage này (có completedAt),
         // KHÔNG dính lỗi (reworkCount 0/thiếu), VÀ đơn đang ở phía SAU mình

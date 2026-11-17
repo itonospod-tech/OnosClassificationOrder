@@ -19,6 +19,7 @@ import {
 import { Status } from 'shared';
 
 import { getExcludedFactoryIdSync } from '../../utils/excluded-factory';
+import { withUrgentDateBypass } from '../../utils/urgent-date-bypass';
 import { OrderDocument, OrderEntity } from '../order/order.entity';
 import type { AuditContext } from '../order-log/order-log.service';
 import { OrderLogService } from '../order-log/order-log.service';
@@ -432,6 +433,8 @@ export class DesignerTaskService {
     // rejected drawer): chỉ hiện đơn vào sản xuất trong khoảng đã chọn (mặc
     // định hôm nay). Trước đây chỉ cột "Đã xong" lọc theo `designerCompletedAt`.
     baseFilter.inProductionAt = { $gte: range.start, $lte: range.end };
+    // 3 cột đang có việc: đơn "Làm ngay" hiện bất kể ngày (Orders.md §17.5).
+    const activeFilter = withUrgentDateBypass(baseFilter);
 
     // Drawer "Không làm được" = đơn user TỪNG báo không làm được rồi bàn giao đi
     // (giờ assignee đã là người khác) → query theo lịch sử `designerRejections`,
@@ -451,16 +454,16 @@ export class DesignerTaskService {
 
     const [assignedRaw, inProgressRaw, reworkRaw, doneRaw, fixedRaw, watchingRaw, rejectedRaw] = await Promise.all([
       this.orderModel
-        .find({ ...baseFilter, designerStatus: DesignerStatus.Assigned })
+        .find({ ...activeFilter, designerStatus: DesignerStatus.Assigned })
         .sort({ priority: -1, designerAssignedAt: -1, inProductionAt: -1 })
         .lean(),
       this.orderModel
-        .find({ ...baseFilter, designerStatus: DesignerStatus.InProgress })
+        .find({ ...activeFilter, designerStatus: DesignerStatus.InProgress })
         .sort({ priority: -1, designerStartedAt: -1, inProductionAt: -1 })
         .lean(),
       // "Cần làm lại" — loại đơn đang giữ ở Soát tool (chờ Support) → watching.
       this.orderModel
-        .find({ ...baseFilter, ...notMarker, designerStatus: DesignerStatus.Rework })
+        .find({ ...activeFilter, ...notMarker, designerStatus: DesignerStatus.Rework })
         .sort({ priority: -1, designerReworkAt: -1, inProductionAt: -1 })
         .lean(),
       // "Đã xong" = done KHÔNG dính lỗi (designerReworkCount = 0/thiếu), đơn
