@@ -12,7 +12,8 @@
     "unhold": "Mở giữ",
     "forceComplete": "Chuyển hoàn thành",
     "restore": "Hoàn tác",
-    "reworkBack": "Đẩy về"
+    "reworkBack": "Đẩy về",
+    "reportIssue": "Báo khách"
   },
   "importSubaction": {
     "create": "Tạo mới",
@@ -47,7 +48,8 @@
     "status": "Trạng thái đơn (OnosPod)",
     "fulfillmentStage": "Công đoạn {{stage}}",
     "currentFulfillmentStage": "Công đoạn hiện tại",
-    "fulfillmentStages": "Trạng thái các công đoạn"
+    "fulfillmentStages": "Trạng thái các công đoạn",
+    "onospodIssue": "Báo lỗi OnosPod"
   },
   "designerStatusLabels": {
     "unassigned": "Chưa gán",

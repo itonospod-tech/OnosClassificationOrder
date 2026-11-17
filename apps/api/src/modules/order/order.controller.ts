@@ -1,6 +1,19 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthUser } from 'core';
+import { ApiFile, AuthUser, IFile } from 'core';
 import {
   ApplyCuttingFilesDto,
   ApplyCuttingFilesResDto,
@@ -29,6 +42,8 @@ import {
   CancelOrderResDto,
   CheckOrderDesignResDto,
   ClaimDesignerTasksDto,
+  CreateOnospodIssueDto,
+  CreateOnospodIssueResDto,
   DesignerBacklogResDto,
   DesignerBreakdownResDto,
   ExportShippingLabelsDto,
@@ -55,6 +70,7 @@ import {
   GetLifecycleTrackResDto,
   GetNextDesignReviewOrderDto,
   GetNextDesignReviewOrderResDto,
+  GetOnospodIssuesResDto,
   GetOrderByProductionIdResDto,
   GetOrderDashboardDto,
   GetOrderDashboardResDto,
@@ -115,6 +131,7 @@ import { Auth, ClientIp, UserAgent } from '@/decorators';
 import type { UserDocument } from '../user/user.entity';
 import { OnospodHoldSyncService } from './onospod-hold-sync.service';
 import { OnospodImportService } from './onospod-import.service';
+import { OnospodIssueService } from './onospod-issue.service';
 import { OrderService } from './order.service';
 import { ShippingLabelPdfService } from './shipping-label-pdf.service';
 
@@ -162,6 +179,7 @@ export class OrderController {
     private readonly orderService: OrderService,
     private readonly onospodImportService: OnospodImportService,
     private readonly onospodHoldSyncService: OnospodHoldSyncService,
+    private readonly onospodIssueService: OnospodIssueService,
     private readonly shippingLabelPdfService: ShippingLabelPdfService,
     @Inject('winston') private readonly logger: Logger,
   ) {}
@@ -791,6 +809,49 @@ export class OrderController {
       }),
     });
     return this.orderService.syncDesignByCustomer(dto.userSku, { user, ip, userAgent });
+  }
+
+  // Nút "Báo khách" (Orders.md §9f, CHỈ Admin) — gửi issue lỗi file sang
+  // OnosPod bằng tài khoản hệ thống, y như "Send Issue" ở qc.onospod.com.
+  @Get(':id/onospod-issues')
+  @Auth([RoleType.SuperAdmin, RoleType.Admin])
+  @ApiOperation({ summary: 'Danh sách báo lỗi (issue) OnosPod của 1 đơn' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetOnospodIssuesResDto })
+  async getOnospodIssues(@Param('id') id: string, @AuthUser() user: UserDocument): Promise<GetOnospodIssuesResDto> {
+    this.logger.info({
+      message: JSON.stringify({ method: 'GET', url: '/orders/:id/onospod-issues', id, userId: user?._id }),
+    });
+    return { success: true, data: await this.onospodIssueService.listIssues(id) };
+  }
+
+  @Post(':id/onospod-issue')
+  @Auth([RoleType.SuperAdmin, RoleType.Admin])
+  @ApiOperation({ summary: 'Báo khách lỗi file: tạo issue DESIGN trên OnosPod (ghi chú + 1 ảnh tuỳ chọn)' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: CreateOnospodIssueResDto })
+  @ApiFile({ name: 'file' })
+  async createOnospodIssue(
+    @Param('id') id: string,
+    @Body() dto: CreateOnospodIssueDto,
+    @UploadedFile() file: IFile | undefined,
+    @AuthUser() user: UserDocument,
+    @ClientIp() ip: string,
+    @UserAgent() userAgent: string,
+  ): Promise<CreateOnospodIssueResDto> {
+    this.logger.info({
+      message: JSON.stringify({
+        method: 'POST',
+        url: '/orders/:id/onospod-issue',
+        id,
+        hasFile: Boolean(file),
+        userId: user?._id,
+        ip,
+        userAgent,
+      }),
+    });
+    const data = await this.onospodIssueService.createIssue(id, dto.description, file, { user, ip, userAgent });
+    return { success: true, data };
   }
 
   @Post(':id/tool-check-done')

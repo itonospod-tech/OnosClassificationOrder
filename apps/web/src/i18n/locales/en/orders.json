@@ -274,6 +274,31 @@
       "submitBtn": "Mark as completed",
       "submitting": "Marking…",
       "success": "Order marked as completed"
+    },
+    "reportIssue": {
+      "title": "Report file issue to customer",
+      "hint": "Sent to OnosPod like the \"Send Issue\" button: the seller sees it under Issue Orders and re-uploads the file. Issue type: DESIGN.",
+      "noteLabel": "Note for the customer",
+      "notePlaceholder": "E.g. Front and back artwork is too close to the safe zone, please scale it down",
+      "imageLabel": "Screenshot marking the issue (optional)",
+      "imageHint": "Paste an image (Ctrl+V) or choose a file — PNG/JPG/WEBP, up to 10 MB.",
+      "chooseImage": "Choose image",
+      "removeImage": "Remove image",
+      "imageTooLarge": "Image is larger than 10 MB.",
+      "imageInvalid": "Only PNG/JPG/WEBP/GIF images are accepted.",
+      "existingTitle": "Already reported on OnosPod",
+      "existingEmpty": "No issue reported for this order yet.",
+      "existingLoading": "Loading reported issues…",
+      "existingError": "Could not load issues from OnosPod.",
+      "status": {
+        "OPEN": "Waiting for customer",
+        "NEED_TO_CHECK": "Customer sent a new file",
+        "RESOLVED": "Resolved",
+        "CLOSED": "Closed"
+      },
+      "sending": "Sending…",
+      "submitBtn": "Send issue",
+      "success": "Issue sent to the customer"
     }
   },
   "filterBar": {
@@ -554,7 +579,8 @@
     "forceComplete": "Mark as completed",
     "printShippingLabel": "Print shipping label",
     "shippingLabelNotFound": "Could not load label data for this order (cancelled?).",
-    "shippingLabelNoAddress": "Order {{productionId}} has no shipping address — refusing to print a blank label. Try \"Check new design\" or wait for the OnosPod address cron."
+    "shippingLabelNoAddress": "Order {{productionId}} has no shipping address — refusing to print a blank label. Try \"Check new design\" or wait for the OnosPod address cron.",
+    "reportIssue": "Report to customer"
   },
   "orderActions": {
     "alreadyCancelled": "Order already cancelled.",
