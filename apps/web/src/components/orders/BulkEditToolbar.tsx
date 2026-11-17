@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import type { BarcodeLabel, ExportShippingLabelsRes, HeldPrintSkip, OrderWorkshopField, ShippingLabel, WorkshopConfigCategory } from 'shared';
-import { ORDER_PRIORITIES, ORDER_PRIORITY_LABELS, ORDER_WORKSHOP_FIELDS } from 'shared';
+import { ORDER_PRIORITIES_SETTABLE, ORDER_PRIORITY_LABELS, ORDER_WORKSHOP_FIELDS } from 'shared';
 import { toast } from 'sonner';
 
 import { useWorkshopConfigStore } from '@/store/workshopConfigStore';
@@ -550,7 +550,7 @@ export function BulkEditToolbar({ selectedIds, onClear, onApplied, extraActions 
               autoFocus
             >
               <option value="">{t('bulkEdit.noPriorityOption')}</option>
-              {ORDER_PRIORITIES.map((p) => (
+              {ORDER_PRIORITIES_SETTABLE.map((p) => (
                 <option key={p} value={p}>
                   {ORDER_PRIORITY_LABELS[p]}
                 </option>

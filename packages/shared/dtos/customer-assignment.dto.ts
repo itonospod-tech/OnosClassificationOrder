@@ -1,5 +1,6 @@
 import { createZodDto } from '@anatine/zod-nestjs';
 import { extendApi } from '@anatine/zod-openapi';
+import { isSystemOnlyPriority } from '@shared/enums';
 import { ResZod } from '@shared/types';
 import { z } from 'zod';
 
@@ -46,7 +47,7 @@ export class SaveCustomerAssignmentConfigResDto extends createZodDto(extendApi(S
 
 /**
  * Cấu hình **ưu tiên đơn theo khách hàng** — kéo khách vào 1 trong 3 cột mức
- * ưu tiên (`OrderPriority` 1|2|3), lúc `importOrders` (tay lẫn tự động) đơn
+ * ưu tiên (`OrderPriority` 1|2|3 — mức 4 chỉ hệ thống đặt, không có ở đây), lúc `importOrders` (tay lẫn tự động) đơn
  * khớp `customerMatchKey(userSku, userEmail)` được auto-gán `priority` đó.
  *
  * - CHỈ gán khi đơn **chưa có** `priority` (đơn mới, hoặc đơn cũ import lại mà
@@ -61,7 +62,8 @@ export class SaveCustomerAssignmentConfigResDto extends createZodDto(extendApi(S
 export const CUSTOMER_PRIORITY_CONFIG_KEY = 'customer_priority_config';
 
 export const CustomerPriorityAllocZod = z.object({
-  priority: OrderPriorityZod,
+  // Mức 4 "Làm ngay" chỉ hệ thống đặt (ghi thẳng DB) — không cho vào cấu hình theo khách.
+  priority: OrderPriorityZod.refine((p) => !isSystemOnlyPriority(p), { message: 'System-only priority' }),
   customerIds: IDZod.array(),
 });
 export type CustomerPriorityAlloc = z.infer<typeof CustomerPriorityAllocZod>;

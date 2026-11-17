@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Flag, RefreshCw, Save } from 'lucide-react';
 import type { Customer, CustomerPriorityConfig as Config } from 'shared';
-import { ORDER_PRIORITIES } from 'shared';
+import { ORDER_PRIORITIES_SETTABLE } from 'shared';
 import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
@@ -47,7 +47,7 @@ export default function CustomerPriorityConfig() {
   const priorityMeta = useMemo(() => buildPriorityMeta(tOrders), [tOrders]);
   const columns = useMemo(
     () =>
-      ORDER_PRIORITIES.map((p) => ({
+      ORDER_PRIORITIES_SETTABLE.map((p) => ({
         id: String(p),
         title: priorityMeta[p].label,
         icon: <Flag size={15} style={{ color: priorityMeta[p].dot }} />,
@@ -143,7 +143,7 @@ export default function CustomerPriorityConfig() {
   const handleSave = async () => {
     const payload: Config = {
       enabled,
-      levels: ORDER_PRIORITIES.map((p) => ({ priority: p, customerIds: alloc[String(p)] || [] })).filter(
+      levels: ORDER_PRIORITIES_SETTABLE.map((p) => ({ priority: p, customerIds: alloc[String(p)] || [] })).filter(
         (l) => l.customerIds.length > 0,
       ),
     };

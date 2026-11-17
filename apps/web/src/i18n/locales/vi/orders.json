@@ -746,7 +746,8 @@
   "priority": {
     "low": "Ưu tiên",
     "normal": "Ưu tiên cao",
-    "high": "Ưu tiên nhất"
+    "high": "Ưu tiên nhất",
+    "urgent": "Làm ngay"
   },
   "vnp": {
     "title": "Vận đơn VNP — {{code}}",

@@ -746,7 +746,8 @@
   "priority": {
     "low": "Priority",
     "normal": "High priority",
-    "high": "Highest priority"
+    "high": "Highest priority",
+    "urgent": "Urgent"
   },
   "vnp": {
     "title": "VNP shipment — {{code}}",

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { ORDER_PRIORITIES, OrderPriority } from 'shared';
+import { isSystemOnlyPriority, ORDER_PRIORITIES_SETTABLE, OrderPriority } from 'shared';
 import { toast } from 'sonner';
 
 import { RepositoryRemote } from '@/services';
@@ -31,6 +31,11 @@ export function buildPriorityMeta(
       label: t('priority.high'),
       cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
       dot: '#ef4444',
+    },
+    [OrderPriority.Urgent]: {
+      label: t('priority.urgent'),
+      cls: 'bg-red-600 text-white dark:bg-red-600 dark:text-white',
+      dot: '#b91c1c',
     },
   };
 }
@@ -62,7 +67,8 @@ interface Props {
 }
 
 /**
- * Cell "Ưu tiên" — 3 mức cố định (không qua workshop_config). Cùng pattern
+ * Cell "Ưu tiên" — chọn 3 mức `ORDER_PRIORITIES_SETTABLE` (không qua workshop_config).
+ * Đơn ở mức 4 "Làm ngay" (chỉ hệ thống đặt) → badge đọc-only, không mở popover. Cùng pattern
  * `ColorBadgeSelectCell`/`AssigneeSelectCell`: badge trigger + `SelectPopover`,
  * PATCH qua `updateField` field `priority`.
  */
@@ -71,7 +77,7 @@ export function PrioritySelectCell({ orderId, value, canEdit, onUpdated }: Props
   const priorityMeta = useMemo(() => buildPriorityMeta(t), [t]);
   const priorityOptions: SelectOption[] = useMemo(
     () =>
-      ORDER_PRIORITIES.map((p) => ({
+      ORDER_PRIORITIES_SETTABLE.map((p) => ({
         _id: String(p),
         code: String(p),
         name: priorityMeta[p].label,
@@ -113,6 +119,8 @@ export function PrioritySelectCell({ orderId, value, canEdit, onUpdated }: Props
       {current?.label || '—'}
     </span>
   );
+
+  if (isSystemOnlyPriority(value)) return trigger;
 
   return (
     <SelectPopover
