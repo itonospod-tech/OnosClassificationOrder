@@ -144,11 +144,14 @@ import {
   HOLD_REASON_WAITING_ADDRESS,
   HOLD_REASON_WAITING_DESIGN,
   HoldSource,
+  isSystemOnlyPriority,
   isVariationColorLabel,
   LIFECYCLE_STAGE_KEYS,
   normalizeProductionOrderTracking,
   normalizeVariationText,
   OPEN_ORDER_STALE_DAYS,
+  ORDER_PRIORITIES_SETTABLE,
+  OrderPriority,
   parseProductionIdFromCuttingFilename,
   PRODUCT_LINE_WINDOW_DAYS,
   PRODUCT_LINES,
@@ -1453,10 +1456,17 @@ export class OrderService implements OnModuleInit {
     }
   }
 
-  /** `priority` không qua workshop_config — chỉ nhận '1'|'2'|'3' hoặc null (bỏ chọn). */
+  /**
+   * `priority` không qua workshop_config — chỉ nhận `ORDER_PRIORITIES_SETTABLE` ('1'|'2'|'3')
+   * hoặc null (bỏ chọn). Mức 4 "Làm ngay" chỉ hệ thống ghi thẳng DB → web/API không đặt được.
+   */
   private assertPriorityValueValid(value: string | string[] | null): void {
     const v = Array.isArray(value) ? value[0] ?? null : value;
-    if (v !== null && v !== '' && !['1', '2', '3'].includes(v)) {
+    if (v === null || v === '') return;
+    if (isSystemOnlyPriority(v)) {
+      throw new BadRequestException('Mức "Làm ngay" chỉ hệ thống đặt, không sửa qua web/API');
+    }
+    if (!ORDER_PRIORITIES_SETTABLE.map(String).includes(v)) {
       throw new BadRequestException(`Invalid priority value "${v}"`);
     }
   }
@@ -6788,6 +6798,10 @@ export class OrderService implements OnModuleInit {
     this.assertNotHeld(before as unknown as { heldAt?: Date | null });
     // Đơn đã hủy → khóa hẳn (không có đường mở lại như hold).
     this.assertNotCancelled(before as unknown as { cancelledAt?: Date | null });
+    // Đơn đang ở mức "Làm ngay" (chỉ hệ thống đặt) → không ai hạ/bỏ được qua web/API.
+    if (dto.field === 'priority' && isSystemOnlyPriority((before as { priority?: number }).priority)) {
+      throw new BadRequestException('Đơn đang ở mức "Làm ngay" (hệ thống đặt), không sửa ưu tiên qua web/API');
+    }
 
     const normalized = normalizeFieldValue(dto.field, dto.value);
     const patch: Record<string, unknown> = { [dto.field]: normalized };
@@ -7205,6 +7219,8 @@ export class OrderService implements OnModuleInit {
       cancelledAt: { $exists: false },
     };
     if (extraMatchFilter) Object.assign(matchFilter, extraMatchFilter);
+    // Đơn đang ở mức "Làm ngay" (chỉ hệ thống đặt) → loại khỏi bulk sửa ưu tiên (matchedCount thấp hơn).
+    if (dto.field === 'priority') matchFilter.priority = { $ne: OrderPriority.Urgent };
     // Snapshot with the SAME filter as the update: only orders really written get a log row (held,
     // cancelled or filtered-out orders used to get one too), and no-op rows are dropped.
     const beforeDocs = await this.orderModel

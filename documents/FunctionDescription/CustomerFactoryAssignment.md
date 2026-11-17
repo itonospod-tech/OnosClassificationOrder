@@ -174,6 +174,9 @@ component `CustomerPriorityConfig.tsx`, gate `role.manage`) — kéo khách vào
 trong **3 cột mức ưu tiên** (`OrderPriority` 1=Ưu tiên / 2=Ưu tiên cao / 3=Ưu
 tiên nhất, xem `Orders.md §17`), lúc **import đơn** (tay lẫn tự động — cùng đi
 qua `importOrders`) đơn khớp khách được **auto-gán `priority`** đó.
+Mức 4 "Làm ngay" KHÔNG có cột ở đây — chỉ hệ thống ghi thẳng DB
+(`ORDER_PRIORITIES_SETTABLE` dựng cột, `CustomerPriorityAllocZod` chặn 4 ở BE —
+xem `Orders.md §17.1`).
 
 ### 8.1 Quy tắc gán (chốt với user)
 

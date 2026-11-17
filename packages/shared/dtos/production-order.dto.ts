@@ -532,9 +532,9 @@ export const GetProductionOrdersZod = PageQueryZod.extend({
   productionError: z.string().optional(),
   /** Comma-separated workshop_config codes for machine (numéro máy). */
   machineNumber: z.string().optional(),
-  /** Lọc theo mức ưu tiên (`order.priority`) — '1'|'2'|'3'. Drill tab Soát tool.
+  /** Lọc theo mức ưu tiên (`order.priority`) — '1'|'2'|'3'|'4'. Drill tab Soát tool.
    *  `__any__` = đơn CÓ đặt ưu tiên (bất kỳ mức) — pill "Ưu tiên" trang Đơn hàng theo xưởng. */
-  priority: z.enum(['1', '2', '3', '__any__']).optional(),
+  priority: z.enum(['1', '2', '3', '4', '__any__']).optional(),
   /**
    * Designer state filter — CSV của DesignerStatus value. Hỗ trợ token đặc
    * biệt `__none__` để lọc đơn chưa có designerStatus (data legacy).
@@ -2821,8 +2821,8 @@ export const GetToolCheckOverviewZod = z.object({
   customer: z.string().optional(),
   /** Lọc theo máy (`order.machineNumber`). */
   machineNumber: z.string().optional(),
-  /** Lọc theo mức ưu tiên (`order.priority`) — '1'|'2'|'3'. */
-  priority: z.enum(['1', '2', '3']).optional(),
+  /** Lọc theo mức ưu tiên (`order.priority`) — '1'|'2'|'3'|'4'. */
+  priority: z.enum(['1', '2', '3', '4']).optional(),
   /** Product line from the "Tool" menu (Tool 3D / Tool 2D–DTF) — same CSV contract as `GET /orders`. */
   productLine: ProductLineFilterZod,
 });

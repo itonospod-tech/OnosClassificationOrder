@@ -7,13 +7,19 @@ import type { DailyOrdersReportNotification } from '../types';
 import { clamp, escapeMd } from './_helpers';
 
 const PRIORITY_EMOJI: Record<OrderPriority, string> = {
+  [OrderPriority.Urgent]: '🚨',
   [OrderPriority.High]: '🔴',
   [OrderPriority.Normal]: '🟠',
   [OrderPriority.Low]: '🔵',
 };
 
 /** Mức cao → thấp, khớp sort của `getPriorityCustomers()`. */
-const PRIORITY_ORDER: OrderPriority[] = [OrderPriority.High, OrderPriority.Normal, OrderPriority.Low];
+const PRIORITY_ORDER: OrderPriority[] = [
+  OrderPriority.Urgent,
+  OrderPriority.High,
+  OrderPriority.Normal,
+  OrderPriority.Low,
+];
 
 /**
  * Phễu vòng đời đơn **xoay ngang** (chặng = HÀNG, ngày = CỘT) → bảng gọn
