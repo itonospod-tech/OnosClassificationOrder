@@ -46,6 +46,7 @@ function buildActionBadge(
     force_complete: { label: t('actionBadge.forceComplete'), variant: 'warning' },
     restore: { label: t('actionBadge.restore'), variant: 'success' },
     rework_back: { label: t('actionBadge.reworkBack'), variant: 'warning' },
+    report_issue: { label: t('actionBadge.reportIssue'), variant: 'warning' },
   };
 }
 
@@ -66,6 +67,7 @@ function buildFieldLabel(t: TFunction<'orderLog'>): Record<string, string> {
     toolResultNote: t('fieldLabel.toolResultNote'),
     errorFile: t('fieldLabel.errorFile'),
     errorFileNote: t('fieldLabel.errorFileNote'),
+    onospodIssue: t('fieldLabel.onospodIssue'),
     assignee: t('fieldLabel.assignee'),
     assigneeNote: t('fieldLabel.assigneeNote'),
     designerStatus: t('fieldLabel.designerStatus'),

@@ -249,6 +249,15 @@ const checkDesignFromOnospod = (id: string) => {
   return callApi(`/${CONFIG.API_VERSION}/orders/${id}/check-design-from-onospod`, 'post', {});
 };
 
+/** Báo lỗi file cho khách qua OnosPod (Orders.md §9f) — `form` gồm `description` + `file` (ảnh, tuỳ chọn). */
+const createOnospodIssue = (id: string, form: FormData) => {
+  return callApi(`/${CONFIG.API_VERSION}/orders/${id}/onospod-issue`, 'post', form, 'upload');
+};
+
+const getOnospodIssues = (id: string) => {
+  return callApi(`/${CONFIG.API_VERSION}/orders/${id}/onospod-issues`, 'get');
+};
+
 const bulkCheckDesignFromOnospod = (ids: string[]) => {
   return callApi(`/${CONFIG.API_VERSION}/orders/bulk-check-design-from-onospod`, 'patch', { ids });
 };
@@ -328,6 +337,8 @@ export const order = {
   holdOrder,
   unholdOrder,
   checkDesignFromOnospod,
+  createOnospodIssue,
+  getOnospodIssues,
   bulkCheckDesignFromOnospod,
   bulkHold,
   markToolCheckDone,

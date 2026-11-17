@@ -32,6 +32,7 @@ export * from './mail.dto';
 export * from './notification.dto';
 export * from './order.dto';
 export * from './order-item.dto';
+export * from './onospod-issue.dto';
 export * from './order-log.dto';
 export * from './order-status.dto';
 export * from './partner-api.dto';

@@ -274,6 +274,31 @@
       "submitBtn": "Chuyển hoàn thành",
       "submitting": "Đang chuyển…",
       "success": "Đã chuyển đơn sang hoàn thành"
+    },
+    "reportIssue": {
+      "title": "Báo khách lỗi file",
+      "hint": "Gửi sang OnosPod như nút \"Send Issue\": khách thấy ở mục Issue Orders và gửi lại file. Loại lỗi: DESIGN.",
+      "noteLabel": "Ghi chú cho khách",
+      "notePlaceholder": "VD: Họa tiết thân trước và sau quá sát vùng safezone, thu nhỏ lại giúp xưởng ạ",
+      "imageLabel": "Ảnh khoanh lỗi (không bắt buộc)",
+      "imageHint": "Dán ảnh (Ctrl+V) hoặc chọn file — PNG/JPG/WEBP, tối đa 10 MB.",
+      "chooseImage": "Chọn ảnh",
+      "removeImage": "Bỏ ảnh",
+      "imageTooLarge": "Ảnh quá 10 MB.",
+      "imageInvalid": "Chỉ nhận ảnh PNG/JPG/WEBP/GIF.",
+      "existingTitle": "Đã báo trên OnosPod",
+      "existingEmpty": "Chưa có báo lỗi nào cho đơn này.",
+      "existingLoading": "Đang tải danh sách báo lỗi…",
+      "existingError": "Không tải được danh sách báo lỗi từ OnosPod.",
+      "status": {
+        "OPEN": "Chờ khách sửa",
+        "NEED_TO_CHECK": "Khách đã gửi file mới",
+        "RESOLVED": "Đã xử lý",
+        "CLOSED": "Đã đóng"
+      },
+      "sending": "Đang gửi…",
+      "submitBtn": "Gửi báo lỗi",
+      "success": "Đã gửi báo lỗi cho khách"
     }
   },
   "filterBar": {
@@ -554,7 +579,8 @@
     "forceComplete": "Chuyển hoàn thành",
     "printShippingLabel": "In label giao hàng",
     "shippingLabelNotFound": "Không tải được dữ liệu label cho đơn này (đơn đã hủy?).",
-    "shippingLabelNoAddress": "Đơn {{productionId}} chưa có địa chỉ giao — không in label trống. Thử \"Kiểm tra design mới\" hoặc chờ cron kéo địa chỉ từ OnosPod."
+    "shippingLabelNoAddress": "Đơn {{productionId}} chưa có địa chỉ giao — không in label trống. Thử \"Kiểm tra design mới\" hoặc chờ cron kéo địa chỉ từ OnosPod.",
+    "reportIssue": "Báo khách"
   },
   "orderActions": {
     "alreadyCancelled": "Đơn đã hủy.",

@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Ban, CheckCircle2, MoreHorizontal, PauseCircle, Pencil, PlayCircle, Printer, RefreshCw, Tag, Truck } from 'lucide-react';
+import {
+  Ban,
+  CheckCircle2,
+  MessageSquareWarning,
+  MoreHorizontal,
+  PauseCircle,
+  Pencil,
+  PlayCircle,
+  Printer,
+  RefreshCw,
+  Tag,
+  Truck,
+} from 'lucide-react';
 import type { BarcodeLabel, ShippingLabel } from 'shared';
 import { toast } from 'sonner';
 
@@ -32,6 +44,7 @@ import { CancelOrderDialog } from './CancelOrderDialog';
 import { EditOrderDesignDialog } from './EditOrderDesignDialog';
 import { ForceCompleteDialog } from './ForceCompleteDialog';
 import { HoldOrderDialog } from './HoldOrderDialog';
+import { ReportIssueDialog } from './ReportIssueDialog';
 import { hasShippingAddress, ShippingLabelPrint } from './ShippingLabelPrint';
 import { VnpShipmentDialog } from './VnpShipmentDialog';
 
@@ -48,6 +61,7 @@ interface Props {
  * `recover-held-from-onospod`, Orders.md §9c). Đơn đã hủy → disable design/hủy/
  * kiểm tra design. Đơn đang giữ → chỉ còn "Mở giữ" (mọi action khác khóa, TRỪ
  * "Kiểm tra design mới" — vẫn bấm được để tự mở giữ nếu design đã cập nhật).
+ * Admin có "Báo khách" (gửi issue lỗi file sang OnosPod — Orders.md §9f).
  * SuperAdmin có thêm "Chuyển hoàn thành" (ép đơn về đã hoàn thành sản xuất —
  * `Orders.md §23`), hẹp hơn cả Admin vì đó là cửa sửa dữ liệu.
  */
@@ -58,6 +72,7 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
   const [designOpen, setDesignOpen] = useState(false);
   const [holdOpen, setHoldOpen] = useState(false);
   const [vnpOpen, setVnpOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [unholding, setUnholding] = useState(false);
   const [checkingDesign, setCheckingDesign] = useState(false);
   const [forceCompleteOpen, setForceCompleteOpen] = useState(false);
@@ -241,6 +256,16 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
               <CheckCircle2 size={14} className="mr-2" /> {t('rowActionsMenu.forceComplete')}
             </DropdownMenuItem>
           )}
+          {/* Báo khách lỗi file qua OnosPod (Orders.md §9f) — CHỈ Admin, BE chặn cùng role. */}
+          {isAdmin && (
+            <DropdownMenuItem
+              disabled={cancelled}
+              title={cancelled ? t('rowActionsMenu.alreadyCancelled') : undefined}
+              onSelect={() => setReportOpen(true)}
+            >
+              <MessageSquareWarning size={14} className="mr-2" /> {t('rowActionsMenu.reportIssue')}
+            </DropdownMenuItem>
+          )}
           {isAdmin && (
             <DropdownMenuItem disabled={cancelled} onSelect={() => setVnpOpen(true)}>
               <Truck size={14} className="mr-2" /> {t('rowActionsMenu.vnpShipment')}
@@ -265,6 +290,7 @@ export function OrderRowActionsMenu({ order, onChanged }: Props) {
       <HoldOrderDialog order={order} open={holdOpen} onOpenChange={setHoldOpen} onDone={onChanged} />
       <EditOrderDesignDialog order={order} open={designOpen} onOpenChange={setDesignOpen} onDone={onChanged} />
       <VnpShipmentDialog order={order} open={vnpOpen} onOpenChange={setVnpOpen} onDone={onChanged} />
+      <ReportIssueDialog order={order} open={reportOpen} onOpenChange={setReportOpen} />
       <ForceCompleteDialog
         order={order}
         open={forceCompleteOpen}

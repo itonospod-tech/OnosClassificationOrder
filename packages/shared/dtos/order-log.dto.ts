@@ -25,6 +25,11 @@ export const ORDER_LOG_ACTIONS = [
    * `field` = stage đích, `before` = stage đã báo lỗi, `after` = lý do.
    */
   'rework_back',
+  /**
+   * Admin bấm "Báo khách" — gửi issue lỗi file sang OnosPod (Orders.md §9f).
+   * `field`=`onospodIssue`, `before`=null, `after`={ issueId, description, fileUrl }.
+   */
+  'report_issue',
 ] as const;
 export type ProductionOrderLogAction = (typeof ORDER_LOG_ACTIONS)[number];
 export const ProductionOrderLogActionZod = z.enum(ORDER_LOG_ACTIONS);

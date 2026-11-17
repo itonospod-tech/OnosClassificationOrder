@@ -253,6 +253,24 @@ export class ApiConfigService {
   }
 
   /**
+   * Tài khoản OnosPod CHUNG của hệ thống (Orders.md §9f) — dùng cho nút "Báo
+   * khách" (gửi issue lỗi file). Fac tự đăng nhập lấy token, lưu token ở
+   * `system_configs` và tự đăng nhập lại khi token hỏng (đổi mật khẩu), nên
+   * KHÔNG dán token tay như `ONOSPOD_QC_BEARER_TOKEN`. Token OnosPod chứa
+   * nguyên mật khẩu → dùng tài khoản riêng cho hệ thống, không dùng tài
+   * khoản cá nhân. Thiếu email/password hoặc `ONOSPOD_QC_API_URL` → null.
+   */
+  get onospodSystemAccount(): null | { loginUrl: string; qcApiUrl: string; email: string; password: string } {
+    const qcApiUrl = this.configService.get<string>('ONOSPOD_QC_API_URL') || '';
+    const email = this.configService.get<string>('ONOSPOD_SYSTEM_EMAIL') || '';
+    const password = this.configService.get<string>('ONOSPOD_SYSTEM_PASSWORD') || '';
+    const loginUrl =
+      this.configService.get<string>('ONOSPOD_SYSTEM_LOGIN_URL') || 'https://api-app.onospod.com/api/v1/login';
+    if (!qcApiUrl || !email || !password) return null;
+    return { loginUrl, qcApiUrl, email, password };
+  }
+
+  /**
    * Trần an toàn của đồng bộ GIỮ đơn theo OnosPod (Orders.md §9d). Vượt trần →
    * chặn riêng phần NHẢ, phần giữ vẫn ghi. Trống → mặc định trong
    * `onospod-hold-sync.plan.ts` (20 đơn / 50% / từ 5 đơn trở lên mới xét tỉ lệ).
