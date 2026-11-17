@@ -79,6 +79,12 @@
     "blockWrongStage": "Order is currently at stage \"{{stage}}\", not your stage.",
     "blockNotOperable": "Order is not in an actionable state.",
     "completedToast": "Completed \"{{stage}}\" · {{productionId}}",
+    "urgent": {
+      "title": "{{count}}{{more}} URGENT orders still waiting at {{stage}} — do these first",
+      "hint": "Pull these codes and do them first. To complete the open order anyway: scan OK (or Enter) twice.",
+      "ackHint": "Scan OK (or Enter) once more to complete the open order anyway.",
+      "confirmToast": "{{count}} urgent orders still waiting — scan OK again to complete this one anyway"
+    },
     "errorNotInStage": "Error code doesn't belong to stage \"{{stage}}\" — check the station's QR board.",
     "reportOnlyOnScanPage": "Reporting errors via scan is only available on the Scan Code page.",
     "notYourTask": "Not your task — cannot complete.",

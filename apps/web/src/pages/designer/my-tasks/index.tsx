@@ -37,12 +37,14 @@ import { ImagePreviewDialog } from '@/components/common/ImagePreviewDialog';
 import { PageHeader } from '@/components/common/PageHeader';
 import { PipelineDailyOverview } from '@/components/common/PipelineDailyOverview';
 import { SelectFilter } from '@/components/common/SelectFilter';
+import { PriorityBadge } from '@/components/orders/cells/PrioritySelectCell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
+import { groupCardsPinPriority, priorityGroupLevel } from '@/utils/kanbanPriorityGroups';
 
 import { useDebounce } from '@/hooks/useDebounce';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -1062,19 +1064,8 @@ function sizeRank(size?: string): number {
 }
 
 function groupByType(cards: DesignerTaskCard[], noTypeLabel: string): [string, DesignerTaskCard[]][] {
-  const map = new Map<string, DesignerTaskCard[]>();
-  for (const r of cards) {
-    const k = r.type || noTypeLabel;
-    const arr = map.get(k) || [];
-    arr.push(r);
-    map.set(k, arr);
-  }
-  // Trong mỗi nhóm sản phẩm: sắp xếp theo size ưu tiên XS→5XL (size giống nhau
-  // đứng cạnh nhau). Array.sort ổn định nên cùng size vẫn giữ thứ tự ngày từ BE.
-  for (const [, arr] of map) {
-    arr.sort((a, b) => sizeRank(a.size) - sizeRank(b.size));
-  }
-  return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  // Thẻ có ưu tiên ghim nhóm riêng đầu cột; thẻ thường theo loại A→Z rồi size (Orders.md §17.5).
+  return groupCardsPinPriority(cards, noTypeLabel, sizeRank);
 }
 
 function KPI({ label, value, accent }: { label: string; value: number | string; accent: string }) {
@@ -1176,9 +1167,15 @@ function Column({
                 ) : (
                   <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
                 )}
-                <span className="flex-1 truncate" title={type}>
-                  {type}
-                </span>
+                {priorityGroupLevel(type) ? (
+                  <span className="flex-1 truncate">
+                    <PriorityBadge priority={priorityGroupLevel(type)} />
+                  </span>
+                ) : (
+                  <span className="flex-1 truncate" title={type}>
+                    {type}
+                  </span>
+                )}
                 <span className="text-muted-foreground font-normal">
                   {selCount}/{rows.length}
                 </span>

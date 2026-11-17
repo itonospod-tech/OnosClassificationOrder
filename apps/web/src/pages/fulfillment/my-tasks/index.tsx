@@ -43,6 +43,7 @@ import { PipelineDailyOverview } from '@/components/common/PipelineDailyOverview
 import { SelectFilter } from '@/components/common/SelectFilter';
 import { Spinner } from '@/components/common/Spinner';
 import { AssignDesignerDialog } from '@/components/orders/AssignDesignerDialog';
+import { PriorityBadge } from '@/components/orders/cells/PrioritySelectCell';
 import { OrderDetailDialog } from '@/components/orders/OrderDetailDialog';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -52,6 +53,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
+import { groupCardsPinPriority, priorityGroupLevel } from '@/utils/kanbanPriorityGroups';
 
 import { useDebounce } from '@/hooks/useDebounce';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -1351,20 +1353,8 @@ function KPI({ label, value, accent }: { label: string; value: number; accent: s
 }
 
 function groupByType(cards: ProductionOrderRow[], noTypeLabel: string): [string, ProductionOrderRow[]][] {
-  const map = new Map<string, ProductionOrderRow[]>();
-  for (const r of cards) {
-    const k = r.type || noTypeLabel;
-    const arr = map.get(k) || [];
-    arr.push(r);
-    map.set(k, arr);
-  }
-  // Sort orders trong cùng 1 type theo size priority (S, M, L, XL, 2XL...).
-  // Tiebreak: giữ thứ tự gốc (BE đã sort theo inProductionAt desc) — dùng
-  // index gốc trong array làm secondary key qua `Array.prototype.sort` stable.
-  for (const [, arr] of map) {
-    arr.sort((a, b) => sizeRank(a.size) - sizeRank(b.size));
-  }
-  return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  // Thẻ có ưu tiên ghim nhóm riêng đầu cột; thẻ thường theo loại A→Z rồi size (Orders.md §17.5).
+  return groupCardsPinPriority(cards, noTypeLabel, sizeRank);
 }
 
 interface ColumnProps {
@@ -1511,9 +1501,15 @@ function Column({
                 ) : (
                   <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
                 )}
-                <span className="flex-1 truncate" title={type}>
-                  {type}
-                </span>
+                {priorityGroupLevel(type) ? (
+                  <span className="flex-1 truncate">
+                    <PriorityBadge priority={priorityGroupLevel(type)} />
+                  </span>
+                ) : (
+                  <span className="flex-1 truncate" title={type}>
+                    {type}
+                  </span>
+                )}
                 {showCheckbox && (
                   <span className="text-muted-foreground font-normal">
                     {selCount}/{rows.length}
