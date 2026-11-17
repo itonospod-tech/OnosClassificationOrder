@@ -1118,7 +1118,7 @@ Quét item **To Do + Ready** có `mrp_created_at` trong **14 ngày** (`ONOSPOD_O
 
 ## 9f. Báo khách lỗi file qua OnosPod ("Báo khách")
 
-Nút **"Báo khách"** ở menu "..." từng đơn (CHỈ Admin/SuperAdmin) = nút **"Send Issue"** màn `qc.onospod.com/en/workflow/support`: tạo 1 issue mã `DESIGN` trên dòng sản xuất bên OnosPod, kèm ghi chú + tối đa 1 ảnh khoanh lỗi. Seller thấy issue ở mục **"Issue Orders"** của `seller.onospod.com`, up lại file → issue chuyển `NEED_TO_CHECK`; file mới về fac theo đường import/§9e như cũ. Gửi issue **không** giữ/dừng đơn (bên OnosPod lẫn bên fac).
+Nút **"Báo khách"** ở menu "..." từng đơn + nút cùng tên trong chi tiết task "Việc của tôi" của designer (SuperAdmin/Admin/DesignerLeader/Designer — `REPORT_ISSUE_ROLES`, từ 17/11/2026 mở thêm cho designer) = nút **"Send Issue"** màn `qc.onospod.com/en/workflow/support`: tạo 1 issue mã `DESIGN` trên dòng sản xuất bên OnosPod, kèm ghi chú + tối đa 1 ảnh khoanh lỗi. Seller thấy issue ở mục **"Issue Orders"** của `seller.onospod.com`, up lại file → issue chuyển `NEED_TO_CHECK`; file mới về fac theo đường import/§9e như cũ. Gửi issue **không** giữ/dừng đơn (bên OnosPod lẫn bên fac).
 
 ### 9f.1 Tài khoản OnosPod hệ thống
 - Env `ONOSPOD_SYSTEM_EMAIL` / `ONOSPOD_SYSTEM_PASSWORD` (+ `ONOSPOD_QC_API_URL` sẵn có, `ONOSPOD_SYSTEM_LOGIN_URL` mặc định `https://api-app.onospod.com/api/v1/login`) → `ApiConfigService.onospodSystemAccount`; thiếu → endpoint trả 400 "Chưa cấu hình…". Tài khoản cần nhóm `super_root` (KHÔNG có `sale` — nhóm seller chỉ thấy đơn của chính mình).
@@ -1135,17 +1135,17 @@ Nút **"Báo khách"** ở menu "..." từng đơn (CHỈ Admin/SuperAdmin) = n�
 ### 9f.3 API
 | Method | Path | Auth | Ghi chú |
 |---|---|---|---|
-| GET | `/orders/:id/onospod-issues` | SuperAdmin, Admin | `paginateIssues(production_id)` → `OnospodIssue[]` (`id`, `code`, `status`, `description`, `createdAt`, `fileUrls`) |
-| POST | `/orders/:id/onospod-issue` | SuperAdmin, Admin | multipart: `description` (1–2000 ký tự) + `file` (ảnh, tuỳ chọn) → `OnospodIssue` vừa tạo |
+| GET | `/orders/:id/onospod-issues` | SuperAdmin, Admin, DesignerLeader, Designer | `paginateIssues(production_id)` → `OnospodIssue[]` (`id`, `code`, `status`, `description`, `createdAt`, `fileUrls`) |
+| POST | `/orders/:id/onospod-issue` | SuperAdmin, Admin, DesignerLeader, Designer | multipart: `description` (1–2000 ký tự) + `file` (ảnh, tuỳ chọn) → `OnospodIssue` vừa tạo |
 
 DTO: `packages/shared/dtos/onospod-issue.dto.ts`. Trạng thái issue OnosPod: `OPEN` (chờ khách sửa) → `NEED_TO_CHECK` (khách đã gửi file mới) → `RESOLVED`/`CLOSED` (hầu như không ai bấm bên OnosPod).
 
 ### 9f.4 Frontend
-- `components/orders/ReportIssueDialog.tsx` (mở từ `OrderRowActionsMenu.tsx`): ghi chú, ảnh (dán Ctrl+V hoặc chọn file, xem trước), danh sách issue đã gửi cho đơn kèm trạng thái để tránh báo trùng. i18n `orders.dialogs.reportIssue.*` + `rowActionsMenu.reportIssue`; nhật ký đơn hiện badge `orderLog.actionBadge.reportIssue`.
+- `components/orders/ReportIssueDialog.tsx` (mở từ `OrderRowActionsMenu.tsx` và nút footer `pages/designer/my-tasks/TaskDetailDialog.tsx`; quyền FE `canReportIssue()` ở `utils/orderActions.ts` MIRROR `REPORT_ISSUE_ROLES` của controller): ghi chú, ảnh (dán Ctrl+V hoặc chọn file, xem trước), danh sách issue đã gửi cho đơn kèm trạng thái để tránh báo trùng. i18n `orders.dialogs.reportIssue.*` + `rowActionsMenu.reportIssue`; nhật ký đơn hiện badge `orderLog.actionBadge.reportIssue`.
 - Services: `RepositoryRemote.order.createOnospodIssue(id, FormData)` / `getOnospodIssues(id)`.
 
 ### 9f.5 Files
-`apps/api/src/modules/order/onospod-system.client.ts` (+ spec), `onospod-issue.service.ts` (+ `onospod-issue.spec.ts`), `order.controller.ts`, `order.module.ts`, `apps/api/src/shared/services/api-config.service.ts` (`onospodSystemAccount`), `packages/shared/dtos/{onospod-issue,order-log}.dto.ts`, `apps/web/src/components/orders/{ReportIssueDialog,OrderRowActionsMenu,OrderLogTimelineDialog}.tsx`, `apps/web/src/services/order.ts`.
+`apps/api/src/modules/order/onospod-system.client.ts` (+ spec), `onospod-issue.service.ts` (+ `onospod-issue.spec.ts`), `order.controller.ts`, `order.module.ts`, `apps/api/src/shared/services/api-config.service.ts` (`onospodSystemAccount`), `packages/shared/dtos/{onospod-issue,order-log}.dto.ts`, `apps/web/src/components/orders/{ReportIssueDialog,OrderRowActionsMenu,OrderLogTimelineDialog}.tsx`, `apps/web/src/pages/designer/my-tasks/TaskDetailDialog.tsx`, `apps/web/src/utils/orderActions.ts` (`canReportIssue`), `apps/web/src/services/order.ts`.
 
 ---
 
