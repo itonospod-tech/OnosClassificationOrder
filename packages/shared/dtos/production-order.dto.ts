@@ -2189,6 +2189,25 @@ export const GetErrorLogResZod = PageResZod.extend({
 });
 export class GetErrorLogResDto extends createZodDto(extendApi(GetErrorLogResZod)) {}
 
+// ─── Đơn Làm ngay (Orders.md §17.6) ───
+// Đơn mức 4 `OrderPriority.Urgent` chưa đóng hàng, mọi công đoạn — kanban chỉ-đọc
+// cạnh "Nhật ký bù lỗi". Tập nhỏ (vài chục đơn) nên trả hết, không phân trang.
+
+export const GetUrgentOrdersZod = z.object({
+  /** Xưởng chọn trên header (`?factoryId=`). Fulfillment bị khóa xưởng mình — chỉ thu hẹp. */
+  factoryId: z.string().optional(),
+});
+export class GetUrgentOrdersDto extends createZodDto(extendApi(GetUrgentOrdersZod)) {}
+
+export const UrgentOrderZod = ProductionOrderZod.extend({
+  /** Tên người đang giữ đơn: worker của công đoạn hiện tại, hoặc designer khi chưa vào fulfillment. */
+  holderName: z.string().optional(),
+});
+export type UrgentOrder = z.infer<typeof UrgentOrderZod>;
+
+export const GetUrgentOrdersResZod = PageResZod.extend({ data: UrgentOrderZod.array() });
+export class GetUrgentOrdersResDto extends createZodDto(extendApi(GetUrgentOrdersResZod)) {}
+
 // Admin/Manager đánh dấu hoàn thành lỗi hàng loạt.
 export const BulkResolveErrorZod = z.object({ ids: IDZod.array().min(1) });
 export class BulkResolveErrorDto extends createZodDto(extendApi(BulkResolveErrorZod)) {}

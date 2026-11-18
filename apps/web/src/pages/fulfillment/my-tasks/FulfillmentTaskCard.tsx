@@ -61,6 +61,10 @@ export interface FulfillmentTaskCardProps {
   onStart?: () => void;
   onComplete?: () => void;
   onReportError?: () => void;
+  /** Tắt kéo thả (trang "Đơn Làm ngay" — bảng không có DnD). */
+  disableDrag?: boolean;
+  /** Dòng phụ dưới thông tin sản phẩm (trang "Đơn Làm ngay": mức độ khẩn, xưởng, công đoạn, người giữ). */
+  extra?: React.ReactNode;
 }
 
 function smallThumb(url?: string): string | undefined {
@@ -115,6 +119,8 @@ export function FulfillmentTaskCard({
   onStart,
   onComplete,
   onReportError,
+  disableDrag = false,
+  extra,
 }: FulfillmentTaskCardProps) {
   const { t } = useTranslation(['fulfillmentWorkflow', 'common']);
   const state = (order.fulfillmentStages?.[myStage] ?? null) as FulfillmentStageState | null;
@@ -125,7 +131,7 @@ export function FulfillmentTaskCard({
 
   // Chỉ enable drag cho 2 column có rule: waiting/rework → in-progress.
   // Đơn đang giữ không kéo được (drop = start → BE trả 400).
-  const canDrag = !isHeld && (colKey === 'waiting' || colKey === 'rework');
+  const canDrag = !disableDrag && !isHeld && (colKey === 'waiting' || colKey === 'rework');
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: order._id,
     data: { col: colKey, status },
@@ -251,6 +257,8 @@ export function FulfillmentTaskCard({
             </Hint>
           )}
 
+          {extra}
+
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
             {ts.value && (
               <Hint
@@ -349,6 +357,8 @@ export function FulfillmentTaskCard({
         </div>
       ) : (
         colKey !== 'watching' &&
+        // Không có handler nào (thẻ chỉ xem) → không vẽ hàng nút rỗng.
+        (onStart || onComplete || onReportError) &&
         (status === FulfillmentStageStatus.Waiting ||
           status === FulfillmentStageStatus.Rework ||
           status === FulfillmentStageStatus.InProgress) && (

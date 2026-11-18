@@ -86,6 +86,8 @@ import {
   GetStaleOpenOrdersResDto,
   GetToolQueueReturnDto,
   GetToolQueueReturnResDto,
+  GetUrgentOrdersDto,
+  GetUrgentOrdersResDto,
   HoldOrderDto,
   HoldOrderResDto,
   ImportFromOnosPodDto,
@@ -1106,6 +1108,21 @@ export class OrderController {
       user?.factoryId,
       user?.fulfillmentStage,
     );
+  }
+
+  @Get('urgent')
+  @Auth(ORDER_VIEW_ROLES)
+  @ApiOperation({
+    summary:
+      'Đơn Làm ngay — đơn mức 4 chưa xong ở mọi công đoạn + đơn mức 4 xong hôm nay; Fulfillment khóa xưởng mình. Chỉ đọc.',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: GetUrgentOrdersResDto })
+  async getUrgentOrders(@Query() dto: GetUrgentOrdersDto, @AuthUser() user: UserDocument): Promise<GetUrgentOrdersResDto> {
+    this.logger.info({
+      message: JSON.stringify({ method: 'GET', url: '/orders/urgent', factoryId: dto.factoryId, userId: user?._id }),
+    });
+    return this.orderService.getUrgentOrders(dto, user?.role?.name, user?.factoryId);
   }
 
   @Post(':id/resolve-error')

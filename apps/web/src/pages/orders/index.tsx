@@ -11,6 +11,7 @@ const TAB_TO_PATH: Record<string, string> = {
   list: PATHS.ORDERS_WORKSHOP, // tab "list" đã tạm tắt từ trước, alias sang Workshop (default cũ)
   workshop: PATHS.ORDERS_WORKSHOP,
   'error-log': PATHS.ORDERS_ERROR_LOG,
+  urgent: PATHS.ORDERS_URGENT,
   import: PATHS.ORDERS_IMPORT,
   'cutting-files': PATHS.ORDERS_CUTTING_FILES,
 };

@@ -34,6 +34,7 @@
       "list": "Danh sách đơn",
       "classic": "Danh sách đơn (bảng phẳng)",
       "errorLog": "Nhật ký bù lỗi",
+      "urgent": "Đơn Làm ngay",
       "scanError": "Trạm quét mã",
       "stageErrors": "Danh mục lỗi công đoạn",
       "unmapped": "Không xác định xưởng",
@@ -65,6 +66,7 @@
     "badges": {
       "errorLogTodo": "Đơn lỗi cần xử lý trong công đoạn của bạn",
       "errorLogTodoAll": "Đơn lỗi chưa làm lại xong tại chặng báo lỗi (toàn hệ thống)",
+      "urgentOpen": "Đơn Làm ngay chưa xong (mức ưu tiên 4)",
       "designerUnassigned": "Đơn chưa gán designer (7 ngày gần nhất)",
       "designerBacklog": "Tổng tồn thiết kế (7 ngày gần nhất)",
       "designerBacklogSelf": "Tồn thiết kế của bạn (7 ngày gần nhất)",

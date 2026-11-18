@@ -10,6 +10,8 @@ export const PATHS = {
   ORDERS_WORKSHOP: '/ffm/orders/workshop',
   ORDERS_CLASSIC: '/ffm/orders/classic',
   ORDERS_ERROR_LOG: '/ffm/orders/error-log',
+  /** Đơn mức 4 "Làm ngay" chưa xong, mọi công đoạn (Orders.md §17.6). */
+  ORDERS_URGENT: '/ffm/orders/urgent',
   ORDERS_IMPORT: '/ffm/orders/import',
   ORDERS_CUTTING_FILES: '/ffm/orders/cutting-files',
   ORDERS_SCAN_ERROR: '/ffm/orders/scan-error',

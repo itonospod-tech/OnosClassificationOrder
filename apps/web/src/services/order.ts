@@ -208,6 +208,11 @@ const getErrorLog = (query: string = '') => {
   return callApi(`/${CONFIG.API_VERSION}/orders/error-log${query}`, 'get');
 };
 
+/** Trang "Đơn Làm ngay" (Orders.md §17.6) — `query` dạng `?factoryId=...` hoặc rỗng. */
+const getUrgentOrders = (query: string = '') => {
+  return callApi(`/${CONFIG.API_VERSION}/orders/urgent${query}`, 'get');
+};
+
 const getByProductionId = (code: string) => {
   return callApi(`/${CONFIG.API_VERSION}/orders/by-production-id/${encodeURIComponent(code)}`, 'get');
 };
@@ -327,6 +332,7 @@ export const order = {
   autoAssignApply,
   setProductionError,
   getErrorLog,
+  getUrgentOrders,
   getByProductionId,
   checkPendingDesigns,
   ensurePreview,

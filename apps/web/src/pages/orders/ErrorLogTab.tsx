@@ -45,6 +45,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 import { handleAxiosError } from '@/utils';
 import { cn } from '@/utils/cn';
+import { buildUrgencyMeta, formatDayOnly, formatDuration, type UrgencyKey, urgencyOf } from '@/utils/errorLogUrgency';
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
 import { isCancelled, isHeld } from '@/utils/orderActions';
 
@@ -67,73 +68,9 @@ type ErrorLogRow = WorkshopOrderRow & {
   productionErrorNote?: string;
   fulfillmentTimeline?: TimelineEntry[];
 };
-type UrgencyKey = 'new' | 'attention' | 'urgent' | 'critical';
 type TabKey = 'todo' | 'done';
 
 const DEFAULT_PAGE_SIZE = 30;
-
-function buildUrgencyMeta(
-  t: TFunction<'orderLog'>,
-): Record<UrgencyKey, { label: string; cls: string; chipCls: string; ringCls: string }> {
-  return {
-    new: {
-      label: t('urgency.new'),
-      cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',
-      chipCls: 'bg-sky-50 border-sky-300 text-sky-700',
-      ringCls: 'ring-sky-200',
-    },
-    attention: {
-      label: t('urgency.attention'),
-      cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-      chipCls: 'bg-amber-50 border-amber-300 text-amber-700',
-      ringCls: 'ring-amber-200',
-    },
-    urgent: {
-      label: t('urgency.urgent'),
-      cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-      chipCls: 'bg-orange-50 border-orange-300 text-orange-700',
-      ringCls: 'ring-orange-200',
-    },
-    critical: {
-      label: t('urgency.critical'),
-      cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 animate-pulse',
-      chipCls: 'bg-rose-50 border-rose-300 text-rose-700',
-      ringCls: 'ring-rose-200',
-    },
-  };
-}
-
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
-
-// Ngưỡng khẩn cấp theo GIỜ kể từ khi vào sản xuất (`inProductionAt`):
-// Mới <2h · Cần làm 2–4h · Gấp 4–6h · Khẩn cấp >6h.
-function urgencyOf(dateStr?: string): UrgencyKey {
-  if (!dateStr) return 'new';
-  const age = Date.now() - new Date(dateStr).getTime();
-  if (age < 2 * HOUR_MS) return 'new';
-  if (age < 4 * HOUR_MS) return 'attention';
-  if (age < 6 * HOUR_MS) return 'urgent';
-  return 'critical';
-}
-
-function formatDuration(dateStr?: string): string {
-  if (!dateStr) return '—';
-  const age = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(age / DAY_MS);
-  const hours = Math.floor((age % DAY_MS) / (60 * 60 * 1000));
-  if (days > 0) return `${days}d ${hours}h`;
-  const minutes = Math.floor((age % (60 * 60 * 1000)) / (60 * 1000));
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
-function formatDayOnly(d?: string): string {
-  if (!d) return '—';
-  const date = new Date(d);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`;
-}
 
 function stageLabel(key: string | undefined, t: TFunction<'orderLog'>): string {
   if (!key) return '—';
