@@ -147,23 +147,20 @@
     "empty": "No orders",
     "holder": "Current holder",
     "ageHint": "Time since entering production",
-    "boxes": {
-      "waiting": "Waiting",
-      "inProgress": "In progress",
-      "rework": "Rework / errors",
-      "done": "Done this week",
-      "watching": "Watching"
+    "designRow": "Design / tool check (not in the factory yet)",
+    "designCells": {
+      "waiting": "Waiting: tool check · design · entering Print",
+      "in-progress": "Designer working",
+      "rework": "Designer rework / tool error"
     },
-    "boxHints": {
-      "waiting": "In the factory, waiting at the current stage",
-      "inProgress": "Being worked at the current stage or by the designer",
-      "rework": "Carrying an error: sent back for rework, being fixed by the designer, or awaiting re-check",
-      "done": "Packed since Monday 00:00 this week",
-      "watching": "Not in the factory yet: tool check, design, or waiting for Print"
+    "cells": {
+      "waiting": "Waiting: {{stage}}",
+      "inProgress": "In progress: {{stage}}",
+      "rework": "Rework: {{stage}}"
     },
-    "position": {
-      "completed": "Packed",
-      "printQueue": "Waiting for Print"
-    }
+    "sewOutWaiting": "At sewing, waiting to come back",
+    "myStage": "Your stage",
+    "done": "Packed this week",
+    "doneHint": "Packed since Monday 00:00 this week, newest first"
   }
 }
