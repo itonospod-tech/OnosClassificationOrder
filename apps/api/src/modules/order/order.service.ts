@@ -72,6 +72,8 @@ import type {
   GetStaleOpenOrdersResDto,
   GetToolQueueReturnDto,
   GetToolQueueReturnResDto,
+  GetUrgentOrdersDto,
+  GetUrgentOrdersResDto,
   HoldOrderDto,
   HoldOrderResDto,
   ImportProductionOrdersDto,
@@ -88,6 +90,7 @@ import type {
   OrderWorkshopField,
   PreviewCuttingFilesDto,
   PreviewCuttingFilesResDto,
+  ProductionOrderRow,
   ProductionOrderShippingAddress,
   ProductLine,
   RecoverHeldOrdersResDto,
@@ -175,6 +178,7 @@ import {
   listSkipToolCheckFactoryIdsSync,
   loadFactoryFlowTypes,
 } from '../../utils/merged-flow-factory';
+import { buildUrgentOpenOrdersFilter } from '../../utils/urgent-open-orders';
 import { CustomerRepository } from '../customer/customer.repository';
 import { CustomerAssignmentService } from '../customer-assignment/customer-assignment.service';
 import { CustomerOrderEventService } from '../customer-event/customer-order-event.service';
@@ -448,6 +452,12 @@ function vnTodayString(): string {
 }
 function vnTodayStart(): Date {
   return vnDayStart(vnTodayString());
+}
+/** 0h VN thứ Hai của tuần hiện tại (tuần VN bắt đầu thứ Hai). */
+function vnWeekStart(): Date {
+  const today = vnTodayString();
+  const daysSinceMonday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+  return new Date(vnDayStart(today).getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
 }
 /**
  * VN-day range of a product-line view's "older open orders" indicator: from the oldest day that
@@ -10087,6 +10097,74 @@ export class OrderService implements OnModuleInit {
     }
 
     return { success: true, data: pageRes.data, total: pageRes.total, byUrgency };
+  }
+
+  /**
+   * Trang "Đơn Làm ngay" (Orders.md §17.6) — đơn mức 4 chưa xong ở MỌI công đoạn + đơn mức 4
+   * đóng hàng xong từ 0h VN thứ Hai tuần này (ô "Đã xong tuần này"). FE chia vào 5 ô theo vị trí đơn.
+   * Tập nhỏ (vài chục đơn) → trả hết, trần 500 cho an toàn. Sort mức cao trước rồi vào sản
+   * xuất lâu nhất trước. `holderName` = worker công đoạn hiện tại, chưa vào fulfillment thì designer.
+   */
+  async getUrgentOrders(
+    dto: GetUrgentOrdersDto,
+    roleName?: RoleType,
+    fulfillmentFactoryId?: string,
+  ): Promise<GetUrgentOrdersResDto> {
+    const filter = buildUrgentOpenOrdersFilter(
+      { roleName, fulfillmentFactoryId, factoryId: dto.factoryId },
+      productionFactoryClause(this.orderModel.db),
+      vnWeekStart(),
+    );
+    const res = await this.orderRepository.findAllAndCount<ProductionOrderRow>(filter, {
+      paging: { skip: 0, limit: 500 },
+      sort: { priority: -1, inProductionAt: 1, createdAt: 1 },
+      populate: [{ path: 'factory', select: ['name', 'shortName'] }],
+    });
+
+    const holderIdOf = (o: ProductionOrderRow): string | undefined => {
+      const stage = o.currentFulfillmentStage as FulfillmentStage | undefined;
+      return (stage ? o.fulfillmentStages?.[stage]?.assignee : o.assignee) || undefined;
+    };
+    const ids = [...new Set(res.data.map(holderIdOf).filter((id): id is string => !!id))];
+    const users = ids.length
+      ? await this.userModel.find({ _id: { $in: ids } }, { _id: 1, fullName: 1, email: 1 }).lean()
+      : [];
+    const nameById = new Map(users.map((u) => [String(u._id), u.fullName || u.email || '']));
+    const data = res.data.map((o) => {
+      const id = holderIdOf(o);
+      return { ...o, holderName: (id && nameById.get(String(id))) || undefined };
+    });
+    return { success: true, data, total: res.total };
+  }
+
+  /**
+   * Badge sidebar "Đơn Làm ngay" — CÙNG `buildUrgentOpenOrdersFilter` với trang (không gồm đơn
+   * xong tuần này). Tổng dùng điều kiện xưởng mặc định; nhánh theo xưởng bỏ loại trừ US vì trang
+   * chọn tường minh xưởng là nới loại trừ (như `countOpenOrdersByProductLine`).
+   */
+  async countUrgentOpen(
+    roleName?: RoleType,
+    fulfillmentFactoryId?: string,
+  ): Promise<{ total: number; byFactory: Record<string, number> }> {
+    const scope = { roleName, fulfillmentFactoryId };
+    const totalFilter = buildUrgentOpenOrdersFilter(scope, productionFactoryClause(this.orderModel.db));
+    const perFactoryFilter = buildUrgentOpenOrdersFilter(scope, { $exists: true, $ne: null });
+    const [res] = await this.orderModel.aggregate<{
+      total: Array<{ n: number }>;
+      byFactory: Array<{ _id: string | null; n: number }>;
+    }>([
+      // perFactoryFilter ⊇ totalFilter (chỉ nới loại trừ US) nên một $match nuôi cả hai.
+      { $match: perFactoryFilter },
+      {
+        $facet: {
+          total: [{ $match: totalFilter }, { $count: 'n' }],
+          byFactory: [{ $group: { _id: '$factoryId', n: { $sum: 1 } } }],
+        },
+      },
+    ]);
+    const byFactory: Record<string, number> = {};
+    for (const r of res?.byFactory ?? []) if (r._id) byFactory[String(r._id)] = r.n;
+    return { total: res?.total?.[0]?.n ?? 0, byFactory };
   }
 
   /**

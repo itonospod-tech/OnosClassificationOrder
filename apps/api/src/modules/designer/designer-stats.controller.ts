@@ -145,7 +145,7 @@ export class DesignerStatsController {
       (roleName === RoleType.Admin ||
         roleName === RoleType.SuperAdmin ||
         !!user?.role?.permissionCodes?.includes('page.orders'));
-    const [counts, errorLogTodo, errorLogByFactory, toolCheckByFactory, productLineCounts] = await Promise.all([
+    const [counts, errorLogTodo, errorLogByFactory, toolCheckByFactory, productLineCounts, urgentOpen] = await Promise.all([
       this.statsService.getSidebarCounts({
         designerScope,
         includeToolCheck,
@@ -181,11 +181,19 @@ export class DesignerStatsController {
             user?.fulfillmentStage,
           )
         : Promise.resolve(null),
+      // Badge "Đơn Làm ngay" — cùng tập role với Nhật ký bù lỗi (Support ẩn entry → null).
+      wantErrorLog ? this.orderService.countUrgentOpen(roleName, user?.factoryId) : Promise.resolve(null),
     ]);
 
     const byFactory: Record<
       string,
-      { errorLogTodo: number; toolCheckRework: number; toolCheckUnreviewed: number; productLineCounts?: ProductLineCounts }
+      {
+        errorLogTodo: number;
+        toolCheckRework: number;
+        toolCheckUnreviewed: number;
+        productLineCounts?: ProductLineCounts;
+        urgentOpen?: number;
+      }
     > = {};
     const cell = (id: string) =>
       (byFactory[id] ||= { errorLogTodo: 0, toolCheckRework: 0, toolCheckUnreviewed: 0 });
@@ -196,10 +204,17 @@ export class DesignerStatsController {
       target.toolCheckUnreviewed = c.toolCheckUnreviewed;
     }
     for (const [id, c] of Object.entries(productLineCounts?.byFactory ?? {})) cell(id).productLineCounts = c;
+    for (const [id, n] of Object.entries(urgentOpen?.byFactory ?? {})) cell(id).urgentOpen = n;
 
     return {
       success: true,
-      data: { errorLogTodo, ...counts, productLineCounts: productLineCounts?.total ?? null, byFactory },
+      data: {
+        errorLogTodo,
+        ...counts,
+        productLineCounts: productLineCounts?.total ?? null,
+        urgentOpen: urgentOpen?.total ?? null,
+        byFactory,
+      },
     };
   }
 

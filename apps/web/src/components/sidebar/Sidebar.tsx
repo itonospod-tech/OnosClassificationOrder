@@ -39,6 +39,7 @@ import {
   ShieldCheck,
   Shirt,
   ShoppingBag,
+  Siren,
   Spline,
   Tag,
   TreePine,
@@ -367,7 +368,7 @@ function withQuery(to: string, query: string): string {
  * still point at existing pages for now (e.g. the 6 product lines open the order list with
  * `?productLine=`, which the page does not filter on until phase 2A).
  *
- * The KEYS of the 3 badge-carrying entries (`orders-error-log`, `dash-designer`, `dash-tool-check`)
+ * The KEYS of the badge-carrying entries (`orders-error-log`, `orders-urgent`, `dash-designer`, `dash-tool-check`)
  * MUST stay unchanged — `badgeMap` attaches counts by key (SidebarBadges.md).
  *
  * Production-area links carry the `?factoryId=` chosen in the header factory picker
@@ -413,6 +414,15 @@ function buildMainItems(
       label: t('sidebar.orders.errorLog'),
       to: to(PATHS.ORDERS_ERROR_LOG),
       icon: <AlertTriangle size={14} />,
+      perm: 'page.orders',
+      hideForRoles: ['Support'],
+    },
+    {
+      // Open priority-4 "Làm ngay" orders across every stage (Orders.md §17.6) — same visibility as the error log.
+      key: 'orders-urgent',
+      label: t('sidebar.orders.urgent'),
+      to: to(PATHS.ORDERS_URGENT),
+      icon: <Siren size={14} />,
       perm: 'page.orders',
       hideForRoles: ['Support'],
     },
@@ -1150,6 +1160,14 @@ function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggleCollapse }: Sid
       counts.errorLogTodo,
       'red',
       personalErrorView ? t('sidebar.badges.errorLogTodo') : t('sidebar.badges.errorLogTodoAll'),
+    );
+    // Urgent (level 4) orders: the header factory scope narrows it like the page does; a factory
+    // missing from `byFactory` has none. `null`/absent (Support, older API) → no badge.
+    add(
+      'orders-urgent',
+      factoryScopeId ? (counts.byFactory?.[factoryScopeId]?.urgentOpen ?? 0) : counts.urgentOpen,
+      'red',
+      t('sidebar.badges.urgentOpen'),
     );
     add('dash-designer', counts.designerUnassigned, 'amber', t('sidebar.badges.designerUnassigned'));
     add(

@@ -138,5 +138,32 @@
     "selectedLabel": "Đã chọn",
     "markDoneCount": "Đánh dấu xong ({{count}})",
     "deselect": "Bỏ chọn"
+  },
+  "urgentPage": {
+    "title": "Đơn Làm ngay",
+    "subtitle": "Đơn mức ưu tiên Làm ngay chưa xong ở mọi xưởng — làm trước các đơn khác",
+    "total": "{{count}} đơn Làm ngay chưa xong",
+    "reload": "Tải lại",
+    "empty": "Không có đơn",
+    "holder": "Người đang giữ đơn",
+    "ageHint": "Thời gian kể từ khi vào sản xuất",
+    "boxes": {
+      "waiting": "Chờ làm",
+      "inProgress": "Đang làm",
+      "rework": "Làm lại / lỗi",
+      "done": "Đã xong tuần này",
+      "watching": "Đang theo dõi"
+    },
+    "boxHints": {
+      "waiting": "Đã vào xưởng, đang chờ ở công đoạn hiện tại",
+      "inProgress": "Công đoạn hiện tại hoặc designer đang làm",
+      "rework": "Đơn đang mang lỗi: bị đẩy về làm lại, designer sửa, hoặc lỗi chưa soát lại",
+      "done": "Đóng hàng xong từ 0h thứ Hai tuần này",
+      "watching": "Chưa vào xưởng: soát tool, thiết kế hoặc chờ vào In"
+    },
+    "position": {
+      "completed": "Đã đóng hàng",
+      "printQueue": "Chờ vào In"
+    }
   }
 }

@@ -12,6 +12,7 @@
 | Entry (key sidebar)                   | Badge vàng (`amber`)                       | Badge đỏ (`red`)                              |
 | ------------------------------------- | ------------------------------------------ | --------------------------------------------- |
 | Sản xuất → Nhật ký bù lỗi (`orders-error-log`)   | —                                          | `errorLogTodo` — đơn lỗi tab "Cần xử lý" theo góc nhìn chặng của viewer |
+| Sản xuất → Đơn Làm ngay (`orders-urgent`) | — | `urgentOpen` — đơn mức 4 chưa đóng hàng (Orders.md §17.6); đang chọn xưởng trên header → `byFactory[id].urgentOpen` |
 | Báo cáo → Designer (`dash-designer`) | `designerUnassigned` — đơn chưa gán (7 ngày) | `designerBacklog` — tổng tồn thiết kế 7 ngày (Designer thường: tồn của chính họ) |
 | Tool → Soát tool — tổng quan (`dash-tool-check`) | `toolCheckRework` — đơn In trả về cần làm lại | `toolCheckUnreviewed` — đơn chưa soát (7 ngày) |
 | Sản xuất → 3D/2D/Thêu/LED/Canvas/Gỗ (`line-<code>`) | — (badge **trung tính** xám, KHÔNG phải cảnh báo) | `productLineCounts[code]` — đơn CHƯA xong của dòng, `inProductionAt` trong `PRODUCT_LINE_WINDOW_DAYS` ngày VN; = đúng số dòng trang dòng sản phẩm hiện ở mặc định (`workshopStage=__open__` + cửa sổ đó). Hiện cả khi 0 (MenuRestructure-CEO.md §8.3). Đang chọn xưởng trên header → đọc `byFactory[factoryId].productLineCounts` (khớp trang dòng có `?factoryId=`); xưởng vắng khỏi `byFactory` = 0. Badge trung tính không vào chấm màu/pill gộp của mục cha (chỉ báo việc cần làm). |
@@ -46,7 +47,8 @@ SidebarCountsZod = {
   // CÙNG các số trên nhưng TÁCH THEO XƯỞNG — badge cho cụm menu riêng từng xưởng
   // (`Orders.md §25`). Xưởng không có đơn thì VẮNG key (FE coi như 0, không hiện badge).
   productLineCounts: { '3d' | '2d' | wood | embroidery | led | canvas | __none__: number } | null;
-  byFactory: Record<factoryId, { errorLogTodo: number; toolCheckRework: number; toolCheckUnreviewed: number }>;
+  urgentOpen?: number | null;         // null với Support; optional — API cũ không có
+  byFactory: Record<factoryId, { errorLogTodo: number; toolCheckRework: number; toolCheckUnreviewed: number; productLineCounts?; urgentOpen?: number }>;
 }
 // GetSidebarCountsResDto = ResZod + { data: SidebarCountsZod }
 ```
@@ -67,6 +69,7 @@ Nguyên tắc: **mọi con số MIRROR đúng công thức của trang tương �
 - `toolCheckRework` / `toolCheckUnreviewed` — `countDocuments` mirror `reworkMatch` / `unreviewedMatch` của `getToolCheckOverview` (7 ngày, `alive` = không xóa/hủy + `productionFactoryClause`).
 - `productLineCounts` — badge 6 mục nhóm "Sản xuất": `OrderService.countOpenOrdersByProductLine()` dựng filter bằng CHÍNH `buildOrderListFilter` mà trang dòng sản phẩm gọi (`productLine=X&workshopStage=__open__`, `createdFrom/To` = `PRODUCT_LINE_WINDOW_DAYS` (7) ngày lịch VN tính cả hôm nay, cùng phạm vi role) + `deletedAt` (trang đếm qua repository), rồi `$group` theo `productLine` thay vì lọc — nên số badge = số dòng khi bấm vào. Luôn đủ 6 key + `__none__` (dòng không có đơn = 0, vẫn hiện). `null` khi role ngoài `ORDER_VIEW_ROLES` hoặc thiếu `page.orders` (Admin/SuperAdmin bỏ qua, như `usePermission`). Theo xưởng: `byFactory[id].productLineCounts` = số của trang khi chọn xưởng ở header (`?factoryId=`). Cùng MỘT aggregate, 2 nhánh `$facet`: nhánh theo xưởng chạy trên filter `includeExcludedFactory` vì trang lọc tường minh xưởng là nới loại trừ US (chọn xưởng US thì trang VẪN hiện đơn US), còn tổng giữ filter mặc định (loại US). Chỉ xưởng có đơn mà role thấy được mới có mặt, công nhân không nhận danh sách xưởng khác. Khoá bằng `product-line-counts.spec.ts` (so cấu trúc filter badge ≡ filter trang cho 4 kiểu role); đã đo trên DB dev 06/09 (có cache xưởng US thật): Admin khớp 35/35 ô (tổng + TN/ML/US/TNW × 7 key, US 2d 18/18), công nhân Ép TN khớp 28/28 và `byFactory` chỉ có xưởng TN.
 - `byFactory` — `OrderService.countErrorLogTodoByFactory()` (lại dùng CHUNG `buildErrorLogBaseFilter` rồi `$group` theo `factoryId`) + `DesignerStatsService.getSidebarCountsByFactory()` (2 `$group` cho rework/unreviewed). Mỗi con số MỘT lượt `$group`, không phải mỗi xưởng một lượt đếm. **Khác các số tổng ở chỗ KHÔNG áp `productionFactoryClause`**: cụm menu xưởng US là lọc tường minh nên badge phải khớp số trang đó mở ra, không phải luôn 0 (`Orders.md §21`). Phạm vi theo role thì giữ nguyên như số tổng (Support vẫn không có `errorLogTodo`, role ngoài `TOOL_CHECK_ROLES` không có số soát tool).
+- `urgentOpen` — `OrderService.countUrgentOpen()` dùng CHUNG `buildUrgentOpenOrdersFilter` với trang `GET /orders/urgent` (không gồm đơn xong tuần này mà trang hiện thêm ở ô "Đã xong tuần này"): mức 4, chưa đóng hàng, không hủy/xóa; Fulfillment khóa xưởng mình, role khác toàn hệ thống. Một aggregate `$facet` như `productLineCounts`: tổng theo `productionFactoryClause`, nhánh `byFactory[id].urgentOpen` nới loại trừ US (khớp trang có `?factoryId=`). Support → `null` (entry ẩn).
 - `DesignerModule` import `OrderModule` (lấy `OrderService.countErrorLogTodo`; không vòng lặp — OrderModule không import DesignerModule).
 
 ## 6. Performance notes
@@ -78,7 +81,7 @@ Nguyên tắc: **mọi con số MIRROR đúng công thức của trang tương �
 ## 7. Permissions
 
 - Endpoint: `@Auth(SIDEBAR_COUNT_ROLES)` — từng số tự `null` theo role (bảng §3), FE ẩn badge khi `null`/0.
-- Hiển thị badge phụ thuộc entry sidebar có hiện không (filter perm sẵn có): `orders-error-log` (ẩn với Support qua `hideForRoles`), `dash-designer` (`page.designer_stats`), `dash-tool-check` (`page.tool_check`).
+- Hiển thị badge phụ thuộc entry sidebar có hiện không (filter perm sẵn có): `orders-error-log` + `orders-urgent` (ẩn với Support qua `hideForRoles`), `dash-designer` (`page.designer_stats`), `dash-tool-check` (`page.tool_check`).
 
 
 ## Ghi chú 07/09/2026 — badge theo xưởng

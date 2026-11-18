@@ -138,5 +138,32 @@
     "selectedLabel": "Selected",
     "markDoneCount": "Mark done ({{count}})",
     "deselect": "Deselect"
+  },
+  "urgentPage": {
+    "title": "Urgent orders",
+    "subtitle": "Open orders at the Urgent priority level in every factory — do these before anything else",
+    "total": "{{count}} open urgent orders",
+    "reload": "Reload",
+    "empty": "No orders",
+    "holder": "Current holder",
+    "ageHint": "Time since entering production",
+    "boxes": {
+      "waiting": "Waiting",
+      "inProgress": "In progress",
+      "rework": "Rework / errors",
+      "done": "Done this week",
+      "watching": "Watching"
+    },
+    "boxHints": {
+      "waiting": "In the factory, waiting at the current stage",
+      "inProgress": "Being worked at the current stage or by the designer",
+      "rework": "Carrying an error: sent back for rework, being fixed by the designer, or awaiting re-check",
+      "done": "Packed since Monday 00:00 this week",
+      "watching": "Not in the factory yet: tool check, design, or waiting for Print"
+    },
+    "position": {
+      "completed": "Packed",
+      "printQueue": "Waiting for Print"
+    }
   }
 }

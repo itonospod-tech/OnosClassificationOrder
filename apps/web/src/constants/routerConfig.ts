@@ -21,6 +21,7 @@ const Orders = lazy(() => import('../pages/orders'));
 const OrdersWorkshop = lazy(() => import('../pages/orders/workshop'));
 const OrdersClassic = lazy(() => import('../pages/orders/classic'));
 const OrdersErrorLog = lazy(() => import('../pages/orders/error-log'));
+const OrdersUrgent = lazy(() => import('../pages/orders/urgent'));
 const OrdersImport = lazy(() => import('../pages/orders/import'));
 const OrdersCuttingFiles = lazy(() => import('../pages/orders/cutting-files'));
 const OrdersScanError = lazy(() => import('../pages/orders/scan-error'));
@@ -67,6 +68,7 @@ export const routerConfig: RouterConfig[] = [
   { path: PATHS.ORDERS_WORKSHOP, component: OrdersWorkshop },
   { path: PATHS.ORDERS_CLASSIC, component: OrdersClassic },
   { path: PATHS.ORDERS_ERROR_LOG, component: OrdersErrorLog },
+  { path: PATHS.ORDERS_URGENT, component: OrdersUrgent },
   { path: PATHS.ORDERS_IMPORT, component: OrdersImport },
   { path: PATHS.ORDERS_CUTTING_FILES, component: OrdersCuttingFiles },
   { path: PATHS.ORDERS_SCAN_ERROR, component: OrdersScanError },

@@ -34,6 +34,7 @@
       "list": "Order list",
       "classic": "Order list (flat table)",
       "errorLog": "Error correction log",
+      "urgent": "Urgent orders",
       "scanError": "Scan station",
       "stageErrors": "Stage error catalog",
       "unmapped": "Unmapped factory",
@@ -65,6 +66,7 @@
     "badges": {
       "errorLogTodo": "Error orders pending in your stage",
       "errorLogTodoAll": "Error orders not yet reworked past the reporting stage (all factories)",
+      "urgentOpen": "Open urgent orders (priority 4)",
       "designerUnassigned": "Orders awaiting designer assignment (last 7 days)",
       "designerBacklog": "Total design backlog (last 7 days)",
       "designerBacklogSelf": "Your design backlog (last 7 days)",

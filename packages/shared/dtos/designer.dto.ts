@@ -1111,6 +1111,12 @@ export const SidebarCountsZod = z.object({
    */
   productLineCounts: ProductLineCountsZod.nullable(),
   /**
+   * Badge "Đơn Làm ngay": đơn mức 4 chưa xong, mirror `GET /orders/urgent` (cùng filter
+   * `buildUrgentOpenOrdersFilter`). `null` với Support (entry bị ẩn). Optional để FE/BE lệch
+   * phiên bản vẫn chạy.
+   */
+  urgentOpen: z.number().int().nonnegative().nullable().optional(),
+  /**
    * CÙNG các con số trên nhưng TÁCH THEO XƯỞNG — badge cho cụm menu riêng
    * của từng xưởng ở sidebar (`Orders.md §25`). Key = `factoryId`; xưởng
    * không có đơn nào thì VẮNG khỏi map (FE coi như 0, không hiện badge).
@@ -1129,6 +1135,8 @@ export const SidebarCountsZod = z.object({
          * open the order list or has no visible open order in this factory (FE: 0).
          */
         productLineCounts: ProductLineCountsZod.optional(),
+        /** `urgentOpen` của riêng xưởng này (= trang Đơn Làm ngay với `?factoryId=<id>`). Vắng = 0. */
+        urgentOpen: z.number().int().nonnegative().optional(),
       }),
     )
     .default({}),
