@@ -151,14 +151,14 @@
       "waiting": "Chờ làm",
       "inProgress": "Đang làm",
       "rework": "Làm lại / lỗi",
-      "done": "Đã xong hôm nay",
+      "done": "Đã xong tuần này",
       "watching": "Đang theo dõi"
     },
     "boxHints": {
       "waiting": "Đã vào xưởng, đang chờ ở công đoạn hiện tại",
       "inProgress": "Công đoạn hiện tại hoặc designer đang làm",
       "rework": "Đơn đang mang lỗi: bị đẩy về làm lại, designer sửa, hoặc lỗi chưa soát lại",
-      "done": "Đóng hàng xong từ 0h hôm nay",
+      "done": "Đóng hàng xong từ 0h thứ Hai tuần này",
       "watching": "Chưa vào xưởng: soát tool, thiết kế hoặc chờ vào In"
     },
     "position": {

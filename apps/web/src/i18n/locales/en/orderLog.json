@@ -151,14 +151,14 @@
       "waiting": "Waiting",
       "inProgress": "In progress",
       "rework": "Rework / errors",
-      "done": "Done today",
+      "done": "Done this week",
       "watching": "Watching"
     },
     "boxHints": {
       "waiting": "In the factory, waiting at the current stage",
       "inProgress": "Being worked at the current stage or by the designer",
       "rework": "Carrying an error: sent back for rework, being fixed by the designer, or awaiting re-check",
-      "done": "Packed since midnight today",
+      "done": "Packed since Monday 00:00 this week",
       "watching": "Not in the factory yet: tool check, design, or waiting for Print"
     },
     "position": {

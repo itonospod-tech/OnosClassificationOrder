@@ -25,7 +25,7 @@ export interface UrgentOpenOrdersScope {
 export function buildUrgentOpenOrdersFilter(
   scope: UrgentOpenOrdersScope,
   defaultFactoryClause: Record<string, unknown>,
-  /** Trang thêm đơn đóng hàng xong từ mốc này (ô "Đã xong hôm nay"); badge không truyền. */
+  /** Trang thêm đơn đóng hàng xong từ mốc này (ô "Đã xong tuần này"); badge không truyền. */
   completedSince?: Date,
 ): Record<string, unknown> {
   const filter: Record<string, unknown> = {

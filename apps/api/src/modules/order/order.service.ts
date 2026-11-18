@@ -453,6 +453,12 @@ function vnTodayString(): string {
 function vnTodayStart(): Date {
   return vnDayStart(vnTodayString());
 }
+/** 0h VN thứ Hai của tuần hiện tại (tuần VN bắt đầu thứ Hai). */
+function vnWeekStart(): Date {
+  const today = vnTodayString();
+  const daysSinceMonday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+  return new Date(vnDayStart(today).getTime() - daysSinceMonday * 24 * 60 * 60 * 1000);
+}
 /**
  * VN-day range of a product-line view's "older open orders" indicator: from the oldest day that
  * is not yet stale (`OPEN_ORDER_STALE_DAYS`) to the day before the line window
@@ -10095,7 +10101,7 @@ export class OrderService implements OnModuleInit {
 
   /**
    * Trang "Đơn Làm ngay" (Orders.md §17.6) — đơn mức 4 chưa xong ở MỌI công đoạn + đơn mức 4
-   * đóng hàng xong từ đầu ngày VN (ô "Đã xong hôm nay"). FE chia vào 5 ô theo vị trí đơn.
+   * đóng hàng xong từ 0h VN thứ Hai tuần này (ô "Đã xong tuần này"). FE chia vào 5 ô theo vị trí đơn.
    * Tập nhỏ (vài chục đơn) → trả hết, trần 500 cho an toàn. Sort mức cao trước rồi vào sản
    * xuất lâu nhất trước. `holderName` = worker công đoạn hiện tại, chưa vào fulfillment thì designer.
    */
@@ -10107,7 +10113,7 @@ export class OrderService implements OnModuleInit {
     const filter = buildUrgentOpenOrdersFilter(
       { roleName, fulfillmentFactoryId, factoryId: dto.factoryId },
       productionFactoryClause(this.orderModel.db),
-      vnTodayStart(),
+      vnWeekStart(),
     );
     const res = await this.orderRepository.findAllAndCount<ProductionOrderRow>(filter, {
       paging: { skip: 0, limit: 500 },
@@ -10133,7 +10139,7 @@ export class OrderService implements OnModuleInit {
 
   /**
    * Badge sidebar "Đơn Làm ngay" — CÙNG `buildUrgentOpenOrdersFilter` với trang (không gồm đơn
-   * xong hôm nay). Tổng dùng điều kiện xưởng mặc định; nhánh theo xưởng bỏ loại trừ US vì trang
+   * xong tuần này). Tổng dùng điều kiện xưởng mặc định; nhánh theo xưởng bỏ loại trừ US vì trang
    * chọn tường minh xưởng là nới loại trừ (như `countOpenOrdersByProductLine`).
    */
   async countUrgentOpen(

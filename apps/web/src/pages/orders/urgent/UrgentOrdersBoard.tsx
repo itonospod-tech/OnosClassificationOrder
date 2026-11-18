@@ -49,7 +49,7 @@ const REFRESH_MS = 60_000;
 
 /**
  * Ô của đơn theo VỊ TRÍ đơn (giống nhau với mọi người xem — Orders.md §17.6):
- *  - `done`: đóng hàng xong hôm nay (BE chỉ trả đơn xong từ đầu ngày VN).
+ *  - `done`: đóng hàng xong tuần này (BE chỉ trả đơn xong từ 0h VN thứ Hai).
  *  - `rework`: đang mang lỗi — designer làm lại, công đoạn hiện tại `rework`, hoặc lỗi chưa soát lại.
  *  - `in-progress`: công đoạn hiện tại đang làm, hoặc designer đang làm.
  *  - `waiting`: đã vào xưởng, đang chờ ở công đoạn hiện tại.
