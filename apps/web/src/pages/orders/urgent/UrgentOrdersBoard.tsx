@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { CheckCircle2, Clock, Eye, PlayCircle, RefreshCw, RotateCw, UserRound } from 'lucide-react';
+import { CheckCircle2, RefreshCw, UserRound } from 'lucide-react';
 import type { FulfillmentTransitionDto, ProductionOrderRow, UrgentOrder } from 'shared';
 import {
   factoryAllowsToolCheckRework,
+  FULFILLMENT_STAGES,
   FulfillmentStage,
   FulfillmentStageStatus,
   FulfillmentTransitionAction,
@@ -30,7 +31,7 @@ import { buildUrgencyMeta, formatDuration, urgencyOf } from '@/utils/errorLogUrg
 import { getStageLabel } from '@/utils/fulfillmentStageLabel';
 
 import { useFactoryScope } from '@/hooks/useFactoryScope';
-import { FulfillmentTaskCard, type FulfillmentTaskCardProps } from '@/pages/fulfillment/my-tasks/FulfillmentTaskCard';
+import { FulfillmentTaskCard } from '@/pages/fulfillment/my-tasks/FulfillmentTaskCard';
 import { PackWeightDialog } from '@/pages/fulfillment/my-tasks/PackWeightDialog';
 import { ReworkBackDialog } from '@/pages/fulfillment/my-tasks/ReworkBackDialog';
 
@@ -40,35 +41,37 @@ import { OrderErrorScanDialog } from '../scan-error/OrderErrorScanDialog';
 type UrgentRow = ProductionOrderRow &
   Pick<UrgentOrder, 'holderName'> & { factory?: { name?: string; shortName?: string } };
 
-/** 5 ô = 5 cột kanban công nhân (Task Fulfillment). Hàng trên 2 ô, hàng dưới 3 ô. */
-type BoxKey = 'waiting' | 'in-progress' | 'rework' | 'done' | 'watching';
-const TOP_BOXES: BoxKey[] = ['waiting', 'in-progress'];
-const BOTTOM_BOXES: BoxKey[] = ['rework', 'done', 'watching'];
+/**
+ * Bảng chia theo HÀNG CÔNG ĐOẠN (Orders.md §17.6): hàng "Thiết kế" (chưa vào xưởng) + 6 hàng
+ * fulfillment theo thứ tự chuyền, mỗi hàng 3 ô Chờ · Đang làm · Làm lại. Mỗi đơn nằm đúng 1 ô
+ * = chỗ đơn đang đứng, nên đơn ở hàng Ép trở xuống tức là đã In xong — không còn lẫn đơn chờ In
+ * với đơn đã in đang chờ khâu sau như bản 5 ô cũ.
+ */
+type RowKey = 'design' | FulfillmentStage;
+type CellKey = 'waiting' | 'in-progress' | 'rework';
+const ROW_ORDER: RowKey[] = ['design', ...FULFILLMENT_STAGES];
+const CELLS: CellKey[] = ['waiting', 'in-progress', 'rework'];
 
 const REFRESH_MS = 60_000;
 
+type Place = { row: RowKey; cell: CellKey } | 'done';
+
 /**
- * Ô của đơn theo VỊ TRÍ đơn (giống nhau với mọi người xem — Orders.md §17.6):
- *  - `done`: đóng hàng xong tuần này (BE chỉ trả đơn xong từ 0h VN thứ Hai).
- *  - `rework`: đang mang lỗi — designer làm lại, công đoạn hiện tại `rework`, hoặc lỗi chưa soát lại.
- *  - `in-progress`: công đoạn hiện tại đang làm, hoặc designer đang làm.
- *  - `waiting`: đã vào xưởng, đang chờ ở công đoạn hiện tại.
- *  - `watching`: chưa vào xưởng (soát tool / chờ thiết kế / chờ vào In).
+ * Chỗ đơn đang đứng. Đang mang lỗi thiết kế/tool (designer `rework` hoặc `toolResultNote='error'`)
+ * → hàng Thiết kế ô Làm lại (đứng TRƯỚC mọi công đoạn, như `upstreamClauses` của kanban);
+ * có công đoạn hiện tại → hàng công đoạn đó theo status; còn lại chưa vào xưởng.
  */
-function boxOf(o: UrgentRow): BoxKey {
+function placeOf(o: UrgentRow): Place {
   if (o.fulfillmentCompletedAt) return 'done';
+  if (o.designerStatus === 'rework' || o.toolResultNote === 'error') return { row: 'design', cell: 'rework' };
   const stage = o.currentFulfillmentStage as FulfillmentStage | undefined;
-  const status = stage ? o.fulfillmentStages?.[stage]?.status : undefined;
-  if (
-    o.designerStatus === 'rework' ||
-    status === FulfillmentStageStatus.Rework ||
-    (!!o.productionError && o.toolResultNote === 'error')
-  ) {
-    return 'rework';
+  if (stage) {
+    const status = o.fulfillmentStages?.[stage]?.status;
+    if (status === FulfillmentStageStatus.Rework) return { row: stage, cell: 'rework' };
+    if (status === FulfillmentStageStatus.InProgress) return { row: stage, cell: 'in-progress' };
+    return { row: stage, cell: 'waiting' };
   }
-  if (stage) return status === FulfillmentStageStatus.InProgress ? 'in-progress' : 'waiting';
-  if (o.designerStatus === 'in-progress') return 'in-progress';
-  return 'watching';
+  return { row: 'design', cell: o.designerStatus === 'in-progress' ? 'in-progress' : 'waiting' };
 }
 
 /** Mức ưu tiên cao trước, rồi vào sản xuất lâu nhất trước (thiếu `inProductionAt` → `createdAt`). */
@@ -79,63 +82,34 @@ function compareUrgent(a: UrgentRow, b: UrgentRow): number {
   return at(a) - at(b);
 }
 
-/** Nơi đơn đang đứng — cùng nhãn với "Nhật ký bù lỗi" (`orderLog.stage.*`) + nhãn công đoạn. */
-function positionLabel(o: UrgentRow, t: TFunction<'orderLog'>): string {
-  if (o.fulfillmentCompletedAt) return t('urgentPage.position.completed');
-  if (o.currentFulfillmentStage) return getStageLabel(t, o.currentFulfillmentStage);
-  if (!o.toolResultNote) return t('stage.toolCheck');
-  if (o.designerStatus === 'done') return t('urgentPage.position.printQueue');
-  return t('stage.designer');
+/** Nhãn ô ghi rõ tên khâu: "Chờ In", "Đang Ép"... — May xuất ra đang chờ = hàng đang ở bên may. */
+function cellLabel(t: TFunction<'orderLog'>, row: RowKey, cell: CellKey): string {
+  if (row === 'design') return t(`urgentPage.designCells.${cell}`);
+  if (row === FulfillmentStage.SewOut && cell === 'waiting') return t('urgentPage.sewOutWaiting');
+  const stage = getStageLabel(t, row);
+  if (cell === 'waiting') return t('urgentPage.cells.waiting', { stage });
+  if (cell === 'in-progress') return t('urgentPage.cells.inProgress', { stage });
+  return t('urgentPage.cells.rework', { stage });
 }
 
-function buildBoxMeta(
-  t: TFunction<'orderLog'>,
-): Record<BoxKey, { label: string; hint: string; icon: React.ElementType; accent: string }> {
-  return {
-    waiting: {
-      label: t('urgentPage.boxes.waiting'),
-      hint: t('urgentPage.boxHints.waiting'),
-      icon: Clock,
-      accent: 'border-zinc-300 dark:border-zinc-700',
-    },
-    'in-progress': {
-      label: t('urgentPage.boxes.inProgress'),
-      hint: t('urgentPage.boxHints.inProgress'),
-      icon: PlayCircle,
-      accent: 'border-indigo-300 dark:border-indigo-700',
-    },
-    rework: {
-      label: t('urgentPage.boxes.rework'),
-      hint: t('urgentPage.boxHints.rework'),
-      icon: RotateCw,
-      accent: 'border-rose-300 dark:border-rose-700',
-    },
-    done: {
-      label: t('urgentPage.boxes.done'),
-      hint: t('urgentPage.boxHints.done'),
-      icon: CheckCircle2,
-      accent: 'border-emerald-300 dark:border-emerald-700',
-    },
-    watching: {
-      label: t('urgentPage.boxes.watching'),
-      hint: t('urgentPage.boxHints.watching'),
-      icon: Eye,
-      accent: 'border-sky-300 dark:border-sky-700',
-    },
-  };
-}
+const CELL_ACCENT: Record<CellKey, string> = {
+  waiting: 'border-zinc-200 dark:border-zinc-700',
+  'in-progress': 'border-indigo-300 dark:border-indigo-700',
+  rework: 'border-rose-300 dark:border-rose-700',
+};
 
 /**
- * Bảng "Đơn Làm ngay": 5 ô kanban (trên 2 · dưới 3), chỉ đơn mức 4. Thẻ dùng lại
- * `FulfillmentTaskCard`; thao tác đi qua đúng endpoint/dialog của kanban Task Fulfillment
- * (`POST /fulfillment/:id/transition`, popup quét) nên quyền do BE quyết — công nhân chỉ có nút ở
- * đơn đang đứng đúng công đoạn + xưởng của mình, người khác bấm thẻ chỉ mở chi tiết đơn.
+ * Bảng "Đơn Làm ngay": chỉ đơn mức 4, chia theo hàng công đoạn × 3 ô (xem `placeOf`). Hàng trống
+ * thu gọn còn 1 dòng; công nhân thấy hàng công đoạn của mình ĐẦU TIÊN và tô nổi. Thẻ dùng lại
+ * `FulfillmentTaskCard` với `myStage` = công đoạn của hàng (giờ/hạn đúng khâu đó); thao tác đi qua
+ * đúng endpoint/dialog của kanban Task Fulfillment (`POST /fulfillment/:id/transition`, popup quét)
+ * nên quyền do BE quyết — công nhân chỉ có nút ở đơn đang đứng đúng công đoạn + xưởng của mình,
+ * người khác bấm thẻ chỉ mở chi tiết đơn.
  */
 export function UrgentOrdersBoard() {
   const { t } = useTranslation('orderLog');
   const { t: tf } = useTranslation(['fulfillmentWorkflow', 'common']);
   const urgencyMeta = useMemo(() => buildUrgencyMeta(t), [t]);
-  const boxMeta = useMemo(() => buildBoxMeta(t), [t]);
 
   const profile = useAuthStore((s) => s.profile);
   const roleName = profile?.role?.name as string | undefined;
@@ -183,12 +157,27 @@ export function UrgentOrdersBoard() {
     return () => clearInterval(id);
   }, [load]);
 
-  const boxes = useMemo(() => {
-    const out: Record<BoxKey, UrgentRow[]> = { waiting: [], 'in-progress': [], rework: [], done: [], watching: [] };
-    for (const o of rows) out[boxOf(o)].push(o);
-    for (const k of Object.keys(out) as BoxKey[]) out[k].sort(compareUrgent);
-    return out;
+  const { grid, done } = useMemo(() => {
+    const g = Object.fromEntries(
+      ROW_ORDER.map((r) => [r, { waiting: [], 'in-progress': [], rework: [] } as Record<CellKey, UrgentRow[]>]),
+    ) as Record<RowKey, Record<CellKey, UrgentRow[]>>;
+    const d: UrgentRow[] = [];
+    for (const o of rows) {
+      const place = placeOf(o);
+      if (place === 'done') d.push(o);
+      else g[place.row][place.cell].push(o);
+    }
+    for (const r of ROW_ORDER) for (const c of CELLS) g[r][c].sort(compareUrgent);
+    // Đã xong: mới đóng hàng nhất lên đầu.
+    d.sort((a, b) => String(b.fulfillmentCompletedAt ?? '').localeCompare(String(a.fulfillmentCompletedAt ?? '')));
+    return { grid: g, done: d };
   }, [rows]);
+
+  // Công nhân: hàng công đoạn của mình lên đầu, các hàng khác giữ thứ tự chuyền.
+  const rowOrder = useMemo(
+    () => (myStage ? [myStage, ...ROW_ORDER.filter((r) => r !== myStage)] : ROW_ORDER),
+    [myStage],
+  );
 
   /** Công nhân thao tác được ngay trên thẻ — đúng điều kiện BE `transition` (công đoạn + xưởng mình, không giữ). */
   const isMyTask = (o: UrgentRow) =>
@@ -246,13 +235,13 @@ export function UrgentOrdersBoard() {
     }
   };
 
-  const renderCard = (o: UrgentRow, box: BoxKey) => {
+  /** `row` = hàng chứa thẻ ('done' = khu Đã xong) — quyết định giờ/hạn của khâu nào hiện trên thẻ. */
+  const renderCard = (o: UrgentRow, row: RowKey | 'done', cell: CellKey | 'done') => {
     const mine = isMyTask(o);
     const urg = urgencyMeta[urgencyOf(o.inProductionAt ? String(o.inProductionAt) : undefined)];
-    const stage = (o.currentFulfillmentStage as FulfillmentStage | undefined) ?? FulfillmentStage.Print;
-    // 'watching' của thẻ vẽ dòng "đang ở công đoạn…" theo nghĩa kanban (chờ quay lại) — ở đây nơi
-    // đứng đã nằm trong dòng phụ nên dùng 'done' (chỉ hiển thị, không nút).
-    const colKey: FulfillmentTaskCardProps['colKey'] = box === 'watching' ? 'done' : box;
+    // Đã xong → mốc Đóng hàng (khâu Đóng hàng chưa ghi xong thì ẩn, tránh báo quá hạn);
+    // chưa vào xưởng → không có công đoạn nên ẩn giờ/hạn.
+    const cardStage = row === 'done' ? FulfillmentStage.Pack : row === 'design' ? FulfillmentStage.Print : row;
     const factoryName = o.factory?.shortName || o.factory?.name;
     return (
       <div
@@ -267,9 +256,12 @@ export function UrgentOrdersBoard() {
       >
         <FulfillmentTaskCard
           order={o}
-          myStage={stage}
-          colKey={colKey}
+          myStage={cardStage}
+          colKey={cell}
           disableDrag
+          hideStageTime={
+            row === 'design' || (row === 'done' && o.fulfillmentStages?.pack?.status !== FulfillmentStageStatus.Done)
+          }
           isCopied={copiedId === o._id}
           onCopyProductionId={() => void copyProductionId(o)}
           onPreview={(url, title, original) => setPreview({ url, title, original })}
@@ -295,7 +287,6 @@ export function UrgentOrdersBoard() {
                   {factoryName}
                 </span>
               )}
-              <span className="px-1 rounded bg-muted text-foreground">{positionLabel(o, t)}</span>
               {o.holderName && (
                 <span
                   className="inline-flex items-center gap-0.5 text-muted-foreground truncate max-w-[9rem]"
@@ -311,30 +302,64 @@ export function UrgentOrdersBoard() {
     );
   };
 
-  const renderBox = (key: BoxKey, cardsPerRow: 1 | 2) => {
-    const meta = boxMeta[key];
-    const Icon = meta.icon;
-    const list = boxes[key];
+  const renderRow = (row: RowKey) => {
+    const cells = grid[row];
+    const total = CELLS.reduce((n, c) => n + cells[c].length, 0);
+    const isMine = row === myStage;
+    const title = row === 'design' ? t('urgentPage.designRow') : getStageLabel(t, row);
+    // Hàng trống thu gọn còn header (trừ hàng của chính công nhân — luôn mở để thấy "Chờ 0 · Đang 0").
+    const collapsed = total === 0 && !isMine;
     return (
-      <section key={key} className={cn('rounded-lg border-2 bg-muted/30 flex flex-col min-h-0', meta.accent)}>
-        <header className="flex items-center gap-2 px-3 py-2 border-b border-border/60" title={meta.hint}>
-          <Icon size={15} className="text-muted-foreground" />
-          <h3 className="text-sm font-semibold text-foreground">{meta.label}</h3>
-          <span className="ml-auto font-mono text-xs rounded-full bg-background px-2 py-0.5 border border-border">
-            {list.length}
+      <section
+        key={row}
+        className={cn(
+          'rounded-lg border bg-muted/20',
+          isMine ? 'border-primary ring-1 ring-primary/40' : 'border-border',
+        )}
+      >
+        <header className={cn('flex items-center gap-2 px-3 py-2', !collapsed && 'border-b border-border/60')}>
+          <h3 className={cn('text-sm font-semibold', collapsed ? 'text-muted-foreground' : 'text-foreground')}>
+            {title}
+          </h3>
+          {isMine && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+              {t('urgentPage.myStage')}
+            </span>
+          )}
+          {!collapsed &&
+            CELLS.map((c) => (
+              <span key={c} className="hidden md:inline text-[11px] text-muted-foreground">
+                · {cellLabel(t, row, c)} <span className="font-mono text-foreground">{cells[c].length}</span>
+              </span>
+            ))}
+          <span
+            className={cn(
+              'ml-auto font-mono text-xs rounded-full px-2 py-0.5 border border-border',
+              collapsed ? 'text-muted-foreground' : 'bg-background',
+            )}
+          >
+            {total}
           </span>
         </header>
-        <div className="h-[420px] max-md:h-[60vh] overflow-y-auto p-2">
-          {list.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-              {loading ? <Spinner size={16} /> : t('urgentPage.empty')}
-            </div>
-          ) : (
-            <div className={cn('grid gap-2', cardsPerRow === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
-              {list.map((o) => renderCard(o, key))}
-            </div>
-          )}
-        </div>
+        {!collapsed && (
+          <div className="grid grid-cols-1 md:grid-cols-3 items-start gap-2 p-2">
+            {CELLS.map((c) => (
+              <div key={c} className={cn('rounded-md border-2 bg-background/60 flex flex-col min-h-0', CELL_ACCENT[c])}>
+                <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border/60">
+                  <span className="text-xs font-semibold text-foreground">{cellLabel(t, row, c)}</span>
+                  <span className="ml-auto font-mono text-[11px] text-muted-foreground">{cells[c].length}</span>
+                </div>
+                <div className="max-h-[360px] overflow-y-auto p-1.5 space-y-1.5">
+                  {cells[c].length === 0 ? (
+                    <div className="py-3 text-center text-[11px] text-muted-foreground">—</div>
+                  ) : (
+                    cells[c].map((o) => renderCard(o, row, c))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     );
   };
@@ -344,15 +369,37 @@ export function UrgentOrdersBoard() {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {t('urgentPage.total', { count: rows.length - boxes.done.length })}
+            {t('urgentPage.total', { count: rows.length - done.length })}
           </span>
+          {loading && rows.length === 0 && <Spinner size={13} />}
           <Button size="sm" variant="outline" className="ml-auto" onClick={() => void load()} disabled={loading}>
             {loading ? <Spinner size={13} /> : <RefreshCw size={13} />} {t('urgentPage.reload')}
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{TOP_BOXES.map((k) => renderBox(k, 2))}</div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">{BOTTOM_BOXES.map((k) => renderBox(k, 1))}</div>
+        <div className="space-y-2">{rowOrder.map(renderRow)}</div>
+
+        <section className="rounded-lg border-2 border-emerald-300 dark:border-emerald-700 bg-muted/20">
+          <header
+            className="flex items-center gap-2 px-3 py-2 border-b border-border/60"
+            title={t('urgentPage.doneHint')}
+          >
+            <CheckCircle2 size={15} className="text-emerald-600 dark:text-emerald-400" />
+            <h3 className="text-sm font-semibold text-foreground">{t('urgentPage.done')}</h3>
+            <span className="ml-auto font-mono text-xs rounded-full bg-background px-2 py-0.5 border border-border">
+              {done.length}
+            </span>
+          </header>
+          <div className="max-h-[360px] overflow-y-auto p-2">
+            {done.length === 0 ? (
+              <div className="py-3 text-center text-xs text-muted-foreground">{t('urgentPage.empty')}</div>
+            ) : (
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {done.map((o) => renderCard(o, 'done', 'done'))}
+              </div>
+            )}
+          </div>
+        </section>
 
         <ImagePreviewDialog
           open={!!preview}

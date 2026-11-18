@@ -65,6 +65,8 @@ export interface FulfillmentTaskCardProps {
   disableDrag?: boolean;
   /** Dòng phụ dưới thông tin sản phẩm (trang "Đơn Làm ngay": mức độ khẩn, xưởng, công đoạn, người giữ). */
   extra?: React.ReactNode;
+  /** Ẩn mốc giờ + hạn của `myStage` (trang "Đơn Làm ngay": đơn chưa vào xưởng thì không có công đoạn để tính). */
+  hideStageTime?: boolean;
 }
 
 function smallThumb(url?: string): string | undefined {
@@ -121,6 +123,7 @@ export function FulfillmentTaskCard({
   onReportError,
   disableDrag = false,
   extra,
+  hideStageTime = false,
 }: FulfillmentTaskCardProps) {
   const { t } = useTranslation(['fulfillmentWorkflow', 'common']);
   const state = (order.fulfillmentStages?.[myStage] ?? null) as FulfillmentStageState | null;
@@ -142,9 +145,9 @@ export function FulfillmentTaskCard({
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
 
-  const ts = timeStamp(t, state, status);
+  const ts = hideStageTime ? { label: '', value: undefined } : timeStamp(t, state, status);
   const deadline =
-    status === FulfillmentStageStatus.Waiting || status === FulfillmentStageStatus.InProgress
+    !hideStageTime && (status === FulfillmentStageStatus.Waiting || status === FulfillmentStageStatus.InProgress)
       ? getStageDeadline(
           order.priority,
           myStage,
@@ -393,7 +396,8 @@ function CardAction({
 }) {
   // On touch screens these are the worker's main buttons: full-height 44px, equal width, tinted fill.
   const colorCls = {
-    indigo: 'text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10 touch:bg-tone-info/10 touch:text-tone-info',
+    indigo:
+      'text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10 touch:bg-tone-info/10 touch:text-tone-info',
     emerald:
       'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10 touch:bg-tone-success/10 touch:text-tone-success',
     rose: 'text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10 touch:bg-tone-danger/10 touch:text-tone-danger',

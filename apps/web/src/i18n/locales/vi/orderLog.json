@@ -147,23 +147,20 @@
     "empty": "Không có đơn",
     "holder": "Người đang giữ đơn",
     "ageHint": "Thời gian kể từ khi vào sản xuất",
-    "boxes": {
-      "waiting": "Chờ làm",
-      "inProgress": "Đang làm",
-      "rework": "Làm lại / lỗi",
-      "done": "Đã xong tuần này",
-      "watching": "Đang theo dõi"
+    "designRow": "Thiết kế / soát tool (chưa vào xưởng)",
+    "designCells": {
+      "waiting": "Chờ soát tool · thiết kế · vào In",
+      "in-progress": "Designer đang làm",
+      "rework": "Designer làm lại / lỗi tool"
     },
-    "boxHints": {
-      "waiting": "Đã vào xưởng, đang chờ ở công đoạn hiện tại",
-      "inProgress": "Công đoạn hiện tại hoặc designer đang làm",
-      "rework": "Đơn đang mang lỗi: bị đẩy về làm lại, designer sửa, hoặc lỗi chưa soát lại",
-      "done": "Đóng hàng xong từ 0h thứ Hai tuần này",
-      "watching": "Chưa vào xưởng: soát tool, thiết kế hoặc chờ vào In"
+    "cells": {
+      "waiting": "Chờ {{stage}}",
+      "inProgress": "Đang {{stage}}",
+      "rework": "{{stage}} làm lại"
     },
-    "position": {
-      "completed": "Đã đóng hàng",
-      "printQueue": "Chờ vào In"
-    }
+    "sewOutWaiting": "Đang may, chờ trả ra",
+    "myStage": "Công đoạn của bạn",
+    "done": "Đã đóng hàng tuần này",
+    "doneHint": "Đóng hàng xong từ 0h thứ Hai tuần này, mới nhất lên đầu"
   }
 }
