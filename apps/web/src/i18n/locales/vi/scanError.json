@@ -79,12 +79,6 @@
     "blockWrongStage": "Đơn đang ở công đoạn \"{{stage}}\", không phải công đoạn của bạn.",
     "blockNotOperable": "Đơn không ở trạng thái thao tác được.",
     "completedToast": "Đã hoàn thành \"{{stage}}\" · {{productionId}}",
-    "urgent": {
-      "title": "Còn {{count}}{{more}} đơn LÀM NGAY đang chờ {{stage}} — làm các đơn này trước",
-      "hint": "Lấy hàng đúng các mã trên ra làm trước. Vẫn muốn hoàn thành đơn đang mở: quét OK (hoặc Enter) 2 lần.",
-      "ackHint": "Quét OK (hoặc Enter) thêm 1 lần nữa để vẫn hoàn thành đơn đang mở.",
-      "confirmToast": "Còn {{count}} đơn Làm ngay đang chờ — quét OK lần nữa để vẫn hoàn thành đơn này"
-    },
     "errorNotInStage": "Mã lỗi không thuộc công đoạn \"{{stage}}\" — kiểm tra bảng QR của trạm.",
     "reportOnlyOnScanPage": "Báo lỗi qua quét chỉ dùng ở trang Quét mã.",
     "notYourTask": "Không phải task của bạn — không hoàn thành được.",
