@@ -30,6 +30,18 @@ describe('matchVariationBySize — size là đuôi của size khác (L/XL, XL/2X
     expect(matchVariationBySize(['TEE3XL'], '3XL', sku)).toBe('TEE3XL');
   });
 
+  // Giới hạn ĐÃ BIẾT: luật chỉ xét size, không xét màu (đơn lưu `color: 'BLACK'`, SKU mã màu `BLK`).
+  // Config nhiều màu → lấy biến thể ĐÚNG SIZE đứng ĐẦU danh sách config, có thể khác màu đơn.
+  // Ca thật prod 20/11: "Women's Micro Rib Baby Tee - 1010", 2 đơn size S màu BLACK → `WT-1010-BAE-S`.
+  // Test này khoá hành vi hiện tại; đổi sang khớp màu thì sửa test có chủ đích.
+  it('config nhiều màu: chọn biến thể đúng size đứng đầu danh sách, KHÔNG xét màu (giới hạn đã biết)', () => {
+    const wt1010 = ['WT-1010-BLK-XS', 'WT-1010-BAE-XS', 'WT-1010-BAE-S', 'WT-1010-PIK-S', 'WT-1010-BLK-S', 'WT-1010-BLK-M'];
+    expect(matchVariationBySize(wt1010, 'S', sku)).toBe('WT-1010-BAE-S');
+    expect(resolveBarcodeSkuBase(wt1010, 'S')).toBe('WT-1010-BAE');
+    // Dù sai màu, size vẫn đúng — không còn rơi vào XS như luật cũ.
+    expect(matchVariationBySize(wt1010, 'S', sku)).not.toMatch(/-XS$/);
+  });
+
   it('thiếu size / không khớp → undefined', () => {
     expect(matchVariationBySize(['A-L'], undefined, sku)).toBeUndefined();
     expect(matchVariationBySize(['A-L'], '  ', sku)).toBeUndefined();
