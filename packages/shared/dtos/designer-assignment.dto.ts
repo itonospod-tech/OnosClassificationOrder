@@ -3,7 +3,7 @@ import { extendApi } from '@anatine/zod-openapi';
 import { ResZod } from '@shared/types';
 import { z } from 'zod';
 
-import { IDZod } from '../constants/common-zod';
+import { IDZod, RefIDZod } from '../constants/common-zod';
 
 /**
  * Cấu hình auto-gán designer — chuỗi ưu tiên 3 mức khi `OrderService.autoAssignAfterImport`
@@ -28,7 +28,7 @@ export const DESIGNER_ASSIGNMENT_CONFIG_KEY = 'designer_assignment_config';
 /** Ưu tiên 1 — các khách hàng (bảng `customers`) do 1 designer đảm nhận. */
 export const DesignerCustomerAllocZod = z.object({
   designerId: IDZod,
-  customerIds: IDZod.array(),
+  customerIds: RefIDZod.array(),
 });
 export type DesignerCustomerAlloc = z.infer<typeof DesignerCustomerAllocZod>;
 
