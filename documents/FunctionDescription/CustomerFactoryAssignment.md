@@ -145,6 +145,12 @@ Constant `CUSTOMER_ASSIGNMENT_CONFIG_KEY = 'customer_assignment_config'`.
   (và không lặp trong cùng xưởng) → `BadRequest`. Lưu `system_configs`.
 - `getImportOverride()`: nếu `!enabled` → `{ enabled:false, map:empty }`. Ngược lại
   fetch customers theo `customerIds`, dựng `Map<customerMatchKey, factoryId>`.
+- Tra khách theo id dùng `CustomerRepository.findMatchRowsByIds()` (dùng chung với
+  `getPriorityImportOverride`/`getPriorityCustomers` và mức 1 auto-gán designer theo
+  khách ở `order.service.ts`). Khách tạo qua `customers/sync` (bulkWrite upsert) có
+  `_id` **ObjectId** trong DB, còn schema khai `_id: String` → query qua Mongoose
+  không bao giờ khớp và cấu hình bị bỏ qua im lặng (lỗi gặp 20/11/2026 với khách
+  FFMTEEZ). Hàm đi thẳng collection, khớp cả chuỗi lẫn ObjectId, bỏ khách đã xoá mềm.
 
 ### 5.3 Hook trong `OrderService.importOrders`
 

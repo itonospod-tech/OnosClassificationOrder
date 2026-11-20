@@ -84,9 +84,7 @@ export class CustomerAssignmentService {
     }
     if (idToFactory.size === 0) return { enabled: false, map };
 
-    const customers = await this.customerRepository.findAll({
-      _id: { $in: Array.from(idToFactory.keys()) },
-    });
+    const customers = await this.customerRepository.findMatchRowsByIds(Array.from(idToFactory.keys()));
     for (const c of customers) {
       const factoryId = idToFactory.get(String(c._id));
       if (factoryId) map.set(customerMatchKey(c.userSku, c.userEmail), factoryId);
@@ -153,9 +151,7 @@ export class CustomerAssignmentService {
     }
     if (idToPriority.size === 0) return { enabled: false, map };
 
-    const customers = await this.customerRepository.findAll({
-      _id: { $in: Array.from(idToPriority.keys()) },
-    });
+    const customers = await this.customerRepository.findMatchRowsByIds(Array.from(idToPriority.keys()));
     for (const c of customers) {
       const priority = idToPriority.get(String(c._id));
       if (priority) map.set(customerMatchKey(c.userSku, c.userEmail), priority);
@@ -178,9 +174,7 @@ export class CustomerAssignmentService {
     }
     if (idToPriority.size === 0) return [];
 
-    const customers = await this.customerRepository.findAll({
-      _id: { $in: Array.from(idToPriority.keys()) },
-    });
+    const customers = await this.customerRepository.findMatchRowsByIds(Array.from(idToPriority.keys()));
 
     return customers
       .map((c) => ({
