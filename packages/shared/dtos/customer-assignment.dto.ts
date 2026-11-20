@@ -4,7 +4,7 @@ import { isSystemOnlyPriority } from '@shared/enums';
 import { ResZod } from '@shared/types';
 import { z } from 'zod';
 
-import { IDZod } from '../constants/common-zod';
+import { IDZod, RefIDZod } from '../constants/common-zod';
 import { OrderPriorityZod } from './production-order.dto';
 
 /**
@@ -22,7 +22,9 @@ export const CUSTOMER_ASSIGNMENT_CONFIG_KEY = 'customer_assignment_config';
 
 export const CustomerFactoryAllocZod = z.object({
   factoryId: IDZod,
-  customerIds: IDZod.array(),
+  // RefIDZod, KHÔNG IDZod: khách tạo qua `customers/sync` có `_id` ObjectId 24 hex (vd FFMTEEZ) —
+  // ép đúng 16 ký tự là không lưu được khách đó vào cấu hình. Áp chung 3 cấu hình theo khách.
+  customerIds: RefIDZod.array(),
 });
 export type CustomerFactoryAlloc = z.infer<typeof CustomerFactoryAllocZod>;
 
@@ -64,7 +66,7 @@ export const CUSTOMER_PRIORITY_CONFIG_KEY = 'customer_priority_config';
 export const CustomerPriorityAllocZod = z.object({
   // Mức 4 "Làm ngay" chỉ hệ thống đặt (ghi thẳng DB) — không cho vào cấu hình theo khách.
   priority: OrderPriorityZod.refine((p) => !isSystemOnlyPriority(p), { message: 'System-only priority' }),
-  customerIds: IDZod.array(),
+  customerIds: RefIDZod.array(),
 });
 export type CustomerPriorityAlloc = z.infer<typeof CustomerPriorityAllocZod>;
 

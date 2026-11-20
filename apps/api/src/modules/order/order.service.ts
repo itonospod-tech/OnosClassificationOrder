@@ -7454,9 +7454,7 @@ export class OrderService implements OnModuleInit {
     // cùng khóa so khớp với tính năng gán xưởng theo khách.
     const designerByCustomerKey = new Map<string, string>();
     if (designerByCustomerId.size) {
-      const customers = await this.customerRepository.findAll({
-        _id: { $in: Array.from(designerByCustomerId.keys()) },
-      });
+      const customers = await this.customerRepository.findMatchRowsByIds(Array.from(designerByCustomerId.keys()));
       for (const c of customers) {
         const did = designerByCustomerId.get(String(c._id));
         if (did) designerByCustomerKey.set(customerMatchKey(c.userSku, c.userEmail), did);
