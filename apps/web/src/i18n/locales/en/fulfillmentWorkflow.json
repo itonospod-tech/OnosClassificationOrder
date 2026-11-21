@@ -57,6 +57,7 @@
       "title": "Viewing stage {{stage}} (view only)",
       "allFactories": "All factories",
       "stageLabel": "Stage:",
+      "searchHint": "Scan or type a code and press Enter to open the order details (view only). Type to filter the kanban.",
       "hint": "Pick the factory with the factory switch in the top bar. This mode is view-only — no actions on behalf of workers."
     },
     "hint": {

@@ -1078,6 +1078,8 @@ function FulfillmentKanbanView() {
                   {t('kanban.search.strippedPrefix', { prefix: BARCODE_PREFIX })}{' '}
                   <code className="font-mono">{stripBarcodePrefix(search)}</code>
                 </p>
+              ) : viewOnly ? (
+                <p className="mt-1 text-[10px] text-muted-foreground max-md:hidden">{t('kanban.viewOnly.searchHint')}</p>
               ) : (
                 <p className="mt-1 text-[10px] text-muted-foreground max-md:hidden">
                   {t('kanban.search.hintPre')} <strong>{t('actions.complete')}</strong> /{' '}
