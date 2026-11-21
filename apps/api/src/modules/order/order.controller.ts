@@ -553,7 +553,10 @@ export class OrderController {
   @ApiOkResponse({ type: ToolQueueReturnPreviewResDto })
   async previewToolQueueReturn(@Body() dto: ToolQueueReturnPreviewDto, @AuthUser() user: UserDocument): Promise<ToolQueueReturnPreviewResDto> {
     this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/tool-queue-return/preview', userId: user?._id, count: dto.ids.length }) });
-    return { success: true, data: await this.orderService.previewToolQueueReturn(dto.ids, user?.role?.name as RoleType) };
+    return {
+      success: true,
+      data: await this.orderService.previewToolQueueReturn(dto.ids, user?.role?.name as RoleType, dto.includeAwaitingReview === true),
+    };
   }
 
   /** Clears `toolResult` only (through updateField, so every order keeps its log entry). */
@@ -568,10 +571,24 @@ export class OrderController {
     @ClientIp() ip: string,
     @UserAgent() userAgent: string,
   ): Promise<ToolQueueReturnRunResDto> {
-    this.logger.info({ message: JSON.stringify({ method: 'POST', url: '/orders/tool-queue-return/run', userId: user?._id, count: dto.ids.length }) });
+    this.logger.info({
+      message: JSON.stringify({
+        method: 'POST',
+        url: '/orders/tool-queue-return/run',
+        userId: user?._id,
+        count: dto.ids.length,
+        includeAwaitingReview: dto.includeAwaitingReview === true,
+      }),
+    });
     return {
       success: true,
-      data: await this.orderService.runToolQueueReturn(dto.ids, dto.reason, user?.role?.name as RoleType, { user, ip, userAgent }),
+      data: await this.orderService.runToolQueueReturn(
+        dto.ids,
+        dto.reason,
+        user?.role?.name as RoleType,
+        { user, ip, userAgent },
+        dto.includeAwaitingReview === true,
+      ),
     };
   }
 

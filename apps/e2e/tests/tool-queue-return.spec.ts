@@ -15,7 +15,11 @@ test.beforeEach(async ({ page }) => {
   token = await loginAs(page, 'admin');
 });
 
-/** Three candidates (tool result, no note): one with a designer, one at Press, one free. */
+/**
+ * Three candidates (tool result, no note): one with a designer, one at Press, one free. The free one is
+ * `no-tool` (the usual reason to return an order): a free `has-tool` order is waiting for the reviewer and
+ * is blocked by default — see the 'awaiting-review' test below.
+ */
 async function seedTrio(type: string) {
   const designer = await user('designer');
   const withDesigner = await seedOrder({ type, assignee: String(designer._id), designerStatus: 'assigned', designerAssignedAt: ago(1 * H) });
@@ -28,7 +32,7 @@ async function seedTrio(type: string) {
       press: { status: 'waiting', reworkCount: 0, workMs: 0, waitingAt: ago(4 * H) },
     },
   });
-  const free = await seedOrder({ type });
+  const free = await seedOrder({ type, toolResult: 'no-tool' });
   return { withDesigner, inProduction, free };
 }
 
@@ -125,4 +129,35 @@ test('server side of the same screen: a mixed batch is done 1 / skipped 2 with r
   await page.getByRole('checkbox', { name: 'Returnable only' }).uncheck();
   await page.getByRole('button', { name: 'Group by product' }).click();
   await expect(page.getByRole('listitem').filter({ hasText: type })).toContainText('2 orders · 0 returnable');
+});
+
+test('a "has tool" order waiting for the reviewer is blocked unless the run includes it explicitly (D6)', async ({ page }) => {
+  const type = `E2E TQ ${uniq()}`;
+  const waiting = await seedOrder({ type }); // has-tool, no note, no designer = waiting for the person who reviews it
+
+  const plain = await call(token, 'POST', '/orders/tool-queue-return/preview', { ids: [waiting._id] });
+  expect(plain.body.data.returnable).toBe(0);
+  expect(plain.body.data.skipped).toEqual([expect.objectContaining({ id: waiting._id, reason: 'awaiting-review' })]);
+  const refused = await call(token, 'POST', '/orders/tool-queue-return/run', { ids: [waiting._id], reason: 'e2e: run without the explicit tick' });
+  expect(refused.body.data.done).toBe(0);
+  expect((await order(waiting._id)).toolResult).toBe('has-tool');
+
+  // The page: blocked with the reason, and only the explicit tick makes it selectable.
+  await page.goto('/adm/tool-queue-return');
+  await page.getByRole('checkbox', { name: 'Returnable only' }).uncheck();
+  await page.getByRole('button', { name: 'Group by product' }).click();
+  await page.getByRole('listitem').filter({ hasText: type }).getByRole('button', { name: 'View orders' }).click();
+  const row = page.getByRole('listitem').filter({ hasText: waiting.productionId });
+  await expect(row).toContainText('Has tool, waiting for the reviewer');
+  await expect(page.getByRole('checkbox', { name: waiting.productionId })).toBeDisabled();
+  await page.getByRole('checkbox', { name: 'Include orders waiting for the reviewer' }).check();
+  await expect(page.getByRole('checkbox', { name: waiting.productionId })).toBeEnabled();
+
+  const lifted = await call(token, 'POST', '/orders/tool-queue-return/run', {
+    ids: [waiting._id],
+    reason: 'e2e: template replaced, redo the export',
+    includeAwaitingReview: true,
+  });
+  expect(lifted.body.data.done).toBe(1);
+  expect((await order(waiting._id)).toolResult ?? null).toBeNull();
 });

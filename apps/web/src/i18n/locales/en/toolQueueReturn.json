@@ -4,6 +4,7 @@
   "noPermission": "SuperAdmin only.",
   "warning": "If the 6 changed tool-check codes (designReviewCode) have not been fixed, orders returned to the queue will be answered no-tool again and then MOVE TO A DESIGNER for manual work. Nothing breaks, but sending over a thousand orders to designers at once is an overload. Run a small batch (about 50 orders) first to see how the tool reacts.",
   "onlyClears": "The only write: clearing toolResult to empty, through the order log (the old value stays in the log — the only way back). An order that already has a tool result note is never touched.",
+  "awaitingReviewWarning": "You are including \"has tool\" orders that are still waiting for the reviewer. Their exported files will be thrown away and the tool will export them again; they leave the reviewer's list until then. Only do this when the product's template was replaced.",
   "summary": {
     "total": "Candidate orders",
     "returnable": "Can be returned",
@@ -15,6 +16,7 @@
     "toolResult": "toolResult value",
     "allToolResults": "Any value",
     "onlyReturnable": "Returnable only",
+    "includeAwaitingReview": "Include orders waiting for the reviewer",
     "clear": "Clear filters",
     "product": "Product"
   },
@@ -42,6 +44,7 @@
     "designer-assigned": "Already with a designer — the tool queue does not take it",
     "designer-status-missing": "Designer status is empty — the tool queue only takes 'unassigned', fix the status first",
     "in-fulfillment": "In production (already in a stage) — not sent back to tool check",
+    "awaiting-review": "Has tool, waiting for the reviewer — tick \"Include orders waiting for the reviewer\" to return it",
     "changed-during-run": "Changed while running (a result, a designer or a stage arrived) — not touched"
   },
   "ageDays": "{{count}} days",

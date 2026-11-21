@@ -4,6 +4,7 @@
   "noPermission": "Chỉ SuperAdmin dùng được trang này.",
   "warning": "Nếu 6 mã soát tool (designReviewCode) bị đổi chưa được sửa lại, đơn trả về hàng đợi sẽ bị tool báo no-tool lần nữa rồi TỰ CHUYỂN SANG DESIGNER làm tay. Không hỏng, nhưng đổ hơn nghìn đơn sang designer cùng lúc là quá tải. Chạy lô nhỏ (khoảng 50 đơn) trước để xem tool phản ứng.",
   "onlyClears": "Việc ghi duy nhất: xoá toolResult về rỗng, qua nhật ký đơn (giá trị cũ nằm trong nhật ký — đường lùi duy nhất). Đơn đã có Note kq Tool không bao giờ bị đụng.",
+  "awaitingReviewWarning": "Đang gồm cả đơn \"Có tool\" còn CHỜ NGƯỜI SOÁT. File tool đã xuất sẽ bị bỏ, tool xuất lại từ đầu; trong lúc đó đơn biến khỏi danh sách của người soát. Chỉ làm khi template sản phẩm vừa được thay.",
   "summary": {
     "total": "Đơn ứng viên",
     "returnable": "Trả về được",
@@ -15,6 +16,7 @@
     "toolResult": "Giá trị toolResult",
     "allToolResults": "Mọi giá trị",
     "onlyReturnable": "Chỉ đơn trả về được",
+    "includeAwaitingReview": "Gồm cả đơn đang chờ người soát",
     "clear": "Xóa lọc",
     "product": "Sản phẩm"
   },
@@ -42,6 +44,7 @@
     "designer-assigned": "Đã có designer — hàng đợi tool không nhận đơn này",
     "designer-status-missing": "Trạng thái designer đang trống — hàng đợi tool chỉ nhận 'unassigned', sửa trạng thái trước",
     "in-fulfillment": "Đang sản xuất (đã vào công đoạn) — không đưa về soát tool",
+    "awaiting-review": "Có tool, đang chờ người soát — tick \"Gồm cả đơn đang chờ người soát\" mới trả được",
     "changed-during-run": "Vừa đổi trong lúc chạy (có kết quả / designer / công đoạn) — không đụng"
   },
   "ageDays": "{{count}} ngày",

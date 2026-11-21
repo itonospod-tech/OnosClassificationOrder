@@ -9,19 +9,17 @@
  * Hàm thuần, tách file riêng để test không cần Nest context.
  */
 
+import { matchVariationBySize } from './variation-size-match';
+
 export type ShippingLabelVariation = {
   sku?: string;
   /** Cân nặng GRAM của biến thể (schema Product Config lưu gram). */
   weight?: number;
 };
 
-/** Bỏ ký tự phân tách để so khớp size lỏng tay — CÙNG luật với `barcode-label.ts`. */
-function norm(s: string): string {
-  return s.replace(/[\s_-]+/g, '').toUpperCase();
-}
-
 /**
- * Chọn biến thể khớp size của đơn (SKU kết thúc đúng bằng size, so lỏng tay):
+ * Chọn biến thể khớp size của đơn (`matchVariationBySize` — đuôi đúng ranh
+ * giới, `-L` không khớp `-XL`):
  * - Khớp → `{ sku, weightGram }` của biến thể đó.
  * - Không khớp / thiếu size → sku để trống (KHÔNG đoán bừa biến thể khác —
  *   in sai SKU trên label tệ hơn thiếu), weight rơi về `defaultWeightGram`
@@ -34,11 +32,7 @@ export function resolveShippingLabelInfo(
   orderWeightGram: number | undefined,
   defaultWeightGram: number | undefined,
 ): { sku?: string; weightGram?: number } {
-  let matched: ShippingLabelVariation | undefined;
-  if (size?.trim()) {
-    const target = norm(size);
-    matched = variations.find((v) => v.sku?.trim() && norm(v.sku).endsWith(target));
-  }
+  const matched = matchVariationBySize(variations, size, (v) => v.sku);
   const weightGram = [orderWeightGram, matched?.weight, defaultWeightGram].find(
     (w) => typeof w === 'number' && w > 0,
   );

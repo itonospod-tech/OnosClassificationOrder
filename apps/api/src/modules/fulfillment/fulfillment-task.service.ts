@@ -777,14 +777,28 @@ export class FulfillmentTaskService {
     // dùng dummy 'print' cho applyTabFilter (param unused trong case này).
     // Admin/manager không có fulfillmentStage → cho phép bỏ qua. Worker tabs
     // bắt buộc có stage để biết kanban col.
-    const stage = query.stage ?? user.fulfillmentStage ?? FulfillmentStage.Print;
-    if (!query.stage && !user.fulfillmentStage && tab !== 'unassigned' && !isOverride) {
-      throw new BadRequestException('Thiếu stage (user chưa gán fulfillmentStage).');
+    //
+    // `stage` / `factoryId` trên query là quyền của override role. Worker chỉ xem
+    // đúng công đoạn + xưởng của mình: gửi giá trị khác → 403 (không lặng lẽ bỏ
+    // qua, để lời gọi sai lộ ra ngay); gửi đúng giá trị của mình thì vẫn nhận.
+    if (!isOverride) {
+      if (!user.fulfillmentStage) {
+        throw new BadRequestException('Thiếu stage (user chưa gán fulfillmentStage).');
+      }
+      if (!user.factoryId) {
+        throw new BadRequestException('Thiếu factoryId (user chưa gán factoryId).');
+      }
+      if (query.stage && query.stage !== user.fulfillmentStage) {
+        throw new ForbiddenException(
+          `Bạn phụ trách stage '${user.fulfillmentStage}', không xem được stage '${query.stage}'.`,
+        );
+      }
+      if (query.factoryId && String(query.factoryId) !== String(user.factoryId)) {
+        throw new ForbiddenException('Bạn chỉ xem được đơn của xưởng mình.');
+      }
     }
-    const factoryId = query.factoryId ?? user.factoryId;
-    if (!factoryId && !isOverride) {
-      throw new BadRequestException('Thiếu factoryId (user chưa gán factoryId).');
-    }
+    const stage = (isOverride ? query.stage : undefined) ?? user.fulfillmentStage ?? FulfillmentStage.Print;
+    const factoryId = (isOverride ? query.factoryId : undefined) ?? user.factoryId;
     const page = query.page && query.page > 0 ? query.page : 1;
     const size = query.size && query.size > 0 ? Math.min(query.size, 5000) : 50;
 

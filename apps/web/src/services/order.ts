@@ -123,9 +123,11 @@ const runStaleCleanup = (ids: string[], reason: string) =>
 
 // Return orders to the tool-check queue (ToolCheckWorkflow.md §2.4, SuperAdmin).
 const getToolQueueReturn = (query: string = '') => callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return${query}`, 'get');
-const previewToolQueueReturn = (ids: string[]) => callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return/preview`, 'post', { ids });
-const runToolQueueReturn = (ids: string[], reason: string) =>
-  callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return/run`, 'post', { ids, reason });
+/** `includeAwaitingReview` lifts the "waiting for the reviewer" block for this preview/run only (ToolCheckWorkflow.md §2.4). */
+const previewToolQueueReturn = (ids: string[], includeAwaitingReview = false) =>
+  callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return/preview`, 'post', { ids, includeAwaitingReview });
+const runToolQueueReturn = (ids: string[], reason: string, includeAwaitingReview = false) =>
+  callApi(`/${CONFIG.API_VERSION}/orders/tool-queue-return/run`, 'post', { ids, reason, includeAwaitingReview });
 
 const getFulfillmentStatusCounts = (query: string = '') => {
   return callApi(`/${CONFIG.API_VERSION}/orders/fulfillment-status-counts${query}`, 'get');

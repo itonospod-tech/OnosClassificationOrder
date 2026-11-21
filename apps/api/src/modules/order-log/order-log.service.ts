@@ -80,6 +80,8 @@ export class OrderLogService {
           userName: p.ctx?.user?.fullName,
           userEmail: p.ctx?.user?.email,
           roleCode: p.ctx?.user?.role?.name,
+          impersonatorId: p.ctx?.user?.impersonatedBy?._id,
+          impersonatorName: p.ctx?.user?.impersonatedBy?.fullName,
           ip: p.ctx?.ip,
           userAgent: p.ctx?.userAgent,
           ...(p.ctx?.source ? { source: p.ctx.source } : {}),
