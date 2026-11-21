@@ -83,13 +83,14 @@ const myTasks = (
 };
 
 const dailyOverview = (
-  query: { days?: 7 | 14 | 30; from?: string; to?: string; stage?: FulfillmentStage } = {},
+  query: { days?: 7 | 14 | 30; from?: string; to?: string; stage?: FulfillmentStage; factoryId?: string } = {},
 ) => {
   const qs = new URLSearchParams();
   qs.set('days', String(query.days || 7));
   if (query.from) qs.set('from', query.from);
   if (query.to) qs.set('to', query.to);
   if (query.stage) qs.set('stage', query.stage);
+  if (query.factoryId) qs.set('factoryId', query.factoryId);
   return callApi(`/${CONFIG.API_VERSION}/fulfillment/daily-overview?${qs.toString()}`, 'get');
 };
 

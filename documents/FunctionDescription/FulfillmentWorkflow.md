@@ -299,6 +299,8 @@ Default preset:
 
 ### 4.1 `/fulfillment/my-tasks` (`pages/fulfillment/my-tasks/index.tsx`)
 
+**Chế độ CHỈ XEM cho Admin/Manager (21/11/2026).** Tài khoản override role (SuperAdmin/Admin/Manager/SupportManager) KHÔNG có `fulfillmentStage` trước đây chỉ thấy dòng "Tài khoản chưa được gán Stage Fulfillment". Nay trang mở kanban của 1 công đoạn: ô chọn **Công đoạn** trên trang ghi `?stage=` (mặc định In), **xưởng** lấy từ bộ chọn xưởng trên header (`?factoryId=` qua `useFactoryScope`, trống = mọi xưởng sản xuất). FE gửi `stage` + `factoryId` cho `GET /fulfillment/my-tasks` (BE vốn đã nhận 2 param này cho override role), `GET /fulfillment/daily-overview` và `GET /fulfillment/stage-error-daily`. Mọi thao tác bị tắt: không checkbox/bulk, không nút Bắt đầu/Hoàn thành/Báo lỗi trên card (`Column` prop `readOnly` → `disableDrag` + bỏ callback), không kéo thả, `callTransition`/`callBulk` return sớm; Enter/quét mã trong ô tìm mở **chi tiết đơn** thay cho dialog thao tác. Công đoạn In vẫn hiện bằng kanban (bảng In `PrintWorkshopView` chỉ dành cho worker In). Muốn làm thay thợ vẫn dùng danh sách đơn / trang Quét mã. Tài khoản override role CÓ `fulfillmentStage` giữ hành vi cũ (làm như worker).
+
 **Cột "Cần làm lại" + "Đang chờ quay lại" TRỐNG (0 task, xét dữ liệu thô chưa qua filter client) → ẨN HẲN khỏi kanban** — `visibleCols` memo + `KANBAN_GRID_BY_COUNT` (Tailwind class tĩnh theo số cột 4..7); KPI strip vẫn hiện đủ mọi cột. **Layout: kanban 5 cột worker / 6 cột admin** (`waiting/in-progress/rework/done/fixed/watching` + `unassigned` cho admin) — đồng bộ pixel-by-pixel với `pages/designer/my-tasks`. Cột **"Đã xong"** = hoàn thành stage KHÔNG dính lỗi (`fulfillmentStages.<stage>.reworkCount = 0`); cột **"Đã sửa"** = hoàn thành SAU KHI stage từng bị đẩy về (`reworkCount > 0`) — 2 cột loại trừ nhau; cả 2 read-only (không checkbox/bulk/DnD). Fetch thêm 1 call `tab='fixed'`.
 
 - **Header**: icon avatar bg-indigo + "Task của tôi — {stage label}" + dòng phụ "Xưởng: {factoryId}" + nút Làm mới (ghost icon spinner khi loading).
@@ -434,7 +436,7 @@ Component **dùng chung 3 nơi**: Task Fulfillment (kanban 6 stage + bảng In s
   - **Kanban** (6 stage): lọc **client-side** các cột theo `vnDay(inProductionAt) === dayFilter`; date-range + bảng tổng quan giữ nguyên. Chip "Đang lọc dd/MM ✕" để bỏ.
   - **Bảng In** (print): bảng phân trang **server** → không lọc client được → truyền `dayOverride` cho `PrintOrderTable` ép `createdFrom=createdTo=day` (narrow qua query). Chip bỏ giống trên.
 - Data từ `GET /v1/fulfillment/daily-overview`; refetch qua `reloadToken` (bump sau mỗi transition/refresh). Kanban truyền `from`/`to` = date-range hiện tại; bảng In dùng default 7 ngày.
-- **Scope**: user CÓ `factoryId` (Fulfillment) → chỉ xưởng đó (`$or[factoryId, originalFactoryId]`); user KHÔNG có factory (Designer/Support/Admin) → **funnel TOÀN CỤC** (mọi xưởng). Luôn loại `deletedAt`/`cancelledAt`. `stage`/`lane` chỉ để FE highlight — BE trả đủ mọi khâu.
+- **Scope**: override role truyền `factoryId` (chế độ chỉ xem Task Fulfillment) → xưởng đó; user CÓ `factoryId` (Fulfillment) → chỉ xưởng đó (`$or[factoryId, originalFactoryId]`); user KHÔNG có factory (Designer/Support/Admin) → **funnel TOÀN CỤC** (mọi xưởng). Luôn loại `deletedAt`/`cancelledAt`. `stage`/`lane` chỉ để FE highlight — BE trả đủ mọi khâu.
 - **Auth endpoint**: `OVERVIEW_ROLES` = SuperAdmin/Admin/Manager/SupportManager/**Support**/Fulfillment/**DesignerLeader**/**Designer** (rộng hơn `TRANSITION_ROLES` vì read-only, không ghi factory). 2 endpoint transition vẫn giữ `TRANSITION_ROLES`.
 
 ---
@@ -465,7 +467,9 @@ Pseudocode:
 6. orderLogService.write({ field: 'fulfillmentStages.<stage>.status', before, after }).
 ```
 
-### 5.1b `FulfillmentTaskService.getDailyOverview(user, {days, from?, to?, stage?})`
+### 5.1b `FulfillmentTaskService.getDailyOverview(user, {days, from?, to?, stage?, factoryId?})`
+
+`factoryId` (21/11/2026) chỉ có tác dụng với override role (chế độ chỉ xem §4.1); worker luôn bị khoá vào `user.factoryId` dù query gửi gì — test `fulfillment-daily-overview-scope.spec.ts`.
 
 Trả **FULL luồng** (không giới hạn theo stage). 1 aggregate: `$match` (factory scope `$or[factoryId, originalFactoryId]` + `inProductionAt ∈ window` + alive — **KHÔNG** còn điều kiện `<stage>.status $exists`) → `$group` theo `$dateToString(inProductionAt, +07:00)`. Accumulator `$sum`/`$cond`: `total`, `toolReviewed` (`$strLenCP($ifNull(toolResultNote,'')) > 0`), `toolUnreviewed`, `toolOk` (`=='ok'`), `designerReceived` (`designerStatus ≠ unassigned`), `designerDone`, `designerFixed` (done & `designerReworkCount>0`), và **cho cả 6 stage** (gen động qua `FULFILLMENT_STAGES`) key `s_<stage>_{arrived,done,remaining,rework,fixed}` (arrived = `$ifNull(status) ≠ null`; fixed = status done & `reworkCount>0`). `$group` cast `PipelineStage.Group['$group']`. Reshape agg row → `{day, total, tool*, designer*, stages: {<stage>: {arrived,done,remaining,rework,fixed}}}` + `columnTotals` (cùng shape). `resolveDayWindow` (private, tz VN, cap 60) trả `days[]` mới→cũ + `start`/`end`. `stage` param chỉ dùng ở FE (highlight).
 

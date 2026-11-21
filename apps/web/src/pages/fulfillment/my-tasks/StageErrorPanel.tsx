@@ -36,11 +36,14 @@ function shortDay(iso: string): string {
  */
 export function StageErrorPanel({
   stage,
+  factoryId,
   from,
   to,
   reloadToken,
 }: {
   stage: FulfillmentStage;
+  /** Admin/Manager xem thay 1 xưởng; worker bị BE khoá vào xưởng của mình. */
+  factoryId?: string;
   from?: string;
   to?: string;
   reloadToken?: number;
@@ -53,14 +56,14 @@ export function StageErrorPanel({
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await RepositoryRemote.designer.stageErrorDaily({ stage, from, to });
+      const res = await RepositoryRemote.designer.stageErrorDaily({ stage, factoryId, from, to });
       setData((res.data?.data ?? null) as StageErrorData | null);
     } catch (err) {
       handleAxiosError(err);
     } finally {
       setLoading(false);
     }
-  }, [stage, from, to]);
+  }, [stage, factoryId, from, to]);
 
   useEffect(() => {
     if (open) void fetchData();
