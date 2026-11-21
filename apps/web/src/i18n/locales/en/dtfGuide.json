@@ -770,7 +770,7 @@
       "notes": {
         "errorLogNoFactory": "The error log is not filtered by the factory picker.",
         "catalogShared": "The stage error catalog is shared by every factory.",
-        "noOverride": "For Admin / Manager accounts the Task Fulfillment page only says “Tài khoản chưa được gán Stage Fulfillment” (account has no fulfillment stage) — they cannot work on behalf of a worker.",
+        "noOverride": "Admin / Manager accounts open Task Fulfillment in VIEW-ONLY mode (pick the stage on the page and the factory in the header switch) — they can see the queue but cannot work on behalf of a worker.",
         "allFactories": "The tool check tab, the Designer tab and My tasks count orders from every factory even when a factory is selected in the header."
       }
     }

@@ -90,6 +90,8 @@ interface Props {
    * tool). Bung hàng tương ứng thành header + 4 hàng con. Loại trừ với `stage`.
    */
   lane?: OverviewLane;
+  /** Xưởng Admin/Manager đang xem thay (trang Task Fulfillment). Worker bị BE khoá vào xưởng của mình. */
+  factoryId?: string;
   /** Khoảng ngày (YYYY-MM-DD VN). Rỗng cả 2 → BE default 7 ngày. */
   from?: string;
   to?: string;
@@ -364,7 +366,17 @@ function buildRows(
  * 6 stage (đã xong/còn lại). Lane/stage của user bung 4 hàng con; hàng "Lỗi" tô
  * đỏ. Mỗi ô có tooltip. Ô 2 số chia đều 2 bên (slash giữa); hàng bung hiện `0`.
  */
-export function PipelineDailyOverview({ stage, lane, from, to, reloadToken, dayFilter, onPickDay, caption }: Props) {
+export function PipelineDailyOverview({
+  stage,
+  lane,
+  factoryId,
+  from,
+  to,
+  reloadToken,
+  dayFilter,
+  onPickDay,
+  caption,
+}: Props) {
   const { t } = useTranslation('dashboard');
   const [data, setData] = useState<Data>(EMPTY);
   const [loading, setLoading] = useState(false);
@@ -386,6 +398,7 @@ export function PipelineDailyOverview({ stage, lane, from, to, reloadToken, dayF
         setLoading(true);
         const res = await RepositoryRemote.fulfillment.dailyOverview({
           ...(stage ? { stage } : {}),
+          ...(factoryId ? { factoryId } : {}),
           ...(from && to ? { from, to } : {}),
         });
         if (seq !== seqRef.current) return;
@@ -398,7 +411,7 @@ export function PipelineDailyOverview({ stage, lane, from, to, reloadToken, dayF
         if (seq === seqRef.current) setLoading(false);
       }
     })();
-  }, [stage, from, to, reloadToken]);
+  }, [stage, factoryId, from, to, reloadToken]);
 
   const { days, columnTotals } = data;
 

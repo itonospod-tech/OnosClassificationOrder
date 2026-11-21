@@ -53,6 +53,12 @@
     "noStage": "Tài khoản chưa được gán",
     "noStageStrong": "Stage Fulfillment",
     "noStageSuffix": ". Liên hệ Admin để gán.",
+    "viewOnly": {
+      "title": "Xem công đoạn {{stage}} (chỉ xem)",
+      "allFactories": "Tất cả xưởng",
+      "stageLabel": "Công đoạn:",
+      "hint": "Chọn xưởng ở bộ chọn xưởng trên thanh đầu trang. Chế độ này chỉ để xem — không bấm thao tác thay thợ."
+    },
     "hint": {
       "tip": "Mẹo chọn nhiều đơn:",
       "body1": "Tick checkbox cạnh tên sản phẩm để chọn toàn bộ đơn của sản phẩm đó. Hoặc tick 1 đơn, giữ",

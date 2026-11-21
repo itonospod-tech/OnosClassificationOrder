@@ -198,6 +198,7 @@ export class FulfillmentTaskController {
       from: query.from,
       to: query.to,
       stage: query.stage,
+      factoryId: query.factoryId,
     });
     return { success: true, data } as unknown as FulfillmentDailyOverviewResDto;
   }

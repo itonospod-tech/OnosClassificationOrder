@@ -2377,6 +2377,8 @@ export const GetFulfillmentDailyOverviewZod = z.object({
   to: z.string().optional(),
   /** Override stage (Manager/Admin). Worker suy từ `user.fulfillmentStage`. */
   stage: FulfillmentStageZod.optional(),
+  /** Override xưởng (Manager/Admin xem thay 1 xưởng). Worker luôn bị khoá vào `user.factoryId`. */
+  factoryId: IDZod.optional(),
 });
 export class GetFulfillmentDailyOverviewDto extends createZodDto(extendApi(GetFulfillmentDailyOverviewZod)) {}
 

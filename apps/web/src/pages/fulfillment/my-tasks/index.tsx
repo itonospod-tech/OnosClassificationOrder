@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import type { TFunction } from 'i18next';
 import {
@@ -8,6 +9,7 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  Eye,
   History,
   ListChecks,
   Loader2,
@@ -23,7 +25,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import type { FulfillmentTransitionDto, ProductionOrderRow } from 'shared';
-import { factoryAllowsToolCheckRework, FulfillmentStage, FulfillmentTransitionAction } from 'shared';
+import {
+  factoryAllowsToolCheckRework,
+  FULFILLMENT_STAGES,
+  FulfillmentStage,
+  FulfillmentTransitionAction,
+} from 'shared';
 import { toast } from 'sonner';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
@@ -56,6 +63,7 @@ import { getStageLabel } from '@/utils/fulfillmentStageLabel';
 import { groupCardsPinPriority, priorityGroupLevel } from '@/utils/kanbanPriorityGroups';
 
 import { useDebounce } from '@/hooks/useDebounce';
+import { useFactoryScope } from '@/hooks/useFactoryScope';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useSidebarResetSignal } from '@/hooks/useSidebarResetSignal';
 
@@ -287,7 +295,7 @@ function FulfillmentKanbanView() {
   const [mobileCol, setMobileCol] = useState<ColKey | null>(null);
   const [facetsOpen, setFacetsOpen] = useState(false);
   const profile = useAuthStore((s) => s.profile);
-  const myStage = profile?.fulfillmentStage as FulfillmentStage | undefined;
+  const ownStage = profile?.fulfillmentStage as FulfillmentStage | undefined;
   // Factory flag `allowToolCheckRework` (one-site experiment): read from the all-staff options list.
   const factoryOptions = useFactoryOptionsStore((s) => s.factories);
   const loadFactoryOptions = useFactoryOptionsStore((s) => s.load);
@@ -300,6 +308,30 @@ function FulfillmentKanbanView() {
   const roleName = profile?.role?.name as string | undefined;
   const isOverrideRole = ['SuperAdmin', 'Admin', 'Manager', 'SupportManager'].includes(roleName ?? '');
   const colOrder = isOverrideRole ? ADMIN_COL_ORDER : WORKER_COL_ORDER;
+  // Admin/Manager không giữ công đoạn → CHẾ ĐỘ CHỈ XEM: chọn công đoạn trên trang (`?stage=`, mặc định In)
+  // + xưởng ở bộ chọn xưởng trên header (`?factoryId=`, trống = mọi xưởng). Nút thao tác/kéo thả/chọn
+  // nhiều đều tắt — muốn làm thay thợ thì dùng danh sách đơn / trang Quét mã (FulfillmentWorkflow.md).
+  const viewOnly = !ownStage && isOverrideRole;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scopeFactoryId = useFactoryScope();
+  const paramStage = searchParams.get('stage') as FulfillmentStage | null;
+  const viewStage = paramStage && FULFILLMENT_STAGES.includes(paramStage) ? paramStage : FulfillmentStage.Print;
+  const myStage = ownStage ?? (viewOnly ? viewStage : undefined);
+  const viewFactoryId = viewOnly ? scopeFactoryId : undefined;
+  const pickViewStage = (stage: string) =>
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set('stage', stage);
+        return sp;
+      },
+      { replace: true },
+    );
+  const factoryLabel = (id?: string) => {
+    if (!id) return undefined;
+    const f = factoryOptions.find((x) => x._id === id);
+    return f ? f.name || f.shortName : id;
+  };
 
   const [columns, setColumns] = useState<Columns>(EMPTY_COLS);
   // Đơn user đã rework-back, đang chờ quay lại — render ở drawer dưới kanban
@@ -416,14 +448,17 @@ function FulfillmentKanbanView() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const load = useCallback(async () => {
-    // Admin không có fulfillmentStage → vẫn cho phép vào page để xem unassigned.
-    // Worker không có stage → return (BE sẽ throw 400).
-    if (!myStage && !isOverrideRole) return;
+    // Worker không có stage → return (BE sẽ throw 400). Admin/Manager luôn có stage ở chế độ chỉ xem.
+    if (!myStage) return;
     setLoading(true);
     try {
       // Truyền date range cho BE — match scope `OrderFactoryTab`. Empty string
-      // = user clear → BE coi là explicit "all-time".
-      const dateParams = { createdFrom: dateFrom, createdTo: dateTo };
+      // = user clear → BE coi là explicit "all-time". Chế độ chỉ xem: gửi kèm công đoạn + xưởng đang chọn.
+      const dateParams = {
+        createdFrom: dateFrom,
+        createdTo: dateTo,
+        ...(viewOnly ? { stage: myStage, ...(viewFactoryId ? { factoryId: viewFactoryId } : {}) } : {}),
+      };
       // Worker: 5 tabs. Admin: thêm unassigned (gọi song song).
       const adminUnassignedPromise = isOverrideRole
         ? RepositoryRemote.fulfillment.myTasks({ tab: 'unassigned', size: 5000, ...dateParams })
@@ -459,7 +494,7 @@ function FulfillmentKanbanView() {
     } finally {
       setLoading(false);
     }
-  }, [myStage, isOverrideRole, dateFrom, dateTo]);
+  }, [myStage, isOverrideRole, viewOnly, viewFactoryId, dateFrom, dateTo]);
 
   useEffect(() => {
     void load();
@@ -480,9 +515,14 @@ function FulfillmentKanbanView() {
           pushSearchHistory(code, 'not-found');
           return;
         }
+        pushSearchHistory(code, 'found');
+        // Chỉ xem: mở chi tiết đơn thay cho dialog Hoàn thành / Báo lỗi.
+        if (viewOnly) {
+          setDetailOrder({ id: data._id, productionId: data.productionId });
+          return;
+        }
         setScanErrorMode(false);
         setScannedOrder(data);
-        pushSearchHistory(code, 'found');
       } catch (err) {
         const status = axios.isAxiosError(err) ? err.response?.status : undefined;
         if (status === 404) {
@@ -495,7 +535,7 @@ function FulfillmentKanbanView() {
         setLookupLoading(false);
       }
     },
-    [lookupLoading, pushSearchHistory, t],
+    [lookupLoading, pushSearchHistory, t, viewOnly],
   );
 
   const closeScanDialog = useCallback(() => {
@@ -607,7 +647,7 @@ function FulfillmentKanbanView() {
     action: FulfillmentTransitionAction,
     body?: Pick<FulfillmentTransitionDto, 'target' | 'reason' | 'weightGram' | 'dimensions'>,
   ) => {
-    if (!myStage) return;
+    if (!myStage || viewOnly) return;
     try {
       await RepositoryRemote.fulfillment.transition(order._id, {
         stage: myStage,
@@ -626,7 +666,7 @@ function FulfillmentKanbanView() {
    *  transition từng đơn (giữ đủ hook). Trước đây FE bắn N request song song,
    *  400 đơn = 400-800 call → chạm rate limiter. */
   const callBulk = async (action: BulkAction) => {
-    if (!myStage || selected.size === 0) return;
+    if (!myStage || viewOnly || selected.size === 0) return;
     const ids = Array.from(selected);
     try {
       const res = await RepositoryRemote.fulfillment.bulkTransition({
@@ -647,6 +687,7 @@ function FulfillmentKanbanView() {
 
   // ─── DnD ──────────────────────────────────────────────────────
   const handleDragStart = (e: DragStartEvent) => {
+    if (viewOnly) return;
     const id = e.active.id as string;
     const card = filteredColumns.waiting.find((o) => o._id === id) || filteredColumns.rework.find((o) => o._id === id);
     if (card) setActiveOrder(card);
@@ -654,6 +695,7 @@ function FulfillmentKanbanView() {
 
   const handleDragEnd = (e: DragEndEvent) => {
     setActiveOrder(null);
+    if (viewOnly) return;
     const orderId = e.active.id as string;
     const fromCol = (e.active.data.current as { col?: ColKey } | undefined)?.col;
     const toCol = e.over?.id as ColKey | undefined;
@@ -810,6 +852,9 @@ function FulfillmentKanbanView() {
       : (visibleCols.find((k) => counts[k] > 0) ?? visibleCols[0] ?? 'waiting');
 
   const onPreview = (url: string, title: string, original?: string) => setPreview({ url, title, original });
+  const pageTitle = viewOnly
+    ? t('kanban.viewOnly.title', { stage: getStageLabel(t, myStage) })
+    : t('kanban.header.title', { stage: getStageLabel(t, myStage) });
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -818,12 +863,16 @@ function FulfillmentKanbanView() {
       <div className="space-y-4 max-md:flex max-md:flex-col max-md:gap-3 max-md:space-y-0">
         {/* Header. On phones the title is dropped from the page: the bottom tab bar already says where
             you are, and the first screen must show the work. An sr-only h1 keeps the page labelled. */}
-        <h1 className="sr-only md:hidden">{t('kanban.header.title', { stage: getStageLabel(t, myStage) })}</h1>
+        <h1 className="sr-only md:hidden">{pageTitle}</h1>
         <div className="max-md:hidden">
           <PageHeader
-            icon={<ListChecks size={20} />}
-            title={t('kanban.header.title', { stage: getStageLabel(t, myStage) })}
-            description={t('kanban.header.factory', { factory: profile?.factoryId ?? '—' })}
+            icon={viewOnly ? <Eye size={20} /> : <ListChecks size={20} />}
+            title={pageTitle}
+            description={t('kanban.header.factory', {
+              factory: viewOnly
+                ? (factoryLabel(viewFactoryId) ?? t('kanban.viewOnly.allFactories'))
+                : (factoryLabel(profile?.factoryId) ?? '—'),
+            })}
             hideDescriptionOnMobile
             inlineActionsOnMobile
             actions={
@@ -839,6 +888,29 @@ function FulfillmentKanbanView() {
             }
           />
         </div>
+
+        {/* Chế độ chỉ xem (Admin/Manager): chọn công đoạn; xưởng chọn ở bộ chọn xưởng trên header. */}
+        {viewOnly && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-tone-info/40 bg-tone-info/5 p-2.5 text-xs max-md:order-1">
+            <Eye size={14} className="shrink-0 text-tone-info" />
+            <label htmlFor="ffm-view-stage" className="font-medium text-foreground">
+              {t('kanban.viewOnly.stageLabel')}
+            </label>
+            <select
+              id="ffm-view-stage"
+              value={myStage}
+              onChange={(e) => pickViewStage(e.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+            >
+              {FULFILLMENT_STAGES.map((st) => (
+                <option key={st} value={st}>
+                  {getStageLabel(t, st)}
+                </option>
+              ))}
+            </select>
+            <span className="text-muted-foreground">{t('kanban.viewOnly.hint')}</span>
+          </div>
+        )}
 
         {/* KPI */}
         <div
@@ -869,14 +941,20 @@ function FulfillmentKanbanView() {
         <div className="max-md:order-6">
           <StageErrorPanel
             stage={myStage}
+            factoryId={viewFactoryId}
             from={dateFrom || undefined}
             to={dateTo || undefined}
             reloadToken={overviewToken}
           />
         </div>
 
-        {/* Hint — Shift/drag tips mean nothing on a touch screen. */}
-        <div className="flex items-start gap-2 rounded-md max-md:hidden border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground">
+        {/* Hint — Shift/drag tips mean nothing on a touch screen, nor in view-only mode. */}
+        <div
+          className={cn(
+            'flex items-start gap-2 rounded-md max-md:hidden border border-border bg-muted/30 p-2.5 text-[11px] text-muted-foreground',
+            viewOnly && 'hidden',
+          )}
+        >
           <MousePointerClick size={13} className="text-primary shrink-0 mt-0.5" />
           <div>
             <strong className="text-foreground">{t('kanban.hint.tip')}</strong> {t('kanban.hint.body1')}{' '}
@@ -1063,6 +1141,7 @@ function FulfillmentKanbanView() {
         <div className="max-md:order-5">
           <PipelineDailyOverview
             stage={myStage}
+            factoryId={viewFactoryId}
             from={dateFrom || undefined}
             to={dateTo || undefined}
             reloadToken={overviewToken}
@@ -1087,6 +1166,7 @@ function FulfillmentKanbanView() {
                 meta={colMeta[key]}
                 cards={filteredColumns[key]}
                 myStage={myStage}
+                readOnly={viewOnly}
                 activeDragId={activeOrder?._id}
                 selected={selected}
                 copiedOrderId={copiedOrderId}
@@ -1362,6 +1442,8 @@ interface ColumnProps {
   meta: ColMeta[ColKey];
   cards: ProductionOrderRow[];
   myStage: FulfillmentStage;
+  /** Admin/Manager chỉ xem: ẩn checkbox + nút thao tác, tắt kéo thả. */
+  readOnly?: boolean;
   activeDragId?: string;
   selected: Set<string>;
   copiedOrderId: string | null;
@@ -1382,6 +1464,7 @@ function Column({
   meta,
   cards,
   myStage,
+  readOnly = false,
   activeDragId,
   selected,
   copiedOrderId,
@@ -1425,7 +1508,7 @@ function Column({
     });
 
   // Cột done không có checkbox (đã xong rồi — không có bulk action).
-  const showCheckbox = colKey !== 'done' && colKey !== 'fixed' && colKey !== 'held';
+  const showCheckbox = !readOnly && colKey !== 'done' && colKey !== 'fixed' && colKey !== 'held';
   const colSelCount = useMemo(() => cards.filter((c) => selected.has(c._id)).length, [cards, selected]);
 
   return (
@@ -1567,9 +1650,10 @@ function Column({
                               colKey === 'unassigned' && onAssignDesigner ? () => onAssignDesigner(o) : undefined
                             }
                             onPreview={onPreview}
-                            onStart={() => onStart(o)}
-                            onComplete={() => onComplete(o)}
-                            onReportError={() => onReportError(o)}
+                            onStart={readOnly ? undefined : () => onStart(o)}
+                            onComplete={readOnly ? undefined : () => onComplete(o)}
+                            onReportError={readOnly ? undefined : () => onReportError(o)}
+                            disableDrag={readOnly}
                           />
                         </div>
                       </div>

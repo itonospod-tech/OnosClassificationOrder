@@ -770,7 +770,7 @@
       "notes": {
         "errorLogNoFactory": "Nhật ký bù lỗi không lọc theo bộ chọn xưởng.",
         "catalogShared": "Danh mục lỗi công đoạn dùng chung mọi xưởng.",
-        "noOverride": "Trang Task Fulfillment của tài khoản Admin / Manager chỉ báo “Tài khoản chưa được gán Stage Fulfillment” — không làm thay công nhân được.",
+        "noOverride": "Admin / Manager mở Task Fulfillment ở chế độ CHỈ XEM (chọn công đoạn trên trang + xưởng ở bộ chọn xưởng trên header) — xem được hàng chờ nhưng không làm thay công nhân được.",
         "allFactories": "Tab Soát tool, tab Designer và Task của tôi tính đơn của mọi xưởng dù đang chọn xưởng trên header."
       }
     }

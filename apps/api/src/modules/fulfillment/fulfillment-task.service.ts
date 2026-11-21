@@ -1032,14 +1032,17 @@ export class FulfillmentTaskService {
    */
   async getDailyOverview(
     user: UserDocument,
-    query: { days: number; from?: string; to?: string; stage?: FulfillmentStage },
+    query: { days: number; from?: string; to?: string; stage?: FulfillmentStage; factoryId?: string },
   ): Promise<{
     days: FulfillmentDailyRow[];
     columnTotals: FulfillmentDailyColumnTotals;
     rangeDays: number;
   }> {
     const { start, end, days } = this.resolveDayWindow(query.days, query.from, query.to);
-    const factoryId = user.factoryId;
+    // Admin/Manager xem thay 1 xưởng qua `query.factoryId`; worker luôn khoá vào xưởng của mình.
+    const roleName = user.role?.name;
+    const isOverride = roleName ? OVERRIDE_ROLES.includes(roleName) : false;
+    const factoryId = (isOverride ? query.factoryId : undefined) ?? user.factoryId;
 
     const match: FilterQuery<OrderEntity> = {
       inProductionAt: { $gte: start, $lte: end },
