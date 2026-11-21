@@ -52,7 +52,10 @@ const overview = (patch: Partial<CeoOverview> = {}): CeoOverview =>
       overdue: { total: 991, byFactory: [], sample: [] },
     },
     quality: { errored: 26, ratePct: 1, prevRatePct: 1.4, bySource: [], topTypes: [] },
-    customers: { active: 66, prevActive: 60, newCount: 2, top10SharePct: 55, top: [], rising: [], dropping: [] },
+    customers: { active: 66, prevActive: 60, newCount: 2, top10SharePct: 55, top: [], rising: [], dropping: [],
+      retention: { retained: 55, base: 60, pct: 91.7, churned: [] },
+      service: { rated: 40, ok: 30, okPct: 75, minMature: 5, maxErrorPct: 5, minN2Pct: 80, atRisk: [] },
+    },
     capacity: {
       backlog: 1926,
       prevBacklog: 1800,

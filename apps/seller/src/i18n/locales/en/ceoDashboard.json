@@ -99,7 +99,9 @@
     "weekend_day": "{{day}} is a {{weekday}} — low in/out volume follows the weekly rhythm, not a drop.",
     "sla_pending": "No mature cohort yet to evaluate on-time (orders from {{cohort}} are under 2 days old).",
     "output_down_day": "Shipped {{out}}, below yesterday ({{prev}}) and {{pctAvg}}% below the 7-day average ({{avg7}}) — not weekly rhythm.",
-    "output_up_day": "Shipped {{out}}, above yesterday ({{prev}}) and {{pctAvg}}% above the 7-day average ({{avg7}})."
+    "output_up_day": "Shipped {{out}}, above yesterday ({{prev}}) and {{pctAvg}}% above the 7-day average ({{avg7}}).",
+    "customers_churned": "{{n}} returning customers placed no orders this period (retention {{pct}}%): {{list}}.",
+    "service_below": "Only {{pct}}% of customers were served well (low errors + on time N2); below bar: {{list}}."
   },
   "actions": {
     "act_unblock_stage": "Meet the {{factory}} shift lead today to unblock the stuck stage",
@@ -110,7 +112,8 @@
     "act_review_factory": "Review stage errors with the factory against the error catalog",
     "act_contact_customers": "Sales to contact declining customers this week",
     "act_vip_followup": "Prioritize held/errored orders of VIP customers",
-    "act_rebalance_design": "Rebalance design work away from overloaded designers"
+    "act_rebalance_design": "Rebalance design work away from overloaded designers",
+    "act_service_followup": "Review errored/late orders of below-bar customers, have sales follow up and prioritize their next orders"
   },
   "ops": {
     "title": "Daily operations",
@@ -154,9 +157,19 @@
       "orders": "Orders",
       "prev": "Previous",
       "revenue": "Value",
-      "issues": "Held/err"
+      "issues": "Held/err",
+      "errorPct": "Err",
+      "n2Pct": "N2"
     },
-    "vip": "VIP {{tier}}"
+    "vip": "VIP {{tier}}",
+    "retention": "Retention",
+    "retentionHint": "{{retained}}/{{prev}} previous-period customers ordered again",
+    "churned": "Churned",
+    "service": "Served well",
+    "serviceHint": "{{ok}}/{{rated}} customers (≥{{min}} mature orders) with errors < {{err}}% and N2 on time ≥ {{n2}}% — proxy for satisfaction",
+    "atRisk": "Below bar",
+    "atRiskItem": "{{sku}} (err {{err}} · N2 {{n2}})",
+    "proxyNote": "Retention and Served well are proxies from order data — no care log / real satisfaction score yet."
   },
   "capacity": {
     "title": "Capacity",
@@ -176,7 +189,8 @@
     },
     "days": "{{n}} days",
     "na": "—",
-    "stale": "{{n}} orders open for over {{days}} days never closed in the system — excluded from backlog/overdue (data debt to clean up)"
+    "stale": "{{n}} orders open for over {{days}} days never closed in the system — excluded from backlog/overdue (data debt to clean up)",
+    "staleReview": "Review & clean up"
   },
   "people": {
     "title": "People",

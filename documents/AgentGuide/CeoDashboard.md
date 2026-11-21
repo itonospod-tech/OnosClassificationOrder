@@ -60,7 +60,8 @@ Khác `ceo-report`: ảnh dựng được cho **bất kỳ** khoảng ngày vì 
 - `sla.overdue` = đơn còn mở, vào SX từ 3 ngày trước, **trong 45 ngày** — đơn mở cũ hơn là `capacity.staleOpen` (nợ dữ liệu), không phải quá hạn.
 - `quality.ratePct` = % đơn trong kỳ có lỗi xưởng; `bySource`: designer / factory / tool-check.
 - `capacity.backlog` = đơn chưa đóng, vào SX trong 45 ngày; `byStage` theo 8 chặng; `history` tồn cuối ngày 30 ngày.
-- `customers.top` xếp theo đơn; `rising` (≥3 đơn kỳ trước, tăng ≥50%), `dropping` (≥5 đơn kỳ trước, giảm ≥50%); `tier` = hạng VIP.
+- `customers.top` xếp theo đơn; `rising` (≥3 đơn kỳ trước, tăng ≥50%), `dropping` (≥5 đơn kỳ trước, giảm ≥50%, kỳ này vẫn còn đơn — khách về 0 nằm ở `retention.churned`); `tier` = hạng VIP; `errorPct`/`n2Pct` = % lỗi và % đúng hẹn N2 của riêng khách đó.
+- `customers.retention` — `pct` = `retained`/`base` (% khách kỳ trước có mã khách còn đặt kỳ này), `churned` = khách kỳ trước ≥3 đơn mà kỳ này 0 đơn. `customers.service` — `okPct` = % khách (đủ `minMature` đơn đủ tuổi) có lỗi < `maxErrorPct`% và N2 ≥ `minN2Pct`%; `atRisk` = khách chưa đạt. **Cả hai là số THAY THẾ** từ dữ liệu đơn: khi nói phải gọi là "tỷ lệ giữ chân khách cũ" và "chất lượng phục vụ theo khách" — KHÔNG gọi là "tỷ lệ chăm sóc" hay "mức độ hài lòng" (hệ thống chưa có dữ liệu đó).
 
 ## Bảng mã `findings`
 
@@ -74,6 +75,8 @@ Khác `ceo-report`: ảnh dựng được cho **bất kỳ** khoảng ngày vì 
 | `factory_slow_clear` | xưởng cần ≥3 ngày xả tồn | factory (chuỗi) |
 | `error_rate_high` / `error_rate_down` | tỉ lệ lỗi ≥5% hoặc +2 điểm / giảm | pct, delta, source, share, type |
 | `customers_dropping` / `customers_rising` | khách giảm/tăng mạnh | n, list |
+| `customers_churned` | khách cũ không đặt đơn kỳ này | n, pct (giữ chân), list |
+| `service_below` | % khách được phục vụ tốt dưới 80% | pct, list |
 | `vip_issues` | khách VIP có đơn giữ/lỗi | list |
 | `customer_concentration` | top 10 ≥70% đơn | pct |
 | `designer_overload` | designer tồn ≥30 việc | list |
@@ -82,7 +85,7 @@ Khác `ceo-report`: ảnh dựng được cho **bất kỳ** khoảng ngày vì 
 | `weekend_day` (info) | kỳ 1 ngày rơi vào T7/CN | day, weekday |
 | `sla_pending` (info) | chưa có lô đủ tuổi đánh giá đúng hẹn | cohort |
 
-`severity`: critical → warning → good → info (đã sắp). `action` (nếu có) là mã việc cần làm: `act_unblock_stage`, `act_clear_overdue`, `act_check_capacity`, `act_rebalance_factory`, `act_review_design`, `act_review_factory`, `act_contact_customers`, `act_vip_followup`, `act_rebalance_design`.
+`severity`: critical → warning → good → info (đã sắp). `action` (nếu có) là mã việc cần làm: `act_unblock_stage`, `act_clear_overdue`, `act_check_capacity`, `act_rebalance_factory`, `act_review_design`, `act_review_factory`, `act_contact_customers`, `act_vip_followup`, `act_rebalance_design`, `act_service_followup`.
 
 ## Ví dụ
 
