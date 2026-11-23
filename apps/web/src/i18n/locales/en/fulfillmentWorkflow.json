@@ -34,6 +34,8 @@
   "toast": {
     "copyError": "Could not copy — the browser blocked clipboard access",
     "notFound": "No order found with this code",
+    "cancelledTitle": "ORDER CANCELLED — {{code}}",
+    "cancelledDesc": "Pull the item out, do NOT continue. Reason: {{reason}}",
     "updated": "Updated",
     "started": "Started",
     "completed": "Completed",

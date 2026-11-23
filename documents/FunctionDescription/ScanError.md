@@ -341,6 +341,10 @@ Quét trúng đơn có `heldAt` (payload `GET /orders/by-production-id/:code` đ
 
 Đã thử trên dev (dữ liệu production) với `KH-13604-99037`: admin + mạo danh `in.thainguyen@onospod.com` (công nhân In xưởng TN, đúng chặng của đơn), 1440 và 390px — banner hiện, 4 nút khóa, OK / quét lại / `ACT-PRINT-LABEL` / `ACT-STOCK-OUT` đều bị từ chối.
 
+### 10b.5 Đơn ĐÃ HỦY ở trạm quét (23/11/2026)
+
+Đơn hủy SAU khi đã in (vd khách hủy lúc đang chờ Ép) biến mất khỏi kanban nhưng hàng vật lý còn ở xưởng. Quét trúng đơn có `cancelledAt` (payload `getByProductionId` đã mang `cancelledAt`/`cancelReason`) ở `FulfillmentScanActionDialog` → `ScanCancelledBanner` đỏ dưới tiêu đề (cùng chỗ `ScanHeldBanner`): "ĐƠN ĐÃ HỦY · Lý do: … · Bỏ hàng ra, không làm tiếp". Luật khoá ở hàm thuần `scanActionLock()` (`packages/shared/client/scan-guard.ts`, spec `apps/api/src/modules/fulfillment/scan-guard.spec.ts`) — hủy đứng TRƯỚC giữ. Khóa giống đơn giữ (`isMyTask = false`, Enter / `OK` / quét lại mã / `ACT-REPORT-ERROR` / mã `E-…` từ chối, nút in/trừ kho/báo lỗi disabled) + **mọi `ACT-*` trừ `ACT-CANCEL` bị từ chối ngay trong dialog** (in tem/label, trừ kho) với toast `cancelled.blocked`. `useScanPrint`/`useScanStockOut` KHÔNG đổi. `OrderErrorScanDialog` (người không có công đoạn) vốn đã chặn báo lỗi đơn hủy bằng banner riêng — không đổi. Ô TÌM/QUÉT của Task Fulfillment: xem FulfillmentWorkflow.md §2.4.
+
 ### 10b.3 Sheet in bảng mã (`ActionCodeSheetPrint.tsx`)
 
 Nút **"In bảng mã hành động"** trên header trang quét → sheet A4 Code128 (react-barcode) 5 mã trên + mô tả từng mã + ghi chú cơ chế OK/ESC, in ra dán cạnh trạm. Dùng khuôn portal + `display:none` siblings của `CustomerLabelPrint`, **KHÔNG** dùng visibility-trick luôn-mount như sheet `stage-errors` — trang này còn in tem/label từ chính nó, style `visibility: hidden` thường trực sẽ nuốt trắng các bản in kia. Sheet mount lúc in rồi tự gỡ (`afterprint` + timeout).

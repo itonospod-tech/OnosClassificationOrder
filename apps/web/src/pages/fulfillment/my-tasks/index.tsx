@@ -30,6 +30,7 @@ import {
   FULFILLMENT_STAGES,
   FulfillmentStage,
   FulfillmentTransitionAction,
+  resolveScanLookupOutcome,
 } from 'shared';
 import { toast } from 'sonner';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
@@ -516,8 +517,18 @@ function FulfillmentKanbanView() {
           return;
         }
         pushSearchHistory(code, 'found');
+        // Đơn đã hủy (vd khách hủy sau khi đã in) → báo đỏ để xưởng bỏ hàng ra;
+        // công nhân KHÔNG mở dialog thao tác, chế độ chỉ xem vẫn mở chi tiết.
+        const outcome = resolveScanLookupOutcome(data, { viewOnly });
+        if (outcome === 'cancelled-blocked' || outcome === 'cancelled-detail') {
+          toast.error(t('toast.cancelledTitle', { code: data.productionId }), {
+            description: t('toast.cancelledDesc', { reason: data.cancelReason || '—' }),
+            duration: 15000,
+          });
+        }
+        if (outcome === 'cancelled-blocked') return;
         // Chỉ xem: mở chi tiết đơn thay cho dialog Hoàn thành / Báo lỗi.
-        if (viewOnly) {
+        if (outcome === 'detail' || outcome === 'cancelled-detail') {
           setDetailOrder({ id: data._id, productionId: data.productionId });
           return;
         }
