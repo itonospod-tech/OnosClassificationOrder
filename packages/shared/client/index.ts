@@ -11,6 +11,7 @@ export * from './customer-import';
 export * from './design-cdn';
 export * from './design-fields';
 export * from './print-area';
+export * from './scan-guard';
 export * from './seller-shipping';
 export * from './shipping';
 export * from './wallet';

@@ -229,5 +229,12 @@
     "noReason": "Không ghi lý do giữ",
     "body": "Không in tem/label, không làm tiếp. Báo quản lý mở giữ trước.",
     "blocked": "Đơn {{productionId}} đang bị giữ — không in, không thao tác."
+  },
+  "cancelled": {
+    "title": "Đơn đã hủy",
+    "reason": "Lý do: {{reason}}",
+    "noReason": "Không ghi lý do hủy",
+    "body": "Bỏ hàng ra, KHÔNG làm tiếp, không in tem/label, không trừ kho.",
+    "blocked": "Đơn {{productionId}} đã hủy — bỏ hàng ra, không thao tác."
   }
 }

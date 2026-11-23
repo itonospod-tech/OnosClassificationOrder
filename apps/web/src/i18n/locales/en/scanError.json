@@ -229,5 +229,12 @@
     "noReason": "No hold reason given",
     "body": "Do not print labels or continue work. Ask a manager to release the hold first.",
     "blocked": "Order {{productionId}} is on hold — no printing, no actions."
+  },
+  "cancelled": {
+    "title": "Order cancelled",
+    "reason": "Reason: {{reason}}",
+    "noReason": "No cancel reason given",
+    "body": "Pull the item out. Do NOT continue, print labels or take stock out.",
+    "blocked": "Order {{productionId}} is cancelled — pull it out, no actions."
   }
 }

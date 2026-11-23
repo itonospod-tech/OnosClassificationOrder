@@ -8,11 +8,16 @@ import {
   type DesignFields,
   DesignFieldsZod,
   hasProductionOrderTracking,
+  isOrderCancelled,
   normalizeProductionOrderTracking,
   type ProductionOrderShippingAddress,
   ProductionOrderShippingAddressZod,
   type ProductionOrderTracking,
   ProductionOrderTrackingZod,
+  resolveScanLookupOutcome,
+  type ScanActionLock,
+  scanActionLock,
+  type ScanLookupOutcome,
 } from '../client';
 import { BooleanFlagZod, IDZod } from '../constants/common-zod';
 import { HOLD_SOURCES } from '../constants/hold-reason';
@@ -109,6 +114,8 @@ export { type ProductionOrderShippingAddress,ProductionOrderShippingAddressZod }
  */
 // Nest-free, dời sang `client/shipping.ts` (+ `hasProductionOrderTracking`/`normalizeProductionOrderTracking`).
 export { hasProductionOrderTracking, normalizeProductionOrderTracking,type ProductionOrderTracking, ProductionOrderTrackingZod };
+// Luật quét mã đơn hủy/giữ tại trạm — `client/scan-guard.ts`.
+export { isOrderCancelled, resolveScanLookupOutcome, type ScanActionLock, scanActionLock, type ScanLookupOutcome };
 
 /** Trạng thái pipeline R2 cho từng vị trí design (Phase 6 Design-R2-Pipeline). */
 export const DesignStatusZod = z.enum(['pending', 'ready', 'failed']);

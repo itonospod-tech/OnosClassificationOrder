@@ -34,6 +34,8 @@
   "toast": {
     "copyError": "Không copy được — trình duyệt chặn clipboard",
     "notFound": "Không tìm thấy đơn với mã này",
+    "cancelledTitle": "ĐƠN ĐÃ HỦY — {{code}}",
+    "cancelledDesc": "Bỏ hàng ra, KHÔNG làm tiếp. Lý do: {{reason}}",
     "updated": "Đã cập nhật",
     "started": "Đã bắt đầu",
     "completed": "Đã hoàn thành",
