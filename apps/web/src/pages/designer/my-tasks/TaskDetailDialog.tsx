@@ -41,6 +41,7 @@ type OrderDetail = {
   _id: string;
   productionId: string;
   orderId?: string;
+  userSku?: string;
   type?: string;
   size?: string;
   color?: string;
@@ -151,6 +152,14 @@ export function TaskDetailDialog({ orderId, onClose }: Props) {
               {detail && (
                 <Badge variant="outline" className={`text-[10px] ${status.cls}`}>
                   {status.label}
+                </Badge>
+              )}
+              {detail?.userSku && (
+                <Badge
+                  variant="outline"
+                  className="text-[11px] font-semibold bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700"
+                >
+                  {t('myTasks.filters.customer')}: {detail.userSku}
                 </Badge>
               )}
             </DialogTitle>
